@@ -1,0 +1,239 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    // Collection: customers
+    // Fields: name (string), email (string), phone (string), address (string), plan (string), mrr (number), status (string), createdAt (timestamp)
+    //
+    // Collection: tickets
+    // Fields: customerId (string), subject (string), status (string), priority (string), aiHandled (bool), createdAt (timestamp)
+    //
+    // Collection: messages (subcollection of tickets)
+    // Fields: ticketId (string), senderId (string), senderType (string), text (string), createdAt (timestamp)
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getRole() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) 
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role 
+        : 'guest';
+    }
+
+    function isWebhook() {
+      return isAuthenticated() && request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+
+    function isAstrum() {
+      return isAuthenticated() && (getRole() == 'admin' || (request.auth.token.email != null && (request.auth.token.email.lower() == "lucaspferraz123@gmail.com" || request.auth.token.email.lower() == "noturcursos1@gmail.com")) || isWebhook());
+    }
+
+    function isOwner() {
+      return isAuthenticated() && (isAstrum() || getRole() == 'owner');
+    }
+
+    function isSupport() {
+      return isAuthenticated() && (isOwner() || getRole() == 'support');
+    }
+
+    function isAdmin() {
+      return isAstrum();
+    }
+
+    // Validation Functions
+    function isValidCustomer(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             data.status in ['active', 'inactive', 'pending'] &&
+             data.mrr is number && data.mrr >= 0 &&
+             (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
+    function isValidTicket(data) {
+      return data.customerId is string &&
+             data.subject is string && data.subject.size() > 0 && data.subject.size() < 200 &&
+             data.status in ['open', 'in-progress', 'resolved', 'escalated'] &&
+             data.priority in ['low', 'medium', 'high', 'urgent'] &&
+             (!('aiEnabled' in data) || data.aiEnabled is bool) &&
+             (!('aiAttempts' in data) || data.aiAttempts is number) &&
+             (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
+    function isValidKnowledgeBase(data) {
+      return data.title is string && data.title.size() > 0 &&
+             data.content is string && data.content.size() > 0 &&
+             data.category is string &&
+             data.tags is list &&
+             (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
+    function isValidAuditLog(data) {
+      return data.action is string &&
+             (!('details' in data) || data.details is map) &&
+             (!('user' in data) || data.user is string) &&
+             (!('timestamp' in data) || data.timestamp is timestamp);
+    }
+
+    function isValidNotification(data) {
+      return data.type in ['SLA_BREACH', 'CRITICAL_ESCALATION', 'SYSTEM_ERROR'] &&
+             data.message is string && data.message.size() > 0 &&
+             (!('status' in data) || data.status in ['unread', 'read']) &&
+             (!('ticketId' in data) || data.ticketId is string) &&
+             (!('timestamp' in data) || data.timestamp is timestamp);
+    }
+
+    function isValidMessage(data) {
+      return data.ticketId is string &&
+             data.senderType in ['customer', 'ai', 'human'] &&
+             data.text is string && data.text.size() > 0 && data.text.size() < 5000 &&
+             (!('category' in data) || data.category == null || data.category is string) &&
+             (!('senderId' in data) || data.senderId is string) &&
+             (!('attachment' in data) || data.attachment == null || data.attachment is map) &&
+             (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
+    function isValidBillingInvoice(data) {
+      return data.customerId is string &&
+             data.amount is number && data.amount >= 0 &&
+             data.status in ['paid', 'pending', 'overdue', 'cancelled'] &&
+             (!('dueDate' in data) || data.dueDate is timestamp) &&
+             (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
+    function isValidNetworkCTO(data) {
+      return data.name is string && data.name.size() > 0 &&
+             data.latitude is number && data.longitude is number &&
+             data.totalPorts is number && data.usedPorts is number &&
+             (!('status' in data) || data.status is string) &&
+             (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
+    function isValidTeamMember(data) {
+      return data.name is string && data.name.size() > 0 &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             data.role in ['admin', 'owner', 'support', 'billing', 'sales', 'atendente'] &&
+             data.status in ['active', 'inactive'] &&
+             (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
+    function isValidInventoryItem(data) {
+      return data.name is string && data.name.size() > 0 &&
+             data.category is string &&
+             data.stock is number &&
+             data.minStock is number &&
+             data.price is number &&
+             (!('unit' in data) || data.unit is string) &&
+             (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
+    function isValidServiceOrder(data) {
+      return data.customerId is string &&
+             data.status in ['pendente', 'em_deslocamento', 'em_atendimento', 'concluido', 'cancelado'] &&
+             data.type is string &&
+             (!('customerName' in data) || data.customerName is string) &&
+             (!('address' in data) || data.address is string) &&
+             (!('lat' in data) || data.lat is number) &&
+             (!('lng' in data) || data.lng is number) &&
+             (!('description' in data) || data.description is string) &&
+             (!('cto' in data) || data.cto is string) &&
+             (!('port' in data) || data.port is number) &&
+             (!('materials' in data) || data.materials is list) &&
+             (!('assignedTo' in data) || data.assignedTo == null || data.assignedTo is string) &&
+             (!('aiSummary' in data) || data.aiSummary is string) &&
+             (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
+    function isValidTechnician(data) {
+      return data.name is string && data.name.size() > 0 &&
+             data.phone is string &&
+             data.status in ['available', 'break', 'offline'] &&
+             (!('currentTask' in data) || data.currentTask == null || data.currentTask is string);
+    }
+
+    // Rules
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      // Users can only update their own document, and cannot elevate their own role to admin unless they are already Astrum.
+      // Prevent role modification by users unless they are Astrum.
+      allow create: if isAuthenticated() && request.auth.uid == userId && (request.resource.data.role != 'admin' || isAstrum());
+      allow update: if isAuthenticated() && request.auth.uid == userId && (request.resource.data.role == resource.data.role || isAstrum());
+    }
+
+    match /customers/{customerId} {
+      allow read: if isSupport();
+      // Protect createdAt from being modified
+      allow create, update: if isOwner() && isValidCustomer(request.resource.data) && 
+        (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt);
+      allow delete: if isAstrum();
+    }
+
+    match /inventory/{itemId} {
+      allow read, create, update, delete: if isAstrum();
+    }
+
+    match /tickets/{ticketId} {
+      allow read: if isSupport();
+      allow create: if isSupport() && isValidTicket(request.resource.data);
+      allow update: if isSupport() && isValidTicket(request.resource.data);
+      allow delete: if isAstrum();
+
+      match /messages/{messageId} {
+        allow read: if isSupport();
+        allow create: if isSupport() && isValidMessage(request.resource.data);
+      }
+    }
+
+    match /billing_invoices/{invoiceId} {
+      allow read: if isOwner();
+      allow create, update: if isOwner() && isValidBillingInvoice(request.resource.data);
+      allow delete: if isAstrum();
+    }
+
+    match /network_ctos/{ctoId} {
+      allow read, create, update, delete: if isAstrum();
+    }
+
+    match /knowledge_base/{articleId} {
+      allow read, create, update, delete: if isAstrum();
+    }
+
+    match /audit_logs/{logId} {
+      allow read: if isAstrum();
+      allow create: if isAuthenticated() && isValidAuditLog(request.resource.data);
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isOwner();
+      allow create: if isAuthenticated() && isValidNotification(request.resource.data);
+      allow update: if isOwner();
+    }
+
+    match /settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAstrum();
+    }
+
+    match /team_members/{memberId} {
+      allow read: if isOwner() || (isAuthenticated() && request.auth.token.email == resource.data.email);
+      allow create, update: if isOwner() && isValidTeamMember(request.resource.data);
+      allow delete: if isOwner();
+    }
+
+    match /service_orders/{orderId} {
+      allow read: if isSupport();
+      allow create, update: if isSupport() && isValidServiceOrder(request.resource.data);
+      allow delete: if isAstrum();
+    }
+
+    match /technicians/{technicianId} {
+      allow read: if isSupport();
+      allow create, update: if isSupport() && isValidTechnician(request.resource.data);
+      allow delete: if isAstrum();
+    }
+  }
+}

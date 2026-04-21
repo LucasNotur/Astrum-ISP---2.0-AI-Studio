@@ -1,0 +1,794 @@
+
+import React, { useState, useMemo, useRef } from 'react';
+import { useAppStore } from '@/src/store/useAppStore';
+import { motion } from 'framer-motion';
+import { Button } from "@/src/components/ui/button";
+import { Badge } from "@/src/components/ui/badge";
+import { Input } from "@/src/components/ui/input";
+import { Label } from "@/src/components/ui/label";
+import { Card, CardContent, CardHeader } from "@/src/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/src/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/src/components/ui/tooltip";
+import { 
+  Users, Plus, Search, Filter, MoreVertical, Edit2, ShieldAlert, Zap, X, MapPin, Phone, Mail, Building, Bell, Copy, CheckCircle2, Eye, Upload, Download
+} from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/src/components/ui/dropdown-menu";
+import { toast } from "sonner";
+import { createCustomer, updateCustomer as updateCustomerDb } from '@/src/lib/db';
+import { cn } from "@/src/lib/utils";
+
+export function CustomersPage() {
+  const { customers, setCustomers, tickets, invoices, currentUserRole, setSelectedCustomerDetails, setConfirmDialog } = useAppStore();
+  const isOwner = currentUserRole === 'owner' || currentUserRole === 'admin';
+
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerStatusFilter, setCustomerStatusFilter] = useState('all');
+  const [customerPlanFilter, setCustomerPlanFilter] = useState('all');
+  const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
+  
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  
+  const [newCustomer, setNewCustomer] = useState<any>({ name: '', email: '', phone: '', address: '', plan: '', mrr: 0, status: 'active', tags: [] });
+  const [editingCustomer, setEditingCustomer] = useState<any>(null);
+  const [isUpdatingCustomer, setIsUpdatingCustomer] = useState(false);
+  
+  const [newTagInput, setNewTagInput] = useState('');
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  const filteredCustomers = useMemo(() => {
+    return customers.filter(c => {
+      const q = customerSearch.toLowerCase();
+      const matchesSearch = 
+        c.name?.toLowerCase().includes(q) || 
+        c.email?.toLowerCase().includes(q) ||
+        c.phone?.toLowerCase().includes(q) ||
+        c.address?.toLowerCase().includes(q) ||
+        c.tags?.some((t: string) => t.toLowerCase().includes(q));
+      
+      const matchesStatus = customerStatusFilter === 'all' || c.status === customerStatusFilter;
+      
+      const matchesPlan = customerPlanFilter === 'all' || 
+        (customerPlanFilter === 'Premium' && c.plan === 'Premium') ||
+        (customerPlanFilter === 'Fibra' && c.plan?.includes('Fibra')) ||
+        (customerPlanFilter === 'Radio' && c.plan?.includes('Rádio'));
+        
+      return matchesSearch && matchesStatus && matchesPlan;
+    });
+  }, [customers, customerSearch, customerStatusFilter, customerPlanFilter]);
+
+  const handleCreateCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const errors: Record<string, string> = {};
+    if (!newCustomer.name) errors.name = 'Nome é obrigatório';
+    if (!newCustomer.email) errors.email = 'Email é obrigatório';
+    if (!newCustomer.plan) errors.plan = 'Plano é obrigatório';
+    
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+    
+    try {
+      const id = await createCustomer(newCustomer);
+      toast.success('Cliente criado com sucesso!');
+      setIsCreateDialogOpen(false);
+      setNewCustomer({ name: '', email: '', phone: '', address: '', plan: '', mrr: 0, status: 'active', tags: [] });
+      setFormErrors({});
+      // Refresh
+      // removed local update
+      setCustomers([...customers, newCustomer /* simplified for now as Firebase onSnapshot syncs AppStore normally */]);
+    } catch (error) {
+      console.error(error);
+      toast.error('Erro ao criar cliente.');
+    }
+  };
+
+  const handleUpdateCustomer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCustomer) return;
+    setIsUpdatingCustomer(true);
+    try {
+      await updateCustomerDb(editingCustomer.id, editingCustomer);
+      toast.success('Cliente atualizado com sucesso!');
+      setIsEditDialogOpen(false);
+      // removed local update
+      setCustomers([...customers.filter((c:any) => c.id !== editingCustomer.id), editingCustomer]);
+    } catch (error) {
+      console.error(error);
+      toast.error('Erro ao atualizar cliente.');
+    } finally {
+      setIsUpdatingCustomer(false);
+    }
+  };
+
+
+  const handleEditCustomer = (customer: any) => {
+    setEditingCustomer({ ...customer });
+    setFormErrors({});
+    setIsEditDialogOpen(true);
+  };
+
+  const handleViewDetails = (customer: any) => {
+    setSelectedCustomerDetails(customer);
+    // Note: The detail dialog is in App.tsx typically unless we moved it here.
+  };
+
+  const exportCustomersToCSV = () => {
+    if (customers.length === 0) return;
+
+    const headers = ['ID', 'Nome', 'Email', 'Plano', 'MRR', 'Status'];
+    const csvRows = [headers.join(',')];
+
+    customers.forEach(c => {
+      const row = [
+        c.id,
+        `"${c.name || ''}"`,
+        `"${c.email || ''}"`,
+        `"${c.plan || ''}"`,
+        c.mrr || 0,
+        c.status || ''
+      ];
+      csvRows.push(row.join(','));
+    });
+
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `clientes_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const customerFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportCustomers = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const text = e.target?.result as string;
+      if (!text) return;
+
+      const lines = text.split('\n');
+      if (lines.length < 2) {
+        toast.error("O arquivo CSV está vazio ou inválido.");
+        return;
+      }
+      toast.info("Importando clientes...");
+    };
+    reader.readAsText(file);
+    if (customerFileInputRef.current) customerFileInputRef.current.value = '';
+  };
+
+
+  return (
+    <>
+      <motion.div 
+              key="customers"
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="space-y-6"
+            >
+              <header className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
+                  <p className="text-zinc-500 dark:text-zinc-400">Base de assinantes e dados financeiros.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="file" accept=".csv" className="hidden" ref={customerFileInputRef} onChange={handleImportCustomers} />
+                  <TooltipProvider delayDuration={0}>
+                    <UITooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="outline" className="gap-2" onClick={() => customerFileInputRef.current?.click()}>
+                          <Upload size={18} /> Importar CSV
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs">
+                        Formato: Nome, Email, Tel, End, Plano, MRR, Status
+                      </TooltipContent>
+                    </UITooltip>
+                  </TooltipProvider>
+
+                  <TooltipProvider delayDuration={0}>
+                    <UITooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="outline" className="gap-2" onClick={exportCustomersToCSV}>
+                          <Download size={18} /> Exportar CSV
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs">
+                        Baixar planilha de clientes
+                      </TooltipContent>
+                    </UITooltip>
+                  </TooltipProvider>
+                  {isOwner && (
+                    <Button className="gap-2" onClick={() => {
+                      setNewCustomer({ name: '', email: '', plan: '', mrr: 0, status: 'active', tags: [] });
+                      setNewTagInput('');
+                      setFormErrors({});
+                      setIsCreateDialogOpen(true);
+                    }}>
+                      <Plus size={18} /> Novo Cliente
+                    </Button>
+                  )}
+                </div>
+              </header>
+
+              <Card className="border-none shadow-sm">
+                <CardHeader>
+                  <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+                      <div className="relative w-full md:w-72 shrink-0">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
+                        <Input 
+                          placeholder="Buscar por nome, email, telefone, endereço ou tag..." 
+                          className="pl-10" 
+                          value={customerSearch}
+                          onChange={(e) => setCustomerSearch(e.target.value)}
+                        />
+                      </div>
+                      {selectedCustomers.length > 0 && (
+                        <motion.div 
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="flex items-center gap-2 bg-primary/10 p-1 rounded-lg border border-primary/20 shrink-0"
+                        >
+                          <span className="text-[10px] font-bold px-2 text-primary whitespace-nowrap">{selectedCustomers.length} selecionados</span>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-7 text-[10px] gap-1"
+                            onClick={() => {
+                              toast.success(`Notificação enviada para ${selectedCustomers.length} clientes!`);
+                              setSelectedCustomers([]);
+                            }}
+                          >
+                            <Bell size={12} /> Notificar
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-7 text-[10px] gap-1 text-red-600 hover:text-red-700"
+                            onClick={() => setSelectedCustomers([])}
+                          >
+                            <X size={12} />
+                          </Button>
+                        </motion.div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 w-full md:w-auto">
+                      <select 
+                        className="flex h-10 w-full md:w-[140px] items-center justify-between rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm ring-offset-white dark:ring-offset-zinc-950 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-zinc-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        value={customerStatusFilter}
+                        onChange={(e) => setCustomerStatusFilter(e.target.value)}
+                      >
+                        <option value="all">Todos os Status</option>
+                        <option value="active">Ativos</option>
+                        <option value="inactive">Inativos</option>
+                      </select>
+                      <select 
+                        className="flex h-10 w-full md:w-[160px] items-center justify-between rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm ring-offset-white dark:ring-offset-zinc-950 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-zinc-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        value={customerPlanFilter}
+                        onChange={(e) => setCustomerPlanFilter(e.target.value)}
+                      >
+                        <option value="all">Todos os Planos</option>
+                        <option value="200 Mega">200 Mega</option>
+                        <option value="500 Mega">500 Mega</option>
+                        <option value="1 Giga">1 Giga</option>
+                      </select>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[40px]">
+                          <input 
+                            type="checkbox" 
+                            className="rounded border-zinc-300"
+                            checked={selectedCustomers.length === filteredCustomers.length && filteredCustomers.length > 0}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedCustomers(filteredCustomers.map(c => c.id));
+                              } else {
+                                setSelectedCustomers([]);
+                              }
+                            }}
+                          />
+                        </TableHead>
+                        <TableHead>Nome</TableHead>
+                        <TableHead>Saúde</TableHead>
+                        <TableHead>Risco Churn</TableHead>
+                        <TableHead>Plano</TableHead>
+                        <TableHead>MRR</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredCustomers.length > 0 ? filteredCustomers.map(c => {
+                        const customerTickets = tickets.filter(t => t.customerId === c.id);
+                        const openTickets = customerTickets.filter(t => t.status !== 'resolved');
+                        const overdueInvoices = invoices.filter(i => i.customerId === c.id && i.status === 'overdue');
+                        
+                        let healthColor = "bg-green-500";
+                        let healthLabel = "Saudável";
+                        
+                        if (overdueInvoices.length > 0 || openTickets.length > 2) {
+                          healthColor = "bg-red-500";
+                          healthLabel = "Crítico";
+                        } else if (openTickets.length > 0) {
+                          healthColor = "bg-yellow-500";
+                          healthLabel = "Atenção";
+                        }
+
+                        return (
+                          <TableRow 
+                            key={c.id} 
+                            className={cn("group cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50", selectedCustomers.includes(c.id) && "bg-primary/5")}
+                            onClick={() => handleViewDetails(c)}
+                          >
+                            <TableCell onClick={(e) => e.stopPropagation()}>
+                              <input 
+                                type="checkbox" 
+                                className="rounded border-zinc-300"
+                                checked={selectedCustomers.includes(c.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedCustomers(prev => [...prev, c.id]);
+                                  } else {
+                                    setSelectedCustomers(prev => prev.filter(id => id !== c.id));
+                                  }
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2">
+                                  {c.name}
+                                  <button 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigator.clipboard.writeText(c.email);
+                                      toast.success("E-mail copiado!");
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50"
+                                    title="Copiar E-mail"
+                                  >
+                                    <Copy size={14} />
+                                  </button>
+                                </div>
+                                {c.tags && c.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {c.tags.map((tag: string, idx: number) => (
+                                      <div key={idx}>
+                                        <Badge variant="outline" className="text-[9px] py-0 px-1.5 bg-zinc-50 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800">
+                                          {tag}
+                                        </Badge>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <TooltipProvider>
+                                <UITooltip>
+                                  <TooltipTrigger>
+                                    <div className="flex items-center gap-2">
+                                      <div className={cn("h-2 w-2 rounded-full animate-pulse", healthColor)} />
+                                      <span className="text-[10px] font-medium text-zinc-500">{healthLabel}</span>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="text-xs">
+                                      {openTickets.length} tickets abertos<br />
+                                      {overdueInvoices.length} faturas vencidas
+                                    </p>
+                                  </TooltipContent>
+                                </UITooltip>
+                              </TooltipProvider>
+                            </TableCell>
+                            <TableCell>
+                              {(() => {
+                                const riskScore = (openTickets.length * 20) + (overdueInvoices.length * 40);
+                                const riskLevel = riskScore > 70 ? 'Crítico' : riskScore > 30 ? 'Médio' : 'Baixo';
+                                const riskColor = riskScore > 70 ? 'text-red-600 bg-red-50' : riskScore > 30 ? 'text-orange-600 bg-orange-50' : 'text-green-600 bg-green-50';
+                                return (
+                                  <Badge variant="outline" className={cn("text-[10px] border-none", riskColor)}>
+                                    {riskLevel} ({Math.min(riskScore, 100)}%)
+                                  </Badge>
+                                );
+                              })()}
+                            </TableCell>
+                            <TableCell>{c.plan}</TableCell>
+                            <TableCell>R$ {c.mrr?.toFixed(2)}</TableCell>
+                            <TableCell>
+                              <Badge variant={c.status === 'active' ? 'default' : 'secondary'} className={c.status === 'active' ? 'bg-green-500 hover:bg-green-600 flex items-center gap-1 w-fit' : 'bg-red-500 hover:bg-red-600 flex items-center gap-1 w-fit'}>
+                                {c.status === 'active' ? (
+                                  <>
+                                    <CheckCircle2 size={12} />
+                                    Ativo
+                                  </>
+                                ) : (
+                                  <>
+                                    <X size={12} />
+                                    Inativo
+                                  </>
+                                )}
+                              </Badge>
+                            </TableCell>
+                            <TableCell onClick={(e) => e.stopPropagation()}>
+                              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                {isOwner && (
+                                  <Button variant="ghost" size="sm" className="h-8 px-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50" onClick={() => handleEditCustomer(c)}>
+                                    <Edit2 size={14} className="mr-1" /> Editar
+                                  </Button>
+                                )}
+                                <Button variant="ghost" size="sm" className="h-8 px-2 text-primary hover:text-primary" onClick={() => handleViewDetails(c)}>
+                                  <Eye size={14} className="mr-1" /> Detalhes
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      }) : (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-10 text-zinc-500">
+                            {customers.length === 0 ? "Nenhum cliente cadastrado." : "Nenhum cliente encontrado com os filtros atuais."}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </motion.div>
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Editar Cliente</DialogTitle>
+              <DialogDescription>
+                Altere as informações do cliente abaixo.
+              </DialogDescription>
+            </DialogHeader>
+            {editingCustomer && (
+              <form onSubmit={handleUpdateCustomer} className="space-y-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="name" className="text-right">Nome</Label>
+                  <div className="col-span-3">
+                    <Input 
+                      id="name" 
+                      value={editingCustomer.name} 
+                      onChange={(e) => setEditingCustomer({ ...editingCustomer, name: e.target.value })}
+                      className={formErrors.name ? "border-red-500" : ""}
+                    />
+                    {formErrors.name && <p className="text-xs text-red-500 mt-1">{formErrors.name}</p>}
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="email" className="text-right">Email</Label>
+                  <div className="col-span-3">
+                    <Input 
+                      id="email" 
+                      type="email"
+                      value={editingCustomer.email || ''} 
+                      onChange={(e) => setEditingCustomer({ ...editingCustomer, email: e.target.value })}
+                      className={formErrors.email ? "border-red-500" : ""}
+                    />
+                    {formErrors.email && <p className="text-xs text-red-500 mt-1">{formErrors.email}</p>}
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-phone" className="text-right">Telefone</Label>
+                  <div className="col-span-3">
+                    <Input 
+                      id="edit-phone" 
+                      value={editingCustomer.phone || ''} 
+                      onChange={(e) => setEditingCustomer({ ...editingCustomer, phone: e.target.value })}
+                      placeholder="(11) 99999-9999"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-address" className="text-right">Endereço</Label>
+                  <div className="col-span-3">
+                    <Input 
+                      id="edit-address" 
+                      value={editingCustomer.address || ''} 
+                      onChange={(e) => setEditingCustomer({ ...editingCustomer, address: e.target.value })}
+                      placeholder="Rua, Número, Bairro, Cidade - UF, CEP"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="plan" className="text-right">Plano</Label>
+                  <div className="col-span-3">
+                    <Input 
+                      id="plan" 
+                      value={editingCustomer.plan} 
+                      onChange={(e) => setEditingCustomer({ ...editingCustomer, plan: e.target.value })}
+                      className={formErrors.plan ? "border-red-500" : ""}
+                    />
+                    {formErrors.plan && <p className="text-xs text-red-500 mt-1">{formErrors.plan}</p>}
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="mrr" className="text-right">MRR</Label>
+                  <div className="col-span-3">
+                    <Input 
+                      id="mrr" 
+                      type="number"
+                      step="0.01"
+                      value={editingCustomer.mrr} 
+                      onChange={(e) => setEditingCustomer({ ...editingCustomer, mrr: parseFloat(e.target.value) })}
+                      className={formErrors.mrr ? "border-red-500" : ""}
+                    />
+                    {formErrors.mrr && <p className="text-xs text-red-500 mt-1">{formErrors.mrr}</p>}
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="status" className="text-right">Status</Label>
+                  <div className="col-span-3">
+                    <select 
+                      id="status"
+                      className={cn(
+                        "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                        formErrors.status ? "border-red-500" : ""
+                      )}
+                      value={editingCustomer.status}
+                      onChange={(e) => setEditingCustomer({ ...editingCustomer, status: e.target.value })}
+                    >
+                      <option value="active">Ativo</option>
+                      <option value="inactive">Inativo</option>
+                      <option value="pending">Pendente</option>
+                    </select>
+                    {formErrors.status && <p className="text-xs text-red-500 mt-1">{formErrors.status}</p>}
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-start gap-4">
+                  <Label className="text-right mt-2">Tags</Label>
+                  <div className="col-span-3 space-y-2">
+                    <div className="flex gap-2">
+                      <Input 
+                        placeholder="Adicionar tag..." 
+                        value={newTagInput}
+                        onChange={(e) => setNewTagInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (newTagInput.trim() && !editingCustomer.tags?.includes(newTagInput.trim())) {
+                              setEditingCustomer({
+                                ...editingCustomer,
+                                tags: [...(editingCustomer.tags || []), newTagInput.trim()]
+                              });
+                              setNewTagInput('');
+                            }
+                          }
+                        }}
+                      />
+                      <Button 
+                        type="button" 
+                        variant="secondary"
+                        onClick={() => {
+                          if (newTagInput.trim() && !editingCustomer.tags?.includes(newTagInput.trim())) {
+                            setEditingCustomer({
+                              ...editingCustomer,
+                              tags: [...(editingCustomer.tags || []), newTagInput.trim()]
+                            });
+                            setNewTagInput('');
+                          }
+                        }}
+                      >
+                        Adicionar
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {editingCustomer.tags?.map((tag: string, idx: number) => (
+                        <div key={idx}>
+                          <Badge variant="secondary" className="flex items-center gap-1 pr-1">
+                            {tag}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingCustomer({
+                                  ...editingCustomer,
+                                  tags: editingCustomer.tags.filter((t: string) => t !== tag)
+                                });
+                              }}
+                              className="text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 rounded-full p-0.5 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                            >
+                              <X size={12} />
+                            </button>
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={isUpdatingCustomer}>
+                    {isUpdatingCustomer ? 'Salvando...' : 'Salvar Alterações'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Novo Cliente</DialogTitle>
+              <DialogDescription>
+                Preencha as informações para cadastrar um novo cliente.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleCreateCustomer} className="space-y-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="new-name" className="text-right">Nome</Label>
+                <div className="col-span-3">
+                  <Input 
+                    id="new-name" 
+                    value={newCustomer.name} 
+                    onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
+                    className={formErrors.name ? "border-red-500" : ""}
+                  />
+                  {formErrors.name && <p className="text-xs text-red-500 mt-1">{formErrors.name}</p>}
+                </div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="new-email" className="text-right">Email</Label>
+                <div className="col-span-3">
+                  <Input 
+                    id="new-email" 
+                    type="email"
+                    value={newCustomer.email} 
+                    onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
+                    className={formErrors.email ? "border-red-500" : ""}
+                  />
+                  {formErrors.email && <p className="text-xs text-red-500 mt-1">{formErrors.email}</p>}
+                </div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="new-phone" className="text-right">Telefone</Label>
+                <div className="col-span-3">
+                  <Input 
+                    id="new-phone" 
+                    value={newCustomer.phone} 
+                    onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
+                    placeholder="(11) 99999-9999"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="new-address" className="text-right">Endereço</Label>
+                <div className="col-span-3">
+                  <Input 
+                    id="new-address" 
+                    value={newCustomer.address} 
+                    onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })}
+                    placeholder="Rua, Número, Bairro, Cidade - UF, CEP"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="new-plan" className="text-right">Plano</Label>
+                <div className="col-span-3">
+                  <Input 
+                    id="new-plan" 
+                    value={newCustomer.plan} 
+                    onChange={(e) => setNewCustomer({ ...newCustomer, plan: e.target.value })}
+                    className={formErrors.plan ? "border-red-500" : ""}
+                  />
+                  {formErrors.plan && <p className="text-xs text-red-500 mt-1">{formErrors.plan}</p>}
+                </div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="new-mrr" className="text-right">MRR</Label>
+                <div className="col-span-3">
+                  <Input 
+                    id="new-mrr" 
+                    type="number"
+                    step="0.01"
+                    value={newCustomer.mrr} 
+                    onChange={(e) => setNewCustomer({ ...newCustomer, mrr: parseFloat(e.target.value) })}
+                    className={formErrors.mrr ? "border-red-500" : ""}
+                  />
+                  {formErrors.mrr && <p className="text-xs text-red-500 mt-1">{formErrors.mrr}</p>}
+                </div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="new-status" className="text-right">Status</Label>
+                <div className="col-span-3">
+                  <select 
+                    id="new-status"
+                    className={cn(
+                      "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                      formErrors.status ? "border-red-500" : ""
+                    )}
+                    value={newCustomer.status}
+                    onChange={(e) => setNewCustomer({ ...newCustomer, status: e.target.value })}
+                  >
+                    <option value="active">Ativo</option>
+                    <option value="inactive">Inativo</option>
+                    <option value="pending">Pendente</option>
+                  </select>
+                  {formErrors.status && <p className="text-xs text-red-500 mt-1">{formErrors.status}</p>}
+                </div>
+              </div>
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label className="text-right mt-2">Tags</Label>
+                <div className="col-span-3 space-y-2">
+                  <div className="flex gap-2">
+                    <Input 
+                      placeholder="Adicionar tag..." 
+                      value={newTagInput}
+                      onChange={(e) => setNewTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (newTagInput.trim() && !newCustomer.tags?.includes(newTagInput.trim())) {
+                            setNewCustomer({
+                              ...newCustomer,
+                              tags: [...(newCustomer.tags || []), newTagInput.trim()]
+                            });
+                            setNewTagInput('');
+                          }
+                        }
+                      }}
+                    />
+                    <Button 
+                      type="button" 
+                      variant="secondary"
+                      onClick={() => {
+                        if (newTagInput.trim() && !newCustomer.tags?.includes(newTagInput.trim())) {
+                          setNewCustomer({
+                            ...newCustomer,
+                            tags: [...(newCustomer.tags || []), newTagInput.trim()]
+                          });
+                          setNewTagInput('');
+                        }
+                      }}
+                    >
+                      Adicionar
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {newCustomer.tags?.map((tag: string, idx: number) => (
+                      <div key={idx}>
+                        <Badge variant="secondary" className="flex items-center gap-1 pr-1">
+                          {tag}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewCustomer({
+                                ...newCustomer,
+                                tags: newCustomer.tags.filter((t: string) => t !== tag)
+                              });
+                            }}
+                            className="text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50 rounded-full p-0.5 hover:bg-zinc-200 dark:hover:bg-zinc-700"
+                          >
+                            <X size={12} />
+                          </button>
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="submit">Cadastrar Cliente</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+    </>
+  );
+}

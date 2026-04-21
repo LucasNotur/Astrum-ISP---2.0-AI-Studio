@@ -1,0 +1,251 @@
+{
+  "entities": {
+    "Customer": {
+      "title": "Customer",
+      "description": "ISP Customer record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "plan": { "type": "string" },
+        "mrr": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "inactive", "pending"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "status"]
+    },
+    "Ticket": {
+      "title": "Ticket",
+      "description": "Support ticket",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerId": { "type": "string" },
+        "subject": { "type": "string" },
+        "status": { "type": "string", "enum": ["open", "in-progress", "resolved", "escalated"] },
+        "priority": { "type": "string", "enum": ["low", "medium", "high", "urgent"] },
+        "aiHandled": { "type": "boolean" },
+        "aiEnabled": { "type": "boolean" },
+        "aiAttempts": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["customerId", "subject", "status"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Chat message",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "ticketId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderType": { "type": "string", "enum": ["customer", "ai", "human"] },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ticketId", "senderType", "text"]
+    },
+    "BillingInvoice": {
+      "title": "Billing Invoice",
+      "description": "Customer invoice for ISP services",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerId": { "type": "string" },
+        "amount": { "type": "number" },
+        "dueDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["paid", "pending", "overdue", "cancelled"] },
+        "paymentUrl": { "type": "string" },
+        "pixCopyPaste": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["customerId", "amount", "dueDate", "status"]
+    },
+    "NetworkCTO": {
+      "title": "Network CTO",
+      "description": "Fiber optic termination box",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "totalPorts": { "type": "number" },
+        "usedPorts": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "full", "maintenance"] }
+      },
+      "required": ["name", "latitude", "longitude", "totalPorts", "usedPorts"]
+    },
+    "KnowledgeBase": {
+      "title": "Knowledge Base",
+      "description": "Artigos de ajuda e manuais para a IA consultar.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "category": { "type": "string" }
+      },
+      "required": ["title", "content"]
+    },
+    "AuditLog": {
+      "title": "Audit Log",
+      "description": "Logs de performance da IA e SLA.",
+      "type": "object",
+      "properties": {
+        "ticketId": { "type": "string" },
+        "category": { "type": "string" },
+        "sentiment": { "type": "string" },
+        "responseTime": { "type": "number" },
+        "slaCompliant": { "type": "boolean" },
+        "isCritical": { "type": "boolean" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ticketId", "category", "responseTime"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "Alertas para a equipe.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["SLA_BREACH", "CRITICAL_ESCALATION", "SYSTEM_ERROR"] },
+        "message": { "type": "string" },
+        "ticketId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "message"]
+    },
+    "InventoryItem": {
+      "title": "Inventory Item",
+      "description": "ISP equipment in stock",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "stock": { "type": "number" },
+        "minStock": { "type": "number" },
+        "unit": { "type": "string" },
+        "price": { "type": "number" }
+      },
+      "required": ["name", "category", "stock"]
+    },
+    "TeamMember": {
+      "title": "Team Member",
+      "description": "ISP staff member",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "owner", "support", "billing", "sales", "atendente"] },
+        "status": { "type": "string", "enum": ["active", "inactive"] }
+      },
+      "required": ["name", "email", "role"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Authenticated user profile for security rules",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "owner", "support"] },
+        "name": { "type": "string" }
+      },
+      "required": ["email", "role"]
+    },
+    "ServiceOrder": {
+      "title": "Service Order",
+      "description": "Field technician service order",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "address": { "type": "string" },
+        "lat": { "type": "number" },
+        "lng": { "type": "number" },
+        "status": { "type": "string", "enum": ["pendente", "em_deslocamento", "em_atendimento", "concluido", "cancelado"] },
+        "type": { "type": "string" },
+        "description": { "type": "string" },
+        "cto": { "type": "string" },
+        "port": { "type": "number" },
+        "materials": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "assignedTo": { "type": "string" },
+        "aiSummary": { "type": "string" }
+      },
+      "required": ["customerId", "status", "type"]
+    },
+    "Technician": {
+      "title": "Technician",
+      "description": "Field technician status and info",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "status": { "type": "string", "enum": ["available", "break", "offline"] },
+        "currentTask": { "type": "string" }
+      },
+      "required": ["name", "phone", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User roles for security rules"
+    },
+    "/customers/{customerId}": {
+      "schema": "Customer",
+      "description": "Customer profiles"
+    },
+    "/tickets/{ticketId}": {
+      "schema": "Ticket",
+      "description": "Support tickets"
+    },
+    "/tickets/{ticketId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Chat history"
+    },
+    "/billing_invoices/{invoiceId}": {
+      "schema": "BillingInvoice",
+      "description": "Customer invoices"
+    },
+    "/network_ctos/{ctoId}": {
+      "schema": "NetworkCTO",
+      "description": "Network infrastructure points"
+    },
+    "/knowledge_base/{articleId}": {
+      "schema": "KnowledgeBase",
+      "description": "RAG knowledge base"
+    },
+    "/audit_logs/{logId}": {
+      "schema": "AuditLog",
+      "description": "AI performance logs"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "Alertas para a equipe (Telegram/Email)"
+    },
+    "/inventory/{itemId}": {
+      "schema": "InventoryItem",
+      "description": "Stock management"
+    },
+    "/team_members/{memberId}": {
+      "schema": "TeamMember",
+      "description": "Team management"
+    },
+    "/service_orders/{orderId}": {
+      "schema": "ServiceOrder",
+      "description": "Field technician service orders"
+    },
+    "/technicians/{technicianId}": {
+      "schema": "Technician",
+      "description": "Field technicians"
+    }
+  }
+}

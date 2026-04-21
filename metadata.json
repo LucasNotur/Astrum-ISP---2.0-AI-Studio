@@ -1,0 +1,5 @@
+{
+  "name": "Remix: Astrum - Atendimento Inteligente",
+  "description": "Plataforma de atendimento inteligente para provedores de internet, com CRM, Chat IA, Base de Conhecimento RAG e Diagnóstico Técnico.",
+  "requestFramePermissions": []
+}

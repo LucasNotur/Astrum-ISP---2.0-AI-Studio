@@ -1,0 +1,186 @@
+import { create } from 'zustand';
+
+interface AppState {
+  // Auth & User
+  user: any;
+  userProfile: any;
+  currentUserRole: 'admin' | 'owner' | 'support';
+  setUser: (user: any) => void;
+  setUserProfile: (profile: any) => void;
+  setCurrentUserRole: (role: 'admin' | 'owner' | 'support') => void;
+
+  // Layout & UI
+  activeTab: string;
+  isSidebarCollapsed: boolean;
+  setActiveTab: (tab: string) => void;
+  setIsSidebarCollapsed: (collapsed: boolean) => void;
+
+  // Data Collections
+  customers: any[];
+  setCustomers: (customers: any[]) => void;
+  
+  ctos: any[];
+  setCtos: (ctos: any[]) => void;
+  
+  auditLogs: any[];
+  setAuditLogs: (logs: any[]) => void;
+  
+  tickets: any[];
+  setTickets: (tickets: any[]) => void;
+  
+  invoices: any[];
+  setInvoices: (invoices: any[]) => void;
+  
+  serviceOrders: any[];
+  setServiceOrders: (orders: any[]) => void;
+  
+  technicians: any[];
+  setTechnicians: (techs: any[]) => void;
+  
+  integrationKeys: Record<string, string>;
+  setIntegrationKeys: (keys: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>)) => void;
+  
+  companySettings: any;
+  setCompanySettings: (settings: any) => void;
+
+  // Notifications
+  notifications: any[];
+  setNotifications: (updater: any[] | ((prev: any[]) => any[])) => void;
+  isNotificationsOpen: boolean;
+  setIsNotificationsOpen: (open: boolean) => void;
+
+  // General Loading
+  loading: boolean;
+  setLoading: (loading: boolean) => void;
+
+  messages: any[];
+  setMessages: (updater: any[] | ((prev: any[]) => any[])) => void;
+  isConfiguringAI: boolean;
+  setIsConfiguringAI: (isConfiguringAI: boolean) => void;
+  settings?: any;
+
+  // View Modals
+  selectedTicket: any;
+  selectedCTO: any;
+  setSelectedCTO: (cto: any) => void;
+  isCTODetailOpen: boolean;
+  setIsCTODetailOpen: (open: boolean) => void;
+  setSelectedTicket: (ticket: any) => void;
+  isTicketDetailOpen: boolean;
+  setIsTicketDetailOpen: (open: boolean) => void;
+
+  selectedCustomerDetails: any;
+  setSelectedCustomerDetails: (customer: any) => void;
+  confirmDialog: { isOpen: boolean; title: string; message: string; onConfirm: () => void; };
+  setConfirmDialog: (dialog: any) => void;
+  isCreateInvoiceDialogOpen: boolean;
+  setIsCreateInvoiceDialogOpen: (open: boolean) => void;
+  selectedInvoiceDetails: any;
+  setSelectedInvoiceDetails: (details: any) => void;
+}
+
+const rolePermissions = {
+  admin: ['dashboard', 'customers', 'tickets', 'os', 'chat', 'map', 'kb', 'billing', 'team', 'ai-config', 'settings', 'inventory'],
+  owner: ['dashboard', 'customers', 'tickets', 'chat', 'billing', 'team'],
+  support: ['dashboard', 'customers', 'tickets', 'chat']
+};
+
+export const canAccess = (role: 'admin' | 'owner' | 'support', tab: string) => {
+  return rolePermissions[role]?.includes(tab);
+};
+
+export const useAppStore = create<AppState>((set) => ({
+  // Auth & User
+  user: null,
+  userProfile: null,
+  currentUserRole: 'support',
+  setUser: (user) => set({ user }),
+  setUserProfile: (userProfile) => set({ userProfile }),
+  setCurrentUserRole: (currentUserRole) => set({ currentUserRole }),
+
+  // Layout & UI
+  activeTab: 'dashboard',
+  isSidebarCollapsed: false,
+  setActiveTab: (activeTab) => set({ activeTab }),
+  setIsSidebarCollapsed: (isSidebarCollapsed) => set({ isSidebarCollapsed }),
+
+  // Data Collections
+  customers: [],
+  setCustomers: (customers) => set({ customers }),
+  
+  ctos: [],
+  setCtos: (ctos) => set({ ctos }),
+  
+  auditLogs: [],
+  setAuditLogs: (auditLogs) => set({ auditLogs }),
+  
+  tickets: [],
+  setTickets: (tickets) => set({ tickets }),
+  
+  invoices: [],
+  setInvoices: (invoices) => set({ invoices }),
+  
+  serviceOrders: [],
+  setServiceOrders: (serviceOrders) => set({ serviceOrders }),
+  
+  technicians: [],
+  setTechnicians: (technicians) => set({ technicians }),
+  
+  integrationKeys: {},
+  setIntegrationKeys: (updater) => set((state) => ({
+    integrationKeys: typeof updater === 'function' ? updater(state.integrationKeys) : updater
+  })),
+  
+  companySettings: {
+    name: 'Astrum Soluções',
+    logoUrl: 'https://picsum.photos/seed/isp/200/200',
+    supportEmail: 'suporte@astrum.com.br',
+    supportPhone: '(11) 99999-9999',
+    workingHours: '08:00 - 20:00',
+    timezone: 'America/Sao_Paulo'
+  },
+  setCompanySettings: (companySettings) => set({ companySettings }),
+
+  // Notifications
+  notifications: [
+    { id: '1', type: 'INFO', message: 'Sistema atualizado para versão 2.0.4', read: false, timestamp: { seconds: Date.now() / 1000 } },
+    { id: '2', type: 'WARNING', message: 'SLA crítico: Ticket #4412 expirando em 15min', read: false },
+    { id: '3', type: 'SUCCESS', message: 'Rotina de fechamento financeiro concluída', read: true }
+  ],
+  setNotifications: (updater) => set((state) => ({
+    notifications: typeof updater === 'function' ? updater(state.notifications) : updater
+  })),
+  isNotificationsOpen: false,
+  setIsNotificationsOpen: (isNotificationsOpen) => set({ isNotificationsOpen }),
+
+  // General Loading
+  loading: true,
+  setLoading: (loading) => set({ loading }),
+  
+  messages: [],
+  setMessages: (updater) => set((state) => ({
+    messages: typeof updater === 'function' ? updater(state.messages) : updater
+  })),
+  
+  isConfiguringAI: false,
+  setIsConfiguringAI: (isConfiguringAI) => set({ isConfiguringAI }),
+
+  // View Modals
+  selectedTicket: null,
+  setSelectedTicket: (selectedTicket) => set({ selectedTicket }),
+  selectedCTO: null,
+  setSelectedCTO: (selectedCTO) => set({ selectedCTO }),
+  isCTODetailOpen: false,
+  setIsCTODetailOpen: (isCTODetailOpen) => set({ isCTODetailOpen }),
+  isTicketDetailOpen: false,
+  setIsTicketDetailOpen: (isTicketDetailOpen) => set({ isTicketDetailOpen }),
+  
+  selectedCustomerDetails: null,
+  setSelectedCustomerDetails: (selectedCustomerDetails) => set({ selectedCustomerDetails }),
+  confirmDialog: { isOpen: false, title: '', message: '', onConfirm: () => {} },
+  setConfirmDialog: (confirmDialog) => set({ confirmDialog }),
+  isCreateInvoiceDialogOpen: false,
+  setIsCreateInvoiceDialogOpen: (isCreateInvoiceDialogOpen) => set({ isCreateInvoiceDialogOpen }),
+  selectedInvoiceDetails: null,
+  setSelectedInvoiceDetails: (selectedInvoiceDetails) => set({ selectedInvoiceDetails }),
+}));
