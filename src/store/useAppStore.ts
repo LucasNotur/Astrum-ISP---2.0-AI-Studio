@@ -142,11 +142,7 @@ export const useAppStore = create<AppState>((set) => ({
   setCompanySettings: (companySettings) => set({ companySettings }),
 
   // Notifications
-  notifications: [
-    { id: '1', type: 'INFO', message: 'Sistema atualizado para versão 2.0.4', read: false, timestamp: { seconds: Date.now() / 1000 } },
-    { id: '2', type: 'WARNING', message: 'SLA crítico: Ticket #4412 expirando em 15min', read: false },
-    { id: '3', type: 'SUCCESS', message: 'Rotina de fechamento financeiro concluída', read: true }
-  ],
+  notifications: [],
   setNotifications: (updater) => set((state) => ({
     notifications: typeof updater === 'function' ? updater(state.notifications) : updater
   })),

@@ -25,7 +25,8 @@ export function MapPage() {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [mapFilter, setMapFilter] = useState('all');
   const [isHeatmapVisible, setIsHeatmapVisible] = useState(false);
-
+      
+  
   const resetMap = () => {
     setMapZoom(1);
     setMapOffset({ x: 0, y: 0 });
@@ -374,6 +375,9 @@ export function MapPage() {
           </ScrollArea>
         </Card>
       </div>
+
+      
+      
     </motion.div>
   );
 }
