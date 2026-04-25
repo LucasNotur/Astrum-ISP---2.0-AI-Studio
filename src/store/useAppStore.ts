@@ -4,10 +4,10 @@ interface AppState {
   // Auth & User
   user: any;
   userProfile: any;
-  currentUserRole: 'admin' | 'owner' | 'support';
+  currentUserRole: 'admin' | 'owner' | 'support' | 'tecnico';
   setUser: (user: any) => void;
   setUserProfile: (profile: any) => void;
-  setCurrentUserRole: (role: 'admin' | 'owner' | 'support') => void;
+  setCurrentUserRole: (role: 'admin' | 'owner' | 'support' | 'tecnico') => void;
 
   // Layout & UI
   activeTab: string;
@@ -79,13 +79,14 @@ interface AppState {
   setSelectedInvoiceDetails: (details: any) => void;
 }
 
-const rolePermissions = {
+const rolePermissions: Record<string, string[]> = {
   admin: ['dashboard', 'customers', 'tickets', 'os', 'chat', 'map', 'kb', 'billing', 'team', 'ai-config', 'settings', 'inventory'],
   owner: ['dashboard', 'customers', 'tickets', 'chat', 'billing', 'team'],
-  support: ['dashboard', 'customers', 'tickets', 'chat']
+  support: ['dashboard', 'customers', 'tickets', 'chat'],
+  tecnico: ['os']
 };
 
-export const canAccess = (role: 'admin' | 'owner' | 'support', tab: string) => {
+export const canAccess = (role: 'admin' | 'owner' | 'support' | 'tecnico', tab: string) => {
   return rolePermissions[role]?.includes(tab);
 };
 

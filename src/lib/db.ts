@@ -14,7 +14,8 @@ import {
   increment,
   limit,
   setDoc,
-  deleteDoc
+  deleteDoc,
+  arrayUnion
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 
@@ -61,7 +62,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 
 // Customers
 export const getCustomers = (callback: (customers: any[]) => void) => {
-  const q = query(collection(db, 'customers'), orderBy('createdAt', 'desc'));
+  const q = query(collection(db, 'customers'), orderBy('createdAt', 'desc'), limit(150));
   return onSnapshot(q, (snapshot) => {
     callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
   }, (err) => handleFirestoreError(err, OperationType.LIST, 'customers'));
@@ -79,6 +80,9 @@ export const createCustomer = async (data: any) => {
   try {
     const docRef = await addDoc(collection(db, 'customers'), {
       ...data,
+      openTicketsCount: 0,
+      overdueInvoicesCount: 0,
+      riskScore: 0,
       createdAt: serverTimestamp()
     });
     return docRef.id;
@@ -100,7 +104,7 @@ export const createInvoice = async (data: any) => {
 };
 
 export const getTickets = (callback: (tickets: any[]) => void) => {
-  const q = query(collection(db, 'tickets'), orderBy('createdAt', 'desc'));
+  const q = query(collection(db, 'tickets'), orderBy('createdAt', 'desc'), limit(200));
   return onSnapshot(q, (snapshot) => {
     callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
   }, (err) => handleFirestoreError(err, OperationType.LIST, 'tickets'));
@@ -121,13 +125,41 @@ export const createTicket = async (customerId: string, subject: string) => {
   }
 };
 
+export const updateCustomerStats = async (customerId: string) => {
+  try {
+    const tq = query(collection(db, 'tickets'), where('customerId', '==', customerId), where('status', '!=', 'resolved'));
+    const tSnap = await getDocs(tq);
+    const openTicketsCount = tSnap.size;
+
+    const iq = query(collection(db, 'billing_invoices'), where('customerId', '==', customerId), where('status', '==', 'overdue'));
+    const iSnap = await getDocs(iq);
+    const overdueInvoicesCount = iSnap.size;
+
+    const riskScore = (openTicketsCount * 20) + (overdueInvoicesCount * 40);
+
+    await updateDoc(doc(db, 'customers', customerId), {
+      openTicketsCount,
+      overdueInvoicesCount,
+      riskScore
+    });
+  } catch (err) {
+    console.error("Failed to update customer stats:", err);
+  }
+};
+
 export const updateTicketStatus = async (ticketId: string, status: string) => {
   try {
+    const ticketSnap = await getDoc(doc(db, 'tickets', ticketId));
+    
     const updateData: any = { status };
     if (status === 'resolved') {
       updateData.resolvedAt = serverTimestamp();
     }
     await updateDoc(doc(db, 'tickets', ticketId), updateData);
+
+    if (ticketSnap.exists() && ticketSnap.data().customerId) {
+        await updateCustomerStats(ticketSnap.data().customerId);
+    }
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `tickets/${ticketId}`);
   }
@@ -183,7 +215,7 @@ export const sendMessage = async (
 
 // Billing
 export const getInvoices = (callback: (invoices: any[]) => void) => {
-  const q = query(collection(db, 'billing_invoices'), orderBy('createdAt', 'desc'));
+  const q = query(collection(db, 'billing_invoices'), orderBy('createdAt', 'desc'), limit(300));
   return onSnapshot(q, (snapshot) => {
     callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
   }, (err) => handleFirestoreError(err, OperationType.LIST, 'billing_invoices'));
@@ -277,7 +309,19 @@ export const createServiceOrder = async (data: any) => {
 export const updateServiceOrder = async (id: string, data: any) => {
   try {
     const docRef = doc(db, 'service_orders', id);
-    await updateDoc(docRef, data);
+    let updatePayload = { ...data };
+    
+    // Auto-record status history if status is being updated
+    if (data.status) {
+      updatePayload.statusHistory = arrayUnion({
+        status: data.status,
+        timestamp: new Date().toISOString(),
+        technician: data.updaterName || data.assignedTo || 'Sistema'
+      });
+      delete updatePayload.updaterName;
+    }
+
+    await updateDoc(docRef, updatePayload);
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, `service_orders/${id}`);
     throw error;

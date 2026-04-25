@@ -117,17 +117,17 @@ export function Sidebar() {
             active={currentPath === 'tickets'} 
             onClick={() => navigate('/tickets')} 
             icon={<Ticket size={18} />} 
-            label="CRM & Tickets" 
+            label="Tickets (Suporte)" 
             collapsed={isSidebarCollapsed}
             shortcut="Alt+3"
           />
         )}
-        {canAccess(currentUserRole, 'os') && isDeveloper && (
+        {canAccess(currentUserRole, 'os') && (
           <NavItem 
             active={currentPath === 'os'} 
             onClick={() => navigate('/os')} 
             icon={<Briefcase size={18} />} 
-            label="Ordens de Serviço" 
+            label="CRM Técnico" 
             collapsed={isSidebarCollapsed}
             shortcut="Alt+O"
           />
@@ -248,6 +248,7 @@ export function Sidebar() {
                     <option value="admin">Desenvolvedor</option>
                     <option value="owner">Admin (Dono da provedora)</option>
                     <option value="support">Operacional (Colaborador)</option>
+                    <option value="tecnico">Técnico de Campo</option>
                   </select>
                 )}
               </div>

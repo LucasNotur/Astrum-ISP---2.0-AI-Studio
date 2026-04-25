@@ -22,15 +22,23 @@ export function CustomersPage() {
   const { customers, setCustomers, tickets, invoices, currentUserRole, setSelectedCustomerDetails, setConfirmDialog } = useAppStore();
   const isOwner = currentUserRole === 'owner' || currentUserRole === 'admin';
 
+  const [customerSearchInput, setCustomerSearchInput] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
   const [customerStatusFilter, setCustomerStatusFilter] = useState('all');
   const [customerPlanFilter, setCustomerPlanFilter] = useState('all');
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setCustomerSearch(customerSearchInput);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [customerSearchInput]);
+
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   
-  const [newCustomer, setNewCustomer] = useState<any>({ name: '', email: '', phone: '', address: '', plan: '', mrr: 0, status: 'active', tags: [] });
+  const [newCustomer, setNewCustomer] = useState<any>({ name: '', email: '', phone: '', document: '', address: '', plan: '', mrr: 0, status: 'active', tags: [], pppoeLogin: '', pppoePassword: '', latitude: '', longitude: '' });
   const [editingCustomer, setEditingCustomer] = useState<any>(null);
   const [isUpdatingCustomer, setIsUpdatingCustomer] = useState(false);
   
@@ -39,13 +47,15 @@ export function CustomersPage() {
 
   const filteredCustomers = useMemo(() => {
     return customers.filter(c => {
-      const q = customerSearch.toLowerCase();
-      const matchesSearch = 
-        c.name?.toLowerCase().includes(q) || 
-        c.email?.toLowerCase().includes(q) ||
-        c.phone?.toLowerCase().includes(q) ||
-        c.address?.toLowerCase().includes(q) ||
-        c.tags?.some((t: string) => t.toLowerCase().includes(q));
+      const searchTerms = customerSearch.toLowerCase().split(' ').filter(term => term.length > 0);
+      
+      const matchesSearch = searchTerms.length === 0 || searchTerms.every(term => 
+        c.name?.toLowerCase().includes(term) || 
+        c.email?.toLowerCase().includes(term) ||
+        c.phone?.toLowerCase().includes(term) ||
+        c.address?.toLowerCase().includes(term) ||
+        c.tags?.some((t: string) => t.toLowerCase().includes(term))
+      );
       
       const matchesStatus = customerStatusFilter === 'all' || c.status === customerStatusFilter;
       
@@ -58,11 +68,17 @@ export function CustomersPage() {
     });
   }, [customers, customerSearch, customerStatusFilter, customerPlanFilter]);
 
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
   const handleCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     const errors: Record<string, string> = {};
     if (!newCustomer.name) errors.name = 'Nome é obrigatório';
-    if (!newCustomer.email) errors.email = 'Email é obrigatório';
+    if (!newCustomer.email) {
+      errors.email = 'Email é obrigatório';
+    } else if (!emailRegex.test(newCustomer.email)) {
+      errors.email = 'Formato de email inválido';
+    }
     if (!newCustomer.plan) errors.plan = 'Plano é obrigatório';
     
     if (Object.keys(errors).length > 0) {
@@ -88,6 +104,21 @@ export function CustomersPage() {
   const handleUpdateCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingCustomer) return;
+    
+    const errors: Record<string, string> = {};
+    if (!editingCustomer.name) errors.name = 'Nome é obrigatório';
+    if (!editingCustomer.email) {
+      errors.email = 'Email é obrigatório';
+    } else if (!emailRegex.test(editingCustomer.email)) {
+      errors.email = 'Formato de email inválido';
+    }
+    if (!editingCustomer.plan) errors.plan = 'Plano é obrigatório';
+    
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
     setIsUpdatingCustomer(true);
     try {
       await updateCustomerDb(editingCustomer.id, editingCustomer);
@@ -229,8 +260,8 @@ export function CustomersPage() {
                         <Input 
                           placeholder="Buscar por nome, email, telefone, endereço ou tag..." 
                           className="pl-10" 
-                          value={customerSearch}
-                          onChange={(e) => setCustomerSearch(e.target.value)}
+                          value={customerSearchInput}
+                          onChange={(e) => setCustomerSearchInput(e.target.value)}
                         />
                       </div>
                       {selectedCustomers.length > 0 && (
@@ -314,17 +345,17 @@ export function CustomersPage() {
                     </TableHeader>
                     <TableBody>
                       {filteredCustomers.length > 0 ? filteredCustomers.map(c => {
-                        const customerTickets = tickets.filter(t => t.customerId === c.id);
-                        const openTickets = customerTickets.filter(t => t.status !== 'resolved');
-                        const overdueInvoices = invoices.filter(i => i.customerId === c.id && i.status === 'overdue');
+                        const openTicketsCount = c.openTicketsCount || 0;
+                        const overdueInvoicesCount = c.overdueInvoicesCount || 0;
+                        const riskScore = c.riskScore || 0;
                         
                         let healthColor = "bg-green-500";
                         let healthLabel = "Saudável";
                         
-                        if (overdueInvoices.length > 0 || openTickets.length > 2) {
+                        if (overdueInvoicesCount > 0 || openTicketsCount > 2) {
                           healthColor = "bg-red-500";
                           healthLabel = "Crítico";
-                        } else if (openTickets.length > 0) {
+                        } else if (openTicketsCount > 0) {
                           healthColor = "bg-yellow-500";
                           healthLabel = "Atenção";
                         }
@@ -389,8 +420,8 @@ export function CustomersPage() {
                                   </TooltipTrigger>
                                   <TooltipContent>
                                     <p className="text-xs">
-                                      {openTickets.length} tickets abertos<br />
-                                      {overdueInvoices.length} faturas vencidas
+                                      {openTicketsCount} tickets abertos<br />
+                                      {overdueInvoicesCount} faturas vencidas
                                     </p>
                                   </TooltipContent>
                                 </UITooltip>
@@ -398,7 +429,6 @@ export function CustomersPage() {
                             </TableCell>
                             <TableCell>
                               {(() => {
-                                const riskScore = (openTickets.length * 20) + (overdueInvoices.length * 40);
                                 const riskLevel = riskScore > 70 ? 'Crítico' : riskScore > 30 ? 'Médio' : 'Baixo';
                                 const riskColor = riskScore > 70 ? 'text-red-600 bg-red-50' : riskScore > 30 ? 'text-orange-600 bg-orange-50' : 'text-green-600 bg-green-50';
                                 return (
@@ -471,6 +501,61 @@ export function CustomersPage() {
                       className={formErrors.name ? "border-red-500" : ""}
                     />
                     {formErrors.name && <p className="text-xs text-red-500 mt-1">{formErrors.name}</p>}
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-document" className="text-right">CPF/CNPJ</Label>
+                  <div className="col-span-3">
+                    <Input 
+                      id="edit-document" 
+                      value={editingCustomer.document || ''} 
+                      onChange={(e) => setEditingCustomer({ ...editingCustomer, document: e.target.value })}
+                      placeholder="000.000.000-00"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-pppoeLogin" className="text-right">PPPoE Login</Label>
+                  <div className="col-span-3">
+                    <Input 
+                      id="edit-pppoeLogin" 
+                      value={editingCustomer.pppoeLogin || ''} 
+                      onChange={(e) => setEditingCustomer({ ...editingCustomer, pppoeLogin: e.target.value })}
+                      placeholder="cliente@provedor"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-pppoePassword" className="text-right">Senha PPPoE</Label>
+                  <div className="col-span-3">
+                    <Input 
+                      id="edit-pppoePassword" 
+                      value={editingCustomer.pppoePassword || ''} 
+                      onChange={(e) => setEditingCustomer({ ...editingCustomer, pppoePassword: e.target.value })}
+                      placeholder="******"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-latitude" className="text-right">Latitude</Label>
+                  <div className="col-span-3">
+                    <Input 
+                      id="edit-latitude" 
+                      value={editingCustomer.latitude || ''} 
+                      onChange={(e) => setEditingCustomer({ ...editingCustomer, latitude: e.target.value })}
+                      placeholder="-23.5505"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-longitude" className="text-right">Longitude</Label>
+                  <div className="col-span-3">
+                    <Input 
+                      id="edit-longitude" 
+                      value={editingCustomer.longitude || ''} 
+                      onChange={(e) => setEditingCustomer({ ...editingCustomer, longitude: e.target.value })}
+                      placeholder="-46.6333"
+                    />
                   </div>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
@@ -641,6 +726,61 @@ export function CustomersPage() {
                     className={formErrors.name ? "border-red-500" : ""}
                   />
                   {formErrors.name && <p className="text-xs text-red-500 mt-1">{formErrors.name}</p>}
+                </div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="new-document" className="text-right">CPF/CNPJ</Label>
+                <div className="col-span-3">
+                  <Input 
+                    id="new-document" 
+                    value={newCustomer.document || ''} 
+                    onChange={(e) => setNewCustomer({ ...newCustomer, document: e.target.value })}
+                    placeholder="000.000.000-00"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="new-pppoeLogin" className="text-right">PPPoE Login</Label>
+                <div className="col-span-3">
+                  <Input 
+                    id="new-pppoeLogin" 
+                    value={newCustomer.pppoeLogin || ''} 
+                    onChange={(e) => setNewCustomer({ ...newCustomer, pppoeLogin: e.target.value })}
+                    placeholder="cliente@provedor"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="new-pppoePassword" className="text-right">Senha PPPoE</Label>
+                <div className="col-span-3">
+                  <Input 
+                    id="new-pppoePassword" 
+                    value={newCustomer.pppoePassword || ''} 
+                    onChange={(e) => setNewCustomer({ ...newCustomer, pppoePassword: e.target.value })}
+                    placeholder="******"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="new-latitude" className="text-right">Latitude</Label>
+                <div className="col-span-3">
+                  <Input 
+                    id="new-latitude" 
+                    value={newCustomer.latitude || ''} 
+                    onChange={(e) => setNewCustomer({ ...newCustomer, latitude: e.target.value })}
+                    placeholder="-23.5505"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="new-longitude" className="text-right">Longitude</Label>
+                <div className="col-span-3">
+                  <Input 
+                    id="new-longitude" 
+                    value={newCustomer.longitude || ''} 
+                    onChange={(e) => setNewCustomer({ ...newCustomer, longitude: e.target.value })}
+                    placeholder="-46.6333"
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">

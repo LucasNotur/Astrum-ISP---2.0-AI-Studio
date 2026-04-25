@@ -116,7 +116,7 @@ service cloud.firestore {
     function isValidTeamMember(data) {
       return data.name is string && data.name.size() > 0 &&
              data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
-             data.role in ['admin', 'owner', 'support', 'billing', 'sales', 'atendente'] &&
+             data.role in ['admin', 'owner', 'support', 'tecnico', 'billing', 'sales', 'atendente'] &&
              data.status in ['active', 'inactive'] &&
              (!('createdAt' in data) || data.createdAt is timestamp);
     }
@@ -133,7 +133,7 @@ service cloud.firestore {
 
     function isValidServiceOrder(data) {
       return data.customerId is string &&
-             data.status in ['pendente', 'em_deslocamento', 'em_atendimento', 'concluido', 'cancelado'] &&
+             data.status in ['pendente', 'em_deslocamento', 'em_andamento', 'concluida', 'cancelado', 'em_atendimento', 'concluido'] &&
              data.type is string &&
              (!('customerName' in data) || data.customerName is string) &&
              (!('address' in data) || data.address is string) &&
@@ -141,10 +141,11 @@ service cloud.firestore {
              (!('lng' in data) || data.lng is number) &&
              (!('description' in data) || data.description is string) &&
              (!('cto' in data) || data.cto is string) &&
-             (!('port' in data) || data.port is number) &&
+             (!('port' in data) || data.port is string || data.port is number) &&
              (!('materials' in data) || data.materials is list) &&
              (!('assignedTo' in data) || data.assignedTo == null || data.assignedTo is string) &&
              (!('aiSummary' in data) || data.aiSummary is string) &&
+             (!('scheduledDate' in data) || data.scheduledDate == null || data.scheduledDate is string) &&
              (!('createdAt' in data) || data.createdAt is timestamp);
     }
 

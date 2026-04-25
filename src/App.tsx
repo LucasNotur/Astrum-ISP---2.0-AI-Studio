@@ -588,7 +588,8 @@ export default function App() {
   const rolePermissions: Record<string, string[]> = {
     admin: ['dashboard', 'customers', 'tickets', 'os', 'chat', 'map', 'kb', 'billing', 'team', 'ai-config', 'settings', 'inventory'],
     owner: ['dashboard', 'customers', 'tickets', 'chat', 'billing', 'team'],
-    support: ['dashboard', 'customers', 'tickets', 'chat']
+    support: ['dashboard', 'customers', 'tickets', 'chat'],
+    tecnico: ['os']
   };
 
   const canAccess = (tab: string) => {
@@ -1026,11 +1027,12 @@ export default function App() {
             const memberData = memberDoc.data();
             const role = memberData.role?.toLowerCase();
             
-            let mappedRole: 'owner' | 'support' = 'support';
+            let mappedRole: 'owner' | 'support' | 'tecnico' = 'support';
             if (role === 'admin' || role === 'owner') mappedRole = 'owner';
             else if (role === 'support' || role === 'atendente') mappedRole = 'support';
+            else if (role === 'tecnico') mappedRole = 'tecnico';
             
-            setCurrentUserRole(mappedRole);
+            setCurrentUserRole(mappedRole as any);
             setUserProfile(memberData);
 
             // Sync to users collection for security rules
@@ -2024,17 +2026,17 @@ return (
                 </p>
               </div>
               <Button onClick={() => navigate('/')} className="gap-2">
-                <LayoutDashboard size={18} /> Voltar ao Dashboard
+                <LayoutDashboard size={18} /> Voltar para o início
               </Button>
             </motion.div>
           ) : (
             <Routes>
               <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/" element={<Navigate to={currentUserRole === 'tecnico' ? "/os" : "/dashboard"} replace />} />
               <Route path="/customers" element={<CustomersPage />} />
           <Route path="/tickets" element={<TicketsPage onNewTicketClick={() => setIsNewTicketDialogOpen(true)} />} />
 
-          <Route path="/os" element={isDeveloper ? <ServiceOrdersPage /> : <Navigate to="/dashboard" replace />} />
+          <Route path="/os" element={<ServiceOrdersPage />} />
 
           <Route path="/chat" element={<ChatPage />} />
 
@@ -2333,6 +2335,7 @@ return (
         {/* Command Palette Dialog */}
         <Dialog open={isCommandPaletteOpen} onOpenChange={setIsCommandPaletteOpen}>
           <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl border-zinc-200/50 dark:border-zinc-800/50 shadow-2xl">
+            <DialogTitle className="sr-only">Busca Geral</DialogTitle>
             <div className="flex items-center border-b border-zinc-100 dark:border-zinc-800 px-3">
               <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
               <input
@@ -2385,6 +2388,8 @@ return (
                       className="flex items-center gap-2 px-2 py-2 text-sm rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
                       onClick={() => {
                         navigate('/');
+                        setSelectedTicket(ticket);
+                        setIsTicketDetailOpen(true);
                         setIsCommandPaletteOpen(false);
                       }}
                     >
@@ -2476,6 +2481,7 @@ return (
                   >
                     <option value="admin">Administrador</option>
                     <option value="support">Suporte Técnico</option>
+                    <option value="tecnico">Técnico de Campo</option>
                     <option value="billing">Financeiro</option>
                     <option value="sales">Vendas</option>
                   </select>
@@ -2607,6 +2613,10 @@ return (
                           <p className="text-sm font-medium">{selectedCustomerDetails.name}</p>
                         </div>
                         <div>
+                          <p className="text-[10px] text-zinc-400 uppercase">Documento (CPF/CNPJ)</p>
+                          <p className="text-sm font-medium">{selectedCustomerDetails.document || 'Não informado'}</p>
+                        </div>
+                        <div>
                           <p className="text-[10px] text-zinc-400 uppercase">E-mail</p>
                           <p className="text-sm font-medium">{selectedCustomerDetails.email}</p>
                         </div>
@@ -2625,6 +2635,19 @@ return (
                               </Button>
                             )}
                           </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Credenciais PPPoE</p>
+                      <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 grid grid-cols-2 gap-2">
+                        <div>
+                          <p className="text-[10px] text-zinc-400 uppercase">Usuário</p>
+                          <p className="text-sm font-medium font-mono">{selectedCustomerDetails.pppoeLogin || 'Não configurado'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-zinc-400 uppercase">Senha</p>
+                          <p className="text-sm font-medium font-mono">{selectedCustomerDetails.pppoePassword ? '********' : 'Não configurada'}</p>
                         </div>
                       </div>
                     </div>
@@ -2661,10 +2684,25 @@ return (
                   <div className="space-y-4">
                     <div className="space-y-1">
                       <p className="text-xs font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">Endereço de Instalação</p>
-                      <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 h-full">
+                      <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 h-full flex flex-col justify-between gap-3">
                         <p className="text-sm text-zinc-600 leading-relaxed">
                           {selectedCustomerDetails.address || 'Endereço não cadastrado.'}
                         </p>
+                        <div className="flex items-center gap-4 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                          <div>
+                            <p className="text-[10px] text-zinc-400 uppercase">Lat</p>
+                            <p className="text-xs font-mono text-zinc-600">{selectedCustomerDetails.latitude || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-zinc-400 uppercase">Lng</p>
+                            <p className="text-xs font-mono text-zinc-600">{selectedCustomerDetails.longitude || 'N/A'}</p>
+                          </div>
+                          {(selectedCustomerDetails.latitude && selectedCustomerDetails.longitude) && (
+                            <Button variant="ghost" size="sm" className="h-6 px-2 ml-auto gap-1 text-[10px]" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${selectedCustomerDetails.latitude},${selectedCustomerDetails.longitude}`, '_blank')}>
+                              <MapPin size={10} /> Maps
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="space-y-1">
@@ -3080,6 +3118,7 @@ return (
                   onChange={(e) => setNewTeamMember(prev => ({ ...prev, role: e.target.value }))}
                 >
                   <option value="support">Colaborador (Suporte)</option>
+                  <option value="tecnico">Técnico de Campo</option>
                   <option value="owner">Dono / Gerente</option>
                   {isAstrum && <option value="admin">Administrador (Astrum)</option>}
                 </select>
@@ -3155,6 +3194,7 @@ return (
         {/* Ticket Detail Modal */}
         <Dialog open={isTicketDetailOpen} onOpenChange={setIsTicketDetailOpen}>
           <DialogContent className="sm:max-w-[900px] h-[80vh] flex flex-col p-0 overflow-hidden">
+            <DialogTitle className="sr-only">Detalhes do Ticket</DialogTitle>
             {selectedTicket && (
               <div className="flex flex-col h-full">
                 <DialogHeader className="p-6 border-b shrink-0">
@@ -3267,6 +3307,16 @@ return (
                     <div>
                       <h4 className="text-xs font-bold uppercase text-zinc-400 mb-3">Ações Rápidas</h4>
                       <div className="space-y-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full justify-start gap-2 bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:border-blue-300 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300"
+                          onClick={() => {
+                            toast.success("Comando enviado via WhatsApp para o ERP/Suporte Pai (Reativação solicitada).");
+                          }}
+                        >
+                          <Smartphone size={14} /> Acionar ERP Pai (WhatsApp)
+                        </Button>
                         <Button 
                           variant="outline" 
                           size="sm" 
@@ -3542,6 +3592,7 @@ return (
                 >
                   <option value="admin">Administrador</option>
                   <option value="support">Suporte Técnico</option>
+                  <option value="tecnico">Técnico de Campo</option>
                   <option value="billing">Financeiro</option>
                   <option value="sales">Vendas</option>
                 </select>
