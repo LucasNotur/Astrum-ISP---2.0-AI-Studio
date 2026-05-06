@@ -19,7 +19,7 @@ import { createCustomer, updateCustomer as updateCustomerDb } from '@/src/lib/db
 import { cn } from "@/src/lib/utils";
 
 export function CustomersPage() {
-  const { customers, setCustomers, tickets, invoices, currentUserRole, setSelectedCustomerDetails, setConfirmDialog } = useAppStore();
+  const { customers, setCustomers, tickets, invoices, auditLogs, currentUserRole, setSelectedCustomerDetails, setIsDetailsDialogOpen, setConfirmDialog } = useAppStore();
   const isOwner = currentUserRole === 'owner' || currentUserRole === 'admin';
 
   const [customerSearchInput, setCustomerSearchInput] = useState('');
@@ -143,7 +143,7 @@ export function CustomersPage() {
 
   const handleViewDetails = (customer: any) => {
     setSelectedCustomerDetails(customer);
-    // Note: The detail dialog is in App.tsx typically unless we moved it here.
+    setIsDetailsDialogOpen(true);
   };
 
   const exportCustomersToCSV = () => {
@@ -206,18 +206,18 @@ export function CustomersPage() {
               animate={{ opacity: 1, x: 0 }}
               className="space-y-6"
             >
-              <header className="flex items-center justify-between">
+              <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
                   <p className="text-zinc-500 dark:text-zinc-400">Base de assinantes e dados financeiros.</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <input type="file" accept=".csv" className="hidden" ref={customerFileInputRef} onChange={handleImportCustomers} />
                   <TooltipProvider delayDuration={0}>
                     <UITooltip>
                       <TooltipTrigger asChild>
                         <Button variant="outline" className="gap-2" onClick={() => customerFileInputRef.current?.click()}>
-                          <Upload size={18} /> Importar CSV
+                          <Upload size={18} /> <span className="hidden md:inline">Importar CSV</span>
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="bottom" className="text-xs">
@@ -230,7 +230,7 @@ export function CustomersPage() {
                     <UITooltip>
                       <TooltipTrigger asChild>
                         <Button variant="outline" className="gap-2" onClick={exportCustomersToCSV}>
-                          <Download size={18} /> Exportar CSV
+                          <Download size={18} /> <span className="hidden md:inline">Exportar CSV</span>
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="bottom" className="text-xs">
@@ -309,14 +309,15 @@ export function CustomersPage() {
                         onChange={(e) => setCustomerPlanFilter(e.target.value)}
                       >
                         <option value="all">Todos os Planos</option>
-                        <option value="200 Mega">200 Mega</option>
-                        <option value="500 Mega">500 Mega</option>
+                        <option value="100 Mega">100 Mega</option>
+                        <option value="300 Mega">300 Mega</option>
+                        <option value="600 Mega">600 Mega</option>
                         <option value="1 Giga">1 Giga</option>
                       </select>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -345,18 +346,21 @@ export function CustomersPage() {
                     </TableHeader>
                     <TableBody>
                       {filteredCustomers.length > 0 ? filteredCustomers.map(c => {
-                        const openTicketsCount = c.openTicketsCount || 0;
-                        const overdueInvoicesCount = c.overdueInvoicesCount || 0;
-                        const riskScore = c.riskScore || 0;
+                        const customerTickets = tickets.filter(t => t.customerId === c.id);
+                        const openTicketsCount = customerTickets.filter(t => t.status !== 'resolved').length;
+                        const overdueInvoicesCount = invoices.filter(i => i.customerId === c.id && i.status === 'overdue').length;
+                        const negativeAICount = auditLogs.filter(l => l.sentiment === 'NEGATIVO' && customerTickets.some(t => t.id === l.ticketId)).length;
                         
-                        let healthColor = "bg-green-500";
+                        const riskScore = c.riskScore || 0; // Existing global risk logic if available
+                        
+                        let healthColor = "bg-emerald-500";
                         let healthLabel = "Saudável";
                         
-                        if (overdueInvoicesCount > 0 || openTicketsCount > 2) {
-                          healthColor = "bg-red-500";
+                        if (overdueInvoicesCount > 0 || openTicketsCount > 2 || negativeAICount > 1) {
+                          healthColor = "bg-rose-500";
                           healthLabel = "Crítico";
-                        } else if (openTicketsCount > 0) {
-                          healthColor = "bg-yellow-500";
+                        } else if (openTicketsCount > 0 || negativeAICount > 0) {
+                          healthColor = "bg-amber-500";
                           healthLabel = "Atenção";
                         }
 
@@ -414,15 +418,26 @@ export function CustomersPage() {
                                 <UITooltip>
                                   <TooltipTrigger>
                                     <div className="flex items-center gap-2">
-                                      <div className={cn("h-2 w-2 rounded-full animate-pulse", healthColor)} />
-                                      <span className="text-[10px] font-medium text-zinc-500">{healthLabel}</span>
+                                      <div className={cn("h-2.5 w-2.5 rounded-full animate-pulse", healthColor)} />
+                                      <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400">{healthLabel}</span>
                                     </div>
                                   </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p className="text-xs">
-                                      {openTicketsCount} tickets abertos<br />
-                                      {overdueInvoicesCount} faturas vencidas
-                                    </p>
+                                  <TooltipContent side="right" className="bg-zinc-900 border-zinc-800 text-zinc-100 p-3 shadow-lg max-w-[200px]">
+                                    <div className="space-y-1.5">
+                                      <p className="text-xs font-semibold mb-2">Composição da Saúde</p>
+                                      <div className="flex justify-between items-center text-[10px]">
+                                        <span className="text-zinc-400">Tickets Abertos:</span>
+                                        <span className={openTicketsCount > 0 ? "text-amber-400 font-medium" : "text-emerald-400"}>{openTicketsCount}</span>
+                                      </div>
+                                      <div className="flex justify-between items-center text-[10px]">
+                                        <span className="text-zinc-400">Faturas Vencidas:</span>
+                                        <span className={overdueInvoicesCount > 0 ? "text-rose-400 font-medium" : "text-emerald-400"}>{overdueInvoicesCount}</span>
+                                      </div>
+                                      <div className="flex justify-between items-center text-[10px]">
+                                        <span className="text-zinc-400">Interações Negativas IA:</span>
+                                        <span className={negativeAICount > 0 ? "text-rose-400 font-medium" : "text-emerald-400"}>{negativeAICount}</span>
+                                      </div>
+                                    </div>
                                   </TooltipContent>
                                 </UITooltip>
                               </TooltipProvider>
@@ -596,12 +611,26 @@ export function CustomersPage() {
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="plan" className="text-right">Plano</Label>
                   <div className="col-span-3">
-                    <Input 
-                      id="plan" 
-                      value={editingCustomer.plan} 
-                      onChange={(e) => setEditingCustomer({ ...editingCustomer, plan: e.target.value })}
-                      className={formErrors.plan ? "border-red-500" : ""}
-                    />
+                  <select
+                    id="plan"
+                    value={editingCustomer.plan}
+                    onChange={(e) => {
+                      const plan = e.target.value;
+                      let mrr = editingCustomer.mrr;
+                      if (plan === '100 Mega') mrr = 62.99;
+                      else if (plan === '300 Mega') mrr = 82.99;
+                      else if (plan === '600 Mega') mrr = 99.99;
+                      else if (plan === '1 Giga') mrr = 119.99;
+                      setEditingCustomer({ ...editingCustomer, plan, mrr });
+                    }}
+                    className={`flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-950 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:placeholder:text-zinc-400 dark:focus-visible:ring-zinc-300 ${formErrors.plan ? "border-red-500" : "border-zinc-200"}`}
+                  >
+                    <option value="" disabled>Selecione um plano</option>
+                    <option value="100 Mega">100 Mega</option>
+                    <option value="300 Mega">300 Mega</option>
+                    <option value="600 Mega">600 Mega</option>
+                    <option value="1 Giga">1 Giga</option>
+                  </select>
                     {formErrors.plan && <p className="text-xs text-red-500 mt-1">{formErrors.plan}</p>}
                   </div>
                 </div>
@@ -821,12 +850,26 @@ export function CustomersPage() {
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="new-plan" className="text-right">Plano</Label>
                 <div className="col-span-3">
-                  <Input 
-                    id="new-plan" 
-                    value={newCustomer.plan} 
-                    onChange={(e) => setNewCustomer({ ...newCustomer, plan: e.target.value })}
-                    className={formErrors.plan ? "border-red-500" : ""}
-                  />
+                  <select
+                    id="new-plan"
+                    value={newCustomer.plan}
+                    onChange={(e) => {
+                      const plan = e.target.value;
+                      let mrr = 0;
+                      if (plan === '100 Mega') mrr = 62.99;
+                      else if (plan === '300 Mega') mrr = 82.99;
+                      else if (plan === '600 Mega') mrr = 99.99;
+                      else if (plan === '1 Giga') mrr = 119.99;
+                      setNewCustomer({ ...newCustomer, plan, mrr });
+                    }}
+                    className={`flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-950 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:placeholder:text-zinc-400 dark:focus-visible:ring-zinc-300 ${formErrors.plan ? "border-red-500" : "border-zinc-200"}`}
+                  >
+                    <option value="" disabled>Selecione um plano</option>
+                    <option value="100 Mega">100 Mega</option>
+                    <option value="300 Mega">300 Mega</option>
+                    <option value="600 Mega">600 Mega</option>
+                    <option value="1 Giga">1 Giga</option>
+                  </select>
                   {formErrors.plan && <p className="text-xs text-red-500 mt-1">{formErrors.plan}</p>}
                 </div>
               </div>

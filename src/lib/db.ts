@@ -333,6 +333,7 @@ export const seedServiceOrdersAndTechnicians = async () => {
     { name: 'Técnico Alpha', phone: '5511999999991', status: 'offline', currentTask: null },
     { name: 'Técnico Bravo', phone: '5511999999992', status: 'offline', currentTask: null },
     { name: 'Técnico Charlie', phone: '5511999999993', status: 'offline', currentTask: null },
+    { name: 'Técnico Delta', phone: '5511999999994', status: 'offline', currentTask: null },
   ];
 
   for (const tech of techs) {
@@ -400,8 +401,12 @@ export const getIntegrationKeys = async () => {
       return snapshot.data();
     }
     return {};
-  } catch (err) {
-    console.error("Error fetching integration keys:", err);
+  } catch (err: any) {
+    if (err.code === 'permission-denied' || (err.message && err.message.includes('Missing or insufficient permissions'))) {
+       console.warn("Aviso: Sem permissão para ler integration keys (provável Webhook sem auth anônima).");
+    } else {
+       console.error("Error fetching integration keys:", err);
+    }
     return {};
   }
 };
@@ -424,8 +429,12 @@ export const getSystemPrompts = async () => {
       return snapshot.data();
     }
     return null;
-  } catch (err) {
-    console.error("Error fetching system prompts:", err);
+  } catch (err: any) {
+    if (err.code === 'permission-denied' || (err.message && err.message.includes('Missing or insufficient permissions'))) {
+       console.warn("Aviso: Sem permissão para ler system prompts.");
+    } else {
+       console.error("Error fetching system prompts:", err);
+    }
     return null;
   }
 };
@@ -596,7 +605,7 @@ export const seedKnowledgeBase = async () => {
   const articles = [
     { title: "Como reiniciar o roteador", content: "Desligue o roteador da tomada, aguarde 30 segundos e ligue novamente. Isso resolve 90% dos problemas de conexão.", tags: ["roteador", "reiniciar", "conexão", "lento"], category: "Suporte" },
     { title: "Configuração de Wi-Fi", content: "Mantenha o roteador em local alto e centralizado. Evite obstáculos como paredes grossas e espelhos.", tags: ["wi-fi", "sinal", "cobertura"], category: "Suporte" },
-    { title: "Planos de Fibra 2026", content: "200 Mega: R$99. 500 Mega: R$129. 1 Giga: R$199. Instalação grátis para contratos de 12 meses.", tags: ["planos", "preço", "vendas", "fibra"], category: "Vendas" }
+    { title: "Planos de Fibra 2026", content: "100 Mega: R$62,99. 300 Mega: R$82,99. 600 Mega: R$99,99. 1 Giga: R$119,99. Promocionais pagando no vencimento. Instalação grátis para contratos de 12 meses.", tags: ["planos", "preço", "vendas", "fibra"], category: "Vendas" }
   ];
 
   for (const article of articles) {
@@ -605,7 +614,7 @@ export const seedKnowledgeBase = async () => {
 };
 
 export const seedSystem = async () => {
-  const plans = ['200 Mega', '500 Mega', '1 Giga'];
+  const plans = ['100 Mega', '300 Mega', '600 Mega', '1 Giga'];
   const statuses = ['active', 'active', 'active', 'inactive']; // 75% active
   const firstNames = ['Lucas', 'Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fabio', 'Gisele', 'Hugo', 'Iris', 'Joao', 'Kelly', 'Luis', 'Mara', 'Nuno', 'Olivia', 'Paulo', 'Quiteria', 'Raul', 'Sonia'];
   const lastNames = ['Silva', 'Santos', 'Oliveira', 'Souza', 'Rodrigues', 'Ferreira', 'Alves', 'Pereira', 'Lima', 'Gomes', 'Costa', 'Ribeiro', 'Martins', 'Carvalho', 'Almeida', 'Lopes', 'Soares', 'Fernandes', 'Vieira', 'Barbosa'];
@@ -616,7 +625,7 @@ export const seedSystem = async () => {
   for (let i = 0; i < 100; i++) {
     const name = `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]} ${i}`;
     const plan = plans[Math.floor(Math.random() * plans.length)];
-    const mrr = plan === '200 Mega' ? 99 : plan === '500 Mega' ? 129 : 199;
+    const mrr = plan === '100 Mega' ? 62.99 : plan === '300 Mega' ? 82.99 : plan === '600 Mega' ? 99.99 : 119.99;
     
     const customerRef = await addDoc(collection(db, 'customers'), {
       name,

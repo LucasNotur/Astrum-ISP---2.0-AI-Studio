@@ -41,12 +41,12 @@ export function TeamPage({
               animate={{ opacity: 1, x: 0 }}
               className="space-y-6"
             >
-              <header className="flex items-center justify-between">
+              <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h1 className="text-3xl font-bold tracking-tight">Equipe</h1>
                   <p className="text-zinc-500 dark:text-zinc-400">Gerencie os acessos e permissões dos seus colaboradores.</p>
                 </div>
-                <Button className="gap-2" onClick={() => {
+                <Button className="gap-2 shrink-0 self-start md:self-auto" onClick={() => {
                   setSelectedTeamMember({ name: '', email: '', role: 'support', status: 'active' });
                   setIsTeamMemberDialogOpen(true);
                 }}>
@@ -56,7 +56,7 @@ export function TeamPage({
               
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <Card className="lg:col-span-2 border-none shadow-sm">
-                  <CardContent className="p-0">
+                  <CardContent className="p-0 overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>

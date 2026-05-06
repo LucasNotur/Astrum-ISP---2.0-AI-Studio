@@ -52,15 +52,15 @@ export function AIConfigPage({
               </header>
               
               <Tabs defaultValue="orchestrator" className="w-full">
-                <TabsList className="bg-zinc-100 dark:bg-zinc-800 p-1">
-                  <TabsTrigger value="flow">Arquitetura de Fluxo</TabsTrigger>
-                  <TabsTrigger value="orchestrator">Orquestrador</TabsTrigger>
-                  <TabsTrigger value="support">Suporte</TabsTrigger>
-                  <TabsTrigger value="billing">Financeiro</TabsTrigger>
-                  <TabsTrigger value="retention">Retenção</TabsTrigger>
-                  <TabsTrigger value="sales">Vendas</TabsTrigger>
-                  <TabsTrigger value="kb">Base de Conhecimento</TabsTrigger>
-                  <TabsTrigger value="audit">Logs de Auditoria</TabsTrigger>
+                <TabsList className="bg-zinc-100 dark:bg-zinc-800 p-1 flex overflow-x-auto h-auto min-h-[40px] rounded-lg w-full justify-start md:justify-center shrink-0">
+                  <TabsTrigger value="flow" className="whitespace-nowrap">Arquitetura de Fluxo</TabsTrigger>
+                  <TabsTrigger value="orchestrator" className="whitespace-nowrap">Orquestrador</TabsTrigger>
+                  <TabsTrigger value="support" className="whitespace-nowrap">Suporte</TabsTrigger>
+                  <TabsTrigger value="billing" className="whitespace-nowrap">Financeiro</TabsTrigger>
+                  <TabsTrigger value="retention" className="whitespace-nowrap">Retenção</TabsTrigger>
+                  <TabsTrigger value="sales" className="whitespace-nowrap">Vendas</TabsTrigger>
+                  <TabsTrigger value="kb" className="whitespace-nowrap">Base de Conhecimento</TabsTrigger>
+                  <TabsTrigger value="audit" className="whitespace-nowrap">Logs de Auditoria</TabsTrigger>
                 </TabsList>
                 
                 <div className="mt-6">

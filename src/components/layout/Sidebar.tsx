@@ -52,7 +52,7 @@ function NavItem({ active, onClick, icon, label, collapsed, shortcut }: any) {
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMenuOpen?: boolean, setIsMobileMenuOpen?: (val: boolean) => void }) {
   const { 
     isSidebarCollapsed, setIsSidebarCollapsed, 
     currentUserRole, setCurrentUserRole, user
@@ -65,16 +65,25 @@ export function Sidebar() {
   const handleLogout = () => signOut(auth);
 
   return (
-    <aside className={cn(
-      "border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm transition-all duration-300 flex flex-col relative",
-      isSidebarCollapsed ? "w-20 items-center px-2 py-6" : "w-64 p-6"
-    )}>
-      <button 
-        onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        className="absolute -right-3 top-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full p-1 shadow-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-50 z-10"
-      >
-        {isSidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-      </button>
+    <>
+      <div 
+        className={cn(
+          "fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity", 
+          isMobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        )}
+        onClick={() => setIsMobileMenuOpen && setIsMobileMenuOpen(false)}
+      />
+      <aside className={cn(
+        "fixed md:static inset-y-0 left-0 z-50 border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm transition-all duration-300 flex flex-col",
+        !isMobileMenuOpen && "translate-x-[-100%] md:translate-x-0",
+        isSidebarCollapsed ? "w-20 items-center px-2 py-6 hidden md:flex" : "w-64 p-6"
+      )}>
+        <button 
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          className="hidden md:flex absolute -right-3 top-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full p-1 shadow-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-50 z-10"
+        >
+          {isSidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
 
       <div className={cn("flex items-center gap-3 mb-10", isSidebarCollapsed ? "justify-center" : "")}>
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
@@ -257,5 +266,6 @@ export function Sidebar() {
         </div>
       </div>
     </aside>
+    </>
   );
 }

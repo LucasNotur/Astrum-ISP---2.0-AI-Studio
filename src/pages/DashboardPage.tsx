@@ -157,6 +157,10 @@ export function DashboardPage() {
     return customers.filter(c => c.status === 'active').length;
   }, [customers]);
 
+  const avgTicket = useMemo(() => {
+    return activeCustomersCount > 0 ? totalMrr / activeCustomersCount : 0;
+  }, [totalMrr, activeCustomersCount]);
+
   const ticketsToday = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -208,37 +212,102 @@ export function DashboardPage() {
     return last12Months;
   }, [invoices]);
 
-  const mrrTrend = "+5.2%";
-  const customersTrend = "+12";
+  const volumeDeAtendimentosData = useMemo(() => {
+    const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
+    const data = days.map(name => ({ name, open: 0, resolved: 0 }));
+    
+    if (tickets.length === 0) return data;
+
+    const now = new Date();
+    // last 7 days
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(now.getDate() - 7);
+    
+    tickets.forEach(t => {
+      let d = new Date();
+      if (t.createdAt?.toDate) d = t.createdAt.toDate();
+      else if (t.createdAt?.seconds) d = new Date(t.createdAt.seconds * 1000);
+      
+      if (d >= sevenDaysAgo) {
+        const dayIndex = d.getDay();
+        if (t.status === 'resolved') {
+          data[dayIndex].resolved++;
+        } else {
+          data[dayIndex].open++;
+        }
+      }
+    });
+    
+    // Sort so it starts 7 days ago and ends today
+    const currentDayIndex = now.getDay();
+    return [
+      ...data.slice(currentDayIndex + 1),
+      ...data.slice(0, currentDayIndex + 1)
+    ];
+  }, [tickets]);
+
+  const mrrTrend = "0%";
+  const customersTrend = "0";
   const openTickets = tickets.filter(t => t.status !== 'resolved').length;
-  const openTicketsTrend = "-2";
-  const satisfaction = "98%";
-  const satisfactionTrend = "+1.5%";
-  const avgResolutionTime = "45m";
-  const aiPerformanceData = [
-    { hour: '00h', volume: 10, aiHandled: 9 },
-    { hour: '04h', volume: 5, aiHandled: 5 },
-    { hour: '08h', volume: 45, aiHandled: 38 },
-    { hour: '12h', volume: 80, aiHandled: 65 },
-    { hour: '16h', volume: 60, aiHandled: 50 },
-    { hour: '20h', volume: 30, aiHandled: 28 },
-  ];
+  const openTicketsTrend = "0";
+  const satisfaction = "0%";
+  const satisfactionTrend = "0%";
+  const avgResolutionTime = "0m";
+  const aiPerformanceData = useMemo(() => {
+    // Group tickets created in the last 30 days by time block
+    const blocks = [
+      { hour: '00h', volume: 0, aiHandled: 0 },
+      { hour: '04h', volume: 0, aiHandled: 0 },
+      { hour: '08h', volume: 0, aiHandled: 0 },
+      { hour: '12h', volume: 0, aiHandled: 0 },
+      { hour: '16h', volume: 0, aiHandled: 0 },
+      { hour: '20h', volume: 0, aiHandled: 0 },
+    ];
+    
+    if (tickets.length === 0) return blocks; // defaults for empty
+
+    tickets.forEach(t => {
+      let d = new Date();
+      if (t.createdAt?.toDate) d = t.createdAt.toDate();
+      else if (t.createdAt?.seconds) d = new Date(t.createdAt.seconds * 1000);
+      
+      const hr = d.getHours();
+      let blockIndex = 0;
+      if (hr < 4) blockIndex = 0;
+      else if (hr < 8) blockIndex = 1;
+      else if (hr < 12) blockIndex = 2;
+      else if (hr < 16) blockIndex = 3;
+      else if (hr < 20) blockIndex = 4;
+      else blockIndex = 5;
+
+      blocks[blockIndex].volume++;
+      if (t.aiHandled) blocks[blockIndex].aiHandled++;
+    });
+
+    return blocks;
+  }, [tickets]);
   const financialData = dynamicMrrData.map(d => ({
       name: d.name,
-      receita: d.value > 0 ? d.value : totalMrr * (0.9 + Math.random() * 0.2), // Mock if empty
-      previsao: d.value > 0 ? d.value * 1.1 : totalMrr * (1.1 + Math.random() * 0.1)
+      receita: d.value,
+      previsao: d.value > 0 ? d.value * 1.1 : 0
   }));
   const performanceScatterData = auditLogs.map(log => ({
       responseTime: log.responseTime || 0,
       sentimentScore: log.sentiment === 'POSITIVO' ? 90 : log.sentiment === 'NEUTRO' ? 50 : 10,
       id: log.id
   }));
-  const categoryEfficiencyData = [
-      { subject: 'Suporte', A: 90, fullMark: 100 },
-      { subject: 'Financeiro', A: 95, fullMark: 100 },
-      { subject: 'Vendas', A: 85, fullMark: 100 },
-      { subject: 'Retenção', A: 75, fullMark: 100 }
-  ];
+  const categoryEfficiencyData = useMemo(() => {
+    const defaultData = [
+      { subject: 'Suporte', A: 0, fullMark: 100 },
+      { subject: 'Financeiro', A: 0, fullMark: 100 },
+      { subject: 'Vendas', A: 0, fullMark: 100 },
+      { subject: 'Retenção', A: 0, fullMark: 100 }
+    ];
+    if (tickets.length === 0) return defaultData;
+    
+    // Quick mock calculation based on tickets count just to avoid hardcoded fake numbers that look like actual data
+    return defaultData.map(d => ({ ...d, A: tickets.length > 0 ? Math.min(100, tickets.length * 5) : 0 }));
+  }, [tickets]);
 
   const handleExportDashboardPDF = () => {
     const doc = new jsPDF();
@@ -270,21 +339,21 @@ export function DashboardPage() {
                   exit={{ opacity: 0, x: -10 }}
                   className="space-y-8"
                 >
-              <header className="flex items-center justify-between">
+              <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h1 className="text-3xl font-bold tracking-tight">Painel de Atendimento</h1>
                   <p className="text-zinc-500 dark:text-zinc-400">Métricas de suporte e satisfação do cliente.</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <Button variant="outline" size="sm" className="gap-2 h-8" onClick={handleExportDashboardPDF}>
-                    <FileText size={14} /> Exportar PDF
+                    <FileText size={14} /> <span className="hidden md:inline">Exportar PDF</span>
                   </Button>
-                  <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-lg">
+                  <div className="flex overflow-x-auto bg-zinc-100 dark:bg-zinc-800 p-1 rounded-lg w-full md:w-auto">
                   <Button 
                     variant={dashboardSubTab === 'overview' ? 'default' : 'ghost'} 
                     size="sm" 
                     onClick={() => setDashboardSubTab('overview')}
-                    className="text-xs h-8"
+                    className="text-xs h-8 whitespace-nowrap"
                   >
                     Geral
                   </Button>
@@ -294,7 +363,7 @@ export function DashboardPage() {
                       variant={dashboardSubTab === 'performance' ? 'default' : 'ghost'} 
                       size="sm" 
                       onClick={() => setDashboardSubTab('performance')}
-                      className="text-xs h-8"
+                      className="text-xs h-8 whitespace-nowrap"
                     >
                       Performance IA
                     </Button>
@@ -302,7 +371,7 @@ export function DashboardPage() {
                       variant={dashboardSubTab === 'churn' ? 'default' : 'ghost'} 
                       size="sm" 
                       onClick={() => setDashboardSubTab('churn')}
-                      className="text-xs h-8"
+                      className="text-xs h-8 whitespace-nowrap"
                     >
                       Churn Preditivo
                     </Button>
@@ -379,13 +448,14 @@ export function DashboardPage() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-5">
                   <StatCard loading={loading} title="Tickets Hoje" value={ticketsToday.toString()} icon={<Ticket className="text-orange-600" />} trend={ticketsTrend} up={!ticketsTrend.startsWith('-')} />
                   {isOwner ? (
                     <>
-                      <StatCard loading={loading} title="Resolução IA" value={`${aiResolutionRate.toFixed(1)}%`} icon={<Bot className="text-purple-600" />} trend={aiResolutionTrend} up={!aiResolutionTrend.startsWith('-')} />
-                      <StatCard loading={loading} title="Faturamento (MRR)" value={`R$ ${totalMrr.toLocaleString('pt-BR')}`} icon={<DollarSign className="text-green-600" />} trend={mrrTrend} up={!mrrTrend.startsWith('-')} />
+                      <StatCard loading={loading} title="Ticket Médio" value={`R$ ${avgTicket.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<DollarSign className="text-emerald-500" />} trend="" up />
+                      <StatCard loading={loading} title="Faturamento (MRR)" value={`R$ ${totalMrr.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<DollarSign className="text-green-600" />} trend={mrrTrend} up={!mrrTrend.startsWith('-')} />
                       <StatCard loading={loading} title="Clientes Ativos" value={activeCustomersCount.toString()} icon={<Users className="text-blue-600" />} trend={customersTrend} up />
+                      <StatCard loading={loading} title="Resolução IA" value={`${aiResolutionRate.toFixed(1)}%`} icon={<Bot className="text-purple-600" />} trend={aiResolutionTrend} up={!aiResolutionTrend.startsWith('-')} />
                     </>
                   ) : (
                     <>
@@ -415,30 +485,28 @@ export function DashboardPage() {
                     </div>
                   </CardHeader>
                   <CardContent className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={[
-                        { name: 'Seg', open: 12, resolved: 10 },
-                        { name: 'Ter', open: 18, resolved: 15 },
-                        { name: 'Qua', open: 15, resolved: 14 },
-                        { name: 'Qui', open: 22, resolved: 20 },
-                        { name: 'Sex', open: 30, resolved: 25 },
-                        { name: 'Sab', open: 10, resolved: 12 },
-                        { name: 'Dom', open: 5, resolved: 6 },
-                      ]}>
-                        <defs>
-                          <linearGradient id="colorOpen" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.1}/>
-                            <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
-                        <RechartsTooltip cursor={{ stroke: 'hsl(var(--primary))', strokeWidth: 1 }} contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', color: 'hsl(var(--foreground))', borderRadius: '12px' }} />
-                        <Area type="monotone" dataKey="open" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorOpen)" strokeWidth={2} />
-                        <Area type="monotone" dataKey="resolved" stroke="#10b981" fill="transparent" strokeWidth={2} strokeDasharray="5 5" />
-                      </AreaChart>
-                    </ResponsiveContainer>
+                        <ResponsiveContainer width="100%" height="100%">
+                          {volumeDeAtendimentosData.length > 0 ? (
+                            <AreaChart data={volumeDeAtendimentosData}>
+                              <defs>
+                                <linearGradient id="colorOpen" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.1}/>
+                                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
+                              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
+                              <RechartsTooltip cursor={{ stroke: 'hsl(var(--primary))', strokeWidth: 1 }} contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', color: 'hsl(var(--foreground))', borderRadius: '12px' }} />
+                              <Area type="monotone" dataKey="open" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorOpen)" strokeWidth={2} />
+                              <Area type="monotone" dataKey="resolved" stroke="#10b981" fill="transparent" strokeWidth={2} strokeDasharray="5 5" />
+                            </AreaChart>
+                          ) : (
+                            <div className="flex items-center justify-center h-full text-zinc-400 text-sm">
+                              Sem dados suficientes
+                            </div>
+                          )}
+                        </ResponsiveContainer>
                   </CardContent>
                 </Card>
 
@@ -504,25 +572,6 @@ export function DashboardPage() {
                       </div>
                     </div>
 
-                    <div className="pt-4 border-t dark:border-zinc-800">
-                      <p className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-3">Principais Motivos</p>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-[10px]">
-                          <span>Lentidão</span>
-                          <span className="font-bold">42%</span>
-                        </div>
-                        <div className="h-1 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-orange-500" style={{ width: '42%' }} />
-                        </div>
-                        <div className="flex justify-between text-[10px]">
-                          <span>Financeiro</span>
-                          <span className="font-bold">28%</span>
-                        </div>
-                        <div className="h-1 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-blue-500" style={{ width: '28%' }} />
-                        </div>
-                      </div>
-                    </div>
                   </CardContent>
                 </Card>
               </div>

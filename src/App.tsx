@@ -167,6 +167,7 @@ import {
   createTechnician,
   seedServiceOrdersAndTechnicians
 } from './lib/db';
+import { seedPopularAstrum, wipeSystemData } from './lib/seedAstrum';
 import { uploadAttachment } from './lib/storage';
 import { getAIResponse, AGENT_CATEGORIES, SYSTEM_PROMPTS, summarizeTicketHistory, getSmartReplies, generateKBArticleFromTickets } from './lib/gemini';
 import { AppLayout } from './components/layout/AppLayout';
@@ -215,7 +216,7 @@ export default function App() {
     customers, setCustomers, tickets, setTickets, invoices, setInvoices,
     serviceOrders, setServiceOrders, technicians, setTechnicians,
     integrationKeys, setIntegrationKeys, companySettings, setCompanySettings,
-    loading, setLoading
+    loading, setLoading, messages, setMessages
   } = useAppStore();
   const location = useLocation();
   const navigate = useNavigate();
@@ -229,13 +230,12 @@ export default function App() {
   const { selectedTicket, setSelectedTicket } = useAppStore();
   const [isSummarizingTicket, setIsSummarizingTicket] = useState(false);
   const [ticketSummary, setTicketSummary] = useState<string | null>(null);
-  const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [messageBuffer, setMessageBuffer] = useState<string[]>([]);
   const [isSavingKeys, setIsSavingKeys] = useState(false);
   const [evoQrCode, setEvoQrCode] = useState<string | null>(null);
-  const [evoStatus, setEvoStatus] = useState<string>("disconnected");
+  const [evoStatus, setEvoStatus] = useState<string>("checking");
   const [isFetchingQr, setIsFetchingQr] = useState(false);
 
   const [newTechPhone, setNewTechPhone] = useState('');
@@ -288,6 +288,191 @@ export default function App() {
     }
   };
 
+  const configureEvolutionWebhook = async () => {
+    if (!integrationKeys.evolutionUrl || !integrationKeys.evolutionInstance || !integrationKeys.evolutionApiKey) {
+      toast.error("Preencha a URL, Instância e Global API Key primeiro para configurar o webhook.");
+      return;
+    }
+    
+    let webhookUrl = `${window.location.origin}/api/webhook/evolution`;
+    try {
+      const sysRes = await fetch('/api/system/webhook-url');
+      if (sysRes.ok) {
+         const sysData = await sysRes.json();
+         if (sysData.webhookUrl) {
+            webhookUrl = sysData.webhookUrl;
+         }
+      }
+    } catch(err) {
+      console.error("Could not fetch proxy webhook url, using fallback", err);
+    }
+    
+    setIsFetchingQr(true); 
+    try {
+      const payloads = [
+        {
+          // Evolution V2 / set global
+          path: `/webhook/set/${integrationKeys.evolutionInstance}`,
+          body: {
+            webhook: {
+              enabled: true,
+              url: webhookUrl,
+              byEvents: false,
+              base64: false,
+              events: [
+                "MESSAGES_UPSERT",
+                "SEND_MESSAGE"
+              ]
+            }
+          }
+        },
+        {
+          // Evolution V1 / set with camelCase
+          path: `/webhook/set/${integrationKeys.evolutionInstance}`,
+          body: {
+            enabled: true,
+            url: webhookUrl,
+            webhookByEvents: false,
+            events: [
+              "MESSAGES_UPSERT",
+              "SEND_MESSAGE"
+            ]
+          }
+        },
+        {
+          // Evolution V1 / set with snake_case
+          path: `/webhook/set/${integrationKeys.evolutionInstance}`,
+          body: {
+            enabled: true,
+            url: webhookUrl,
+            webhook_by_events: false,
+            webhook_base64: false,
+            events: [
+              "MESSAGES_UPSERT",
+              "SEND_MESSAGE"
+            ]
+          }
+        },
+        {
+          // Evolution V1 / instance (old version some people use)
+          path: `/webhook/instance/${integrationKeys.evolutionInstance}`,
+          body: {
+            webhook: {
+              enabled: true,
+              url: webhookUrl,
+              byEvents: false,
+              base64: false,
+              events: [
+                "MESSAGES_UPSERT",
+                "SEND_MESSAGE"
+              ]
+            }
+          }
+        }
+      ];
+
+      let success = false;
+      let lastData = null;
+
+      for (const p of payloads) {
+        console.log(`Tentando payload ${p.path}...`);
+        const res = await fetch(`/api/evolution/proxy`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            path: p.path,
+            method: 'POST',
+            evolutionUrl: integrationKeys.evolutionUrl,
+            evolutionApiKey: integrationKeys.evolutionApiKey,
+            body: p.body
+          })
+        });
+
+        const data = await res.json();
+        lastData = data;
+        
+        if (res.ok && !data.error && (!data.response || !data.response.message || !Array.isArray(data.response.message) || data.response.message.length === 0 || typeof data.response.message === 'string')) {
+          success = true;
+          break;
+        }
+      }
+
+      if (success) {
+        toast.success("Webhook configurado com sucesso na Evolution API!");
+      } else {
+        console.error("Falha ao configurar Webhook:", lastData);
+        toast.error(`Falha ao configurar Webhook: ${lastData?.response?.message || lastData?.error || lastData?.message || 'Erro de formato esperado no payload'}`);
+      }
+    } catch (error) {
+      console.error("Evolution Webhook Error:", error);
+      toast.error("Erro ao configurar Webhook da Evolution.");
+    } finally {
+      setIsFetchingQr(false);
+    }
+  };
+
+  const checkEvolutionConnection = async () => {
+    if (!integrationKeys.evolutionUrl || !integrationKeys.evolutionApiKey || !integrationKeys.evolutionInstance) {
+      setEvoStatus("disconnected");
+      return;
+    }
+    
+    try {
+      const stateRes = await fetch(`/api/evolution/proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          path: `/instance/connectionState/${integrationKeys.evolutionInstance}`,
+          method: 'GET',
+          evolutionUrl: integrationKeys.evolutionUrl,
+          evolutionApiKey: integrationKeys.evolutionApiKey
+        })
+      });
+      const stateData = await stateRes.json();
+      
+      if (stateData?.instance?.state === 'open') {
+        setEvoStatus("connected");
+      } else {
+        setEvoStatus("disconnected");
+      }
+    } catch (e) {
+      console.error("Erro ao checar Evolution", e);
+      setEvoStatus("disconnected");
+    }
+  };
+
+  useEffect(() => {
+    // wait a bit for DB keys to load
+    setTimeout(checkEvolutionConnection, 2000);
+  }, [integrationKeys.evolutionInstance]);
+
+  const disconnectEvolutionInstance = async () => {
+    if (!integrationKeys.evolutionUrl || !integrationKeys.evolutionInstance || !integrationKeys.evolutionApiKey) {
+      return;
+    }
+    try {
+      if (!window.confirm("Deseja realmente desconectar o WhatsApp desta instância?")) return;
+      setIsFetchingQr(true);
+      await fetch(`/api/evolution/proxy`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          path: `/instance/logout/${integrationKeys.evolutionInstance}`,
+          method: 'DELETE',
+          evolutionUrl: integrationKeys.evolutionUrl,
+          evolutionApiKey: integrationKeys.evolutionApiKey
+        })
+      });
+      setEvoStatus('disconnected');
+      setEvoQrCode(null);
+      toast.success("Instância desconectada com sucesso.");
+    } catch (e) {
+      toast.error("Erro ao desconectar instância.");
+    } finally {
+      setIsFetchingQr(false);
+    }
+  };
+
   const fetchEvolutionQrCode = async () => {
     if (!integrationKeys.evolutionUrl || !integrationKeys.evolutionInstance || !integrationKeys.evolutionApiKey) {
       toast.error("Preencha a URL, Instância e Global API Key primeiro.");
@@ -296,8 +481,15 @@ export default function App() {
     setIsFetchingQr(true);
     try {
       // 1. Check connection state
-      const stateRes = await fetch(`${integrationKeys.evolutionUrl}/instance/connectionState/${integrationKeys.evolutionInstance}`, {
-        headers: { 'apikey': integrationKeys.evolutionApiKey }
+      const stateRes = await fetch(`/api/evolution/proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          path: `/instance/connectionState/${integrationKeys.evolutionInstance}`,
+          method: 'GET',
+          evolutionUrl: integrationKeys.evolutionUrl,
+          evolutionApiKey: integrationKeys.evolutionApiKey
+        })
       });
       const stateData = await stateRes.json();
       
@@ -308,8 +500,15 @@ export default function App() {
       } else {
         setEvoStatus("disconnected");
         // 2. Fetch QR Code
-        const qrRes = await fetch(`${integrationKeys.evolutionUrl}/instance/connect/${integrationKeys.evolutionInstance}`, {
-          headers: { 'apikey': integrationKeys.evolutionApiKey }
+        const qrRes = await fetch(`/api/evolution/proxy`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            path: `/instance/connect/${integrationKeys.evolutionInstance}`,
+            method: 'GET',
+            evolutionUrl: integrationKeys.evolutionUrl,
+            evolutionApiKey: integrationKeys.evolutionApiKey
+          })
         });
         const qrData = await qrRes.json();
         if (qrData?.base64) {
@@ -352,8 +551,7 @@ export default function App() {
   const [newCustomer, setNewCustomer] = useState<any>({ name: '', email: '', phone: '', address: '', plan: '', mrr: 0, status: 'active', tags: [] });
   const [newTagInput, setNewTagInput] = useState('');
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const { selectedCustomerDetails, setSelectedCustomerDetails } = useAppStore();
-  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const { selectedCustomerDetails, setSelectedCustomerDetails, isDetailsDialogOpen, setIsDetailsDialogOpen } = useAppStore();
   const [ctos, setCtos] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [isTeamMemberDialogOpen, setIsTeamMemberDialogOpen] = useState(false);
@@ -1153,6 +1351,41 @@ export default function App() {
       toast.success("Sistema populado com 100 clientes, estoque, OS e dados de teste!");
     } catch (error) {
       toast.error("Erro ao popular sistema.");
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
+  const handleSeedPopularAstrum = async () => {
+    setIsSeeding(true);
+    let currentToastId: string | number | undefined;
+    try {
+      currentToastId = toast.loading("Iniciando Popular Astrum...");
+      await seedPopularAstrum((msg: string) => {
+        toast.loading(msg, { id: currentToastId });
+      });
+      toast.success("Astrum populado com 30 dias de operação (1500 clientes) e histórico!", { id: currentToastId });
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao popular o Astrum.", { id: currentToastId });
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
+  const handleWipeSystem = async () => {
+    if (!window.confirm("Você tem certeza? ISSO APAGARÁ TODOS OS DADOS (Clientes, Tickets, etc).")) return;
+    setIsSeeding(true);
+    let currentToastId: string | number | undefined;
+    try {
+      currentToastId = toast.loading("Iniciando Limpeza Total...");
+      await wipeSystemData((msg: string) => {
+        toast.loading(msg, { id: currentToastId });
+      });
+      toast.success("Sistema resetado para VAZIO!", { id: currentToastId });
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao apagar os dados.", { id: currentToastId });
     } finally {
       setIsSeeding(false);
     }
@@ -2109,10 +2342,14 @@ return (
       companySettings={companySettings}
       setCompanySettings={setCompanySettings}
       handleSeedSystem={handleSeedSystem}
+      handleSeedPopularAstrum={handleSeedPopularAstrum}
+      handleWipeSystem={handleWipeSystem}
       customers={customers}
       handleSeedKB={handleSeedKB}
       evoStatus={evoStatus}
       fetchEvolutionQrCode={fetchEvolutionQrCode}
+      disconnectEvolutionInstance={disconnectEvolutionInstance}
+      configureEvolutionWebhook={configureEvolutionWebhook}
       isFetchingQr={isFetchingQr}
       evoQrCode={evoQrCode}
       setIsAddingTech={setIsAddingTech}
@@ -3813,8 +4050,12 @@ return (
                       try {
                          const tx = messages.slice(-50).map(m => `[${m.senderType}]: ${m.text}`).join("\n");
                          const articles = await generateKBArticleFromTickets(tx);
-                         setMiningResult(articles);
-                         toast.success("Logs minerados com sucesso!");
+                         if (articles) {
+                            setMiningResult(Array.isArray(articles) ? articles : [articles]);
+                            toast.success("Logs minerados com sucesso!");
+                         } else {
+                            toast.error("Nenhum padrão encontrado para artigo.");
+                         }
                       } catch(e) {
                          toast.error("Erro ao minerar logs");
                       } finally {

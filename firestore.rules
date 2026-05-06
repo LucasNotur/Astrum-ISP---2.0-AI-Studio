@@ -48,7 +48,7 @@ service cloud.firestore {
     // Validation Functions
     function isValidCustomer(data) {
       return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
-             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$") &&
+             data.email is string && (data.email == '' || data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")) &&
              data.status in ['active', 'inactive', 'pending'] &&
              data.mrr is number && data.mrr >= 0 &&
              (!('createdAt' in data) || data.createdAt is timestamp);
@@ -60,6 +60,7 @@ service cloud.firestore {
              data.status in ['open', 'in-progress', 'resolved', 'escalated'] &&
              data.priority in ['low', 'medium', 'high', 'urgent'] &&
              (!('aiEnabled' in data) || data.aiEnabled is bool) &&
+             (!('aiHandled' in data) || data.aiHandled is bool) &&
              (!('aiAttempts' in data) || data.aiAttempts is number) &&
              (!('createdAt' in data) || data.createdAt is timestamp);
     }
@@ -75,6 +76,7 @@ service cloud.firestore {
     function isValidAuditLog(data) {
       return data.action is string &&
              (!('details' in data) || data.details is map) &&
+             (!('metadata' in data) || data.metadata is map) &&
              (!('user' in data) || data.user is string) &&
              (!('timestamp' in data) || data.timestamp is timestamp);
     }
@@ -89,12 +91,13 @@ service cloud.firestore {
 
     function isValidMessage(data) {
       return data.ticketId is string &&
-             data.senderType in ['customer', 'ai', 'human'] &&
-             data.text is string && data.text.size() > 0 && data.text.size() < 5000 &&
+             data.senderType in ['customer', 'ai', 'human', 'system'] &&
+             data.text is string && data.text.size() >= 0 && data.text.size() < 5000 &&
              (!('category' in data) || data.category == null || data.category is string) &&
              (!('senderId' in data) || data.senderId is string) &&
+             (!('status' in data) || data.status is string) &&
              (!('attachment' in data) || data.attachment == null || data.attachment is map) &&
-             (!('createdAt' in data) || data.createdAt is timestamp);
+             (!('createdAt' in data) || data.createdAt is timestamp || data.createdAt == null);
     }
 
     function isValidBillingInvoice(data) {
@@ -169,7 +172,7 @@ service cloud.firestore {
       allow read: if isSupport();
       // Protect createdAt from being modified
       allow create, update: if isOwner() && isValidCustomer(request.resource.data) && 
-        (!('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt);
+        (resource == null || !('createdAt' in resource.data) || request.resource.data.createdAt == resource.data.createdAt);
       allow delete: if isAstrum();
     }
 
@@ -207,6 +210,22 @@ service cloud.firestore {
       allow read: if isAstrum();
       allow create: if isAuthenticated() && isValidAuditLog(request.resource.data);
     }
+
+    function isValidAIUsage(data) {
+      return data.ticketId is string &&
+             data.customerId is string &&
+             data.category is string &&
+             data.promptTokens is number &&
+             data.completionTokens is number &&
+             data.totalTokens is number &&
+             (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
+    match /ai_usage/{logId} {
+      allow read: if isOwner();
+      allow create: if isAuthenticated() && isValidAIUsage(request.resource.data);
+    }
+
 
     match /notifications/{notificationId} {
       allow read: if isOwner();

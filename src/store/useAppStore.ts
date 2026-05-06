@@ -69,6 +69,8 @@ interface AppState {
   isTicketDetailOpen: boolean;
   setIsTicketDetailOpen: (open: boolean) => void;
 
+  isDetailsDialogOpen: boolean;
+  setIsDetailsDialogOpen: (isDetailsDialogOpen: boolean) => void;
   selectedCustomerDetails: any;
   setSelectedCustomerDetails: (customer: any) => void;
   confirmDialog: { isOpen: boolean; title: string; message: string; onConfirm: () => void; };
@@ -173,7 +175,9 @@ export const useAppStore = create<AppState>((set) => ({
   setIsTicketDetailOpen: (isTicketDetailOpen) => set({ isTicketDetailOpen }),
   
   selectedCustomerDetails: null,
+  isDetailsDialogOpen: false,
   setSelectedCustomerDetails: (selectedCustomerDetails) => set({ selectedCustomerDetails }),
+  setIsDetailsDialogOpen: (isDetailsDialogOpen) => set({ isDetailsDialogOpen }),
   confirmDialog: { isOpen: false, title: '', message: '', onConfirm: () => {} },
   setConfirmDialog: (confirmDialog) => set({ confirmDialog }),
   isCreateInvoiceDialogOpen: false,

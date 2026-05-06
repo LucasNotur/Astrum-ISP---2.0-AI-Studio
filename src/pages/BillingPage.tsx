@@ -165,12 +165,12 @@ export function BillingPage() {
       animate={{ opacity: 1, x: 0 }}
       className="space-y-6"
     >
-      <header className="flex items-center justify-between">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Financeiro</h1>
           <p className="text-zinc-500 dark:text-zinc-400">Controle de faturas, MRR e inadimplência.</p>
         </div>
-        <Button className="gap-2" onClick={() => setIsCreateInvoiceDialogOpen?.(true)}>
+        <Button className="gap-2 shrink-0 self-start md:self-auto" onClick={() => setIsCreateInvoiceDialogOpen?.(true)}>
           <Plus size={18} /> Nova Fatura
         </Button>
       </header>
@@ -345,7 +345,8 @@ export function BillingPage() {
               <Button variant="ghost" size="sm" onClick={() => setSelectedInvoices([])}>Cancelar</Button>
             </div>
           )}
-          <Table>
+          <div className="overflow-x-auto w-full">
+            <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12 pl-6">
@@ -445,6 +446,7 @@ export function BillingPage() {
               )}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
     </motion.div>

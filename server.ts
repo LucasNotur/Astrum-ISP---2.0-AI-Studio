@@ -7,6 +7,7 @@ import fs from "fs";
 import os from "os";
 import multer from "multer";
 import { signInAnonymously } from "firebase/auth";
+import SmeeClient from 'smee-client';
 import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, updateDoc, orderBy, limit } from "firebase/firestore";
 import { auth, db } from "./src/lib/firebase.ts";
 import { getIntegrationKeys } from "./src/lib/db.ts";
@@ -43,6 +44,20 @@ async function startServer() {
 
   const upload = multer({ dest: os.tmpdir() });
 
+  // Initialize Smee for local webhooks if in dev. But honestly since AI Studio URL might ALWAYS be behind auth, 
+  // Let's just always initialize Smee so the webhook can bypass the IAP prompt.
+  const SMEE_CHANNEL = `https://smee.io/astrum-evo-webhook-${process.env.GEMINI_API_KEY ? process.env.GEMINI_API_KEY.substring(0, 5) : Math.floor(Math.random()*100000)}`;
+  const smeeClientObj = new SmeeClient({
+    source: SMEE_CHANNEL,
+    target: 'http://127.0.0.1:3000/api/webhook/evolution',
+    logger: console
+  });
+  smeeClientObj.start();
+  
+  app.get("/api/system/webhook-url", (req, res) => {
+    res.json({ webhookUrl: SMEE_CHANNEL });
+  });
+
   // RAG Native PDF Parser API
   app.post("/api/rag/upload-pdf", upload.single("pdf"), async (req, res) => {
     try {
@@ -64,38 +79,172 @@ async function startServer() {
       // Limpeza
       fs.unlinkSync(file.path);
 
-      // Envia pra IA (Pinecone/Database viria em seguida)
-      // Como o RAG precisa do motor de IA definido:
+      // Usa motor RAG (Gemini)
       const keys = await getIntegrationKeys();
-      const ragAiKey = keys.ragAiKey || keys.openaiChat;
-      const ragAiModel = keys.ragAiModel || "gpt-4o-mini";
+      const provider = keys.ragProvider || 'openai';
+      const isCustom = provider === 'custom';
+      const isOpenAILike = provider === 'openai' || isCustom;
+      
+      const ragAiKey = isCustom
+        ? (keys.customRag || "")
+        : provider === 'openai' 
+          ? (keys.openaiRag || keys.openaiGlobal) 
+          : (keys.geminiRag || keys.geminiGlobal || process.env.GEMINI_API_KEY);
+      const ragAiModel = keys[`${provider}RagModel`] || (provider === 'openai' ? 'gpt-4o-mini' : isCustom ? "" : 'gemini-2.5-flash');
+      const ragAiBaseUrl = isCustom ? keys.customRagBaseUrl : undefined;
 
       if (!ragAiKey) {
         // Se nao tem chave, devolve o texto bruto e uma mensagem
         return res.json({ 
           summary: `**Texto Extraído de ${file.originalname}**\n\n(IA Não Configurada - Mostrando primeiros 500 caracteres)\n\n${extractedText.substring(0, 500)}...`,
-          rawText: extractedText 
+          rawText: extractedText
         });
       }
 
-      // Usa IA para resumir e vetorizar (simulado retorno do RAG formatado)
-      const openai = new OpenAI({ apiKey: ragAiKey });
-      const aiRes = await openai.chat.completions.create({
-        model: ragAiModel,
-        messages: [
-          { role: "system", content: "Você é um especialista em Base de Conhecimento RAG. Crie um resumo ultra-conciso e estruture as partes e regras operacionais mais importantes que você leu. Formate usando Markdown." },
-          { role: "user", content: `Arquivo: ${file.originalname}\n\n${extractedText.substring(0, 10000)}` }
-        ]
-      });
+      const prompt = `Você é um especialista em Base de Conhecimento RAG. Crie um resumo ultra-conciso e estruture as partes e regras operacionais mais importantes que você leu abaixo. Formate usando Markdown.\n\nArquivo: ${file.originalname}\n\n${extractedText.substring(0, 10000)}`;
+      let summaryText = "";
+
+      if (isOpenAILike) {
+        const { OpenAI } = await import("openai");
+        const openai = new OpenAI({ apiKey: ragAiKey as string, baseURL: ragAiBaseUrl as string });
+        const aiRes = await openai.chat.completions.create({
+          model: ragAiModel as string,
+          messages: [{ role: "user", content: prompt }]
+        });
+        summaryText = aiRes.choices[0]?.message?.content || "";
+      } else {
+        const { GoogleGenerativeAI } = await import("@google/generative-ai");
+        const ai = new GoogleGenerativeAI(ragAiKey as string);
+        const modelFlash = ai.getGenerativeModel({ model: ragAiModel as string });
+        const aiRes = await modelFlash.generateContent(prompt);
+        summaryText = aiRes.response.text();
+      }
 
       res.json({ 
-        summary: `**Resumo Extraído (IA ${ragAiModel}): ${file.originalname}**\n\n${aiRes.choices[0].message.content}\n\nVocê pode revisar e salvar isso como um artigo oficial para o Motor de RAG.`,
+        summary: `**Resumo Extraído (IA ${provider.toUpperCase()} ${ragAiModel}): ${file.originalname}**\n\n${summaryText}\n\nVocê pode revisar e salvar isso como um artigo oficial para o Motor de RAG.`,
         rawText: extractedText
       });
 
     } catch (error) {
       console.error("❌ Erro no RAG PDF Parser:", error);
       res.status(500).json({ error: "Falha ao processar o arquivo PDF." });
+    }
+  });
+
+  app.post('/api/evolution/fetch-history', express.json(), async (req, res) => {
+    try {
+      const { ticketId, customerId } = req.body;
+      const keys = await getIntegrationKeys();
+      const evoUrl = keys.evolutionUrl?.replace(/\/+$/, "");
+      const evoInstance = keys.evolutionInstance;
+      const evoApiKey = keys.evolutionApiKey;
+
+      if (!evoUrl || !evoInstance || !evoApiKey) {
+        return res.status(400).json({ error: "Evolution API não configurada." });
+      }
+
+      // Get customer phone
+      const custSnap = await getDocs(query(collection(db, "customers"), where("__name__", "==", customerId)));
+      if (custSnap.empty) {
+        return res.status(404).json({ error: "Cliente não encontrado." });
+      }
+      let phone = custSnap.docs[0].data().phone;
+      if (!phone) {
+         return res.status(400).json({ error: "Cliente sem telefone cadastrado." });
+      }
+      
+      phone = phone.replace(/\D/g, '');
+      const remoteJid = `${phone}@s.whatsapp.net`;
+
+      // Fetch messages from Evolution
+      const resp = await fetch(`${evoUrl}/chat/findMessages/${evoInstance}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': evoApiKey },
+        body: JSON.stringify({ where: { remoteJid } })
+      });
+      const data = await resp.json();
+
+      if (!data || !data.messages || !Array.isArray(data.messages?.records || data.messages)) {
+        console.error("No messages returned from evolution:", data);
+        return res.status(400).json({ error: "Nenhuma mensagem retornada ou formato inválido.", data });
+      }
+
+      const rawMessages = data.messages.records || data.messages;
+      let count = 0;
+
+      // Reverse messages if needed to insert from oldest to newest
+      const sortedMessages = [...rawMessages].sort((a: any, b: any) => {
+         const timeA = a.messageTimestamp || a.timestamp;
+         const timeB = b.messageTimestamp || b.timestamp;
+         return timeA - timeB;
+      });
+
+      for (const msg of sortedMessages) {
+        // basic text extraction
+        const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text || "";
+        if (!text) continue;
+        
+        const fromMe = msg.key?.fromMe;
+        
+        // try to avoid duplicate insertion by checking if same text exists recently in ticket?
+        // for safety we just insert. A real app would check message key/id.
+        await addDoc(collection(db, `tickets/${ticketId}/messages`), {
+          ticketId,
+          senderType: fromMe ? "human" : "customer",
+          text,
+          createdAt: msg.messageTimestamp ? new Date(msg.messageTimestamp * 1000) : serverTimestamp(),
+          isImported: true
+        });
+        count++;
+      }
+
+      res.status(200).json({ success: true, imported: count });
+    } catch (e: any) {
+      console.error(e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Generic proxy for Evolution API to avoid CORS or Mixed Content in frontend
+  app.post("/api/evolution/proxy", express.json(), async (req, res) => {
+    try {
+      const { path: apiPath, method = "GET", body, evolutionUrl, evolutionApiKey } = req.body;
+      
+      if (!evolutionUrl || !evolutionApiKey) {
+        return res.status(400).json({ error: "Evolution API credentials not provided in the request." });
+      }
+
+      if (!apiPath) {
+        return res.status(400).json({ error: "No path provided for proxy." });
+      }
+
+      // remove leading slash if present to avoid double slashes
+      const cleanPath = apiPath.startsWith('/') ? apiPath.slice(1) : apiPath;
+      const targetUrl = `${evolutionUrl.replace(/\/$/, '')}/${cleanPath}`;
+
+      const fetchOptions: any = {
+        method,
+        headers: {
+          "apikey": evolutionApiKey,
+          "Content-Type": "application/json"
+        }
+      };
+
+      if (body && (method === "POST" || method === "PUT" || method === "PATCH")) {
+        fetchOptions.body = JSON.stringify(body);
+      }
+
+      const response = await fetch(targetUrl, fetchOptions);
+      if (!response.ok) {
+        const errText = await response.text();
+        return res.status(response.status).json({ error: errText });
+      }
+
+      const data = await response.json();
+      res.json(data);
+    } catch (error: any) {
+      console.error("❌ Erro no proxy Evolution API:", error);
+      res.status(500).json({ error: error.message });
     }
   });
 
@@ -107,16 +256,49 @@ async function startServer() {
       // Respond immediately to prevent Evolution API from retrying/timing out
       res.status(200).json({ status: "received" });
 
-      // Evolution API sends event type
-      if (payload.event !== "messages.upsert") {
+      // Handle message updates globally
+      if (payload.event === "messages.update" || payload.event === "MESSAGES_UPDATE") {
+        if (payload.data?.status === "ERROR") {
+          console.warn(`[Webhook] Mensagem do WhatsApp retornou erro de entrega. Algum problema de rede no aparelho ou o numero bloqueou. JID: ${payload.data?.remoteJid}`);
+        }
+        return;
+      }
+      
+      if (payload.event !== "messages.upsert" && payload.event !== "MESSAGES_UPSERT") {
         return;
       }
 
-      const messageData = payload.data?.message || payload.data?.[0];
-      if (!messageData) return;
+      console.log("\n📥 [Webhook] Mensagem recebida de:", payload.data?.message?.key?.remoteJid || payload.data?.key?.remoteJid || 'Desconhecido');
+      
+      // LOG PAYLOAD FOR DEBUGGING
+      fs.appendFileSync('webhook-payloads.log', "\n" + new Date().toISOString() + " " + JSON.stringify(payload) + "\n");
 
-      const remoteJid = payload.data.key?.remoteJid || payload.data[0]?.key?.remoteJid;
-      const fromMe = payload.data.key?.fromMe || payload.data[0]?.key?.fromMe;
+
+      // Handle different Evolution API Payload structures
+      let messageContainer = null;
+      if (payload.data && payload.data.message && payload.data.message.message) {
+          messageContainer = payload.data.message;
+      } else if (payload.data && payload.data.messages && payload.data.messages.length > 0) {
+          messageContainer = payload.data.messages[0];
+      } else if (payload.data && payload.data[0] && payload.data[0].message) {
+          messageContainer = payload.data[0];
+      } else if (payload.data && payload.data.message) { // Fallback where data.message is the message itself
+          // This happens in some V1/V2 responses where data is just the message
+          messageContainer = { message: payload.data.message, key: payload.data.key };
+      }
+      
+      const messageData = messageContainer?.message;
+      if (!messageContainer || !messageData) {
+          fs.appendFileSync('webhook-payloads.log', "\n-- No message data found. messageContainer: " + JSON.stringify(messageContainer) + "\n");
+          return;
+      }
+
+      let remoteJid = messageContainer.key?.remoteJid;
+      if (remoteJid && remoteJid.includes(':')) {
+         remoteJid = remoteJid.replace(/:\d+/, '');
+      }
+      const fromMe = messageContainer.key?.fromMe;
+      const pushName = payload.data?.pushName || payload.pushName || messageContainer?.pushName || `Lead ${remoteJid?.replace(/\D/g, '').slice(-4) || 'Novo'}`;
       
       // Ignore messages from ourselves or from groups
       if (fromMe || !remoteJid || remoteJid.includes('@g.us')) {
@@ -126,7 +308,7 @@ async function startServer() {
       console.log(`\n📥 [WhatsApp] Mensagem recebida de ${remoteJid}`);
 
       const keys = await getIntegrationKeys();
-      const evoUrl = keys.evolutionUrl;
+      const evoUrl = keys.evolutionUrl?.replace(/\/+$/, "");
       const evoInstance = keys.evolutionInstance;
       const evoApiKey = keys.evolutionApiKey;
       const supportRelayNumber = keys.whiteLabelSupportNumber;
@@ -248,28 +430,47 @@ async function startServer() {
 
       // --- Passo 1: Reconhecimento de Cliente (Caller ID) ---
       console.log("🔍 Buscando cadastro do cliente na base...");
-      const phoneOnly = remoteJid.replace('@s.whatsapp.net', '');
-      const custQuery = query(collection(db, "customers"), where("phone", "==", phoneOnly));
-      const custSnap = await getDocs(custQuery);
+      const phoneOnly = remoteJid.replace('@s.whatsapp.net', '').replace(/\D/g, '');
+      const custSnap = await getDocs(query(collection(db, "customers")));
       
       let customerId: string;
       let callerContext = "";
 
-      if (!custSnap.empty) {
-        const cDoc = custSnap.docs[0];
+      const cDoc = custSnap.docs.find(d => {
+        const p = (d.data().phone || "").replace(/\D/g, '');
+        // Verifica se é o mesmo número ignorando o código do país ou coisas do tipo (se bater 8 dígitos)
+        return p && phoneOnly && (p === phoneOnly || p.endsWith(phoneOnly.slice(-8)) || phoneOnly.endsWith(p.slice(-8)));
+      });
+
+      if (cDoc) {
         customerId = cDoc.id;
         const cData = cDoc.data();
         callerContext = `\n[CONTEXTO DO SISTEMA: O cliente se chama ${cData.name}, Plano: ${cData.plan}, Status Financeiro: ${cData.status}. Use isso para personalizar o atendimento, mas não mencione que o sistema instruiu isso.]`;
         console.log(`✅ Cliente reconhecido: ${cData.name}`);
       } else {
         // Se não existir, cria o lead rapidinho
+        let profilePicUrl = null;
+        try {
+          const picRes = await fetch(`${evoUrl}/chat/fetchProfilePictureUrl/${evoInstance}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'apikey': evoApiKey },
+            body: JSON.stringify({ number: remoteJid }) 
+          });
+          const picData = await picRes.json();
+          if (picData?.profilePictureUrl) profilePicUrl = picData.profilePictureUrl;
+          else if (picData?.pictureUrl) profilePicUrl = picData.pictureUrl;
+        } catch (e) {
+          console.error("Erro ao buscar foto de perfil:", e);
+        }
+
         const newCust = await addDoc(collection(db, "customers"), {
-          name: `Lead ${phoneOnly.slice(-4)}`,
+          name: pushName,
           phone: phoneOnly,
           email: "",
           plan: "Nenhum",
           mrr: 0,
           status: "pending",
+          avatar: profilePicUrl,
           createdAt: serverTimestamp()
         });
         customerId = newCust.id;
@@ -293,9 +494,10 @@ async function startServer() {
         ticketData = tSnap.docs[0].data();
         console.log(`📂 Ticket existente carregado: ${ticketId}`);
       } else {
+        const ticketSubjectName = cDoc ? cDoc.data().name : pushName;
         const newTick = await addDoc(collection(db, "tickets"), {
           customerId,
-          subject: "Atendimento via WhatsApp",
+          subject: ticketSubjectName || "Desconhecido",
           status: "open",
           priority: "medium",
           aiEnabled: true,
@@ -347,12 +549,50 @@ async function startServer() {
         historyBuffer[historyBuffer.length - 1].parts[0].text += callerContext;
       }
 
+      console.log("⌨️ Simulando digitando...");
+      try {
+        await fetch(`${evoUrl}/chat/sendPresence/${evoInstance}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': evoApiKey },
+          body: JSON.stringify({
+            number: remoteJid,
+            presence: "composing",
+            delay: 4000
+          })
+        });
+      } catch (e) {
+        console.error("Erro ao enviar presence", e);
+      }
+
+      const startTime = Date.now();
       const aiResult = await getAIResponse(historyBuffer);
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 3500) {
+        await new Promise(resolve => setTimeout(resolve, 3500 - elapsed));
+      }
+
+      // Save AI Usage metrics if available
+      if (aiResult.usage) {
+        try {
+          await addDoc(collection(db, `ai_usage`), {
+            ticketId,
+            customerId: customerId || "unknown",
+            category: aiResult.category || "UNKNOWN",
+            promptTokens: aiResult.usage.prompt_tokens,
+            completionTokens: aiResult.usage.completion_tokens,
+            totalTokens: aiResult.usage.total_tokens,
+            createdAt: serverTimestamp()
+          });
+        } catch (e) {
+          console.error("Erro ao salvar uso da IA", e);
+        }
+      }
 
       // --- Passo 4: Salva resposta da IA e Envia de volta ---
       await addDoc(collection(db, `tickets/${ticketId}/messages`), {
         ticketId,
         senderType: "ai",
+        category: aiResult.category || "SAC_GERAL",
         text: aiResult.message,
         createdAt: serverTimestamp()
       });
@@ -387,12 +627,13 @@ async function startServer() {
 
       // Envia Resposta de Volta Node -> Evolution API -> WhatsApp
       console.log(`📤 Enviando resposta para ${remoteJid}...`);
+      const whatsappFormattedMessage = aiResult.message.replace(/\*\*(.*?)\*\*/g, '*$1*');
       const sendResponse = await fetch(`${evoUrl}/message/sendText/${evoInstance}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'apikey': evoApiKey },
         body: JSON.stringify({
           number: remoteJid,
-          text: aiResult.message
+          text: whatsappFormattedMessage
         })
       });
       

@@ -41,44 +41,107 @@ export function ServiceOrdersPage() {
   const pipelines = useMemo(() => {
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // 1. Novas Tarefas (Aguardando Agendamento/Despacho) - Sem data ou data pendente
-    const newTasks = serviceOrders.filter(os => 
-      os.status === 'pendente' && (!os.scheduledDate || os.scheduledDate === '')
-    );
-
-    // 2. Agendamentos (Futuros ou Sem Despacho - para dias seguintes)
+    // 1. Agendamentos (Futuros ou Sem Despacho - para dias seguintes)
     const scheduledOS = serviceOrders.filter(os => 
-      os.status === 'pendente' && os.scheduledDate && os.scheduledDate > todayStr
+      os.status === 'pendente' && (!os.scheduledDate || os.scheduledDate > todayStr)
     );
 
-    // 3. Tarefas de Hoje (Agendado para hoje ou em execução)
+    // 2. Tarefas de Hoje (Agendado para hoje ou em execução)
     const todayTasks = serviceOrders.filter(os => 
       os.status !== 'concluida' && (
-        (os.status === 'pendente' && os.scheduledDate === todayStr) ||
+        (os.status === 'pendente' && os.scheduledDate && os.scheduledDate <= todayStr) ||
         os.status === 'em_deslocamento' || 
         os.status === 'em_andamento'
       )
     );
 
-    // 4. Concluídas Recentes
+    // 3. Concluídas Recentes
     const completedOS = serviceOrders.filter(os => os.status === 'concluida').slice(0, 15);
 
     return [
-      { id: 'new_tasks', title: 'Novas Tarefas', desc: 'Triagem e Avaliação', data: newTasks },
-      { id: 'scheduled', title: 'Agendados', desc: 'Dias seguintes', data: scheduledOS },
+      { id: 'scheduled', title: 'Agendados', desc: 'Futuro e Sem data', data: scheduledOS },
       { id: 'today', title: 'Tarefas de Hoje', desc: 'Em campo / Deslocamento', data: todayTasks },
       { id: 'completed', title: 'Concluídas Recentes', desc: 'Registro da Semana', data: completedOS }
     ];
   }, [serviceOrders]);
 
+  const checkTechAvailability = (techName: string, date: string, time: string) => {
+    const proposedStart = new Date(`${date}T${time}:00`).getTime();
+    const TASK_DURATION_MS = 90 * 60 * 1000;
+    const proposedEnd = proposedStart + TASK_DURATION_MS;
+    
+    const workStart = new Date(`${date}T08:00:00`).getTime();
+    const workEnd = new Date(`${date}T18:00:00`).getTime();
+    const lunchStart = new Date(`${date}T12:00:00`).getTime();
+    const lunchEnd = new Date(`${date}T13:00:00`).getTime();
+
+    if (proposedStart < workStart || proposedEnd > workEnd) {
+        return { available: false, reason: "A tarefa (1h30m) excede o horário comercial (08:00 às 18:00)." };
+    }
+
+    if (proposedStart < lunchEnd && proposedEnd > lunchStart) {
+        return { available: false, reason: "A tarefa sobrepõe o horário de almoço (12:00 às 13:00)." };
+    }
+
+    const techOS = serviceOrders.filter(os => 
+        os.assignedTo === techName &&
+        os.scheduledDate === date &&
+        os.status !== 'concluida' &&
+        os.status !== 'cancelada'
+    );
+
+    for (const existingOS of techOS) {
+        if (existingOS.scheduledTime) {
+            const existingStart = new Date(`${date}T${existingOS.scheduledTime}:00`).getTime();
+            const existingEnd = existingStart + TASK_DURATION_MS;
+            
+            if (proposedStart < existingEnd && proposedEnd > existingStart) {
+                return { available: false, reason: `Conflito com outra O.S. agendada para ${existingOS.scheduledTime} (duração média 1h30m).` };
+            }
+        }
+    }
+
+    return { available: true, reason: "" };
+  };
+
   const handleCreateOSAndSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Schedule Validation
+    if (scheduleData.techId !== 'any') {
+       const selectedTech = technicians.find(t => t.id === scheduleData.techId);
+       if (selectedTech) {
+         const availability = checkTechAvailability(selectedTech.name, scheduleData.date, scheduleData.time);
+         if (!availability.available) {
+             toast.error(availability.reason);
+             return;
+         }
+       }
+    }
+
     setIsSubmitting(true);
     
     try {
-      const selectedTechName = scheduleData.techId !== 'any' 
-        ? technicians.find(t => t.id === scheduleData.techId)?.name 
-        : 'A Definir';
+      let selectedTechName = 'A Definir';
+      
+      if (scheduleData.techId !== 'any') {
+         selectedTechName = technicians.find(t => t.id === scheduleData.techId)?.name || 'A Definir';
+      } else {
+         // Auto-Assign Smart Logic
+         for (const t of technicians) {
+             const availability = checkTechAvailability(t.name, scheduleData.date, scheduleData.time);
+             if (availability.available) {
+                 selectedTechName = t.name;
+                 break;
+             }
+         }
+         
+         if (selectedTechName === 'A Definir') {
+             toast.error("Nenhum técnico disponível neste horário (conflito de agenda ou turno).");
+             setIsSubmitting(false);
+             return;
+         }
+      }
 
       await createServiceOrder({
         customerId: selectedCustomer?.id || 'S/N',
@@ -154,7 +217,24 @@ export function ServiceOrdersPage() {
          toast.error("Nenhum técnico online para receber a OS.");
          return;
        }
-       techName = availableTechs[0].name;
+
+       const dateToCheck = os.scheduledDate || new Date().toISOString().split('T')[0];
+       const timeToCheck = os.scheduledTime || `${new Date().getHours().toString().padStart(2, '0')}:00`;
+       
+       let foundTech = null;
+       for (const t of availableTechs) {
+           const avail = checkTechAvailability(t.name, dateToCheck, timeToCheck);
+           if (avail.available) {
+               foundTech = t.name;
+               break;
+           }
+       }
+       
+       if (!foundTech) {
+           toast.error("Técnicos online estão com conflito de agenda ou em horário de almoço.");
+           return;
+       }
+       techName = foundTech;
        await updateServiceOrder(os.id, {
          assignedTo: techName
        });
@@ -230,20 +310,25 @@ export function ServiceOrdersPage() {
     const loadingToast = toast.loading("Enviando notificação via Evolution API...");
 
     try {
-      const res = await fetch(`${integrationKeys.evolutionUrl}/message/sendText/${integrationKeys.evolutionInstance}`, {
+      const res = await fetch(`/api/evolution/proxy`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'apikey': integrationKeys.evolutionApiKey
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          number: customerPhone,
-          options: {
-            delay: 1200,
-            presence: "composing",
-          },
-          textMessage: {
-            text: msg
+          path: `/message/sendText/${integrationKeys.evolutionInstance}`,
+          method: 'POST',
+          evolutionUrl: integrationKeys.evolutionUrl,
+          evolutionApiKey: integrationKeys.evolutionApiKey,
+          body: {
+            number: customerPhone,
+            options: {
+              delay: 1200,
+              presence: "composing",
+            },
+            textMessage: {
+              text: msg
+            }
           }
         })
       });
@@ -273,31 +358,31 @@ export function ServiceOrdersPage() {
       exit={{ opacity: 0, x: -10 }}
       className="space-y-4 h-full flex flex-col"
     >
-      <header className="flex items-center justify-between shrink-0 mb-2">
+      <header className="flex flex-col md:flex-row md:items-center justify-between shrink-0 mb-2 gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight mb-1">Operações e Serviços em Campo</h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">Acompanhamento e despacho de instalações, manutenções e atividades em campo.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Button variant="outline" className="gap-2" onClick={() => setIsWhatsappDialogOpen(true)}>
             <Smartphone size={16} className="text-green-600" />
             <span className="hidden md:inline">Simulador WhatsApp Técnico</span>
           </Button>
-          <Button className="gap-2" onClick={() => { setSelectedCustomer(null); setIsScheduleDialogOpen(true); }}>
-            <Plus size={16} /> Nova O.S. / Agendamento
+          <Button className="gap-2 shrink-0 self-start md:self-auto" onClick={() => { setSelectedCustomer(null); setIsScheduleDialogOpen(true); }}>
+            <Plus size={16} /> Nova O.S.
           </Button>
         </div>
       </header>
 
       <Tabs defaultValue={currentUserRole === 'tecnico' ? "calendar" : "board"} className="flex flex-col flex-1 h-full overflow-hidden">
-        <TabsList className="w-fit mb-4">
-          <TabsTrigger value="board" className="gap-2">
+        <TabsList className="w-fit mb-4 flex overflow-x-auto min-h-[40px] px-1 pb-1">
+          <TabsTrigger value="board" className="gap-2 whitespace-nowrap">
             <Briefcase size={16} /> Quadro Geral (CRM)
           </TabsTrigger>
-          <TabsTrigger value="calendar" className="gap-2">
+          <TabsTrigger value="calendar" className="gap-2 whitespace-nowrap">
             <Calendar size={16} /> Minha Agenda (Técnicos)
           </TabsTrigger>
-          <TabsTrigger value="history" className="gap-2">
+          <TabsTrigger value="history" className="gap-2 whitespace-nowrap">
             <User size={16} /> Histórico dos Técnicos
           </TabsTrigger>
         </TabsList>

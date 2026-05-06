@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTheme } from 'next-themes';
-import { Sun, Moon, Bell, X, AlertTriangle, Clock, Info } from 'lucide-react';
+import { Sun, Moon, Bell, X, AlertTriangle, Clock, Info, Menu } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/src/components/ui/button';
 import { ScrollArea } from '@/src/components/ui/scroll-area';
@@ -10,17 +10,28 @@ import { cn } from '@/src/lib/utils';
 interface TopHeaderProps {
   clearNotifications: () => void;
   handleMarkNotificationRead: (id: string) => void;
+  onMenuClick?: () => void;
 }
 
-export function TopHeader({ clearNotifications, handleMarkNotificationRead }: TopHeaderProps) {
+export function TopHeader({ clearNotifications, handleMarkNotificationRead, onMenuClick }: TopHeaderProps) {
   const { theme, setTheme } = useTheme();
   const { notifications, isNotificationsOpen, setIsNotificationsOpen } = useAppStore();
 
   return (
-    <div className="flex items-center justify-end mb-8 gap-3">
-      <div className="hidden md:flex items-center gap-1 mr-2 px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 text-[10px] text-zinc-500 font-mono">
-        <kbd>Ctrl</kbd><span>+</span><kbd>K</kbd>
-      </div>
+    <div className="flex items-center justify-between md:justify-end shrink-0 px-4 py-4 md:px-8 md:py-6 border-b md:border-b-0 border-zinc-200 dark:border-zinc-800 bg-white/50 backdrop-blur-md md:bg-transparent z-40 sticky top-0 md:static">
+      <Button 
+        variant="ghost" 
+        size="icon" 
+        className="md:hidden  mr-auto h-9 w-9"
+        onClick={onMenuClick}
+      >
+        <Menu size={20} />
+      </Button>
+
+      <div className="flex items-center gap-3">
+        <div className="hidden md:flex items-center gap-1 mr-2 px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 text-[10px] text-zinc-500 font-mono">
+          <kbd>Ctrl</kbd><span>+</span><kbd>K</kbd>
+        </div>
 
       <Button 
         variant="ghost" 
@@ -100,6 +111,7 @@ export function TopHeader({ clearNotifications, handleMarkNotificationRead }: To
             </motion.div>
           )}
         </AnimatePresence>
+      </div>
       </div>
     </div>
   );

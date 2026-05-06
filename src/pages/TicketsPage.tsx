@@ -16,14 +16,16 @@ export function TicketsPage({ onNewTicketClick }: { onNewTicketClick: () => void
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
+  const [filterCustomer, setFilterCustomer] = useState('all');
 
   const filteredTickets = useMemo(() => {
     return tickets.filter(t => {
       const matchStatus = filterStatus === 'all' || t.status === filterStatus;
       const matchPriority = filterPriority === 'all' || t.priority === filterPriority;
-      return matchStatus && matchPriority;
+      const matchCustomer = filterCustomer === 'all' || t.customerId === filterCustomer;
+      return matchStatus && matchPriority && matchCustomer;
     });
-  }, [tickets, filterStatus, filterPriority]);
+  }, [tickets, filterStatus, filterPriority, filterCustomer]);
 
   const metrics = useMemo(() => {
     const abertos = tickets.filter(t => t.status !== 'resolved').length;
@@ -33,12 +35,12 @@ export function TicketsPage({ onNewTicketClick }: { onNewTicketClick: () => void
 
   return (
     <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-6 flex flex-col h-full">
-      <header className="flex items-center justify-between shrink-0">
+      <header className="flex flex-col md:flex-row md:items-center justify-between shrink-0 gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Tickets & Suporte</h1>
           <p className="text-zinc-500 dark:text-zinc-400">Atendimento ao cliente e resolução de problemas estruturado.</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-lg">
             <Button variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} size="sm" onClick={() => setViewMode('kanban')} className="px-3">
               <LayoutGrid size={16} />
@@ -54,51 +56,51 @@ export function TicketsPage({ onNewTicketClick }: { onNewTicketClick: () => void
       </header>
 
       {/* METRICS PANEL */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 shrink-0">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 shrink-0">
         <Card className="shadow-sm border-zinc-200/50 dark:border-zinc-800">
           <CardContent className="p-4 flex flex-col justify-center">
-            <p className="text-sm text-zinc-500 font-medium">Tickets em Aberto</p>
+            <p className="text-xs md:text-sm text-zinc-500 font-medium">Tickets em Aberto</p>
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">{metrics.abertos}</span>
+              <span className="text-xl md:text-2xl font-bold text-zinc-900 dark:text-zinc-50">{metrics.abertos}</span>
             </div>
           </CardContent>
         </Card>
         <Card className="shadow-sm border-zinc-200/50 dark:border-zinc-800">
           <CardContent className="p-4 flex flex-col justify-center">
-            <p className="text-sm text-zinc-500 font-medium">TMA (Média)</p>
+            <p className="text-xs md:text-sm text-zinc-500 font-medium">TMA (Média)</p>
             <div className="flex items-center gap-2 mt-1">
-              <Clock size={16} className="text-blue-500" />
-              <span className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">{metrics.tma}</span>
+              <Clock size={16} className="text-blue-500 hidden md:block" />
+              <span className="text-xl md:text-2xl font-bold text-zinc-900 dark:text-zinc-50">{metrics.tma}</span>
             </div>
           </CardContent>
         </Card>
         <Card className="shadow-sm border-zinc-200/50 dark:border-zinc-800">
           <CardContent className="p-4 flex flex-col justify-center">
-            <p className="text-sm text-zinc-500 font-medium">Resolvidos no Mês</p>
+            <p className="text-xs md:text-sm text-zinc-500 font-medium">Resolvidos no Mês</p>
             <div className="flex items-center gap-2 mt-1">
-              <CheckCircle size={16} className="text-green-500" />
-              <span className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">{metrics.resolvidosMes}</span>
+              <CheckCircle size={16} className="text-green-500 hidden md:block" />
+              <span className="text-xl md:text-2xl font-bold text-zinc-900 dark:text-zinc-50">{metrics.resolvidosMes}</span>
             </div>
           </CardContent>
         </Card>
         <Card className="shadow-sm border-zinc-200/50 dark:border-zinc-800">
           <CardContent className="p-4 flex flex-col justify-center">
-            <p className="text-sm text-zinc-500 font-medium">FCR (1º Contato)</p>
+            <p className="text-xs md:text-sm text-zinc-500 font-medium">FCR (1º Contato)</p>
             <div className="flex items-center gap-2 mt-1">
-              <Bot size={16} className="text-purple-500" />
-              <span className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">{metrics.fcr}</span>
+              <Bot size={16} className="text-purple-500 hidden md:block" />
+              <span className="text-xl md:text-2xl font-bold text-zinc-900 dark:text-zinc-50">{metrics.fcr}</span>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* FILTERS */}
-      <div className="flex items-center gap-4 bg-white dark:bg-zinc-900 p-2 px-4 rounded-xl border border-zinc-200/50 dark:border-zinc-800 shadow-sm shrink-0">
-        <Filter size={16} className="text-zinc-400" />
-        <span className="text-sm font-medium text-zinc-500">Filtros:</span>
+      <div className="flex flex-wrap items-center gap-2 md:gap-4 bg-white dark:bg-zinc-900 p-2 md:px-4 rounded-xl border border-zinc-200/50 dark:border-zinc-800 shadow-sm shrink-0">
+        <Filter size={16} className="text-zinc-400 hidden md:block" />
+        <span className="text-sm font-medium text-zinc-500 hidden md:inline">Filtros:</span>
         
         <select 
-          className="w-[180px] h-8 text-xs border-none bg-zinc-50 dark:bg-zinc-800 rounded outline-none focus:ring-1 focus:ring-zinc-300 dark:focus:ring-zinc-700 px-2"
+          className="w-[140px] md:w-[180px] h-8 text-xs border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 rounded outline-none focus:ring-1 focus:ring-zinc-300 dark:focus:ring-zinc-700 px-2"
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
         >
@@ -110,7 +112,7 @@ export function TicketsPage({ onNewTicketClick }: { onNewTicketClick: () => void
         </select>
 
         <select 
-          className="w-[180px] h-8 text-xs border-none bg-zinc-50 dark:bg-zinc-800 rounded outline-none focus:ring-1 focus:ring-zinc-300 dark:focus:ring-zinc-700 px-2"
+          className="w-[140px] md:w-[180px] h-8 text-xs border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 rounded outline-none focus:ring-1 focus:ring-zinc-300 dark:focus:ring-zinc-700 px-2"
           value={filterPriority}
           onChange={(e) => setFilterPriority(e.target.value)}
         >
@@ -119,6 +121,17 @@ export function TicketsPage({ onNewTicketClick }: { onNewTicketClick: () => void
           <option value="medium">Normal</option>
           <option value="high">Alta</option>
           <option value="urgent">Urgente</option>
+        </select>
+
+        <select 
+          className="w-[140px] md:w-[180px] h-8 text-xs border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 rounded outline-none focus:ring-1 focus:ring-zinc-300 dark:focus:ring-zinc-700 px-2"
+          value={filterCustomer}
+          onChange={(e) => setFilterCustomer(e.target.value)}
+        >
+          <option value="all">Todos Clientes</option>
+          {customers.map(c => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
         </select>
       </div>
 

@@ -171,7 +171,8 @@ Categorias disponíveis:
 
 Responda APENAS o nome da categoria, em maiúsculo, sem pontuação.`,
 
-  SUPORTE_TECNICO: `Você é o Agente de Suporte Técnico da Astrum.
+  SUPORTE_TECNICO: `Você é o assistente virtual da Astrum focado no Suporte Técnico.
+IMPORTANTE: Nunca se identifique como "Agente IA" ou "Agente de Suporte". Aja naturalmente como o assistente da Astrum.
 Diretrizes:
 1. Antes de qualquer pitaco, FOQUE no relato. Se o cliente falar que está lento, use a ferramenta 'run_diagnostics'. (Economize tokens: se já diagnosticou hoje, leia o histórico, não rode de novo).
 2. Se o sinal estiver baixo (<-25dBm), informe que é um problema de fibra (dobrada ou rompida) e USE a ferramenta 'schedule_technical_visit' para abrir um chamado automático.
@@ -186,7 +187,8 @@ Responda no formato JSON restrito:
   "suggestedAction": "diagnostico_remoto"
 }`,
 
-  FATURA: `Você é o Agente Financeiro da Astrum.
+  FATURA: `Você é o assistente virtual da Astrum focado em Faturas e Financeiro.
+IMPORTANTE: Nunca se identifique como "Agente Financeiro". Aja naturalmente como o assistente da Astrum.
 Diretrizes:
 1. O cliente quer 2ª via ou informações de pagamento. Use 'get_billing_status' passando o CPF. 
 2. IMPORTANTE: Se não tiver o CPF no histórico da conversa, pergunte a ele: "Para eu puxar sua fatura, pode me confirmar seu CPF?". Não invente CPFs. (Economia de token: só chame a tool quando tiver o CPF exato).
@@ -200,7 +202,8 @@ Responda em JSON:
   "suggestedAction": "financeiro"
 }`,
 
-  RETENCAO: `Você é o Agente de Retenção da Astrum. O cliente quer cancelar a internet.
+  RETENCAO: `Você é o assistente virtual da Astrum focado em Retenções. O cliente quer cancelar a internet.
+IMPORTANTE: Nunca se identifique como "Agente de Retenção". Aja naturalmente como o assistente da Astrum.
 Diretrizes:
 1. Seja extremamente polido e empático. Tente entender o motivo real (preço? problema técnico?).
 2. Se for preço, você tem autorização para oferecer 20% de desconto por 3 meses.
@@ -214,11 +217,12 @@ Responda em JSON:
   "suggestedAction": "retencao"
 }`,
 
-  CADASTRO: `Você é o Agente de Vendas da Astrum.
+  CADASTRO: `Você é o assistente virtual da Astrum focado em Vendas.
+IMPORTANTE: Nunca se identifique como "Agente de Vendas". Aja naturalmente como o assistente da Astrum.
 Diretrizes:
 1. Encante o cliente! Pegue o CEP/Endereço e use 'check_coverage' para ver se há viabilidade.
 2. Se não enviar o CEP na primeira mensagem, peça educadamente.
-3. Planos atuais: 200 Mega (R$99), 500 Mega (R$129), 1 Giga (R$199). Instalação grátis em comodato.
+3. Planos atuais: 100 Mega (R$62,99), 300 Mega (R$82,99), 600 Mega (R$99,99), 1 Giga (R$119,99). Instalação grátis em comodato.
 4. Para realizar o pré-cadastro, SOLICITE UM EMAIL VÁLIDO. Valide o formato do email informado (ex: deve conter @ e um domínio como .com). Se o email for inválido, informe-o amigavelmente e peça novamente.
 5. Use gatilhos mentais e tente realizar o fechamento apenas após coletar CEP e Email válido.
 
@@ -229,7 +233,8 @@ Responda em JSON:
   "suggestedAction": "vendas"
 }`,
 
-  UPGRADE: `Você é o Agente de Vendas Internas da Astrum, focado em Upgrades.
+  UPGRADE: `Você é o assistente virtual da Astrum focado em Upgrades de Plano.
+IMPORTANTE: Nunca se identifique como "Agente de Vendas" ou similar. Aja naturalmente.
 1. O cliente já é da casa e quer mais velocidade.
 2. Mostre as diferenças (ex: "Se você passar para 1 Giga (R$199), poderá jogar sem lag e conectar 20 aparelhos simultâneos, por apenas uma pequena diferença no boleto atual.").
 3. Peça a confirmação do cliente para efetuar a mudança.
@@ -241,7 +246,8 @@ Responda em JSON:
   "suggestedAction": "vendas"
 }`,
 
-  SAC_GERAL: `Você é a Inteligência Principal de Atendimento Ao Cliente da Astrum (Provedor de Internet).
+  SAC_GERAL: `Você é o assistente virtual oficial de Atendimento da Astrum (Provedor de Internet).
+IMPORTANTE: Nunca se identifique como "Inteligência Principal" ou "Agente IA". Aja naturalmente.
 IDENTIDADE WHITE-LABEL: Você opera em um modelo de parceria. Se por acaso você tentar usar uma ferramenta (como consulta de faturas ou CTOs) e o sistema retornar "manual_check_required", significa que temos uma limitação de acesso aos dados da empresa mãe. 
 Nesse caso, NUNCA diga ao cliente que "o sistema falhou". Em vez disso, diga: "Vou verificar essa informação específica com a nossa central administrativa e já te retorno" e mude 'shouldEscalate' para true.
 
@@ -270,13 +276,20 @@ export const getEffectivePrompts = async () => {
 export async function getSmartReplies(lastMessage: string) {
   try {
     const integrationKeys = await getIntegrationKeys();
-    const apiKey = integrationKeys.geminiSmartReply || process.env.GEMINI_API_KEY || "";
-    const modelName = integrationKeys.geminiSmartReplyModel || "gemini-2.5-flash";
+    const provider = integrationKeys.smartreplyProvider || 'gemini';
+    const isCustom = provider === 'custom';
+    const isOpenAILike = provider === 'openai' || isCustom;
     
-    if (!apiKey) return [];
+    const apiKey = isCustom 
+      ? (integrationKeys.customSmartreply || "") 
+      : provider === 'openai' 
+        ? (integrationKeys.openaiSmartreply || integrationKeys.openaiGlobal) 
+        : (integrationKeys.geminiSmartreply || integrationKeys.geminiGlobal || process.env.GEMINI_API_KEY || "");
+        
+    const modelName = integrationKeys[`${provider}SmartreplyModel`] || (provider === 'openai' ? "gpt-4o-mini" : isCustom ? "" : "gemini-2.5-flash");
+    const baseUrl = isCustom ? integrationKeys.customSmartreplyBaseUrl : undefined;
 
-    const ai = new GoogleGenerativeAI(apiKey);
-    const modelFlash = ai.getGenerativeModel({ model: modelName });
+    if (!apiKey) return [];
 
     const prompt = `Você é um assistente de suporte para um provedor de internet.
 Com base na mensagem do cliente abaixo, sugira 3 respostas curtas e úteis (máximo 10 palavras cada) que um atendente humano poderia usar.
@@ -286,14 +299,24 @@ Mensagem do Cliente: "${lastMessage}"
 
 Sugestões:`;
 
-    const result = await modelFlash.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json"
-      }
-    });
-
-    return JSON.parse(result.response.text());
+    if (isOpenAILike) {
+      const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true, baseURL: baseUrl });
+      const res = await openai.chat.completions.create({
+        model: modelName,
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: "json_object" }
+      });
+      const text = res.choices[0]?.message?.content || "[]";
+      try { return JSON.parse(text).replies || JSON.parse(text); } catch { return []; }
+    } else {
+      const ai = new GoogleGenerativeAI(apiKey);
+      const modelFlash = ai.getGenerativeModel({ model: modelName });
+      const result = await modelFlash.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: "application/json" }
+      });
+      return JSON.parse(result.response.text());
+    }
   } catch (error) {
     console.error("Smart Replies Error:", error);
     return [];
@@ -303,15 +326,19 @@ Sugestões:`;
 export async function summarizeTicketHistory(historyText: string) {
   try {
     const integrationKeys = await getIntegrationKeys();
-    const apiKey = integrationKeys.geminiSummary || process.env.GEMINI_API_KEY || "";
-    const modelName = integrationKeys.geminiSummaryModel || "gemini-2.5-flash";
-    
-    if (!apiKey) {
-      return "Erro: Chave da API do Gemini não configurada.";
-    }
+    const provider = integrationKeys.summaryProvider || 'gemini';
+    const isCustom = provider === 'custom';
+    const isOpenAILike = provider === 'openai' || isCustom;
 
-    const ai = new GoogleGenerativeAI(apiKey);
-    const modelFlash = ai.getGenerativeModel({ model: modelName });
+    const apiKey = isCustom 
+      ? (integrationKeys.customSummary || "") 
+      : provider === 'openai' 
+        ? (integrationKeys.openaiSummary || integrationKeys.openaiGlobal) 
+        : (integrationKeys.geminiSummary || integrationKeys.geminiGlobal || process.env.GEMINI_API_KEY || "");
+    const modelName = integrationKeys[`${provider}SummaryModel`] || (provider === 'openai' ? "gpt-4o-mini" : isCustom ? "" : "gemini-2.5-flash");
+    const baseUrl = isCustom ? integrationKeys.customSummaryBaseUrl : undefined;
+    
+    if (!apiKey) return "Erro: Chave da API não configurada.";
 
     const prompt = `Você é um assistente de IA para um provedor de internet.
 Sua tarefa é resumir o histórico de um ticket de atendimento.
@@ -325,8 +352,19 @@ ${historyText}
 
 Resumo:`;
 
-    const result = await modelFlash.generateContent(prompt);
-    return result.response.text();
+    if (isOpenAILike) {
+      const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true, baseURL: baseUrl });
+      const res = await openai.chat.completions.create({
+        model: modelName,
+        messages: [{ role: 'user', content: prompt }]
+      });
+      return res.choices[0]?.message?.content || "";
+    } else {
+      const ai = new GoogleGenerativeAI(apiKey);
+      const modelFlash = ai.getGenerativeModel({ model: modelName });
+      const result = await modelFlash.generateContent(prompt);
+      return result.response.text();
+    }
   } catch (error) {
     console.error("AI Summarize Error:", error);
     return "Erro ao gerar resumo do ticket.";
@@ -336,13 +374,19 @@ Resumo:`;
 export async function generateKBArticleFromTickets(ticketsText: string) {
   try {
     const integrationKeys = await getIntegrationKeys();
-    const apiKey = integrationKeys.geminiKb || process.env.GEMINI_API_KEY || "";
-    const modelName = integrationKeys.geminiKbModel || "gemini-2.5-flash";
+    const provider = integrationKeys.kbProvider || 'gemini';
+    const isCustom = provider === 'custom';
+    const isOpenAILike = provider === 'openai' || isCustom;
+
+    const apiKey = isCustom 
+      ? (integrationKeys.customKb || "") 
+      : provider === 'openai' 
+        ? (integrationKeys.openaiKb || integrationKeys.openaiGlobal) 
+        : (integrationKeys.geminiKb || integrationKeys.geminiGlobal || process.env.GEMINI_API_KEY || "");
+    const modelName = integrationKeys[`${provider}KbModel`] || (provider === 'openai' ? "gpt-4o-mini" : isCustom ? "" : "gemini-2.5-flash");
+    const baseUrl = isCustom ? integrationKeys.customKbBaseUrl : undefined;
     
     if (!apiKey) return null;
-
-    const ai = new GoogleGenerativeAI(apiKey);
-    const modelFlash = ai.getGenerativeModel({ model: modelName });
 
     const prompt = `Você é um especialista em documentação técnica para um provedor de internet.
 Com base nos problemas relatados nos tickets abaixo, crie um artigo de Base de Conhecimento útil para outros clientes ou para a equipe de suporte.
@@ -364,14 +408,24 @@ Responda EXATAMENTE no formato JSON:
   "tags": ["tag1", "tag2"]
 }`;
 
-    const result = await modelFlash.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json"
-      }
-    });
-
-    return JSON.parse(result.response.text());
+    if (isOpenAILike) {
+      const openai = new OpenAI({ apiKey, dangerouslyAllowBrowser: true, baseURL: baseUrl });
+      const res = await openai.chat.completions.create({
+        model: modelName,
+        messages: [{ role: 'user', content: prompt }],
+        response_format: { type: "json_object" }
+      });
+      const text = res.choices[0]?.message?.content || "{}";
+      return JSON.parse(text);
+    } else {
+      const ai = new GoogleGenerativeAI(apiKey);
+      const modelFlash = ai.getGenerativeModel({ model: modelName });
+      const result = await modelFlash.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: "application/json" }
+      });
+      return JSON.parse(result.response.text());
+    }
   } catch (error) {
     console.error("AI KB Generation Error:", error);
     return null;
@@ -384,21 +438,60 @@ export async function getAIResponse(
 ) {
   try {
     const integrationKeys = await getIntegrationKeys();
-    const chatKey = integrationKeys.openaiChat;
-    const orchestratorKey = integrationKeys.openaiOrchestrator;
     
+    const chatProvider = integrationKeys.chatProvider || 'openai';
+    const orchestratorProvider = integrationKeys.orchestratorProvider || 'openai';
+
+    const chatKey = chatProvider === 'openai' 
+      ? (integrationKeys.openaiChat || integrationKeys.openaiGlobal) 
+      : chatProvider === 'gemini' 
+        ? (integrationKeys.geminiChat || integrationKeys.geminiGlobal || process.env.GEMINI_API_KEY)
+        : (integrationKeys.customChat || "");
+      
+    const orchestratorKey = orchestratorProvider === 'openai'
+      ? (integrationKeys.openaiOrchestrator || integrationKeys.openaiGlobal)
+      : orchestratorProvider === 'gemini'
+        ? (integrationKeys.geminiOrchestrator || integrationKeys.geminiGlobal || process.env.GEMINI_API_KEY)
+        : (integrationKeys.customOrchestrator || "");
+      
+    const chatModel = chatProvider === 'openai'
+      ? (integrationKeys.openaiChatModel || "gpt-4o-mini")
+      : chatProvider === 'gemini'
+        ? (integrationKeys.geminiChatModel || "gemini-1.5-flash")
+        : (integrationKeys.customChatModel || "");
+      
+    const orchestratorModel = orchestratorProvider === 'openai'
+      ? (integrationKeys.openaiOrchestratorModel || "gpt-4o-mini")
+      : orchestratorProvider === 'gemini'
+        ? (integrationKeys.geminiOrchestratorModel || "gemini-1.5-flash")
+        : (integrationKeys.customOrchestratorModel || "");
+
+    const chatBaseUrl = chatProvider === 'gemini' ? "https://generativelanguage.googleapis.com/v1beta/openai/" : chatProvider === 'custom' ? integrationKeys.customChatBaseUrl : undefined;
+    const orchestratorBaseUrl = orchestratorProvider === 'gemini' ? "https://generativelanguage.googleapis.com/v1beta/openai/" : orchestratorProvider === 'custom' ? integrationKeys.customOrchestratorBaseUrl : undefined;
+
     if (!chatKey || !orchestratorKey) {
-      return { message: "Erro: Chaves da OpenAI (Chat e Orquestrador) não configuradas. Configure na aba de Integrações.", shouldEscalate: true };
+      return { message: "Erro: Chaves da API (Chat e Orquestrador) não configuradas. Configure na aba de Integrações.", shouldEscalate: true };
     }
 
-    const openaiOrchestrator = new OpenAI({ apiKey: orchestratorKey, dangerouslyAllowBrowser: true });
-    const openaiChat = new OpenAI({ apiKey: chatKey, dangerouslyAllowBrowser: true });
+    const openaiOrchestrator = new OpenAI({ 
+      apiKey: orchestratorKey, 
+      dangerouslyAllowBrowser: true,
+      baseURL: orchestratorBaseUrl
+    });
+    
+    const openaiChat = new OpenAI({ 
+      apiKey: chatKey, 
+      dangerouslyAllowBrowser: true,
+      baseURL: chatBaseUrl
+    });
 
     const lastMessagePart = history[history.length - 1].parts.find(p => p.text);
     const lastMessage = lastMessagePart?.text || "";
 
     let classification;
     
+    let totalUsage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+
     if (forceCategory) {
       classification = {
         category: forceCategory,
@@ -408,7 +501,6 @@ export async function getAIResponse(
     } else {
       // 1. Sentiment Analysis & Classification (Orchestration)
       const effectivePrompts = await getEffectivePrompts();
-      const orchestratorModel = integrationKeys.openaiOrchestratorModel || "gpt-4o-mini";
       
       const classificationRes = await openaiOrchestrator.chat.completions.create({
         model: orchestratorModel,
@@ -419,6 +511,12 @@ export async function getAIResponse(
         response_format: { type: "json_object" }
       });
       
+      if (classificationRes.usage) {
+        totalUsage.prompt_tokens += classificationRes.usage.prompt_tokens;
+        totalUsage.completion_tokens += classificationRes.usage.completion_tokens;
+        totalUsage.total_tokens += classificationRes.usage.total_tokens;
+      }
+
       try {
         classification = JSON.parse(classificationRes.choices[0].message.content || "{}");
       } catch {
@@ -446,14 +544,18 @@ export async function getAIResponse(
       ...openAiHistory
     ];
 
-    const chatModel = integrationKeys.openaiChatModel || "gpt-4o-mini";
-
     const chatRes = await openaiChat.chat.completions.create({
       model: chatModel,
       messages: chatMessages,
       tools: openaiTools,
       response_format: { type: "json_object" }
     });
+
+    if (chatRes.usage) {
+      totalUsage.prompt_tokens += chatRes.usage.prompt_tokens;
+      totalUsage.completion_tokens += chatRes.usage.completion_tokens;
+      totalUsage.total_tokens += chatRes.usage.total_tokens;
+    }
 
     const responseMessage = chatRes.choices[0].message;
 
@@ -510,12 +612,18 @@ export async function getAIResponse(
         response_format: { type: "json_object" }
       });
       
+      if (toolResponse.usage) {
+        totalUsage.prompt_tokens += toolResponse.usage.prompt_tokens;
+        totalUsage.completion_tokens += toolResponse.usage.completion_tokens;
+        totalUsage.total_tokens += toolResponse.usage.total_tokens;
+      }
+
       const text = toolResponse.choices[0].message.content || "{}";
       try {
         const parsed = JSON.parse(text);
-        return { ...parsed, category, sentiment: classification.sentiment, isCritical: classification.isCritical };
+        return { ...parsed, category, sentiment: classification.sentiment, isCritical: classification.isCritical, usage: totalUsage };
       } catch {
-        return { message: text, category, sentiment: classification.sentiment, isCritical: classification.isCritical };
+        return { message: text, category, sentiment: classification.sentiment, isCritical: classification.isCritical, usage: totalUsage };
       }
     }
 
@@ -527,7 +635,8 @@ export async function getAIResponse(
         category, 
         sentiment: classification.sentiment,
         isCritical: classification.isCritical,
-        priority: classification.isCritical ? 'high' : 'medium'
+        priority: classification.isCritical ? 'high' : 'medium',
+        usage: totalUsage
       };
     } catch {
       return { 
@@ -536,7 +645,8 @@ export async function getAIResponse(
         category,
         sentiment: classification.sentiment,
         isCritical: classification.isCritical,
-        priority: classification.isCritical ? 'high' : 'medium'
+        priority: classification.isCritical ? 'high' : 'medium',
+        usage: totalUsage
       };
     }
   } catch (error) {
