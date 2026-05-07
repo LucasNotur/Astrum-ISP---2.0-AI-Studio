@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/src/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/src/components/ui/avatar";
@@ -10,10 +10,11 @@ import { Button } from "@/src/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
-import { Save, Bug, Database, BellRing } from 'lucide-react';
+import { Save, Bug, Database, BellRing, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
-import { db } from '@/src/lib/firebase';
-import { collection, query, getDocs, orderBy, limit } from 'firebase/firestore';
+import { db, auth } from '@/src/lib/firebase';
+import { collection, query, getDocs, orderBy, limit, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
 
 export function SettingsPage({ 
   integrationKeys, 
@@ -59,9 +60,69 @@ export function SettingsPage({
 
   const [webhookUrlDisplay, setWebhookUrlDisplay] = useState(`${window.location.origin}/api/webhook/evolution`);
   const [aiUsageLogs, setAiUsageLogs] = useState<any[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loadingAiUsage, setLoadingAiUsage] = useState(false);
   const [activeTab, setActiveTab] = useState("general");
   
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Por favor, selecione um arquivo de imagem.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 200;
+        const MAX_HEIGHT = 200;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/png');
+        setCompanySettings(prev => ({ ...prev, logoUrl: dataUrl }));
+        toast.success('Logo processada com sucesso! Clique em "Salvar Alterações" para aplicar.');
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = () => {
+      toast.error('Erro ao ler a imagem.');
+    };
+    reader.readAsDataURL(file);
+  };
+  
+  const saveCompanySettings = async () => {
+    try {
+      toast.info('Salvando configurações...', { id: 'save-settings' });
+      // Clean object to ensure no functions are passed to setDoc
+      const cleanSettings = JSON.parse(JSON.stringify(companySettings));
+      await setDoc(doc(db, 'settings', 'company'), cleanSettings, { merge: true });
+      toast.success('Configurações salvas no banco de dados com sucesso!', { id: 'save-settings' });
+    } catch (error) {
+      console.error(error);
+      toast.error('Erro ao salvar as configurações.', { id: 'save-settings' });
+    }
+  };
+
   const fetchAiUsage = async () => {
     if (activeTab !== "ai_usage" || !isAstrum) return;
     setLoadingAiUsage(true);
@@ -100,10 +161,7 @@ export function SettingsPage({
               animate={{ opacity: 1, x: 0 }}
               className="space-y-6"
             >
-              <header>
-                <h1 className="text-3xl font-bold tracking-tight">Configurações</h1>
-                <p className="text-zinc-500 dark:text-zinc-400">Ajustes gerais da plataforma Astrum.</p>
-              </header>
+              
               
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="bg-zinc-100 dark:bg-zinc-800 p-1">
@@ -125,14 +183,14 @@ export function SettingsPage({
                           <div className="space-y-2">
                             <Label>Nome Fantasia</Label>
                             <Input 
-                              value={companySettings.name} 
+                              value={companySettings.name || ''} 
                               onChange={(e) => setCompanySettings(prev => ({ ...prev, name: e.target.value }))}
                             />
                           </div>
                           <div className="space-y-2">
                             <Label>E-mail de Suporte</Label>
                             <Input 
-                              value={companySettings.supportEmail} 
+                              value={companySettings.supportEmail || ''} 
                               onChange={(e) => setCompanySettings(prev => ({ ...prev, supportEmail: e.target.value }))}
                             />
                           </div>
@@ -141,14 +199,14 @@ export function SettingsPage({
                           <div className="space-y-2">
                             <Label>Telefone de Contato</Label>
                             <Input 
-                              value={companySettings.supportPhone} 
+                              value={companySettings.supportPhone || ''} 
                               onChange={(e) => setCompanySettings(prev => ({ ...prev, supportPhone: e.target.value }))}
                             />
                           </div>
                           <div className="space-y-2">
                             <Label>Horário de Atendimento</Label>
                             <Input 
-                              value={companySettings.workingHours} 
+                              value={companySettings.workingHours || ''} 
                               onChange={(e) => setCompanySettings(prev => ({ ...prev, workingHours: e.target.value }))}
                             />
                           </div>
@@ -205,8 +263,14 @@ export function SettingsPage({
                             </div>
                           </div>
                         )}
-                        <div className="pt-4">
-                          <Button className="w-full md:w-auto">Salvar Alterações</Button>
+                        <div className="pt-4 flex flex-col sm:flex-row gap-3">
+                          <Button className="w-full sm:w-auto" onClick={saveCompanySettings}>
+                            Salvar Alterações
+                          </Button>
+                          <Button variant="destructive" className="w-full sm:w-auto flex md:hidden items-center justify-center gap-2" onClick={() => signOut(auth)}>
+                            <LogOut className="w-4 h-4" />
+                            Sair do Sistema
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -218,14 +282,24 @@ export function SettingsPage({
                       </CardHeader>
                       <CardContent className="space-y-6">
                         <div className="flex flex-col items-center gap-4">
-                          <div className="w-32 h-32 rounded-xl border-2 border-dashed border-zinc-200 dark:border-zinc-800 flex items-center justify-center overflow-hidden relative group">
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            ref={fileInputRef} 
+                            onChange={handleLogoUpload} 
+                            className="hidden" 
+                          />
+                          <div 
+                            className="w-32 h-32 rounded-xl border-2 border-dashed border-zinc-200 dark:border-zinc-800 flex items-center justify-center overflow-hidden relative group cursor-pointer"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
                             <img 
                               src={companySettings.logoUrl} 
                               alt="Logo" 
                               className="w-full h-full object-cover"
                               referrerPolicy="no-referrer"
                             />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                               <span className="text-white text-xs font-bold">Alterar</span>
                             </div>
                           </div>

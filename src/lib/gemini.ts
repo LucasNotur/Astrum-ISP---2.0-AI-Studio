@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI, Tool, SchemaType } from "@google/generative-ai";
 import OpenAI from "openai";
-import { searchKnowledgeBase, checkCoverageReal, getBillingStatusReal, runDiagnosticsReal, getIntegrationKeys, getSystemPrompts } from "./db";
+import { searchKnowledgeBase, checkCoverageReal, getBillingStatusReal, runDiagnosticsReal, getIntegrationKeys, getSystemPrompts } from "./db.ts";
 
 // Tool Definitions for Gemini
 const tools: Tool[] = [
@@ -323,7 +323,7 @@ Sugestões:`;
   }
 }
 
-export async function summarizeTicketHistory(historyText: string) {
+export async function summarizeCustomerHistory(historyText: string, customerData: { name?: string, cpf?: string, address?: string, phone?: string }) {
   try {
     const integrationKeys = await getIntegrationKeys();
     const provider = integrationKeys.summaryProvider || 'gemini';
@@ -340,13 +340,72 @@ export async function summarizeTicketHistory(historyText: string) {
     
     if (!apiKey) return "Erro: Chave da API não configurada.";
 
+    const prompt = `Você é um assistente de IA. Sua tarefa é criar um resumo curto e direto sobre o cliente.
+Regras:
+1. Comece com uma ou duas frases sobre o perfil do cliente e seu comportamento (ex: paga em dia, tem contatado bastante recentemente).
+2. Deixe claro qual tem sido o problema principal relatado pelo cliente (ex: lentidão, queda de rede, faturas, etc).
+3. Não cite detalhes sistêmicos desnecessários como "Ticket XYZ". Não escreva a palavra Ticket. Apenas resuma a situação do cliente.
+
+Dados do Cliente:
+Nome: ${customerData.name || 'Não informado'}
+${customerData.cpf ? `Documento: ${customerData.cpf}` : ''}
+
+Histórico dos Últimos Atendimentos/Mensagens dele:
+${historyText}
+
+Resumo:`;
+
+    if (isOpenAILike) {
+      const openai = new OpenAI({ apiKey, baseURL: baseUrl, dangerouslyAllowBrowser: true });
+      const res = await openai.chat.completions.create({
+        model: modelName,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      return res.choices[0]?.message?.content || "";
+    } else {
+      const ai = new GoogleGenerativeAI(apiKey);
+      const modelFlash = ai.getGenerativeModel({ model: modelName });
+      const result = await modelFlash.generateContent(prompt);
+      return result.response.text();
+    }
+  } catch (error) {
+    console.error("AI Summarize Error:", error);
+    return "Erro ao gerar resumo do cliente.";
+  }
+}
+
+export async function summarizeTicketHistory(historyText: string, customerData?: { name?: string, cpf?: string, address?: string, phone?: string }) {
+  try {
+    const integrationKeys = await getIntegrationKeys();
+    const provider = integrationKeys.summaryProvider || 'gemini';
+    const isCustom = provider === 'custom';
+    const isOpenAILike = provider === 'openai' || isCustom;
+
+    const apiKey = isCustom 
+      ? (integrationKeys.customSummary || "") 
+      : provider === 'openai' 
+        ? (integrationKeys.openaiSummary || integrationKeys.openaiGlobal) 
+        : (integrationKeys.geminiSummary || integrationKeys.geminiGlobal || process.env.GEMINI_API_KEY || "");
+    const modelName = integrationKeys[`${provider}SummaryModel`] || (provider === 'openai' ? "gpt-4o-mini" : isCustom ? "" : "gemini-2.5-flash");
+    const baseUrl = isCustom ? integrationKeys.customSummaryBaseUrl : undefined;
+    
+    if (!apiKey) return "Erro: Chave da API não configurada.";
+
+    const customerHead = customerData ? `
+INFORMAÇÕES DO CLIENTE (Cache/Heads):
+- Nome: ${customerData.name || 'Não informado'}
+- CPF: ${customerData.cpf || 'Não informado'}
+- Endereço: ${customerData.address || 'Não informado'}
+- Telefone: ${customerData.phone || 'Não informado'}
+` : "";
+
     const prompt = `Você é um assistente de IA para um provedor de internet.
 Sua tarefa é resumir o histórico de um ticket de atendimento.
 Seja conciso, direto ao ponto e destaque:
 1. O problema principal relatado.
 2. O que já foi feito (ações tomadas).
 3. O status atual ou próximo passo.
-
+${customerHead}
 Histórico do Ticket:
 ${historyText}
 
@@ -434,7 +493,8 @@ Responda EXATAMENTE no formato JSON:
 
 export async function getAIResponse(
   history: { role: 'user' | 'model', parts: { text?: string, inlineData?: { mimeType: string, data: string } }[] }[],
-  forceCategory?: string
+  forceCategory?: string,
+  customerData?: { name?: string, cpf?: string, address?: string, phone?: string }
 ) {
   try {
     const integrationKeys = await getIntegrationKeys();
@@ -533,6 +593,15 @@ export async function getAIResponse(
     const effectivePrompts = await getEffectivePrompts();
     const activePrompt = (effectivePrompts as any)[category] || effectivePrompts.ORCHESTRATOR;
 
+    const customerHead = customerData ? `
+VOCÊ POSSUI O SEGUINTE CONTEXTO DO CLIENTE (Cache/Heads):
+- Nome: ${customerData.name || 'Não informado'}
+- CPF: ${customerData.cpf || 'Não informado'}
+- Endereço: ${customerData.address || 'Não informado'}
+- Telefone: ${customerData.phone || 'Não informado'}
+Use dados como CPF ou Endereço para usar suas ferramentas sem precisar ficar perguntando de novo ao cliente.
+` : "";
+
     // 2. Specialized Response (Supports Multimodal & Tools)
     const openAiHistory = history.map(h => ({
       role: h.role === 'model' ? 'assistant' as const : 'user' as const,
@@ -540,7 +609,7 @@ export async function getAIResponse(
     }));
 
     const chatMessages = [
-      { role: "system" as const, content: `${activePrompt}\n\nConsidere o sentimento ${classification.sentiment} e se é crítico: ${classification.isCritical}.\nSe for crítico ou o cliente estiver muito irritado, mude "shouldEscalate" para true.` },
+      { role: "system" as const, content: `${activePrompt}\n\n${customerHead}\nConsidere o sentimento ${classification.sentiment} e se é crítico: ${classification.isCritical}.\nSe for crítico ou o cliente estiver muito irritado, mude "shouldEscalate" para true.` },
       ...openAiHistory
     ];
 

@@ -15,14 +15,15 @@ import {
   Briefcase,
   Plus,
   RefreshCw,
-  ArrowLeft
+  ArrowLeft,
+  Edit2
 } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
 import { Badge } from "@/src/components/ui/badge";
 import { ScrollArea } from "@/src/components/ui/scroll-area";
-import { Avatar, AvatarFallback } from "@/src/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/src/components/ui/avatar";
 import { toast } from "sonner";
 import { useAppStore } from '@/src/store/useAppStore';
 import { updateTicketStatus, toggleTicketAI } from '@/src/lib/db';
@@ -45,7 +46,9 @@ export function ChatPage() {
     setMessages,
     isConfiguringAI,
     settings,
-    integrationKeys
+    integrationKeys,
+    setSelectedCustomerDetails,
+    setIsDetailsDialogOpen
   } = useAppStore();
 
   const [isEditingCustomer, setIsEditingCustomer] = useState(false);
@@ -185,10 +188,11 @@ export function ChatPage() {
         const existing = messages.find((existingMsg: any) => existingMsg.text === text && Math.abs((existingMsg.createdAt?.toMillis?.() || Date.now()) - ((m.messageTimestamp || 0) * 1000)) < 90000);
         if (existing) continue;
 
+        const isFromMe = m.key?.fromMe === true || m.key?.fromMe === "true" || m.fromMe === true || String(m.fromMe) === "true";
         await addDoc(collection(db, 'tickets', selectedTicket.id, 'messages'), {
           ticketId: selectedTicket.id,
           text: text,
-          senderType: m.key?.fromMe ? 'human' : 'customer',
+          senderType: isFromMe ? 'human' : 'customer',
           status: 'sent',
           createdAt: new Date((m.messageTimestamp || 0) * 1000)
         });
@@ -216,8 +220,22 @@ export function ChatPage() {
     setIsSummarizingTicket(true);
     setTicketSummary(null);
     try {
-      const formattedMessages = messages.map(m => `${m.senderType === 'human' ? 'Cliente' : m.senderType === 'ai' ? 'IA' : 'Sistema'}: ${m.text}`).join('\n');
-      const text = await summarizeTicket(formattedMessages);
+      const formattedMessages = messages.map(m => `${m.senderType === 'customer' ? 'Cliente' : m.senderType === 'human' ? 'Atendente' : m.senderType === 'ai' ? 'IA' : 'Sistema'}: ${m.text}`).join('\n');
+      
+      let customerData;
+      if (selectedTicket.customerId) {
+        const customer = customers.find(c => c.id === selectedTicket.customerId);
+        if (customer) {
+          customerData = {
+            name: customer.name,
+            cpf: customer.document,
+            address: customer.address,
+            phone: customer.phone
+          };
+        }
+      }
+
+      const text = await summarizeTicket(formattedMessages, customerData);
       setTicketSummary(text);
       toast.success("Resumo gerado com sucesso!");
     } catch (error) {
@@ -234,26 +252,39 @@ export function ChatPage() {
       return;
     }
     
-    // Simulate incoming human message
+    // Simulate incoming customer message
     const msgRef = await addDoc(collection(db, 'tickets', ticketId, 'messages'), {
       text: testMessage,
-      senderType: 'human',
+      senderType: 'customer',
       createdAt: serverTimestamp()
     });
 
     const newMsg = {
       id: msgRef.id,
       text: testMessage,
-      senderType: 'human',
+      senderType: 'customer',
       createdAt: new Date()
     };
     
     setMessages([...messages, newMsg]);
     setIsAiThinking(true);
 
+    let customerData;
+    if (selectedTicket.customerId) {
+        const customer = customers.find(c => c.id === selectedTicket.customerId);
+        if (customer) {
+          customerData = {
+            name: customer.name,
+            cpf: customer.document,
+            address: customer.address,
+            phone: customer.phone
+          };
+        }
+    }
+
     try {
       console.log("Chamando askAiAgent...");
-      const response = await askAiAgent([...messages, newMsg]);
+      const response = await askAiAgent([...messages, newMsg], undefined, customerData);
       console.log("Resposta recebida:", response);
       
       const aiMsgRef = await addDoc(collection(db, 'tickets', ticketId, 'messages'), {
@@ -443,15 +474,25 @@ export function ChatPage() {
     }
   };
 
+  const visibleTickets = tickets.filter(t => {
+     if (t.status === 'resolved') {
+       const resolvedTime = t.resolvedAt?.toMillis?.() || t.createdAt?.toMillis?.() || 0;
+       if (Date.now() - resolvedTime > 24 * 60 * 60 * 1000) {
+         return false;
+       }
+     }
+     return true;
+  });
+
   return (
-    <motion.div 
+      <motion.div 
       initial={{ opacity: 0, x: 10 }}
       animate={{ opacity: 1, x: 0 }}
-      className="flex flex-col md:flex-row h-[calc(100dvh-140px)] md:h-[calc(100dvh-120px)] gap-4 md:gap-6"
+      className="flex flex-col md:flex-row h-[calc(100dvh-140px)] md:h-[calc(100dvh-120px)] gap-4 md:gap-5"
     >
       {/* Chat List */}
       <Card className={cn(
-        "w-full md:w-80 border-none shadow-sm overflow-hidden shrink-0",
+        "w-full md:w-[340px] lg:w-[360px] xl:w-[420px] border-none shadow-sm overflow-hidden shrink-0 rounded-[20px] md:rounded-[24px]",
         selectedTicket ? "hidden md:flex flex-col" : "flex flex-col flex-1"
       )}>
         <CardHeader className="p-4 border-b shrink-0">
@@ -460,7 +501,7 @@ export function ChatPage() {
         </CardHeader>
         <ScrollArea className="flex-1">
           <div className="p-2 space-y-1">
-            {tickets.sort((a,b) => {
+            {visibleTickets.sort((a,b) => {
                // Sort 'escalated' first, then 'open', then others
                if (a.status === 'escalated' && b.status !== 'escalated') return -1;
                if (b.status === 'escalated' && a.status !== 'escalated') return 1;
@@ -470,31 +511,38 @@ export function ChatPage() {
                 key={t.id}
                 onClick={() => setSelectedTicket(t)}
                 className={cn(
-                  "w-full text-left p-3 rounded-lg transition-colors hover:bg-zinc-100 dark:bg-zinc-800",
+                  "w-full text-left p-3 rounded-xl transition-all cursor-pointer flex gap-3 items-center hover:bg-zinc-100 dark:hover:bg-zinc-800/50",
                   selectedTicket?.id === t.id && "bg-zinc-100 dark:bg-zinc-800"
                 )}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-semibold text-sm truncate">
-                    {(() => {
-                      const cName = customers.find(c => c.id === t.customerId)?.name;
-                      if (!t.subject || t.subject.toLowerCase().includes('atendimento via') || t.subject.toLowerCase().includes('atendimento de')) {
-                        return cName ? cName : 'Desconhecido';
-                      }
-                      return t.subject;
-                    })()}
-                  </span>
-                  <Badge 
-                    variant={t.status === 'escalated' ? "destructive" : t.status === 'resolved' ? "default" : "outline"} 
-                    className={cn("text-[10px] h-4", t.status === 'resolved' ? "bg-green-500 hover:bg-green-600" : "")}
-                  >
-                    {t.status === 'escalated' ? 'Escalado' : t.status === 'open' ? 'Aberto' : t.status === 'resolved' ? 'Resolvido' : 'Em Progresso'}
-                  </Badge>
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-600/20 text-indigo-600 dark:text-purple-400 flex items-center justify-center text-lg font-bold shrink-0">
+                  {customers.find(c => c.id === t.customerId)?.name?.[0] || 'A'}
                 </div>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">Cliente ID: {t.customerId?.slice(0, 8)}</p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="font-semibold text-sm truncate pr-2 dark:text-zinc-50">
+                      {(() => {
+                        const cName = customers.find(c => c.id === t.customerId)?.name;
+                        if (!t.subject || t.subject.toLowerCase().includes('atendimento via') || t.subject.toLowerCase().includes('atendimento de')) {
+                          return cName ? cName : 'Desconhecido';
+                        }
+                        return t.subject;
+                      })()}
+                    </span>
+                    <span className="text-[10px] text-zinc-400 shrink-0">
+                      {t.status === 'escalated' ? 'Escalado' : t.status === 'open' ? 'Aberto' : t.status === 'resolved' ? 'Resolvido' : 'Progresso'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate pr-2">
+                       {customers.find(c => c.id === t.customerId)?.phone || `Cliente ID: ${t.customerId?.slice(0, 8)}`}
+                    </p>
+                    {t.status === 'escalated' && <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" />}
+                  </div>
+                </div>
               </button>
             ))}
-            {tickets.length === 0 && (
+            {visibleTickets.length === 0 && (
               <div className="text-center py-10 text-zinc-400 text-sm italic">
                 Nenhum ticket encontrado.
               </div>
@@ -505,48 +553,65 @@ export function ChatPage() {
 
       {/* Chat Window */}
       <Card className={cn(
-        "flex-1 border-none shadow-sm overflow-hidden flex-col",
+        "flex-1 border-none shadow-sm overflow-hidden flex-col rounded-[20px] md:rounded-[24px]",
         selectedTicket ? "flex" : "hidden md:flex"
       )}>
         {selectedTicket ? (
           <>
             <CardHeader className="p-4 border-b flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
               <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="icon" className="md:hidden shrink-0" onClick={() => setSelectedTicket(null)}>
-                    <ArrowLeft size={18} />
+                <div className="flex items-center gap-3">
+                  <Button variant="ghost" size="icon" className="md:hidden shrink-0 -ml-2" onClick={() => setSelectedTicket(null)}>
+                    <ArrowLeft size={20} />
                   </Button>
-                  <div>
-                    <CardTitle className="text-lg">
-                      {(() => {
-                        const cName = customers.find(c => c.id === selectedTicket.customerId)?.name;
-                        if (!selectedTicket.subject || selectedTicket.subject.toLowerCase().includes('atendimento via') || selectedTicket.subject.toLowerCase().includes('atendimento de')) {
-                          return cName ? cName : 'Desconhecido';
-                        }
-                        return selectedTicket.subject;
-                      })()}
-                    </CardTitle>
-                    <CardDescription>Cliente: {customers.find(c => c.id === selectedTicket.customerId)?.name || selectedTicket.customerId}</CardDescription>
-                  </div>
+                  <button
+                    className="flex flex-row items-center gap-3 text-left outline-none p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors"
+                    onClick={() => {
+                      const c = customers.find(c => c.id === selectedTicket.customerId);
+                      if (c) {
+                        setSelectedCustomerDetails(c);
+                        setIsDetailsDialogOpen(true);
+                      }
+                    }}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-lg font-bold shadow-sm shrink-0">
+                      {customers.find(c => c.id === selectedTicket.customerId)?.name?.[0] || 'A'}
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="text-base font-bold leading-tight">
+                        {(() => {
+                          const c = customers.find(c => c.id === selectedTicket.customerId);
+                          const cName = c?.name;
+                          const isGenericSubject = !selectedTicket.subject || selectedTicket.subject.toLowerCase().includes('atendimento via') || selectedTicket.subject.toLowerCase().includes('atendimento de');
+                          return isGenericSubject ? (cName ? cName : 'Desconhecido') : selectedTicket.subject;
+                        })()}
+                      </div>
+                      <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 max-w-[200px] md:max-w-md truncate">
+                        {customers.find(c => c.id === selectedTicket.customerId)?.phone || customers.find(c => c.id === selectedTicket.customerId)?.name || selectedTicket.customerId}
+                      </div>
+                    </div>
+                  </button>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
-                    <Bot size={14} className={selectedTicket.aiEnabled !== false ? "text-purple-600" : "text-zinc-400"} />
-                    <span className="text-[10px] font-bold uppercase">
-                      IA {selectedTicket.aiEnabled !== false ? "Ativa" : "Pausada"}
-                      {selectedTicket.aiEnabled !== false && messages.filter(m => m.senderType === 'ai' && m.category).length > 0 && (
-                        <span className="ml-1 text-purple-600">
-                          ({AGENT_CATEGORIES[messages.filter(m => m.senderType === 'ai' && m.category).pop()?.category as keyof typeof AGENT_CATEGORIES] || 'Geral'})
-                        </span>
-                      )}
-                    </span>
-                    <button 
-                      onClick={() => handleToggleAI(selectedTicket.id, selectedTicket.aiEnabled !== false)}
-                      className="ml-2 text-[10px] text-primary hover:underline"
-                    >
-                      {selectedTicket.aiEnabled !== false ? "Pausar" : "Ativar"}
-                    </button>
-                  </div>
+                    {selectedTicket.aiEnabled !== false ? (
+                      <Button 
+                        size="sm" 
+                        variant="default"
+                        className="h-8 text-xs gap-2 rounded-full font-semibold shadow-sm bg-purple-600 hover:bg-purple-700 text-white"
+                        onClick={() => handleToggleAI(selectedTicket.id, true)}
+                      >
+                         <Bot size={14} className="text-white" /> IA Ativa
+                      </Button>
+                    ) : (
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="h-8 text-xs gap-2 rounded-full font-semibold border-zinc-300 dark:border-zinc-700 text-zinc-500 overflow-hidden"
+                        onClick={() => handleToggleAI(selectedTicket.id, false)}
+                      >
+                         <Bot size={14} className="text-zinc-400" /> IA Pausada
+                      </Button>
+                    )}
                   <Button 
                     variant="outline" 
                     size="sm" 
@@ -628,8 +693,8 @@ export function ChatPage() {
                 )}
                 {messages.map((m, i) => (
                   <div key={m.id || i} className={cn(
-                    "flex gap-3 max-w-[80%]",
-                    m.senderType === 'human' ? "ml-auto flex-row-reverse" : m.senderType === 'system' ? "mx-auto w-full max-w-full justify-center" : ""
+                    "flex gap-3 max-w-[95%] md:max-w-[80%]",
+                    ['human', 'ai'].includes(m.senderType || '') ? "ml-auto flex-row-reverse" : m.senderType === 'system' ? "mx-auto w-full max-w-full justify-center" : ""
                   )}>
                     {m.senderType !== 'system' && (
                       <Avatar className="h-8 w-8 shrink-0">
@@ -642,19 +707,31 @@ export function ChatPage() {
                       </Avatar>
                     )}
                     <div className={cn("flex flex-col gap-1", m.senderType === 'system' ? "w-full text-center items-center" : "")}>
-                      {m.senderType === 'ai' && m.category && (
-                        <span className="text-[10px] font-bold text-purple-600 uppercase tracking-tight ml-1">
-                          Agente {AGENT_CATEGORIES[m.category as keyof typeof AGENT_CATEGORIES] || m.category}
-                        </span>
-                      )}
-                      <div className={cn("flex items-end gap-2", m.senderType === 'system' ? "justify-center w-full" : "")}>
-                        <div className={cn(
-                          "p-3 rounded-2xl text-sm space-y-2",
-                          m.senderType === 'human' ? "bg-primary text-primary-foreground rounded-tr-none" : 
-                          m.senderType === 'system' ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 border border-red-200 dark:border-red-900/50 text-xs w-full max-w-md rounded-2xl text-center" :
-                          "bg-zinc-100 dark:bg-zinc-800 rounded-tl-none"
-                        )}>
-                          {m.attachment && (
+                       <div className={cn("flex items-end gap-2", m.senderType === 'system' ? "justify-center w-full" : "")}>
+                         <div className={cn(
+                           "px-4 py-3 rounded-[20px] text-[15px] leading-relaxed max-w-[85%]",
+                           ['human', 'ai'].includes(m.senderType || '') ? "bg-amber-500 text-black rounded-tr-sm shadow-sm" : 
+                           m.senderType === 'system' ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 border border-red-200 dark:border-red-900/50 text-xs w-full max-w-md rounded-2xl text-center" :
+                           "bg-zinc-100 dark:bg-zinc-800 rounded-tl-sm text-zinc-800 dark:text-zinc-100 shadow-sm"
+                         )}>
+                           {/* Agent Name Indicator for AI/Human */}
+                           {['ai', 'human'].includes(m.senderType || '') && (
+                             <div className="text-[10px] font-bold uppercase tracking-wider opacity-60 mb-1 flex items-center gap-1">
+                               {m.senderType === 'ai' ? (
+                                 <>
+                                   <Bot size={10} />
+                                   Agente {m.category ? (AGENT_CATEGORIES[m.category as keyof typeof AGENT_CATEGORIES] || m.category) : 'IA'}
+                                 </>
+                               ) : (
+                                 <>
+                                   <User size={10} />
+                                   Atendente
+                                 </>
+                               )}
+                             </div>
+                           )}
+                           
+                           {m.attachment && (
                             <div className="rounded-lg overflow-hidden border border-zinc-200/20">
                               {m.attachment.type.startsWith('image/') ? (
                                 <img src={m.attachment.url} alt="Anexo" className="max-w-full h-auto" />
@@ -744,7 +821,7 @@ export function ChatPage() {
                   <Button variant="ghost" size="sm" onClick={() => setSelectedFile(null)}>Remover</Button>
                 </div>
               )}
-              <form onSubmit={handleSendMessage} className="flex gap-2">
+              <form onSubmit={handleSendMessage} className="p-4 bg-white/50 dark:bg-[#111214]/80 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800/50">
                 <input 
                   type="file" 
                   ref={fileInputRef} 
@@ -752,22 +829,26 @@ export function ChatPage() {
                   onChange={handleFileChange}
                   accept="image/*,audio/*"
                 />
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Paperclip size={18} />
-                </Button>
-                <Input 
-                  placeholder="Digite sua mensagem..." 
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                />
-                <Button type="submit" size="icon">
-                  <Send size={18} />
-                </Button>
+                <div className="flex items-center gap-2 bg-white dark:bg-[#16171a] p-1.5 rounded-[24px] shadow-[0_4px_16px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_16px_rgba(255,255,255,0.02)] border border-black/5 dark:border-white/5 group focus-within:shadow-[0_4px_24px_rgba(234,179,8,0.15)] focus-within:border-primary/30 transition-all">
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="icon" 
+                    className="shrink-0 h-10 w-10 rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Paperclip size={20} />
+                  </Button>
+                  <Input 
+                    placeholder="Digite sua mensagem..." 
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    className="border-none shadow-none focus-visible:ring-0 bg-transparent px-2 h-10 w-full text-sm placeholder:text-zinc-500"
+                  />
+                  <Button type="submit" size="icon" className="shrink-0 h-10 w-10 rounded-full bg-amber-500 hover:bg-amber-600 text-black shadow-sm transition-colors">
+                    <Send size={18} className="translate-x-0.5" />
+                  </Button>
+                </div>
               </form>
             </div>
           </>
@@ -781,48 +862,80 @@ export function ChatPage() {
 
       {/* Customer Context Sidebar */}
       {selectedTicket && (
-        <Card className="w-80 border-none shadow-sm overflow-hidden flex flex-col shrink-0 dark:bg-zinc-900">
-          <CardHeader className="p-4 border-b dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="text-sm">Contexto do Cliente</CardTitle>
-              <CardDescription className="text-xs">Histórico e faturas recentes</CardDescription>
+        <Card className="hidden lg:flex w-[340px] xl:w-[400px] border-none shadow-[2px_0_16px_rgba(0,0,0,0.04)] dark:shadow-[2px_0_16px_rgba(0,0,0,0.4)] overflow-hidden flex-col shrink-0 dark:bg-[#111214] bg-white rounded-[20px] md:rounded-[24px] relative">
+          <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-br from-indigo-500/30 via-purple-500/20 to-transparent blur-3xl opacity-50 z-0"></div>
+          
+          <CardHeader className="p-4 border-b border-transparent flex flex-row items-start justify-between relative z-10 pt-6">
+            <div className="flex flex-col items-center w-full text-center">
+              <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-purple-500/30 mb-3 mx-auto">
+                {customers.find(c => c.id === selectedTicket.customerId)?.name?.[0] || 'A'}
+              </div>
+              <CardTitle className="text-lg font-bold tracking-tight">{customers.find(c => c.id === selectedTicket.customerId)?.name || "Anônimo"}</CardTitle>
+              <CardDescription className="text-xs mt-1">
+                {customers.find(c => c.id === selectedTicket.customerId)?.document || "Atendimento Ativo"}
+              </CardDescription>
             </div>
+            {/* Action buttons floating top right */}
             {customers.find(c => c.id === selectedTicket.customerId) && (
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={handleFetchOldMessages} disabled={isPullingHistory} title="Puxar mensagens antigas do WhatsApp">
-                  <RefreshCw size={12} className={cn("mr-1", isPullingHistory && "animate-spin")} /> Antigas
+              <div className="absolute top-4 right-4 flex gap-1">
+                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10 rounded-full" onClick={handleFetchOldMessages} disabled={isPullingHistory} title="Sincronizar Histórico">
+                  <RefreshCw size={14} className={cn(isPullingHistory && "animate-spin text-primary")} />
                 </Button>
-                <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => handleEditCustomerClick(customers.find(c => c.id === selectedTicket.customerId))}>
-                  Editar
+                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-white/10 rounded-full" onClick={() => handleEditCustomerClick(customers.find(c => c.id === selectedTicket.customerId))}>
+                   <Edit2 size={14} />
                 </Button>
               </div>
             )}
           </CardHeader>
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 relative z-10">
             <div className="p-4 space-y-6">
               {/* Customer Info Summary */}
               <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-3">Dados do Cliente</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-zinc-500 dark:text-zinc-400">ID:</span>
-                    <span className="font-mono text-xs">{selectedTicket.customerId?.slice(0, 8)}</span>
-                  </div>
+                <div className="flex items-center justify-between mb-3 border-t border-zinc-200/50 dark:border-white/5 pt-4">
+                  <h4 className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Geral</h4>
                   {customers.find(c => c.id === selectedTicket.customerId) && (
-                    <>
-                      <div className="flex justify-between">
-                        <span className="text-zinc-500 dark:text-zinc-400">Nome:</span>
-                        <span className="font-medium">{customers.find(c => c.id === selectedTicket.customerId)?.name}</span>
-                      </div>
-                      <div className="flex justify-between mt-1">
+                    <Button 
+                      variant="link" 
+                      className="px-0 h-auto text-[10px] text-primary font-bold uppercase tracking-wider"
+                      onClick={() => {
+                        setSelectedCustomerDetails(customers.find(c => c.id === selectedTicket.customerId));
+                        setIsDetailsDialogOpen(true);
+                      }}
+                    >
+                      Ver Perfil Completo
+                    </Button>
+                  )}
+                </div>
+                
+                {customers.find(c => c.id === selectedTicket.customerId) ? (
+                  <div className="flex flex-col gap-3">
+                     <div className="flex items-center gap-3">
+                       <Avatar className="h-12 w-12 border border-zinc-200 dark:border-zinc-800">
+                         <AvatarImage src={customers.find(c => c.id === selectedTicket.customerId)?.photoUrl || customers.find(c => c.id === selectedTicket.customerId)?.avatarUrl || customers.find(c => c.id === selectedTicket.customerId)?.profilePicUrl} />
+                         <AvatarFallback>{customers.find(c => c.id === selectedTicket.customerId)?.name?.[0]?.toUpperCase() || 'C'}</AvatarFallback>
+                       </Avatar>
+                       <div className="flex flex-col flex-1 min-w-0">
+                         <span className="font-semibold text-sm truncate">{customers.find(c => c.id === selectedTicket.customerId)?.name}</span>
+                         <span className="font-mono text-xs text-zinc-500 truncate">ID: {selectedTicket.customerId?.slice(0, 8)}</span>
+                       </div>
+                     </div>
+                     <div className="space-y-2 text-sm pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                      <div className="flex justify-between items-center">
                         <span className="text-zinc-500 dark:text-zinc-400">Status:</span>
                         <Badge variant={customers.find(c => c.id === selectedTicket.customerId)?.status === 'active' ? 'default' : 'destructive'} className={cn("text-[10px]", customers.find(c => c.id === selectedTicket.customerId)?.status === 'pending' ? 'bg-amber-500 hover:bg-amber-600' : '')}>
                           {customers.find(c => c.id === selectedTicket.customerId)?.status.toUpperCase()}
                         </Badge>
                       </div>
-                    </>
-                  )}
-                </div>
+                     </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500 dark:text-zinc-400">ID:</span>
+                      <span className="font-mono text-xs">{selectedTicket.customerId?.slice(0, 8)}</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {customers.find(c => c.id === selectedTicket.customerId)?.status === 'pending' ? (

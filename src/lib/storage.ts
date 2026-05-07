@@ -1,5 +1,5 @@
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage } from "./firebase";
+import { storage } from "./firebase.ts";
 
 export const uploadAttachment = async (file: File, pathFolder: string): Promise<string> => {
   if (!file) throw new Error("No file provided");

@@ -17,7 +17,7 @@ import {
   deleteDoc,
   arrayUnion
 } from 'firebase/firestore';
-import { db, auth } from './firebase';
+import { db, auth } from './firebase.ts';
 
 export const OperationType = {
   CREATE: 'create',

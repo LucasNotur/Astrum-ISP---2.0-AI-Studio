@@ -17,10 +17,7 @@ export function KnowledgeBasePage({ knowledgeBase, handleGenerateAIArticle, hand
               className="space-y-6"
             >
               <header className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-3xl font-bold tracking-tight">Base de Conhecimento</h1>
-                  <p className="text-zinc-500 dark:text-zinc-400">Artigos e manuais para consulta da IA e equipe.</p>
-                </div>
+                
                 <div className="flex items-center gap-2">
                   <Button variant="outline" className="gap-2 text-purple-600 border-purple-200" onClick={handleGenerateAIArticle}>
                     <Sparkles size={18} /> Gerar Artigo IA

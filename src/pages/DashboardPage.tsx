@@ -340,41 +340,32 @@ export function DashboardPage() {
                   className="space-y-8"
                 >
               <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <h1 className="text-3xl font-bold tracking-tight">Painel de Atendimento</h1>
-                  <p className="text-zinc-500 dark:text-zinc-400">Métricas de suporte e satisfação do cliente.</p>
-                </div>
+                
                 <div className="flex flex-wrap items-center gap-3">
-                  <Button variant="outline" size="sm" className="gap-2 h-8" onClick={handleExportDashboardPDF}>
+                  <Button variant="outline" size="sm" className="gap-2" onClick={handleExportDashboardPDF}>
                     <FileText size={14} /> <span className="hidden md:inline">Exportar PDF</span>
                   </Button>
-                  <div className="flex overflow-x-auto bg-zinc-100 dark:bg-zinc-800 p-1 rounded-lg w-full md:w-auto">
-                  <Button 
-                    variant={dashboardSubTab === 'overview' ? 'default' : 'ghost'} 
-                    size="sm" 
+                  <div className="flex items-center overflow-x-auto bg-zinc-100 dark:bg-[#111214] p-1.5 rounded-[20px] w-full md:w-auto border border-zinc-200/50 dark:border-white/5 backdrop-blur-md">
+                  <button 
                     onClick={() => setDashboardSubTab('overview')}
-                    className="text-xs h-8 whitespace-nowrap"
+                    className={`text-[11px] px-6 py-2.5 whitespace-nowrap rounded-[16px] transition-all duration-300 font-bold ${dashboardSubTab === 'overview' ? 'bg-amber-400 text-black shadow-lg shadow-amber-500/20' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300'}`}
                   >
                     Geral
-                  </Button>
+                  </button>
                   {isOwner && (
                     <>
-                    <Button 
-                      variant={dashboardSubTab === 'performance' ? 'default' : 'ghost'} 
-                      size="sm" 
+                    <button 
                       onClick={() => setDashboardSubTab('performance')}
-                      className="text-xs h-8 whitespace-nowrap"
+                      className={`text-[11px] px-6 py-2.5 whitespace-nowrap rounded-[16px] transition-all duration-300 font-bold ${dashboardSubTab === 'performance' ? 'bg-amber-400 text-black shadow-lg shadow-amber-500/20' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300'}`}
                     >
                       Performance IA
-                    </Button>
-                    <Button 
-                      variant={dashboardSubTab === 'churn' ? 'default' : 'ghost'} 
-                      size="sm" 
+                    </button>
+                    <button 
                       onClick={() => setDashboardSubTab('churn')}
-                      className="text-xs h-8 whitespace-nowrap"
+                      className={`text-[11px] px-6 py-2.5 whitespace-nowrap rounded-[16px] transition-all duration-300 font-bold ${dashboardSubTab === 'churn' ? 'bg-amber-400 text-black shadow-lg shadow-amber-500/20' : 'text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300'}`}
                     >
                       Churn Preditivo
-                    </Button>
+                    </button>
                     </>
                   )}
                 </div>
@@ -384,9 +375,9 @@ export function DashboardPage() {
               {dashboardSubTab === 'overview' ? (
                 <>
                 {isOwner && (
-                  <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="mb-8 flex overflow-x-auto pb-4 gap-6 snap-x snap-mandatory scrollbar-hide -mx-2 px-2 md:grid md:grid-cols-3 md:overflow-visible md:pb-0 md:mx-0 md:px-0">
                     {/* Visão Geral */}
-                    <Card className="border-l-4 border-l-green-500 shadow-sm">
+                    <Card className="min-w-[85vw] snap-center md:min-w-0 border-l-4 border-l-green-500 shadow-sm">
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-zinc-500 flex items-center gap-2">
                           <Activity size={16} /> Visão Geral da Operação
@@ -404,7 +395,7 @@ export function DashboardPage() {
                     </Card>
 
                     {/* Pontos de Atenção */}
-                    <Card className="border-l-4 border-l-amber-500 shadow-sm">
+                    <Card className="min-w-[85vw] snap-center md:min-w-0 border-l-4 border-l-amber-500 shadow-sm">
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-zinc-500 flex items-center gap-2">
                           <AlertTriangle size={16} /> Pontos de Atenção
@@ -425,7 +416,7 @@ export function DashboardPage() {
                     </Card>
 
                     {/* Resumo Final & Recomendação */}
-                    <Card className="border-l-4 border-l-blue-500 shadow-sm bg-blue-50/50 dark:bg-blue-900/10">
+                    <Card className="min-w-[85vw] snap-center md:min-w-0 border-l-4 border-l-blue-500 shadow-sm bg-blue-50/50 dark:bg-blue-900/10">
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-400 flex items-center gap-2">
                           <Lightbulb size={16} /> Resumo Executivo
@@ -448,7 +439,7 @@ export function DashboardPage() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-5">
+                <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-5">
                   <StatCard loading={loading} title="Tickets Hoje" value={ticketsToday.toString()} icon={<Ticket className="text-orange-600" />} trend={ticketsTrend} up={!ticketsTrend.startsWith('-')} />
                   {isOwner ? (
                     <>
@@ -467,7 +458,7 @@ export function DashboardPage() {
                 </div>
 
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                <Card className="border-none shadow-sm lg:col-span-2">
+                <Card className="border-none shadow-sm lg:col-span-3">
                   <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                       <CardTitle>Volume de Atendimentos</CardTitle>
@@ -509,6 +500,11 @@ export function DashboardPage() {
                         </ResponsiveContainer>
                   </CardContent>
                 </Card>
+              </div>
+            </>
+          ) : dashboardSubTab === 'performance' ? (
+            <>
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
 
                 <Card className="border-none shadow-sm">
                   <CardHeader>
@@ -592,18 +588,22 @@ export function DashboardPage() {
                           tickets.filter(t => t.priority === 'high' || t.priority === 'urgent')
                             .slice(0, 4)
                             .map(t => (
-                              <div key={t.id} className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800">
-                                <div className="flex items-center gap-3">
-                                  <div className={cn(
-                                    "w-2 h-2 rounded-full",
-                                    t.priority === 'urgent' ? "bg-red-500 animate-pulse" : "bg-orange-500"
-                                  )} />
+                              <div key={t.id} className="relative flex items-center justify-between p-4 rounded-[16px] bg-white dark:bg-[#16171a] shadow-[0_4px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.4)] overflow-hidden ticket-shape">
+                                <div className="absolute top-0 bottom-0 left-3 border-l border-dashed border-zinc-200 dark:border-white/5" />
+                                <div className="flex items-center gap-4 pl-2 relative z-10">
+                                  <div className="w-8 shrink-0 flex items-center justify-center">
+                                    <span className={cn(
+                                      "w-1.5 h-10 rounded-full",
+                                      t.priority === 'urgent' ? "bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]" : "bg-orange-500"
+                                    )} />
+                                  </div>
                                   <div>
-                                    <p className="text-sm font-bold truncate max-w-[200px]">{t.subject}</p>
-                                    <p className="text-[10px] text-zinc-500">{customers.find(c => c.id === t.customerId)?.name || 'Cliente Desconhecido'}</p>
+                                    <p className="text-[10px] font-mono font-bold text-zinc-400 mb-0.5">#{t.id.slice(0, 5)}</p>
+                                    <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate max-w-[180px]">{t.subject}</p>
+                                    <p className="text-[10px] font-medium text-zinc-500 mt-1">{customers.find(c => c.id === t.customerId)?.name || 'Cliente Desconhecido'}</p>
                                   </div>
                                 </div>
-                                <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => {
+                                <Button variant="secondary" size="sm" className="h-8 text-xs font-bold shrink-0 z-10" onClick={() => {
                                   setSelectedTicket(t);
                                   navigate('/tickets');
                                 }}>Ver</Button>
@@ -681,19 +681,31 @@ export function DashboardPage() {
                     <div className="space-y-4">
                       {slaRiskTickets.length > 0 ? (
                         slaRiskTickets.slice(0, 3).map(t => (
-                          <div key={t.id} className="flex items-center justify-between p-3 rounded-xl bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-800/50">
-                            <div className="space-y-1">
-                              <p className="text-sm font-bold truncate max-w-[150px]">{t.subject}</p>
-                              <p className="text-[10px] text-orange-600 dark:text-orange-400">Aberto há {Math.floor((Date.now() - (t.createdAt?.seconds * 1000)) / (1000 * 60 * 60))} horas</p>
+                          <div key={t.id} className="relative flex items-center justify-between p-4 rounded-[16px] bg-white dark:bg-[#16171a] shadow-[0_4px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.4)] overflow-hidden ticket-shape">
+                            <div className="absolute top-0 bottom-0 left-3 border-l border-dashed border-zinc-200 dark:border-white/5" />
+                            <div className="flex items-center gap-4 pl-2 relative z-10 w-full">
+                              <div className="w-8 shrink-0 flex items-center justify-center">
+                                <span className={cn(
+                                  "w-1.5 h-10 rounded-full",
+                                  t.priority === 'urgent' ? "bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]" : "bg-orange-500"
+                                )} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[10px] font-mono font-bold text-zinc-400 mb-0.5">#{t.id.slice(0, 5)}</p>
+                                <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate max-w-[150px] sm:max-w-[200px]">{t.subject}</p>
+                                <p className="text-[10px] font-bold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 w-fit px-2 py-0.5 rounded-full mt-1.5">
+                                  Aberto há {Math.floor((Date.now() - (t.createdAt?.seconds * 1000)) / (1000 * 60 * 60))} horas
+                                </p>
+                              </div>
+                              <Button 
+                                size="sm" 
+                                variant="secondary" 
+                                className="h-8 text-xs font-bold shrink-0 shadow-sm"
+                                onClick={() => { setSelectedTicket(t); setIsTicketDetailOpen(true); }}
+                              >
+                                Priorizar
+                              </Button>
                             </div>
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              className="h-8 text-xs text-orange-700 hover:bg-orange-100"
-                              onClick={() => { setSelectedTicket(t); setIsTicketDetailOpen(true); }}
-                            >
-                              Priorizar
-                            </Button>
                           </div>
                         ))
                       ) : (
@@ -746,9 +758,7 @@ export function DashboardPage() {
                   </CardContent>
                 </Card>
               </div>
-            </>
-          ) : dashboardSubTab === 'performance' ? (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+
               <Card className="border-none shadow-sm lg:col-span-2">
                 <CardHeader>
                   <CardTitle>Análise de Resposta IA</CardTitle>
@@ -812,7 +822,7 @@ export function DashboardPage() {
                   </div>
                 </CardContent>
               </Card>
-            </div>
+            </>
           ) : (
              <div className="space-y-6">
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -827,7 +837,7 @@ export function DashboardPage() {
                     <CardDescription>Clientes classificados pelo Motor de IA Astrum baseados em sentimento, estabilidade de conexão e finanças.</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="rounded-xl border border-zinc-100 dark:border-zinc-800 overflow-hidden">
+                    <div className="rounded-xl border border-zinc-100 dark:border-zinc-800 overflow-x-auto">
                       <Table>
                         <TableHeader className="bg-zinc-50 dark:bg-zinc-900/50">
                           <TableRow>

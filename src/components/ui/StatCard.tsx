@@ -6,12 +6,15 @@ import { cn } from "@/src/lib/utils";
 
 export function StatCard({ title, value, icon, trend, up, loading }: any) {
   return (
-    <Card className="border-none shadow-sm dark:bg-zinc-900">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
+    <Card className="border-none shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] dark:bg-zinc-900/60 dark:backdrop-blur-md relative overflow-hidden transition-all duration-300 hover:shadow-md dark:hover:bg-zinc-900/80">
+      <div className="absolute top-0 right-0 -mr-4 -mt-4 w-24 h-24 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
+      <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
         <CardTitle className="text-sm font-medium text-zinc-500 dark:text-zinc-400">{title}</CardTitle>
-        {icon}
+        <div className="p-2 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl">
+          {icon}
+        </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="relative z-10">
         {loading ? (
           <Skeleton className="h-8 w-24" />
         ) : (
@@ -22,7 +25,7 @@ export function StatCard({ title, value, icon, trend, up, loading }: any) {
               up ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
             )}>
               {up ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-              {trend} em relação ao mês anterior
+              {trend} <span className="hidden sm:inline">em relação ao mês anterior</span>
             </div>
           </>
         )}

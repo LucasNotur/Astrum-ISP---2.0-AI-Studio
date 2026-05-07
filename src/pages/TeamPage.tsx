@@ -42,10 +42,7 @@ export function TeamPage({
               className="space-y-6"
             >
               <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <h1 className="text-3xl font-bold tracking-tight">Equipe</h1>
-                  <p className="text-zinc-500 dark:text-zinc-400">Gerencie os acessos e permissões dos seus colaboradores.</p>
-                </div>
+                
                 <Button className="gap-2 shrink-0 self-start md:self-auto" onClick={() => {
                   setSelectedTeamMember({ name: '', email: '', role: 'support', status: 'active' });
                   setIsTeamMemberDialogOpen(true);

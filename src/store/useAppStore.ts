@@ -142,7 +142,9 @@ export const useAppStore = create<AppState>((set) => ({
     workingHours: '08:00 - 20:00',
     timezone: 'America/Sao_Paulo'
   },
-  setCompanySettings: (companySettings) => set({ companySettings }),
+  setCompanySettings: (updater) => set((state) => ({
+    companySettings: typeof updater === 'function' ? updater(state.companySettings) : updater
+  })),
 
   // Notifications
   notifications: [],

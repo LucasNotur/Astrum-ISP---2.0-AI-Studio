@@ -36,10 +36,7 @@ export function TicketsPage({ onNewTicketClick }: { onNewTicketClick: () => void
   return (
     <motion.div initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="space-y-6 flex flex-col h-full">
       <header className="flex flex-col md:flex-row md:items-center justify-between shrink-0 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Tickets & Suporte</h1>
-          <p className="text-zinc-500 dark:text-zinc-400">Atendimento ao cliente e resolução de problemas estruturado.</p>
-        </div>
+        
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-lg">
             <Button variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} size="sm" onClick={() => setViewMode('kanban')} className="px-3">
@@ -136,8 +133,8 @@ export function TicketsPage({ onNewTicketClick }: { onNewTicketClick: () => void
       </div>
 
       {viewMode === 'kanban' ? (
-        <div className="flex-1 overflow-x-auto pb-4">
-          <div className="flex gap-4 min-w-max h-[calc(100vh-320px)]">
+        <div className="flex-1 overflow-x-auto overflow-y-auto md:overflow-y-hidden pb-4">
+          <div className="flex flex-col md:flex-row gap-4 md:min-w-max md:h-[calc(100vh-320px)] h-auto">
             <TicketColumn title="Novos" status="open" tickets={filteredTickets.filter(t => t.status === 'open')} customers={customers} onTicketClick={(t: any) => { setSelectedTicket(t); setIsTicketDetailOpen(true); }} />
             <TicketColumn title="Em Atendimento" status="in-progress" tickets={filteredTickets.filter(t => t.status === 'in-progress')} customers={customers} onTicketClick={(t: any) => { setSelectedTicket(t); setIsTicketDetailOpen(true); }} />
             <TicketColumn title="Escalados (N3)" status="escalated" tickets={filteredTickets.filter(t => t.status === 'escalated')} customers={customers} onTicketClick={(t: any) => { setSelectedTicket(t); setIsTicketDetailOpen(true); }} />
@@ -204,7 +201,7 @@ function TicketColumn({ title, status, tickets, customers, onTicketClick }: any)
   const visibleTickets = tickets.slice(0, 20); // limiting initial paint
 
   return (
-    <div className="flex flex-col w-80 min-w-[320px] bg-zinc-50/50 dark:bg-zinc-900/40 rounded-xl border border-zinc-200/50 dark:border-zinc-800/50 p-3 h-full">
+    <div className="flex flex-col w-full md:w-80 md:min-w-[320px] bg-zinc-50/50 dark:bg-zinc-900/40 rounded-xl border border-zinc-200/50 dark:border-zinc-800/50 p-3 md:h-full min-h-[min-content]">
       <div className="flex items-center justify-between mb-3 px-1">
         <h3 className="font-bold text-sm text-zinc-700 dark:text-zinc-300">{title}</h3>
         <Badge variant="secondary" className="bg-white dark:bg-zinc-800">{tickets.length}</Badge>
@@ -216,43 +213,56 @@ function TicketColumn({ title, status, tickets, customers, onTicketClick }: any)
             return (
               <Card 
                 key={t.id} 
-                className="border-zinc-200/60 dark:border-zinc-800 shadow-sm hover:border-primary/50 transition-colors cursor-pointer group relative dark:bg-zinc-900"
+                className="border-none shadow-[0_8px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] hover:scale-[1.02] transition-all duration-300 cursor-pointer group relative bg-white dark:bg-[#16171a] rounded-[16px] overflow-hidden ticket-shape"
                 onClick={() => onTicketClick(t)}
               >
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex gap-2">
-                      <Badge variant={t.priority === 'high' || t.priority === 'urgent' ? 'destructive' : t.priority === 'low' ? 'outline' : 'secondary'} className="text-[10px]">
-                        {t.priority?.toUpperCase() || 'NORMAL'}
-                      </Badge>
-                      {t.category && (
-                        <Badge variant="outline" className="text-[10px] text-zinc-500 border-zinc-200 dark:border-zinc-700">
-                          {t.category}
-                        </Badge>
-                      )}
-                    </div>
-                    <span className="text-[10px] font-mono text-zinc-400 max-w-[80px] overflow-hidden whitespace-nowrap text-ellipsis" title={t.id}>#{t.id?.slice(0, 6)}</span>
+                <div className="absolute top-0 bottom-0 left-8 border-l border-dashed border-zinc-200 dark:border-white/5" />
+                <CardContent className="p-0 flex flex-row relative z-10">
+                  {/* Left part of ticket: Status/Priority Color Strip */}
+                  <div className="w-8 shrink-0 flex flex-col items-center justify-center p-2">
+                     <span className={`w-2 h-16 rounded-full ${
+                        t.priority === 'urgent' || t.priority === 'high' ? 'bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]' : 
+                        t.priority === 'low' ? 'bg-zinc-300 dark:bg-zinc-700' : 
+                        'bg-amber-500'
+                     }`} />
                   </div>
-                  <h4 className="font-medium text-sm mb-1 dark:text-zinc-50">{t.subject}</h4>
                   
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3 truncate flex items-center gap-1">
-                    <User size={12}/> {customer ? customer.name : 'Cliente Anônimo'}
-                  </p>
-
-                  <div className="flex items-center justify-between mt-4">
-                    <div className="flex -space-x-2">
-                      <Avatar className="h-6 w-6 border-2 border-white dark:border-zinc-900">
-                        <AvatarFallback className="text-[8px] bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-50 text-xs">C</AvatarFallback>
-                      </Avatar>
-                      {t.aiHandled && (
-                        <Avatar className="h-6 w-6 border-2 border-white dark:border-zinc-900">
-                          <AvatarFallback className="text-[8px] bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400"><Bot size={10} /></AvatarFallback>
-                        </Avatar>
-                      )}
+                  <div className="flex-1 p-4 py-5 flex flex-col min-w-0 pr-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex gap-2 items-center">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-sm whitespace-nowrap bg-zinc-100 dark:bg-white/5 text-zinc-600 dark:text-zinc-300">
+                          {t.priority?.toUpperCase() || 'NORMAL'}
+                        </span>
+                        {t.category && (
+                          <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold">
+                            • {t.category}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] font-mono font-bold text-zinc-400 bg-zinc-50 dark:bg-white/5 px-2 py-1 flex items-center justify-center rounded">#{t.id?.slice(0, 5)}</span>
                     </div>
-                    <span className="text-[10px] text-zinc-400 flex items-center gap-1">
-                      <Clock size={10}/> {t.createdAt?.toDate ? t.createdAt.toDate().toLocaleDateString() : 'Recent'}
-                    </span>
+                    
+                    <h4 className="font-bold tracking-tight text-[15px] mb-2 text-zinc-900 dark:text-zinc-100 leading-snug">{t.subject}</h4>
+                    
+                    <div className="flex items-center gap-2 mb-4 bg-zinc-50 dark:bg-[#111214] p-2 rounded-lg">
+                      <Avatar className="h-6 w-6">
+                        <AvatarFallback className="text-[9px] bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">{customer ? customer.name.charAt(0) : 'A'}</AvatarFallback>
+                      </Avatar>
+                      <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 line-clamp-1">{customer ? customer.name : 'Anônimo'}</span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between mt-auto pt-3 border-t border-dashed border-zinc-200 dark:border-white/10">
+                      <div className="flex -space-x-1.5 opacity-80">
+                        {t.aiHandled && (
+                          <Avatar className="h-6 w-6 border-2 border-white dark:border-[#16171a]">
+                            <AvatarFallback className="text-[8px] bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400"><Bot size={12} /></AvatarFallback>
+                          </Avatar>
+                        )}
+                      </div>
+                      <span className="text-[10px] font-bold text-zinc-500 flex items-center gap-1 uppercase tracking-wider">
+                        <Clock size={12} /> {t.createdAt?.toDate ? t.createdAt.toDate().toLocaleDateString() : 'Hoje'}
+                      </span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

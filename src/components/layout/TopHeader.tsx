@@ -18,14 +18,14 @@ export function TopHeader({ clearNotifications, handleMarkNotificationRead, onMe
   const { notifications, isNotificationsOpen, setIsNotificationsOpen } = useAppStore();
 
   return (
-    <div className="flex items-center justify-between md:justify-end shrink-0 px-4 py-4 md:px-8 md:py-6 border-b md:border-b-0 border-zinc-200 dark:border-zinc-800 bg-white/50 backdrop-blur-md md:bg-transparent z-40 sticky top-0 md:static">
+    <div className="flex items-center justify-between md:justify-end shrink-0 px-3 py-2 md:px-6 md:py-3 border-b md:border-b-0 border-zinc-200 dark:border-zinc-800 bg-white/50 backdrop-blur-md md:bg-transparent z-40 sticky top-0 md:static">
       <Button 
         variant="ghost" 
         size="icon" 
-        className="md:hidden  mr-auto h-9 w-9"
+        className="md:hidden  mr-auto h-8 w-8"
         onClick={onMenuClick}
       >
-        <Menu size={20} />
+        <Menu size={18} />
       </Button>
 
       <div className="flex items-center gap-3">
@@ -36,20 +36,20 @@ export function TopHeader({ clearNotifications, handleMarkNotificationRead, onMe
       <Button 
         variant="ghost" 
         size="icon" 
-        className="h-9 w-9 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm"
+        className="h-8 w-8 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm"
         onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
       >
-        {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+        {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
       </Button>
 
       <div className="relative">
         <Button 
           variant="ghost" 
           size="icon" 
-          className="relative rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm"
+          className="relative rounded-full h-8 w-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm"
           onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
         >
-          <Bell size={20} className="text-zinc-600 dark:text-zinc-400" />
+          <Bell size={18} className="text-zinc-600 dark:text-zinc-400" />
           {notifications.filter(n => !n.read).length > 0 && (
             <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white dark:border-zinc-900">
               {notifications.filter(n => !n.read).length}

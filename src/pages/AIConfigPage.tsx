@@ -46,10 +46,7 @@ export function AIConfigPage({
               animate={{ opacity: 1, x: 0 }}
               className="space-y-6"
             >
-              <header>
-                <h1 className="text-3xl font-bold tracking-tight">Núcleo IA</h1>
-                <p className="text-zinc-500 dark:text-zinc-400">Configure como o Gemini deve atender seus clientes.</p>
-              </header>
+              
               
               <Tabs defaultValue="orchestrator" className="w-full">
                 <TabsList className="bg-zinc-100 dark:bg-zinc-800 p-1 flex overflow-x-auto h-auto min-h-[40px] rounded-lg w-full justify-start md:justify-center shrink-0">
@@ -285,7 +282,7 @@ export function AIConfigPage({
                         <CardContent className="space-y-4">
                           <textarea 
                             className="w-full h-48 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-mono bg-zinc-50 dark:bg-zinc-900/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                            value={aiPrompts.ORCHESTRATOR}
+                            value={aiPrompts.ORCHESTRATOR || ''}
                             onChange={(e) => setAiPrompts(prev => ({ ...prev, ORCHESTRATOR: e.target.value }))}
                           />
                           <Button className="w-full" onClick={handleSavePrompts} disabled={isSavingPrompts}>

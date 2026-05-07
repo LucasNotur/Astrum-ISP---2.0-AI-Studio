@@ -22,9 +22,9 @@ function NavItem({ active, onClick, icon, label, collapsed, shortcut }: any) {
           <button 
             onClick={onClick}
             className={cn(
-              "flex items-center justify-between rounded-xl py-3 text-sm font-medium transition-all group",
+              "flex items-center justify-between rounded-full py-3 text-sm font-semibold transition-all group",
               collapsed ? "w-12 h-12 justify-center px-0" : "w-full px-4",
-              active ? "bg-primary text-primary-foreground shadow-md" : "text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-50"
+              active ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[0.98]" : "text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"
             )}
           >
             <div className="flex items-center gap-3">
@@ -55,7 +55,8 @@ function NavItem({ active, onClick, icon, label, collapsed, shortcut }: any) {
 export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMenuOpen?: boolean, setIsMobileMenuOpen?: (val: boolean) => void }) {
   const { 
     isSidebarCollapsed, setIsSidebarCollapsed, 
-    currentUserRole, setCurrentUserRole, user
+    currentUserRole, setCurrentUserRole, user,
+    companySettings
   } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
@@ -74,22 +75,31 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
         onClick={() => setIsMobileMenuOpen && setIsMobileMenuOpen(false)}
       />
       <aside className={cn(
-        "fixed md:static inset-y-0 left-0 z-50 border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm transition-all duration-300 flex flex-col",
+        "fixed md:static inset-y-0 left-0 z-50 border-r border-transparent dark:border-white/5 bg-white dark:bg-card/50 backdrop-blur-3xl shadow-sm transition-all duration-300 flex flex-col",
         !isMobileMenuOpen && "translate-x-[-100%] md:translate-x-0",
-        isSidebarCollapsed ? "w-20 items-center px-2 py-6 hidden md:flex" : "w-64 p-6"
+        isSidebarCollapsed ? "md:w-24 md:items-center md:px-2 md:py-6 w-72 p-6" : "w-72 p-6"
       )}>
         <button 
           onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          className="hidden md:flex absolute -right-3 top-8 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full p-1 shadow-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-50 z-10"
+          className="hidden md:flex absolute -right-3 top-8 bg-white dark:bg-zinc-800 border-none rounded-full p-2 shadow-sm text-zinc-500 hover:text-primary dark:hover:text-primary z-10 hover:scale-110 transition-transform"
         >
           {isSidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
 
       <div className={cn("flex items-center gap-3 mb-10", isSidebarCollapsed ? "justify-center" : "")}>
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Bot size={24} />
-        </div>
-        {!isSidebarCollapsed && <span className="text-xl font-bold tracking-tight">Astrum</span>}
+        {companySettings?.logoUrl ? (
+          <img 
+            src={companySettings.logoUrl} 
+            alt="Logo" 
+            className="h-10 w-10 shrink-0 rounded-lg object-cover bg-white p-0.5" 
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <Bot size={24} />
+          </div>
+        )}
+        {!isSidebarCollapsed && <span className="text-xl font-bold tracking-tight truncate">{companySettings?.name || 'Astrum'}</span>}
       </div>
 
       <nav className="space-y-1 w-full flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
@@ -226,43 +236,41 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
       </nav>
 
       <div className="mt-auto pt-4 w-full">
-        <div className={cn("flex items-center gap-3 rounded-xl bg-zinc-100 dark:bg-zinc-800/50", isSidebarCollapsed ? "justify-center p-2" : "p-3")}>
+        <div className={cn("flex items-center gap-3 rounded-xl bg-zinc-100 dark:bg-zinc-800/50", isSidebarCollapsed ? "md:justify-center md:p-2 p-3" : "p-3")}>
           <Avatar className="h-10 w-10 shrink-0">
             <AvatarImage src={user?.photoURL} />
             <AvatarFallback>{user?.displayName?.[0] || 'U'}</AvatarFallback>
           </Avatar>
-          {!isSidebarCollapsed && (
-            <div className="flex-1 overflow-hidden">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium truncate">{user?.displayName || 'Usuário Astrum'}</p>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-6 w-6 text-zinc-400 hover:text-destructive transition-colors shrink-0" 
-                  onClick={handleLogout}
-                >
-                  <LogOut size={14} />
-                </Button>
-              </div>
-              <div className="flex items-center gap-1">
-                <Badge variant="outline" className="text-[8px] h-3.5 px-1 uppercase border-zinc-300 dark:border-zinc-700">
-                  {currentUserRole}
-                </Badge>
-                {(user?.email?.toLowerCase() === 'lucaspferraz123@gmail.com' || user?.email?.toLowerCase() === 'noturcursos1@gmail.com') && (
-                  <select 
-                    className="bg-transparent text-[8px] text-zinc-400 outline-none cursor-pointer hover:text-zinc-600 dark:hover:text-zinc-200"
-                    value={currentUserRole}
-                    onChange={(e) => setCurrentUserRole(e.target.value as any)}
-                  >
-                    <option value="admin">Desenvolvedor</option>
-                    <option value="owner">Admin (Dono da provedora)</option>
-                    <option value="support">Operacional (Colaborador)</option>
-                    <option value="tecnico">Técnico de Campo</option>
-                  </select>
-                )}
-              </div>
+          <div className={cn("flex-1 overflow-hidden", isSidebarCollapsed ? "block md:hidden" : "block")}>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-medium truncate">{user?.displayName || 'Usuário Astrum'}</p>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-6 w-6 text-zinc-400 hover:text-destructive transition-colors shrink-0" 
+                onClick={handleLogout}
+              >
+                <LogOut size={14} />
+              </Button>
             </div>
-          )}
+            <div className="flex items-center gap-1">
+              <Badge variant="outline" className="text-[8px] h-3.5 px-1 uppercase border-zinc-300 dark:border-zinc-700">
+                {currentUserRole}
+              </Badge>
+              {(user?.email?.toLowerCase() === 'lucaspferraz123@gmail.com' || user?.email?.toLowerCase() === 'noturcursos1@gmail.com') && (
+                <select 
+                  className="bg-transparent text-[8px] text-zinc-400 outline-none cursor-pointer hover:text-zinc-600 dark:hover:text-zinc-200"
+                  value={currentUserRole}
+                  onChange={(e) => setCurrentUserRole(e.target.value as any)}
+                >
+                  <option value="admin">Desenvolvedor</option>
+                  <option value="owner">Admin (Dono da provedora)</option>
+                  <option value="support">Operacional (Colaborador)</option>
+                  <option value="tecnico">Técnico de Campo</option>
+                </select>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </aside>

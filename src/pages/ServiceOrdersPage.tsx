@@ -359,10 +359,7 @@ export function ServiceOrdersPage() {
       className="space-y-4 h-full flex flex-col"
     >
       <header className="flex flex-col md:flex-row md:items-center justify-between shrink-0 mb-2 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-1">Operações e Serviços em Campo</h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Acompanhamento e despacho de instalações, manutenções e atividades em campo.</p>
-        </div>
+        
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="outline" className="gap-2" onClick={() => setIsWhatsappDialogOpen(true)}>
             <Smartphone size={16} className="text-green-600" />
@@ -387,10 +384,10 @@ export function ServiceOrdersPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="board" className="flex-1 overflow-x-auto pb-4 mt-0 data-[state=active]:flex">
-          <div className="flex gap-4 min-w-max h-[calc(100vh-230px)]">
+        <TabsContent value="board" className="flex-1 overflow-x-auto overflow-y-auto md:overflow-y-hidden pb-4 mt-0 data-[state=active]:flex">
+          <div className="flex flex-col md:flex-row gap-4 md:min-w-max md:h-[calc(100vh-230px)]">
           {pipelines.map(column => (
-            <div key={column.id} className="flex flex-col w-[340px] bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-100 dark:border-zinc-800 p-3 shadow-sm h-full overflow-hidden">
+            <div key={column.id} className="flex flex-col w-full md:w-[340px] bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-100 dark:border-zinc-800 p-3 shadow-sm md:h-full md:overflow-hidden min-h-[min-content]">
               <div className="mb-4 px-1">
                 <div className="flex items-center justify-between mb-1">
                   <h3 className="font-bold text-[15px] flex items-center gap-2">
@@ -404,19 +401,19 @@ export function ServiceOrdersPage() {
                 </div>
                 <p className="text-[11px] text-zinc-500">{column.desc}</p>
               </div>
-
-              <ScrollArea className="flex-1 pr-2 -mr-2">
-                 <div className="space-y-3 pb-6">
-                    {column.data.map(item => (
-                       <Card key={item.id} className="border-none shadow-sm shadow-zinc-200/50 dark:shadow-none hover:shadow-md transition-all group overflow-hidden bg-white dark:bg-zinc-900 border-zinc-200/50 dark:border-zinc-800 ring-1 ring-zinc-200 dark:ring-zinc-800">
-                           <CardContent className="p-4 relative">
+              <ScrollArea className="flex-1 -mx-2 px-2 scrollbar-hide">
+                <div className="space-y-4 pb-10">
+                  {column.data.map(item => (
+                       <Card key={item.id} className="border-none shadow-[2px_8px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] hover:scale-[1.02] transition-all duration-300 cursor-pointer group relative dark:bg-[#16171a] bg-white rounded-[16px] overflow-hidden ticket-shape">
+                           <div className="absolute top-0 bottom-0 left-6 border-l border-dashed border-zinc-200 dark:border-white/5" />
+                           <CardContent className="p-4 pl-8 relative z-10">
                                <div className="flex justify-between items-start mb-2 cursor-pointer" onClick={() => setExpandedBoardOS(expandedBoardOS === item.id ? null : item.id)}>
-                                 <Badge variant="outline" className={`text-[10px] px-2 py-0 h-5 ${
-                                    item.status === 'pendente' && !item.scheduledDate ? 'bg-zinc-50 text-zinc-700 border-zinc-200 dark:bg-zinc-900/20 dark:border-zinc-800' :
-                                    item.status === 'pendente' ? 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800' :
-                                    item.status === 'em_deslocamento' ? 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800' :
-                                    item.status === 'em_andamento' ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800' :
-                                    'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:border-purple-800'
+                                 <Badge variant="outline" className={`text-[10px] px-2 py-0 border-none font-bold ${
+                                    item.status === 'pendente' && !item.scheduledDate ? 'bg-zinc-100 text-zinc-500 dark:bg-white/5 dark:text-zinc-400' :
+                                    item.status === 'pendente' ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' :
+                                    item.status === 'em_deslocamento' ? 'bg-indigo-500/20 text-indigo-600 dark:text-indigo-400' :
+                                    item.status === 'em_andamento' ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400' :
+                                    'bg-purple-500/20 text-purple-600 dark:text-purple-400'
                                  }`}>
                                    {item.status.replace('_', ' ').toUpperCase()} {item.scheduledDate ? `• ${item.scheduledDate}` : ''}
                                  </Badge>
@@ -424,7 +421,7 @@ export function ServiceOrdersPage() {
                                </div>
                                
                                <div className="cursor-pointer" onClick={() => setExpandedBoardOS(expandedBoardOS === item.id ? null : item.id)}>
-                                 <h4 className="font-bold text-sm mb-1">{item.customerName}</h4>
+                                 <h4 className="font-bold tracking-tight text-sm mb-1">{item.customerName}</h4>
                                  <p className="text-[11px] text-zinc-500 mb-1 line-clamp-1 flex items-center gap-1">
                                    <MapPin size={10}/> {item.address}
                                  </p>
@@ -435,17 +432,17 @@ export function ServiceOrdersPage() {
                                  )}
                                </div>
                                
-                               <div className="flex items-center gap-2 mb-3 bg-zinc-50 dark:bg-zinc-800/50 p-1.5 rounded-md cursor-pointer" onClick={() => setExpandedBoardOS(expandedBoardOS === item.id ? null : item.id)}>
+                               <div className="flex items-center gap-2 mb-3 bg-zinc-50 dark:bg-[#111214] p-1.5 rounded-md cursor-pointer" onClick={() => setExpandedBoardOS(expandedBoardOS === item.id ? null : item.id)}>
                                  <User size={12} className="text-zinc-400"/>
                                  <span className="text-[11px] font-medium text-zinc-700 dark:text-zinc-300">Téc: {item.assignedTo || 'A Definir'}</span>
                                </div>
 
                                {expandedBoardOS === item.id && (
-                                 <div className="mt-2 mb-3 pt-3 border-t border-zinc-100 dark:border-zinc-800 space-y-3 animate-in slide-in-from-top-2 fade-in">
+                                 <div className="mt-2 mb-3 pt-3 border-t border-zinc-100 dark:border-white/5 space-y-3 animate-in slide-in-from-top-2 fade-in">
                                     {item.description && (
                                       <div>
                                         <h5 className="text-[10px] uppercase font-bold text-zinc-400 mb-1">Descrição Detalhada</h5>
-                                        <p className="text-[11px] text-zinc-600 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-800/50 p-2 rounded-md whitespace-pre-wrap">{item.description}</p>
+                                        <p className="text-[11px] text-zinc-600 dark:text-zinc-300 bg-zinc-50 dark:bg-[#111214] p-2 rounded-md whitespace-pre-wrap">{item.description}</p>
                                       </div>
                                     )}
                                     {item.aiSummary && (
@@ -459,59 +456,50 @@ export function ServiceOrdersPage() {
                                         <h5 className="text-[10px] uppercase font-bold text-zinc-400 mb-1 flex items-center gap-1"><Package size={10}/> Materiais Previstos</h5>
                                         <div className="flex flex-wrap gap-1">
                                           {item.materials.map((m: any, i: number) => (
-                                            <Badge key={i} variant="secondary" className="text-[9px] px-1.5 bg-zinc-100 dark:bg-zinc-800">{m}</Badge>
+                                            <Badge key={i} variant="secondary" className="text-[9px] px-1.5 bg-zinc-100 dark:bg-[#111214] border-none font-medium text-zinc-500">{m}</Badge>
                                           ))}
                                         </div>
                                       </div>
                                     )}
                                     
                                     <div className="flex flex-col gap-2 pt-2">
-                                       <Button variant="outline" size="sm" className="w-full text-[11px] h-7 gap-1" onClick={(e) => { e.stopPropagation(); setSelectedHistoryOS(item); setIsHistoryDialogOpen(true); }}>
-                                         <Calendar size={12} /> Ver Histórico de Status
-                                       </Button>
-                                       <Button variant="outline" size="sm" className="w-full text-[11px] h-7 gap-1" asChild>
-                                         <a href={`https://www.google.com/maps/dir/?api=1&destination=${item.lat && item.lng ? `${item.lat},${item.lng}` : encodeURIComponent(item.address)}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                                           <MapPin size={12} /> Ver Rota no Mapa
-                                         </a>
-                                       </Button>
-                                       <Button variant="secondary" size="sm" className="w-full text-[11px] h-7 gap-1 hover:bg-green-100 hover:text-green-700 transition-colors" onClick={(e) => { e.stopPropagation(); handleNotifyCustomer(item); }}>
-                                         <MessageSquare size={12} /> Avisar Cliente (WhatsApp)
+                                       {/* GIGANTIC ACTION BUTTON */}
+                                       {(item.status === 'pendente' || item.status === 'em_deslocamento' || item.status === 'em_andamento') && (
+                                          <Button 
+                                            className="w-full h-14 text-sm font-bold shadow-lg bg-amber-400 text-black hover:bg-amber-500 rounded-2xl shadow-amber-500/20"
+                                            onClick={(e) => { 
+                                              e.stopPropagation();
+                                              if (item.status === 'pendente') {
+                                                // mock transition
+                                                toast.success('Iniciando deslocamento...');
+                                              } else {
+                                                setSelectedOS(item); 
+                                                setIsFinishDialogOpen(true);
+                                              }
+                                            }}
+                                          >
+                                            {item.status === 'pendente' ? (
+                                              <><MapPin size={18} className="mr-2" /> INICIAR DESLOCAMENTO</>
+                                            ) : (
+                                              <><CheckCircle2 size={18} className="mr-2" /> FINALIZAR OS</>
+                                            )}
+                                          </Button>
+                                       )}
+
+                                       <div className="grid grid-cols-2 gap-2 mt-2">
+                                         <Button variant="outline" size="sm" className="w-full text-[11px] h-8 gap-1 rounded-[12px] bg-zinc-50 dark:bg-[#111214] border-none" onClick={(e) => { e.stopPropagation(); setSelectedHistoryOS(item); setIsHistoryDialogOpen(true); }}>
+                                           <Calendar size={12} /> Histórico
+                                         </Button>
+                                         <Button variant="outline" size="sm" className="w-full text-[11px] h-8 gap-1 rounded-[12px] bg-zinc-50 dark:bg-[#111214] border-none" asChild>
+                                           <a href={`https://www.google.com/maps/dir/?api=1&destination=${item.lat && item.lng ? `${item.lat},${item.lng}` : encodeURIComponent(item.address)}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                                             <MapPin size={12} /> Rota
+                                           </a>
+                                         </Button>
+                                       </div>
+                                       <Button variant="secondary" size="sm" className="w-full text-[11px] h-8 gap-1 hover:bg-green-100 hover:text-green-700 transition-colors rounded-[12px] mt-1" onClick={(e) => { e.stopPropagation(); handleNotifyCustomer(item); }}>
+                                         <MessageSquare size={12} /> Avisar Cliente
                                        </Button>
                                     </div>
-                                 </div>
-                               )}
-
-                               {column.id === 'new_tasks' && (
-                                 <Button 
-                                    variant="secondary" 
-                                    className="w-full text-[11px] h-8 gap-1 bg-zinc-100 dark:bg-zinc-800" 
-                                    onClick={(e) => { e.stopPropagation(); setSelectedCustomer({name: item.customerName, address: item.address, id: item.customerId}); setIsScheduleDialogOpen(true); }}
-                                  >
-                                    Agendar para Técnico <ArrowRight size={12} />
-                                 </Button>
-                               )}
-
-                               {column.id === 'scheduled' && (
-                                 <Button 
-                                    className="w-full text-[11px] h-8 gap-2 bg-[#25D366] hover:bg-[#1DA851] text-white" 
-                                    onClick={(e) => { e.stopPropagation(); dispatchToWhatsApp(item); }}
-                                 >
-                                   <MessageSquare size={13} fill="currentColor"/> Enviar para Hoje (WhatsApp)
-                                 </Button>
-                               )}
-
-                               {column.id === 'today' && (
-                                 <div className="flex flex-col gap-2">
-                                   <div className="text-[10px] text-green-600 dark:text-green-500 flex justify-center items-center gap-1 bg-green-50 dark:bg-green-900/20 py-1 rounded">
-                                     <CheckCircle2 size={10} /> Em Campo / Rota Ativa
-                                   </div>
-                                   <Button 
-                                      variant="default"
-                                      className="w-full text-[11px] h-8 bg-blue-600 hover:bg-blue-700" 
-                                      onClick={(e) => { e.stopPropagation(); setSelectedOS(item); setIsFinishDialogOpen(true); }}
-                                   >
-                                     <CheckCircle2 size={13} className="mr-1"/> Registrar Conclusão
-                                   </Button>
                                  </div>
                                )}
                                
@@ -589,10 +577,11 @@ export function ServiceOrdersPage() {
                   const isExpanded = selectedCalendarOS?.id === os.id;
                   
                   return (
-                    <Card key={os.id} className={`border border-zinc-200 dark:border-zinc-800 shadow-sm transition-all overflow-hidden bg-white dark:bg-zinc-900 ${isExpanded ? 'ring-2 ring-blue-500 shadow-md' : 'hover:border-zinc-300 dark:hover:border-zinc-700'}`}>
+                    <Card key={os.id} className={`border border-zinc-200 dark:border-zinc-800 shadow-sm transition-all overflow-hidden bg-white dark:bg-[#16171a] ticket-shape relative ${isExpanded ? 'ring-2 ring-blue-500 shadow-md' : 'hover:border-zinc-300 dark:hover:border-zinc-700'}`}>
+                      <div className="absolute top-0 bottom-0 left-[120px] md:left-[108px] border-l border-dashed border-zinc-200 dark:border-white/5 z-0" />
                       {/* HEADER COMPACT (ALWAYS VISIBLE) */}
                       <div 
-                        className="p-4 flex flex-col md:flex-row md:items-center gap-4 cursor-pointer"
+                        className="p-4 flex flex-col md:flex-row md:items-center gap-4 cursor-pointer relative z-10"
                         onClick={() => setSelectedCalendarOS(isExpanded ? null : os)}
                       >
                         {/* Time indicator */}

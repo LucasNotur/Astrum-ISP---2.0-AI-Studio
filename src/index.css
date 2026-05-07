@@ -49,7 +49,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 240 5% 96%;
     --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
     --card-foreground: 240 10% 3.9%;
@@ -76,39 +76,40 @@
     --radius: 0.5rem;
   }
   .dark {
-    --background: 240 10% 3.9%;
+    --background: 228 10% 6%;
     --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
+    --card: 228 12% 16%;
     --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
+    --popover: 228 12% 16%;
     --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
+    --primary: 350 89% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 228 12% 20%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --muted: 228 12% 20%;
+    --muted-foreground: 228 5% 65%;
+    --accent: 45 100% 51%;
+    --accent-foreground: 228 10% 6%;
+    --destructive: 350 89% 50%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --border: 228 12% 20%;
+    --input: 228 12% 20%;
+    --ring: 45 100% 51%;
+    --radius: 1.5rem;
   }
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+  *::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground tracking-tight;
   }
 }
 
@@ -118,5 +119,23 @@
   &::-webkit-scrollbar {
     display: none;
   }
+}
+
+@utility ticket-shape {
+  -webkit-mask-image: radial-gradient(circle at 0 50%, transparent 12px, black 13px), 
+                      radial-gradient(circle at 100% 50%, transparent 12px, black 13px);
+  -webkit-mask-size: 51% 100%;
+  -webkit-mask-position: 0 0, 100% 0;
+  -webkit-mask-repeat: no-repeat;
+  mask-image: radial-gradient(circle at 0 50%, transparent 12px, black 13px), 
+              radial-gradient(circle at 100% 50%, transparent 12px, black 13px);
+  mask-size: 51% 100%;
+  mask-position: 0 0, 100% 0;
+  mask-repeat: no-repeat;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.08)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.04));
+}
+
+.dark .ticket-shape {
+  filter: drop-shadow(0 8px 30px rgba(0, 0, 0, 0.4)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }
 

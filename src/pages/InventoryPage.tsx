@@ -25,10 +25,7 @@ export function InventoryPage({
       className="space-y-6"
     >
       <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Estoque</h1>
-          <p className="text-zinc-500 dark:text-zinc-400">Gestão de equipamentos e materiais do provedor.</p>
-        </div>
+        
         <div className="flex items-center gap-2">
           <Button className="gap-2" onClick={() => setIsNewItemDialogOpen(true)}>
             <Plus size={18} /> Novo Item

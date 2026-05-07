@@ -207,10 +207,7 @@ export function CustomersPage() {
               className="space-y-6"
             >
               <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
-                  <p className="text-zinc-500 dark:text-zinc-400">Base de assinantes e dados financeiros.</p>
-                </div>
+                
                 <div className="flex flex-wrap items-center gap-2">
                   <input type="file" accept=".csv" className="hidden" ref={customerFileInputRef} onChange={handleImportCustomers} />
                   <TooltipProvider delayDuration={0}>
@@ -511,7 +508,7 @@ export function CustomersPage() {
                   <div className="col-span-3">
                     <Input 
                       id="name" 
-                      value={editingCustomer.name} 
+                      value={editingCustomer?.name || ''} 
                       onChange={(e) => setEditingCustomer({ ...editingCustomer, name: e.target.value })}
                       className={formErrors.name ? "border-red-500" : ""}
                     />

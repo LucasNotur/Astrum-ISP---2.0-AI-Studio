@@ -67,10 +67,7 @@ export function MapPage() {
       className="space-y-6"
     >
       <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Mapa de Cobertura</h1>
-          <p className="text-zinc-500 dark:text-zinc-400">Visualize a viabilidade técnica e CTOs em tempo real.</p>
-        </div>
+        
         <Button className="gap-2">
           <Plus size={18} /> Nova CTO
         </Button>

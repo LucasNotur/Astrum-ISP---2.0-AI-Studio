@@ -169,7 +169,7 @@ import {
 } from './lib/db';
 import { seedPopularAstrum, wipeSystemData } from './lib/seedAstrum';
 import { uploadAttachment } from './lib/storage';
-import { getAIResponse, AGENT_CATEGORIES, SYSTEM_PROMPTS, summarizeTicketHistory, getSmartReplies, generateKBArticleFromTickets } from './lib/gemini';
+import { getAIResponse, AGENT_CATEGORIES, SYSTEM_PROMPTS, summarizeTicketHistory, summarizeCustomerHistory, getSmartReplies, generateKBArticleFromTickets } from './lib/gemini';
 import { AppLayout } from './components/layout/AppLayout';
 import { StatCard } from './components/ui/StatCard';
 import { DashboardPage } from './pages/DashboardPage';
@@ -1315,6 +1315,12 @@ export default function App() {
         setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       });
 
+      const unsubSettings = onSnapshot(doc(db, 'settings', 'company'), (docSnap) => {
+        if (docSnap.exists()) {
+          setCompanySettings(docSnap.data());
+        }
+      });
+
       return () => {
         unsubCustomers();
         unsubTickets();
@@ -1327,6 +1333,7 @@ export default function App() {
         unsubNotifications();
         unsubServiceOrders();
         unsubTechnicians();
+        unsubSettings();
       };
   }, [user]);
 
@@ -1802,7 +1809,20 @@ export default function App() {
         return `[${sender}]: ${m.text}`;
       }).join('\n');
       
-      const summary = await summarizeTicketHistory(historyText);
+      let customerData;
+      if (selectedTicket.customerId) {
+        const customer = customers.find(c => c.id === selectedTicket.customerId);
+        if (customer) {
+          customerData = {
+            name: customer.name,
+            cpf: customer.document,
+            address: customer.address,
+            phone: customer.phone
+          };
+        }
+      }
+
+      const summary = await summarizeTicketHistory(historyText, customerData);
       setTicketSummary(summary);
       toast.success("Resumo gerado com sucesso!");
     } catch (error) {
@@ -2696,7 +2716,7 @@ return (
                   <Label>Nome</Label>
                   <Input 
                     required 
-                    value={selectedTeamMember.name} 
+                    value={selectedTeamMember.name || ''} 
                     onChange={e => setSelectedTeamMember({...selectedTeamMember, name: e.target.value})} 
                   />
                 </div>
@@ -2705,7 +2725,7 @@ return (
                   <Input 
                     type="email" 
                     required 
-                    value={selectedTeamMember.email} 
+                    value={selectedTeamMember.email || ''} 
                     onChange={e => setSelectedTeamMember({...selectedTeamMember, email: e.target.value})} 
                   />
                 </div>
@@ -2713,7 +2733,7 @@ return (
                   <Label>Cargo</Label>
                   <select 
                     className="w-full p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm"
-                    value={selectedTeamMember.role}
+                    value={selectedTeamMember.role || 'support'}
                     onChange={e => setSelectedTeamMember({...selectedTeamMember, role: e.target.value})}
                   >
                     <option value="admin">Administrador</option>
@@ -2727,7 +2747,7 @@ return (
                   <Label>Status</Label>
                   <select 
                     className="w-full p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm"
-                    value={selectedTeamMember.status}
+                    value={selectedTeamMember.status || 'active'}
                     onChange={e => setSelectedTeamMember({...selectedTeamMember, status: e.target.value})}
                   >
                     <option value="active">Ativo</option>
@@ -2818,25 +2838,38 @@ return (
                       <h4 className="text-sm font-bold">Resumo de Atendimento IA</h4>
                     </div>
                     <Button 
-                      variant="ghost" 
+                      variant="outline" 
                       size="sm" 
-                      className="h-7 text-[10px] gap-1.5"
+                      className="h-8 px-3 text-xs font-semibold gap-1.5 border-purple-500 text-purple-600 hover:bg-purple-50 hover:text-purple-700 bg-white rounded-md shadow-sm"
                       onClick={async () => {
                         const customerTickets = tickets.filter(t => t.customerId === selectedCustomerDetails.id);
-                        const historyText = customerTickets.map(t => `Ticket ${t.id} - ${t.subject} (${t.status})`).join('\n');
-                        const summary = await summarizeTicketHistory(historyText || "Nenhum ticket encontrado.");
-                        toast.success("Resumo atualizado!");
-                        // In a real app, we'd store this in state
-                        (window as any)._lastAiSummary = summary;
-                        setIsDetailsDialogOpen(false); // Toggle to refresh or just use a state
-                        setIsDetailsDialogOpen(true);
+                        // Tenta juntar tanto o assunto quanto o resumo de IA que já existe dos tickets para o histórico
+                        const historyText = customerTickets.map(t => `- Problema Relatado: ${t.subject}\n  Status do problema: ${t.status}\n  Detalhes/Ações: ${t.aiSummary || t.description || 'Nenhum detalhe adicional.'}`).join('\n\n');
+                        
+                        const summaryPromise = summarizeCustomerHistory(historyText || "Sem histórico de problemas no sistema.", {
+                          name: selectedCustomerDetails.name,
+                          cpf: selectedCustomerDetails.document,
+                          address: selectedCustomerDetails.address,
+                          phone: selectedCustomerDetails.phone
+                        });
+
+                        toast.promise(summaryPromise, {
+                          loading: 'Atualizando resumo...',
+                          success: (summary) => {
+                            (window as any)._lastAiSummary = summary;
+                            setIsDetailsDialogOpen(false);
+                            setTimeout(() => setIsDetailsDialogOpen(true), 10);
+                            return "Mineração concluída!";
+                          },
+                          error: 'Erro ao gerar resumo.'
+                        });
                       }}
                     >
-                      <RefreshCw size={12} /> Atualizar
+                      <Sparkles size={14} /> Mineração de Logs
                     </Button>
                   </div>
                   <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed italic">
-                    {(window as any)._lastAiSummary || "Clique em atualizar para gerar um resumo inteligente do histórico deste cliente baseado nos tickets e interações anteriores."}
+                    {(window as any)._lastAiSummary || "Clique em 'Mineração de Logs' para extrair informações importantes e gerar um resumo inteligente da situação deste cliente baseado no seu histórico e tickets recentes."}
                   </p>
                 </div>
 
@@ -3111,8 +3144,9 @@ return (
                           tickets.filter(t => t.customerId === selectedCustomerDetails.id)
                             .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
                             .map(t => (
-                              <div key={t.id} className="p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm flex items-center justify-between hover:border-primary/20 transition-colors">
-                                <div className="space-y-1">
+                              <div key={t.id} className="relative p-4 rounded-[16px] bg-white dark:bg-zinc-900 shadow-[0_4px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.4)] flex items-center justify-between ticket-shape overflow-hidden hover:scale-[1.01] transition-all cursor-pointer">
+                                <div className="absolute top-0 bottom-0 left-3 border-l border-dashed border-zinc-200 dark:border-zinc-700/50" />
+                                <div className="space-y-1 relative z-10 pl-2">
                                   <p className="text-sm font-bold dark:text-zinc-50">{t.subject}</p>
                                   <div className="flex items-center gap-2 text-[10px] text-zinc-400">
                                     <span className="flex items-center gap-1"><Ticket size={10} /> {t.id?.slice(0, 8)}</span>
