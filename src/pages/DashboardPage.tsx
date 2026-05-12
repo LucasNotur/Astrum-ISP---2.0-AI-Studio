@@ -91,11 +91,69 @@ export function DashboardPage() {
 
   const isDeveloper = currentUserRole === 'admin';
 
+  const operationMetrics = useMemo(() => {
+    let statusText = 'Operação sob controle';
+    let statusColor = 'bg-green-500';
+    let statusBorder = 'border-l-green-500';
+    let statusDesc = 'A IA está operando o atendimento de forma estável, sem sinais críticos de sobrecarga. O volume de chamados está baixo e controlado.';
+    let summaryText = 'Estabilidade com baixo volume de problemas e crescimento da base. A IA reduziu o esforço humano e preparou a base para escalar.';
+    let recommendationText = 'Garantir resolução rápida dos chamados críticos de lentidão e conexão para evitar churn.';
+    let summaryColor = 'text-blue-700 dark:text-blue-400';
+    let summaryBg = 'bg-blue-50/50 dark:bg-blue-900/10';
+    let summaryBorder = 'border-l-blue-500';
+
+    const openTickets = tickets.filter(t => t.status !== 'resolved');
+    const criticalTickets = openTickets.filter(t => t.priority === 'urgent' || t.priority === 'high');
+    
+    const points: { type: string, text: React.ReactNode, icon: string }[] = [];
+
+    // Evaluate Warning/Critical
+    if (criticalTickets.length > 5 || slaRiskTickets.length > 3) {
+       statusText = 'Alerta Vermelho: Operação Crítica';
+       statusColor = 'bg-red-500';
+       statusBorder = 'border-l-red-500';
+       statusDesc = 'Anomalias graves identificadas na rede ou SLA violado. Ação imediata necessária da equipe técnica.';
+       summaryText = 'A rede apresenta instabilidade que está gerando um volume atípico de reclamações. A IA não consegue conter os cancelamentos sozinha se a conexão não for reestabelecida.';
+       recommendationText = 'Mobilizar equipe de campo para as regiões afetadas. Revisar a fila de tickets em risco de SLA imediatamente.';
+       summaryColor = 'text-red-700 dark:text-red-400';
+       summaryBg = 'bg-red-50/50 dark:bg-red-900/10';
+       summaryBorder = 'border-l-red-500';
+    } else if (openTickets.length > 15 || criticalTickets.length > 0 || slaRiskTickets.length > 0) {
+       statusText = 'Atenção: Requer Monitoramento';
+       statusColor = 'bg-amber-500';
+       statusBorder = 'border-l-amber-500';
+       statusDesc = 'Operação sob alerta. Foram identificados chamados com potencial de risco, mas controláveis.';
+       summaryText = 'Picos de chamados detectados, indicando pequenas instabilidades ou Gargalo de SLA. A percepção do cliente pode ser afetada se a fila humana demorar a escovar.';
+       recommendationText = 'Priorizar os atendimentos prioritários ou em risco de SLA na fila humana. Monitorar a saúde dos equipamentos ativamente.';
+       summaryColor = 'text-amber-700 dark:text-amber-400';
+       summaryBg = 'bg-amber-50/50 dark:bg-amber-900/10';
+       summaryBorder = 'border-l-amber-500';
+    }
+
+    if (criticalTickets.length > 0) {
+      points.push({ type: 'critical', icon: '⚠️', text: <><strong className="font-medium text-zinc-900 dark:text-zinc-100">Atendimentos Críticos:</strong> {criticalTickets.length} problema(s) com prioridade alta/urgente identificado(s). Risco de insatisfação.</> });
+    }
+    
+    if (slaRiskTickets.length > 0) {
+      points.push({ type: 'sla', icon: '⏱️', text: <><strong className="font-medium text-zinc-900 dark:text-zinc-100">Risco de SLA:</strong> {slaRiskTickets.length} caso(s) com muito tempo na fila (&gt;4h). Acompanhar de perto.</> });
+    }
+    
+    const negativeSentimentRate = sentimentStats?.NEGATIVO || 0;
+    if (negativeSentimentRate > 15) {
+       points.push({ type: 'sentiment', icon: '😠', text: <><strong className="font-medium text-zinc-900 dark:text-zinc-100">Sentimento Negativo:</strong> Elevado ({negativeSentimentRate}%). Checar abordagem e retenção.</>});
+    }
+
+    if (points.length === 0) {
+       points.push({ type: 'ok', icon: '✅', text: <><strong className="font-medium text-zinc-900 dark:text-zinc-100">Tudo limpo:</strong> Sem gargalos detectados no momento.</> });
+    }
+
+    return { statusText, statusColor, statusBorder, statusDesc, points, summaryText, recommendationText, summaryColor, summaryBg, summaryBorder };
+  }, [tickets, slaRiskTickets, sentimentStats]);
 
   const [dashboardSubTab, setDashboardSubTab] = useState<'overview' | 'performance' | 'churn'>('overview');
 
   const churnData = useMemo(() => {
-    return customers.map(c => {
+    return customers.filter(c => c.status !== 'pending' && c.status !== 'lead').map(c => {
       let riskScore = 0;
       let reasons: string[] = [];
 
@@ -146,7 +204,7 @@ export function DashboardPage() {
         riskLevel,
         reasons
       };
-    }).sort((a, b) => b.riskScore - a.riskScore);
+    }).filter(c => c.riskLevel !== 'Baixo').sort((a, b) => b.riskScore - a.riskScore);
   }, [customers, tickets, invoices, auditLogs]);
 
   const totalMrr = useMemo(() => {
@@ -377,7 +435,7 @@ export function DashboardPage() {
                 {isOwner && (
                   <div className="mb-8 flex overflow-x-auto pb-4 gap-6 snap-x snap-mandatory scrollbar-hide -mx-2 px-2 md:grid md:grid-cols-3 md:overflow-visible md:pb-0 md:mx-0 md:px-0">
                     {/* Visão Geral */}
-                    <Card className="min-w-[85vw] snap-center md:min-w-0 border-l-4 border-l-green-500 shadow-sm">
+                    <Card className={`min-w-[85vw] snap-center md:min-w-0 border-l-4 ${operationMetrics.statusBorder} shadow-sm`}>
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-zinc-500 flex items-center gap-2">
                           <Activity size={16} /> Visão Geral da Operação
@@ -385,11 +443,11 @@ export function DashboardPage() {
                       </CardHeader>
                       <CardContent>
                         <div className="flex items-center gap-2 mb-2">
-                          <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
-                          <span className="font-semibold text-lg">Operação sob controle</span>
+                          <div className={`w-2.5 h-2.5 rounded-full ${operationMetrics.statusColor} animate-pulse`} />
+                          <span className="font-semibold text-lg">{operationMetrics.statusText}</span>
                         </div>
                         <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                          A IA está operando o atendimento de forma estável, sem sinais críticos de sobrecarga. O volume de chamados está baixo e controlado.
+                          {operationMetrics.statusDesc}
                         </p>
                       </CardContent>
                     </Card>
@@ -403,35 +461,33 @@ export function DashboardPage() {
                       </CardHeader>
                       <CardContent>
                         <ul className="space-y-2 text-sm">
-                          <li className="flex items-start gap-2">
-                            <span className="text-amber-500 mt-0.5">⚠️</span>
-                            <span><strong className="font-medium text-zinc-900 dark:text-zinc-100">Atendimentos Críticos:</strong> Problemas de conexão identificados. Risco de insatisfação.</span>
-                          </li>
-                          <li className="flex items-start gap-2">
-                            <span className="text-amber-500 mt-0.5">⏱️</span>
-                            <span><strong className="font-medium text-zinc-900 dark:text-zinc-100">Risco de SLA:</strong> Casos com mais de 12h sem resolução. Acompanhar de perto.</span>
-                          </li>
+                          {operationMetrics.points.map((pt, i) => (
+                            <li key={i} className="flex items-start gap-2">
+                              <span className="mt-0.5">{pt.icon}</span>
+                              <span>{pt.text}</span>
+                            </li>
+                          ))}
                         </ul>
                       </CardContent>
                     </Card>
 
                     {/* Resumo Final & Recomendação */}
-                    <Card className="min-w-[85vw] snap-center md:min-w-0 border-l-4 border-l-blue-500 shadow-sm bg-blue-50/50 dark:bg-blue-900/10">
+                    <Card className={`min-w-[85vw] snap-center md:min-w-0 border-l-4 ${operationMetrics.summaryBorder} shadow-sm ${operationMetrics.summaryBg}`}>
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-400 flex items-center gap-2">
+                        <CardTitle className={`text-sm font-medium ${operationMetrics.summaryColor} flex items-center gap-2`}>
                           <Lightbulb size={16} /> Resumo Executivo
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
                         <p className="text-sm text-zinc-700 dark:text-zinc-300 mb-3">
-                          Estabilidade com baixo volume de problemas e crescimento da base. A IA reduziu o esforço humano e preparou a base para escalar.
+                          {operationMetrics.summaryText}
                         </p>
-                        <div className="bg-white dark:bg-zinc-800/50 p-2.5 rounded-md border border-blue-100 dark:border-blue-800/30">
-                          <p className="text-xs font-medium text-blue-800 dark:text-blue-300 flex items-center gap-1.5">
+                        <div className="bg-white dark:bg-zinc-800/50 p-2.5 rounded-md border border-inherit border-opacity-30">
+                          <p className={`text-xs font-medium ${operationMetrics.summaryColor} flex items-center gap-1.5`}>
                             <Target size={14} /> Recomendação
                           </p>
                           <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
-                            Garantir resolução rápida dos chamados críticos de lentidão e conexão para evitar churn.
+                            {operationMetrics.recommendationText}
                           </p>
                         </div>
                       </CardContent>
@@ -502,125 +558,10 @@ export function DashboardPage() {
                 </Card>
               </div>
             </>
-          ) : dashboardSubTab === 'performance' ? (
-            <>
+                              ) : dashboardSubTab === 'performance' ? (
+            <div className="space-y-6">
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-
-                <Card className="border-none shadow-sm">
-                  <CardHeader>
-                    <CardTitle>Análise de Sentimento</CardTitle>
-                    <CardDescription>Humor predominante nos atendimentos.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="flex items-center justify-center py-4">
-                      <div className="relative w-40 h-40">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={[
-                                { name: 'Positivo', value: sentimentCounts.POSITIVO, color: '#10b981' },
-                                { name: 'Neutro', value: sentimentCounts.NEUTRO, color: '#94a3b8' },
-                                { name: 'Negativo', value: sentimentCounts.NEGATIVO, color: '#ef4444' },
-                              ]}
-                              innerRadius={60}
-                              outerRadius={80}
-                              paddingAngle={5}
-                              dataKey="value"
-                            >
-                              {[
-                                { name: 'Positivo', value: sentimentCounts.POSITIVO, color: '#10b981' },
-                                { name: 'Neutro', value: sentimentCounts.NEUTRO, color: '#94a3b8' },
-                                { name: 'Negativo', value: sentimentCounts.NEGATIVO, color: '#ef4444' },
-                              ].map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                              ))}
-                            </Pie>
-                          </PieChart>
-                        </ResponsiveContainer>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                          <p className="text-2xl font-bold">{(sentimentCounts.POSITIVO / (sentimentCounts.POSITIVO + sentimentCounts.NEUTRO + sentimentCounts.NEGATIVO) * 100 || 0).toFixed(0)}%</p>
-                          <p className="text-[10px] text-zinc-500 uppercase font-bold">Positivo</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-green-500" />
-                          <span>Satisfeito</span>
-                        </div>
-                        <span className="font-bold">{sentimentCounts.POSITIVO}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-zinc-400" />
-                          <span>Neutro</span>
-                        </div>
-                        <span className="font-bold">{sentimentCounts.NEUTRO}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-red-500" />
-                          <span>Insatisfeito</span>
-                        </div>
-                        <span className="font-bold">{sentimentCounts.NEGATIVO}</span>
-                      </div>
-                    </div>
-
-                  </CardContent>
-                </Card>
-              </div>
-
-              {isOwner && (
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                  <Card className="border-none shadow-sm">
-                    <CardHeader className="flex flex-row items-center justify-between">
-                      <div>
-                        <CardTitle>Tickets Críticos</CardTitle>
-                        <CardDescription>Chamados urgentes que precisam de atenção imediata.</CardDescription>
-                      </div>
-                      <Badge className="bg-red-500 border-none">Urgente</Badge>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {tickets.filter(t => t.priority === 'high' || t.priority === 'urgent').length > 0 ? (
-                          tickets.filter(t => t.priority === 'high' || t.priority === 'urgent')
-                            .slice(0, 4)
-                            .map(t => (
-                              <div key={t.id} className="relative flex items-center justify-between p-4 rounded-[16px] bg-white dark:bg-[#16171a] shadow-[0_4px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.4)] overflow-hidden ticket-shape">
-                                <div className="absolute top-0 bottom-0 left-3 border-l border-dashed border-zinc-200 dark:border-white/5" />
-                                <div className="flex items-center gap-4 pl-2 relative z-10">
-                                  <div className="w-8 shrink-0 flex items-center justify-center">
-                                    <span className={cn(
-                                      "w-1.5 h-10 rounded-full",
-                                      t.priority === 'urgent' ? "bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]" : "bg-orange-500"
-                                    )} />
-                                  </div>
-                                  <div>
-                                    <p className="text-[10px] font-mono font-bold text-zinc-400 mb-0.5">#{t.id.slice(0, 5)}</p>
-                                    <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate max-w-[180px]">{t.subject}</p>
-                                    <p className="text-[10px] font-medium text-zinc-500 mt-1">{customers.find(c => c.id === t.customerId)?.name || 'Cliente Desconhecido'}</p>
-                                  </div>
-                                </div>
-                                <Button variant="secondary" size="sm" className="h-8 text-xs font-bold shrink-0 z-10" onClick={() => {
-                                  setSelectedTicket(t);
-                                  navigate('/tickets');
-                                }}>Ver</Button>
-                              </div>
-                            ))
-                        ) : (
-                          <div className="text-center py-8 text-zinc-400 text-sm italic">
-                            Nenhum ticket crítico no momento.
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-
-                <Card className="border-none shadow-sm">
+                <Card className="border-none shadow-sm flex flex-col justify-between">
                   <CardHeader>
                     <CardTitle>Performance da IA</CardTitle>
                     <CardDescription>Tempo de resposta e análise de sentimento (Astrum Engine)</CardDescription>
@@ -668,8 +609,73 @@ export function DashboardPage() {
                   </CardContent>
                 </Card>
 
+                <Card className="border-none shadow-sm flex flex-col justify-between">
+                  <CardHeader>
+                    <CardTitle>Análise de Sentimento</CardTitle>
+                    <CardDescription>Humor predominante nos atendimentos.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="flex items-center justify-center py-4">
+                      <div className="relative w-40 h-40">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { name: 'Positivo', value: sentimentCounts.POSITIVO, color: '#10b981' },
+                                { name: 'Neutro', value: sentimentCounts.NEUTRO, color: '#94a3b8' },
+                                { name: 'Negativo', value: sentimentCounts.NEGATIVO, color: '#ef4444' },
+                              ]}
+                              innerRadius={60}
+                              outerRadius={80}
+                              paddingAngle={5}
+                              dataKey="value"
+                            >
+                              {[
+                                { name: 'Positivo', value: sentimentCounts.POSITIVO, color: '#10b981' },
+                                { name: 'Neutro', value: sentimentCounts.NEUTRO, color: '#94a3b8' },
+                                { name: 'Negativo', value: sentimentCounts.NEGATIVO, color: '#ef4444' },
+                              ].map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <p className="text-2xl font-bold">{(sentimentCounts.POSITIVO / ((sentimentCounts.POSITIVO + sentimentCounts.NEUTRO + sentimentCounts.NEGATIVO) || 1) * 100).toFixed(0)}%</p>
+                          <p className="text-[10px] text-zinc-500 uppercase font-bold">Positivo</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-green-500" />
+                          <span>Satisfeito</span>
+                        </div>
+                        <span className="font-bold">{sentimentCounts.POSITIVO}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-zinc-400" />
+                          <span>Neutro</span>
+                        </div>
+                        <span className="font-bold">{sentimentCounts.NEUTRO}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-red-500" />
+                          <span>Insatisfeito</span>
+                        </div>
+                        <span className="font-bold">{sentimentCounts.NEGATIVO}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                <Card className="border-none shadow-sm">
+                <Card className="border-none shadow-sm flex flex-col">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <AlertTriangle size={18} className="text-orange-500" />
@@ -721,7 +727,7 @@ export function DashboardPage() {
                   </CardContent>
                 </Card>
 
-                <Card className="border-none shadow-sm">
+                <Card className="border-none shadow-sm flex flex-col">
                   <CardHeader>
                     <CardTitle>Atividade Recente</CardTitle>
                     <CardDescription>Últimas movimentações no sistema.</CardDescription>
@@ -759,70 +765,54 @@ export function DashboardPage() {
                 </Card>
               </div>
 
-              <Card className="border-none shadow-sm lg:col-span-2">
-                <CardHeader>
-                  <CardTitle>Análise de Resposta IA</CardTitle>
-                  <CardDescription>Comparativo de tempo de resposta vs. Sentimento do cliente.</CardDescription>
-                </CardHeader>
-                <CardContent className="h-[400px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis type="number" dataKey="responseTime" name="Tempo de Resposta" unit="s" />
-                      <YAxis type="number" dataKey="sentimentScore" name="Score Sentimento" domain={[0, 100]} />
-                      <RechartsTooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '12px' }} />
-                      <Scatter name="Atendimentos" data={performanceScatterData} fill="#8b5cf6" />
-                    </ScatterChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              <Card className="border-none shadow-sm">
-                <CardHeader>
-                  <CardTitle>Eficiência por Categoria</CardTitle>
-                  <CardDescription>Taxa de resolução automática por tipo de problema.</CardDescription>
-                </CardHeader>
-                <CardContent className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart cx="50%" cy="50%" outerRadius="80%" data={categoryEfficiencyData}>
-                      <PolarGrid stroke="hsl(var(--border))" />
-                      <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
-                      <PolarRadiusAxis angle={30} domain={[0, 100]} />
-                      <Radar name="Eficiência" dataKey="A" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.6} />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              <Card className="border-none shadow-sm">
-                <CardHeader>
-                  <CardTitle>Métricas de Retenção</CardTitle>
-                  <CardDescription>Impacto da IA na redução de Churn.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between p-4 rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-800">
-                    <div className="flex items-center gap-3">
-                      <TrendingUp className="text-green-600" />
+              {isOwner && (
+                <div className="grid grid-cols-1">
+                  <Card className="border-none shadow-sm flex flex-col">
+                    <CardHeader className="flex flex-row items-center justify-between">
                       <div>
-                        <p className="text-sm font-bold">Redução de Churn</p>
-                        <p className="text-xs text-zinc-500">Comparado ao mês anterior</p>
+                        <CardTitle>Tickets Críticos</CardTitle>
+                        <CardDescription>Chamados urgentes que precisam de atenção imediata.</CardDescription>
                       </div>
-                    </div>
-                    <span className="text-xl font-bold text-green-600">12.4%</span>
-                  </div>
-                  <div className="flex items-center justify-between p-4 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800">
-                    <div className="flex items-center gap-3">
-                      <Users className="text-blue-600" />
-                      <div>
-                        <p className="text-sm font-bold">Clientes Recuperados</p>
-                        <p className="text-xs text-zinc-500">Pelo agente de retenção</p>
+                      <Badge className="bg-red-500 border-none">Urgente</Badge>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {tickets.filter(t => t.priority === 'high' || t.priority === 'urgent').length > 0 ? (
+                          tickets.filter(t => t.priority === 'high' || t.priority === 'urgent')
+                            .slice(0, 4)
+                            .map(t => (
+                              <div key={t.id} className="relative flex items-center justify-between p-4 rounded-[16px] bg-white dark:bg-[#16171a] shadow-[0_4px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.4)] overflow-hidden ticket-shape">
+                                <div className="absolute top-0 bottom-0 left-3 border-l border-dashed border-zinc-200 dark:border-white/5" />
+                                <div className="flex items-center gap-4 pl-2 relative z-10">
+                                  <div className="w-8 shrink-0 flex items-center justify-center">
+                                    <span className={cn(
+                                      "w-1.5 h-10 rounded-full",
+                                      t.priority === 'urgent' ? "bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]" : "bg-orange-500"
+                                    )} />
+                                  </div>
+                                  <div>
+                                    <p className="text-[10px] font-mono font-bold text-zinc-400 mb-0.5">#{t.id.slice(0, 5)}</p>
+                                    <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate max-w-[180px]">{t.subject}</p>
+                                    <p className="text-[10px] font-medium text-zinc-500 mt-1">{customers.find(c => c.id === t.customerId)?.name || 'Cliente Desconhecido'}</p>
+                                  </div>
+                                </div>
+                                <Button variant="secondary" size="sm" className="h-8 text-xs font-bold shrink-0 z-10" onClick={() => {
+                                  setSelectedTicket(t);
+                                  navigate('/tickets');
+                                }}>Ver</Button>
+                              </div>
+                            ))
+                        ) : (
+                          <div className="text-center py-8 text-zinc-400 text-sm italic">
+                            Nenhum ticket crítico no momento.
+                          </div>
+                        )}
                       </div>
-                    </div>
-                    <span className="text-xl font-bold text-blue-600">42</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+            </div>
           ) : (
              <div className="space-y-6">
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-3">

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/src/components/ui/tabs";
-import { Avatar, AvatarFallback } from "@/src/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/src/components/ui/avatar";
 import { Badge } from "@/src/components/ui/badge";
 import { Ticket, Book, Globe, Clock, MessageSquare, Phone, Briefcase, Bot, Map as MapIcon, CreditCard, Plus, Trash2, Users } from "lucide-react";
 
@@ -13,8 +13,9 @@ import { Label } from "@/src/components/ui/label";
 import { Save, Bug, Database, BellRing, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { db, auth } from '@/src/lib/firebase';
-import { collection, query, getDocs, orderBy, limit, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, getDocs, orderBy, limit, doc, setDoc, deleteDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
+import { useAppStore } from '../store/useAppStore';
 
 export function SettingsPage({ 
   integrationKeys, 
@@ -58,11 +59,56 @@ export function SettingsPage({
   handleDeleteTeamMember
 }: any) {
 
+  const { user } = useAppStore();
+  const tenantId = user?.tenantId || 'DEFAULT_TENANT';
+  
+  const [tenantTokenLimit, setTenantTokenLimit] = useState<number>(5000000);
+  const [workerConcurrency, setWorkerConcurrency] = useState<number>(3);
+  
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'tenants', tenantId), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.monthly_token_limit) setTenantTokenLimit(data.monthly_token_limit);
+        if (data.worker_concurrency) setWorkerConcurrency(data.worker_concurrency);
+      }
+    });
+    return () => unsub();
+  }, [tenantId]);
+
+  const saveTokenLimit = async (val: number, conc: number) => {
+    try {
+      await updateDoc(doc(db, 'tenants', tenantId), { 
+        monthly_token_limit: val,
+        worker_concurrency: conc 
+      });
+      toast.success("Limites salvos com sucesso!");
+    } catch (e) {
+      toast.error("Erro ao salvar limites");
+    }
+  };
+
   const [webhookUrlDisplay, setWebhookUrlDisplay] = useState(`${window.location.origin}/api/webhook/evolution`);
-  const [aiUsageLogs, setAiUsageLogs] = useState<any[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [loadingAiUsage, setLoadingAiUsage] = useState(false);
   const [activeTab, setActiveTab] = useState("general");
+  
+  const [redisStatus, setRedisStatus] = useState<any>(null);
+  const [testRedisUrl, setTestRedisUrl] = useState("");
+  const [isTestingRedis, setIsTestingRedis] = useState(false);
+  const [redisTestResult, setRedisTestResult] = useState<any>(null);
+
+  const fetchRedisStatus = async () => {
+    try {
+      const res = await fetch('/api/integrations/redis/status');
+      if (res.ok) {
+        setRedisStatus(await res.json());
+      }
+    } catch(e) {}
+  };
+
+  useEffect(() => {
+    fetchRedisStatus();
+  }, []);
   
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -123,25 +169,6 @@ export function SettingsPage({
     }
   };
 
-  const fetchAiUsage = async () => {
-    if (activeTab !== "ai_usage" || !isAstrum) return;
-    setLoadingAiUsage(true);
-    try {
-      const q = query(collection(db, "ai_usage"), orderBy("createdAt", "desc"), limit(100));
-      const snap = await getDocs(q);
-      const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setAiUsageLogs(data);
-    } catch (e) {
-      console.error(e);
-      toast.error('Erro ao carregar logs de IA.');
-    } finally {
-      setLoadingAiUsage(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchAiUsage();
-  }, [activeTab]);
 
   useEffect(() => {
     fetch('/api/system/webhook-url')
@@ -167,7 +194,6 @@ export function SettingsPage({
                 <TabsList className="bg-zinc-100 dark:bg-zinc-800 p-1">
                   <TabsTrigger value="general">Geral</TabsTrigger>
                   {isAstrum && <TabsTrigger value="integrations">Integrações (APIs)</TabsTrigger>}
-                  {isAstrum && <TabsTrigger value="ai_usage">Núcleo de IA</TabsTrigger>}
                   <TabsTrigger value="team">Equipe</TabsTrigger>
                 </TabsList>
                 
@@ -344,6 +370,7 @@ export function SettingsPage({
                             <TabsTrigger value="whatsapp">WhatsApp (Evolution)</TabsTrigger>
                             <TabsTrigger value="billing">Financeiro (ERP)</TabsTrigger>
                             <TabsTrigger value="maps">Google Maps</TabsTrigger>
+                            <TabsTrigger value="redis">Redis (Fila)</TabsTrigger>
                           </TabsList>
 
                           <TabsContent value="ai" className="space-y-6">
@@ -368,6 +395,35 @@ export function SettingsPage({
                               </div>
                             </div>
 
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 mb-6">
+                              <div className="grid gap-2">
+                                <Label className="font-semibold flex items-center gap-2">Limite Mensal de Tokens</Label>
+                                <div className="flex gap-2">
+                                  <Input 
+                                    type="number" 
+                                    value={tenantTokenLimit}
+                                    onChange={(e) => setTenantTokenLimit(parseInt(e.target.value) || 0)}
+                                  />
+                                </div>
+                                <p className="text-xs text-zinc-500">Impede custos excessivos de LLM bloqueando as chamadas quando o limite é atingido no mês.</p>
+                              </div>
+
+                              <div className="grid gap-2">
+                                <Label className="font-semibold flex items-center gap-2">Concorrência de processamento (1-10)</Label>
+                                <div className="flex gap-2">
+                                  <Input 
+                                    type="number" 
+                                    min="1"
+                                    max="10"
+                                    value={workerConcurrency}
+                                    onChange={(e) => setWorkerConcurrency(Math.min(10, Math.max(1, parseInt(e.target.value) || 1)))}
+                                  />
+                                  <Button onClick={() => saveTokenLimit(tenantTokenLimit, workerConcurrency)}>Salvar</Button>
+                                </div>
+                                <p className="text-xs text-zinc-500">Quantidade de mensagens processadas simultaneamente neste ISP.</p>
+                              </div>
+                            </div>
+
                             {[
                               { id: "chat", title: "Agente Conversacional (Chat)", desc: "Motor principal de conversação com o cliente.", icon: <Bot size={18} className="text-emerald-600" /> },
                               { id: "orchestrator", title: "Agente Orquestrador", desc: "Classifica o sentimento e a categoria da primeira mensagem.", icon: <Bot size={18} className="text-blue-600" /> },
@@ -380,7 +436,7 @@ export function SettingsPage({
                               const providerMode = integrationKeys[`${feature.id}Provider`] || (['summary', 'smartreply', 'kb'].includes(feature.id) ? 'gemini' : 'openai');
                               
                               const openaiModels = ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo", "o1-mini", "o1-preview", "o3-mini"];
-                              const geminiModels = ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro"];
+                              const geminiModels = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-flash", "gemini-1.5-pro", "gemini-1.0-pro"];
                               
                               return (
                                 <div key={feature.id} className="p-4 border border-zinc-200 dark:border-zinc-800 rounded-lg">
@@ -470,40 +526,26 @@ export function SettingsPage({
 
                           <TabsContent value="whatsapp" className="space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              <div className="space-y-4">
+                              <div className="space-y-4 border border-zinc-200 dark:border-zinc-800 p-6 rounded-xl bg-zinc-50 dark:bg-zinc-900/50">
+                                <div>
+                                  <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                                    <MessageSquare size={18} className="text-green-600" />
+                                    Conexão com Evolution API
+                                  </h3>
+                                  <p className="text-xs text-zinc-500 mt-1">Configure o servidor matriz que processará as mensagens.</p>
+                                </div>
                                 <div className="grid gap-2">
-                                  <Label htmlFor="evo-url" className="flex items-center gap-2">
-                                    <MessageSquare size={16} className="text-green-600" />
-                                    Evolution API URL
-                                  </Label>
+                                  <Label htmlFor="evo-url">Evolution API URL</Label>
                                   <Input 
                                     id="evo-url" 
                                     placeholder="ex: http://sua-vps:8080" 
                                     value={integrationKeys.evolutionUrl || ''}
                                     onChange={(e) => setIntegrationKeys(prev => ({ ...prev, evolutionUrl: e.target.value }))}
                                   />
-                                  <p className="text-xs text-zinc-500 dark:text-zinc-400">URL base da sua Evolution API.</p>
                                 </div>
 
                                 <div className="grid gap-2">
-                                  <Label htmlFor="evo-instance" className="flex items-center gap-2">
-                                    <MessageSquare size={16} className="text-green-600" />
-                                    Nome da Instância
-                                  </Label>
-                                  <Input 
-                                    id="evo-instance" 
-                                    placeholder="ex: Astrum" 
-                                    value={integrationKeys.evolutionInstance || ''}
-                                    onChange={(e) => setIntegrationKeys(prev => ({ ...prev, evolutionInstance: e.target.value }))}
-                                  />
-                                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Nome exato da instância criada na Evolution.</p>
-                                </div>
-
-                                <div className="grid gap-2">
-                                  <Label htmlFor="evo-apikey" className="flex items-center gap-2">
-                                    <MessageSquare size={16} className="text-green-600" />
-                                    Global API Key
-                                  </Label>
+                                  <Label htmlFor="evo-apikey">Global API Key</Label>
                                   <Input 
                                     id="evo-apikey" 
                                     type="password" 
@@ -511,77 +553,31 @@ export function SettingsPage({
                                     value={integrationKeys.evolutionApiKey || ''}
                                     onChange={(e) => setIntegrationKeys(prev => ({ ...prev, evolutionApiKey: e.target.value }))}
                                   />
-                                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Chave global de autenticação da Evolution API.</p>
                                 </div>
-
-                                <div className="grid gap-2">
-                                  <Label htmlFor="support-relay-number" className="flex items-center gap-2">
-                                    <Phone size={16} className="text-blue-600" />
-                                    WhatsApp de Suporte Nível 2 (Relay)
-                                  </Label>
-                                  <Input 
-                                    id="support-relay-number" 
-                                    placeholder="ex: 5511999999999" 
-                                    value={integrationKeys.whiteLabelSupportNumber || ''}
-                                    onChange={(e) => setIntegrationKeys(prev => ({ ...prev, whiteLabelSupportNumber: e.target.value }))}
-                                  />
-                                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Número que receberá as dúvidas que a IA não souber responder.</p>
+                                <div className="pt-4 mt-2 border-t border-zinc-200 dark:border-zinc-800">
+                                  <p className="text-xs text-zinc-500 mb-3">Após configurar as chaves, gerencie as instâncias de WhatsApp em uma página dedicada.</p>
+                                  <Button className="w-full bg-indigo-600 hover:bg-indigo-700" onClick={() => window.location.href = '/whatsapp'}>
+                                    Gerenciar Múltiplas Instâncias
+                                  </Button>
                                 </div>
                               </div>
-                              
-                              <div className="bg-zinc-50 dark:bg-zinc-900 border rounded-lg p-6 flex flex-col items-center justify-center text-center space-y-4">
-                                <h4 className="font-semibold text-zinc-900 dark:text-zinc-50">Conexão do WhatsApp</h4>
-                                
-                                {evoStatus === "checking" ? (
-                                  <div className="flex flex-col items-center gap-2 py-4">
-                                    <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
-                                    <p className="text-sm font-medium text-zinc-500">Verificando status da conexão...</p>
-                                  </div>
-                                ) : evoStatus === "connected" ? (
-                                  <div className="flex flex-col items-center gap-2">
-                                    <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                                      <MessageSquare size={32} className="text-green-600" />
-                                    </div>
-                                    <p className="text-sm font-medium text-green-600">Instância Conectada!</p>
-                                    <div className="flex items-center gap-2">
-                                      <Button variant="outline" size="sm" onClick={fetchEvolutionQrCode} disabled={isFetchingQr}>
-                                        Verificar Status
-                                      </Button>
-                                      <Button variant="outline" size="sm" onClick={configureEvolutionWebhook} disabled={isFetchingQr}>
-                                        Tentar Configurar Auto
-                                      </Button>
-                                      <Button variant="destructive" size="sm" onClick={disconnectEvolutionInstance} disabled={isFetchingQr}>
-                                        Desconectar
-                                      </Button>
-                                    </div>
-                                    <div className="mt-4 pt-4 border-t dark:border-zinc-800">
-                                      <p className="text-xs text-zinc-400 mb-2">Se a configuração automática falhar, configure manualmente o Webhook na Evolution API usando os dados abaixo (eventos: MESSAGES_UPSERT, SEND_MESSAGE):</p>
-                                      <div className="flex gap-2 mb-2">
-                                        <Input readOnly value={webhookUrlDisplay} className="text-xs bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800" />
-                                        <Button variant="secondary" size="sm" onClick={() => { navigator.clipboard.writeText(webhookUrlDisplay); toast.success("URL copiada!"); }}>Copiar URL</Button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                ) : evoQrCode ? (
-                                  <div className="flex flex-col items-center gap-4">
-                                    <div className="bg-white p-2 rounded-xl shadow-sm border">
-                                      <img src={evoQrCode.startsWith('data:image') ? evoQrCode : `data:image/png;base64,${evoQrCode}`} alt="WhatsApp QR Code" className="w-48 h-48" />
-                                    </div>
-                                    <p className="text-sm text-zinc-500">Escaneie o QR Code com o seu WhatsApp.</p>
-                                    <Button variant="outline" size="sm" onClick={fetchEvolutionQrCode} disabled={isFetchingQr}>
-                                      Gerar Novo QR Code
-                                    </Button>
-                                  </div>
-                                ) : (
-                                  <div className="flex flex-col items-center gap-2">
-                                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                                      Salve as configurações ao lado e clique abaixo para gerar o QR Code.
+
+                              <div className="space-y-4">
+                                <div className="bg-blue-50/50 dark:bg-blue-900/10 p-6 rounded-xl border border-blue-100 dark:border-blue-900/30">
+                                  <h4 className="font-semibold text-blue-800 dark:text-blue-400 text-sm mb-4">Relay de Suporte</h4>
+                                  <div className="grid gap-3">
+                                    <Label htmlFor="support-relay-number">WhatsApp de Suporte Nível 2</Label>
+                                    <Input 
+                                      id="support-relay-number" 
+                                      placeholder="ex: 5511999999999" 
+                                      value={integrationKeys.whiteLabelSupportNumber || ''}
+                                      onChange={(e) => setIntegrationKeys(prev => ({ ...prev, whiteLabelSupportNumber: e.target.value }))}
+                                    />
+                                    <p className="text-xs text-blue-700/70 dark:text-blue-400/70 mt-1">
+                                      Número que receberá as dúvidas que a IA não souber responder.
                                     </p>
-                                    <Button onClick={fetchEvolutionQrCode} disabled={isFetchingQr}>
-                                      {isFetchingQr ? "Conectando..." : "Gerar QR Code"}
-                                    </Button>
                                   </div>
-                                )}
+                                </div>
                               </div>
                             </div>
 
@@ -754,6 +750,117 @@ export function SettingsPage({
                               <p className="text-xs text-zinc-500 dark:text-zinc-400">Usada para converter endereços em coordenadas.</p>
                             </div>
                           </TabsContent>
+
+                          <TabsContent value="redis" className="space-y-4">
+                            <Card className="border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 shadow-sm">
+                              <CardHeader>
+                                <CardTitle className="text-lg flex items-center gap-2">
+                                  <Database size={18} className="text-red-600" /> 
+                                  Redis / Fila de Mensagens
+                                </CardTitle>
+                                <CardDescription>
+                                  Gerencia filas de processamento, cache de sessões e rate limiting do CobrAI
+                                </CardDescription>
+                              </CardHeader>
+                              <CardContent className="space-y-6">
+                                {/* CARD STATUS REDIS */}
+                                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                                  <div className="p-3 bg-white dark:bg-zinc-950 rounded-lg border border-zinc-200 dark:border-zinc-800">
+                                    <p className="text-[10px] text-zinc-500 uppercase font-bold mb-1">Status</p>
+                                    <Badge variant={redisStatus?.connected ? "default" : "destructive"} className={redisStatus?.connected ? "bg-green-500 hover:bg-green-600" : ""}>
+                                      {redisStatus?.connected ? "Conectado" : "Desconectado"}
+                                    </Badge>
+                                  </div>
+                                  <div className="p-3 bg-white dark:bg-zinc-950 rounded-lg border border-zinc-200 dark:border-zinc-800">
+                                    <p className="text-[10px] text-zinc-500 uppercase font-bold mb-1">Memória</p>
+                                    <p className="text-sm font-bold font-mono">{redisStatus?.memoryUsed || "N/A"}</p>
+                                  </div>
+                                  <div className="p-3 bg-white dark:bg-zinc-950 rounded-lg border border-zinc-200 dark:border-zinc-800">
+                                    <p className="text-[10px] text-zinc-500 uppercase font-bold mb-1">Waiting</p>
+                                    <p className="text-sm font-bold font-mono">{redisStatus?.queueWaiting ?? "0"}</p>
+                                  </div>
+                                  <div className="p-3 bg-white dark:bg-zinc-950 rounded-lg border border-zinc-200 dark:border-zinc-800">
+                                    <p className="text-[10px] text-blue-500 uppercase font-bold mb-1">Active</p>
+                                    <p className="text-sm font-bold font-mono">{redisStatus?.queueActive ?? "0"}</p>
+                                  </div>
+                                  <div className="p-3 bg-white dark:bg-zinc-950 rounded-lg border border-zinc-200 dark:border-zinc-800">
+                                    <p className="text-[10px] text-red-500 uppercase font-bold mb-1">DLQ</p>
+                                    <p className="text-sm font-bold font-mono text-red-600">{redisStatus?.dlqCount ?? "0"}</p>
+                                  </div>
+                                </div>
+
+                                {/* CONFIGURAÇÃO */}
+                                <div className="space-y-4 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                                  <div className="grid gap-2">
+                                    <Label>Testar Conexão Redis</Label>
+                                    <div className="flex flex-col md:flex-row gap-2">
+                                      <Input 
+                                        type="password"
+                                        placeholder="redis://localhost:6379 ou redis://usuario:senha@host:6379"
+                                        value={testRedisUrl}
+                                        onChange={(e) => setTestRedisUrl(e.target.value)}
+                                        className="flex-1"
+                                      />
+                                      <Button 
+                                        variant="secondary"
+                                        disabled={isTestingRedis || !testRedisUrl}
+                                        onClick={async () => {
+                                          setIsTestingRedis(true);
+                                          setRedisTestResult(null);
+                                          try {
+                                            const res = await fetch('/api/integrations/redis/test', {
+                                              method: 'POST',
+                                              headers: { 'Content-Type': 'application/json' },
+                                              body: JSON.stringify({ url: testRedisUrl })
+                                            });
+                                            const data = await res.json();
+                                            setRedisTestResult(data);
+                                          } catch(e: any) {
+                                            setRedisTestResult({ success: false, error: e.message });
+                                          } finally {
+                                            setIsTestingRedis(false);
+                                          }
+                                        }}
+                                      >
+                                        {isTestingRedis ? "Testando..." : "Testar Conexão"}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  
+                                  {redisTestResult && (
+                                    <div className="mt-2 text-sm">
+                                      {redisTestResult.success ? (
+                                        <Badge className="bg-green-500 hover:bg-green-600">
+                                          Conectado — latência {redisTestResult.latencyMs}ms
+                                        </Badge>
+                                      ) : (
+                                        <Badge variant="destructive">
+                                          Falha: {redisTestResult.error}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* INFO */}
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                                  <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg border border-indigo-100 dark:border-indigo-900/30 text-center">
+                                    <h4 className="text-xs font-bold text-indigo-700 dark:text-indigo-400 mb-1">Fila Mensagens WhatsApp</h4>
+                                  </div>
+                                  <div className="bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-lg border border-emerald-100 dark:border-emerald-900/30 text-center">
+                                    <h4 className="text-xs font-bold text-emerald-700 dark:text-emerald-400 mb-1">Rate limit CobrAI</h4>
+                                  </div>
+                                  <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-lg border border-orange-100 dark:border-orange-900/30 text-center">
+                                    <h4 className="text-xs font-bold text-orange-700 dark:text-orange-400 mb-1">Cache Sessões Ativas</h4>
+                                  </div>
+                                  <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg border border-purple-100 dark:border-purple-900/30 text-center">
+                                    <h4 className="text-xs font-bold text-purple-700 dark:text-purple-400 mb-1">Deduplicação de Mensagens</h4>
+                                  </div>
+                                </div>
+
+                              </CardContent>
+                            </Card>
+                          </TabsContent>
                         </Tabs>
 
                         <Button 
@@ -788,6 +895,7 @@ export function SettingsPage({
                         {teamMembers.map((member) => (
                           <div key={member.id} className="p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm flex items-center gap-4">
                             <Avatar className="h-12 w-12">
+                              <AvatarImage src={member.photoUrl || member.avatarUrl} />
                               <AvatarFallback className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
                                 {member.name?.slice(0, 2).toUpperCase() || '??'}
                               </AvatarFallback>
@@ -818,79 +926,6 @@ export function SettingsPage({
                   </Card>
                 </TabsContent>
 
-                {isAstrum && (
-                  <TabsContent value="ai_usage" className="mt-6">
-                    <Card className="border-none shadow-sm">
-                      <CardHeader>
-                        <CardTitle>Consumo de IA</CardTitle>
-                        <CardDescription>Acompanhe o gasto de tokens e interações da Inteligência Artificial em tempo real.</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        {loadingAiUsage ? (
-                          <div className="text-center py-6 text-zinc-500">Carregando métricas...</div>
-                        ) : (
-                          <div className="space-y-4">
-                            <div className="grid grid-cols-3 gap-4 mb-6">
-                              <div className="bg-zinc-50 dark:bg-zinc-900 rounded-xl p-4 border border-zinc-100 dark:border-zinc-800">
-                                <h4 className="text-xs font-bold text-zinc-500 uppercase">Tokens Input (Lidos)</h4>
-                                <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                                  {aiUsageLogs.reduce((acc, log) => acc + (log.promptTokens || 0), 0).toLocaleString()}
-                                </span>
-                              </div>
-                              <div className="bg-zinc-50 dark:bg-zinc-900 rounded-xl p-4 border border-zinc-100 dark:border-zinc-800">
-                                <h4 className="text-xs font-bold text-zinc-500 uppercase">Tokens Output (Enviados)</h4>
-                                <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                                  {aiUsageLogs.reduce((acc, log) => acc + (log.completionTokens || 0), 0).toLocaleString()}
-                                </span>
-                              </div>
-                              <div className="bg-zinc-50 dark:bg-zinc-900 rounded-xl p-4 border border-zinc-100 dark:border-zinc-800">
-                                <h4 className="text-xs font-bold text-zinc-500 uppercase">Total de Tokens</h4>
-                                <span className="text-2xl font-bold">
-                                  {aiUsageLogs.reduce((acc, log) => acc + (log.totalTokens || 0), 0).toLocaleString()}
-                                </span>
-                              </div>
-                            </div>
-
-                            <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-                              <table className="w-full text-sm text-left">
-                                <thead className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
-                                  <tr>
-                                    <th className="px-4 py-3 font-medium text-zinc-500 uppercase text-xs">Data/Hora</th>
-                                    <th className="px-4 py-3 font-medium text-zinc-500 uppercase text-xs">Agente (Categoria)</th>
-                                    <th className="px-4 py-3 font-medium text-zinc-500 uppercase text-xs">Ticket ID</th>
-                                    <th className="px-4 py-3 font-medium text-zinc-500 uppercase text-xs text-right">Prompt</th>
-                                    <th className="px-4 py-3 font-medium text-zinc-500 uppercase text-xs text-right">Completion</th>
-                                    <th className="px-4 py-3 font-medium text-zinc-500 uppercase text-xs text-right">Total</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {aiUsageLogs.length > 0 ? aiUsageLogs.map(log => (
-                                    <tr key={log.id} className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50">
-                                      <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300">
-                                        {log.createdAt?.seconds ? new Date(log.createdAt.seconds * 1000).toLocaleString('pt-BR') : 'N/A'}
-                                      </td>
-                                      <td className="px-4 py-3 font-medium">
-                                        <Badge variant="outline" className="text-[10px]">{log.category}</Badge>
-                                      </td>
-                                      <td className="px-4 py-3 font-mono text-xs">{log.ticketId?.slice(0, 8)}...</td>
-                                      <td className="px-4 py-3 text-right text-indigo-600 dark:text-indigo-400">{log.promptTokens?.toLocaleString()}</td>
-                                      <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">{log.completionTokens?.toLocaleString()}</td>
-                                      <td className="px-4 py-3 text-right font-bold">{log.totalTokens?.toLocaleString()}</td>
-                                    </tr>
-                                  )) : (
-                                    <tr>
-                                      <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">Nenhum uso registrado nas últimas interações.</td>
-                                    </tr>
-                                  )}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-                )}
               </Tabs>
             </motion.div>
           

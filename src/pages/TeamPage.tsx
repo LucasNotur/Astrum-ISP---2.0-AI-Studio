@@ -69,6 +69,7 @@ export function TeamPage({
                           <TableRow key={member.id}>
                             <TableCell className="pl-6 font-medium flex items-center gap-3">
                               <Avatar className="h-8 w-8">
+                                <AvatarImage src={member.photoUrl || member.avatarUrl} />
                                 <AvatarFallback>{member.name[0]?.toUpperCase()}</AvatarFallback>
                               </Avatar>
                               {member.name}

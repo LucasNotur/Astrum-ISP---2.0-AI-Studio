@@ -6,17 +6,58 @@ import { cn } from "@/src/lib/utils"
 const ScrollArea = React.forwardRef<
   React.ElementRef<typeof ScrollAreaPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root>
->(({ className, children, ...props }, ref) => (
-  <ScrollAreaPrimitive.Root
-    ref={ref}
-    className={cn("relative overflow-hidden", className)}
-    {...props}
-  >
-    <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit]">
-      {children}
-    </ScrollAreaPrimitive.Viewport>
-  </ScrollAreaPrimitive.Root>
-))
+>(({ className, children, ...props }, ref) => {
+  const viewportRef = React.useRef<HTMLDivElement>(null)
+  const [isDragging, setIsDragging] = React.useState(false)
+  const [startY, setStartY] = React.useState(0)
+  const [startX, setStartX] = React.useState(0)
+  const [scrollTop, setScrollTop] = React.useState(0)
+  const [scrollLeft, setScrollLeft] = React.useState(0)
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    if (!viewportRef.current) return;
+    setIsDragging(true);
+    setStartY(e.pageY - viewportRef.current.offsetTop);
+    setStartX(e.pageX - viewportRef.current.offsetLeft);
+    setScrollTop(viewportRef.current.scrollTop);
+    setScrollLeft(viewportRef.current.scrollLeft);
+  };
+  
+  const onMouseLeave = () => setIsDragging(false);
+  const onMouseUp = () => setIsDragging(false);
+  
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !viewportRef.current) return;
+    e.preventDefault();
+    const y = e.pageY - viewportRef.current.offsetTop;
+    const x = e.pageX - viewportRef.current.offsetLeft;
+    const walkY = (y - startY) * 2;
+    const walkX = (x - startX) * 2;
+    viewportRef.current.scrollTop = scrollTop - walkY;
+    viewportRef.current.scrollLeft = scrollLeft - walkX;
+  };
+
+  return (
+    <ScrollAreaPrimitive.Root
+      ref={ref}
+      className={cn("relative overflow-hidden", className)}
+      {...props}
+    >
+      <ScrollAreaPrimitive.Viewport 
+        ref={viewportRef} 
+        className={cn("h-full w-full rounded-[inherit]", isDragging ? "cursor-grabbing" : "cursor-grab")}
+        onMouseDown={onMouseDown}
+        onMouseLeave={onMouseLeave}
+        onMouseUp={onMouseUp}
+        onMouseMove={onMouseMove}
+      >
+        {children}
+      </ScrollAreaPrimitive.Viewport>
+      <ScrollBar />
+      <ScrollAreaPrimitive.Corner />
+    </ScrollAreaPrimitive.Root>
+  )
+})
 ScrollArea.displayName = ScrollAreaPrimitive.Root.displayName
 
 const ScrollBar = React.forwardRef<

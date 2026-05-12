@@ -52,6 +52,7 @@ export const seedPopularAstrum = async (onProgress: (msg: string) => void) => {
       address: `Rua Exemplo, ${Math.floor(Math.random() * 1000)}`,
       plan,
       mrr,
+      marketing_opt_in: Math.random() > 0.1, // 90% have opted in
       status: Math.random() > 0.05 ? 'active' : 'inactive',
       createdAt: createdDate
     });

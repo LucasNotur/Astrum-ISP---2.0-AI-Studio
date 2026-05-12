@@ -1,5 +1,7 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { db } from '@/src/lib/firebase';
 import { motion } from 'framer-motion';
 import { Button } from "@/src/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
@@ -39,6 +41,62 @@ export function AIConfigPage({
   isSeeding,
   handleDeleteKB
 }: any) {
+
+  const [aiUsageLogs, setAiUsageLogs] = useState<any[]>([]);
+  const [loadingAiUsage, setLoadingAiUsage] = useState(false);
+  
+  const [validationErrors, setValidationErrors] = useState<Record<string, string[]>>({});
+  const [testResponses, setTestResponses] = useState<Record<string, string>>({});
+  const [isValidating, setIsValidating] = useState<Record<string, boolean>>({});
+
+  const validateAndSave = async (agent: string, content: string) => {
+    try {
+      setIsValidating(prev => ({ ...prev, [agent]: true }));
+      setValidationErrors(prev => ({ ...prev, [agent]: [] }));
+      setTestResponses(prev => ({ ...prev, [agent]: '' }));
+
+      const res = await fetch('/api/prompts/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content, agent })
+      });
+      const data = await res.json();
+      
+      if (!data.valid) {
+        setValidationErrors(prev => ({ ...prev, [agent]: data.errors }));
+        return;
+      }
+      
+      if (data.test_response) {
+         setTestResponses(prev => ({ ...prev, [agent]: data.test_response }));
+      }
+      
+      await handleSavePrompts();
+    } catch (e: any) {
+      console.error(e);
+      setValidationErrors(prev => ({ ...prev, [agent]: ["Erro na validação: " + e.message] }));
+    } finally {
+      setIsValidating(prev => ({ ...prev, [agent]: false }));
+    }
+  };
+
+  useEffect(() => {
+    const fetchAiUsage = async () => {
+      setLoadingAiUsage(true);
+      try {
+        const q = query(collection(db, "ai_usage"), orderBy("createdAt", "desc"), limit(100));
+        const snap = await getDocs(q);
+        const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setAiUsageLogs(data);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoadingAiUsage(false);
+      }
+    };
+    fetchAiUsage();
+  }, []);
+
   return (
     <motion.div 
               key="ai-config"
@@ -58,6 +116,7 @@ export function AIConfigPage({
                   <TabsTrigger value="sales" className="whitespace-nowrap">Vendas</TabsTrigger>
                   <TabsTrigger value="kb" className="whitespace-nowrap">Base de Conhecimento</TabsTrigger>
                   <TabsTrigger value="audit" className="whitespace-nowrap">Logs de Auditoria</TabsTrigger>
+                  <TabsTrigger value="ai_usage" className="whitespace-nowrap">Custos & Uso de Tokens</TabsTrigger>
                 </TabsList>
                 
                 <div className="mt-6">
@@ -285,8 +344,21 @@ export function AIConfigPage({
                             value={aiPrompts.ORCHESTRATOR || ''}
                             onChange={(e) => setAiPrompts(prev => ({ ...prev, ORCHESTRATOR: e.target.value }))}
                           />
-                          <Button className="w-full" onClick={handleSavePrompts} disabled={isSavingPrompts}>
-                            {isSavingPrompts ? "Salvando..." : "Salvar Configuração"}
+                          {validationErrors.ORCHESTRATOR?.length > 0 && (
+                            <div className="p-3 rounded bg-red-50 text-red-600 text-xs border border-red-200 space-y-1">
+                              <strong>Erros de Validação:</strong>
+                              <ul className="list-disc pl-4">
+                                {validationErrors.ORCHESTRATOR.map((err, i) => <li key={i}>{err}</li>)}
+                              </ul>
+                            </div>
+                          )}
+                          {testResponses.ORCHESTRATOR && (
+                            <div className="p-3 rounded bg-green-50 text-green-700 text-xs border border-green-200">
+                              <strong>Teste Sandbox:</strong> {testResponses.ORCHESTRATOR}
+                            </div>
+                          )}
+                          <Button className="w-full" onClick={() => validateAndSave('ORCHESTRATOR', aiPrompts.ORCHESTRATOR)} disabled={isValidating['ORCHESTRATOR'] || isSavingPrompts}>
+                            {isValidating['ORCHESTRATOR'] || isSavingPrompts ? "Validando e Salvando..." : "Salvar Configuração"}
                           </Button>
                         </CardContent>
                       </Card>
@@ -341,8 +413,21 @@ export function AIConfigPage({
                           value={aiPrompts.SUPORTE_TECNICO}
                           onChange={(e) => setAiPrompts(prev => ({ ...prev, SUPORTE_TECNICO: e.target.value }))}
                         />
-                        <Button className="w-full" onClick={handleSavePrompts} disabled={isSavingPrompts}>
-                          {isSavingPrompts ? "Salvando..." : "Salvar Configuração"}
+                        {validationErrors.SUPORTE_TECNICO?.length > 0 && (
+                          <div className="p-3 rounded bg-red-50 text-red-600 text-xs border border-red-200 space-y-1">
+                            <strong>Erros de Validação:</strong>
+                            <ul className="list-disc pl-4">
+                              {validationErrors.SUPORTE_TECNICO.map((err, i) => <li key={i}>{err}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {testResponses.SUPORTE_TECNICO && (
+                          <div className="p-3 rounded bg-green-50 text-green-700 text-xs border border-green-200">
+                            <strong>Teste Sandbox:</strong> {testResponses.SUPORTE_TECNICO}
+                          </div>
+                        )}
+                        <Button className="w-full" onClick={() => validateAndSave('SUPORTE_TECNICO', aiPrompts.SUPORTE_TECNICO)} disabled={isValidating['SUPORTE_TECNICO'] || isSavingPrompts}>
+                          {isValidating['SUPORTE_TECNICO'] || isSavingPrompts ? "Validando e Salvando..." : "Salvar Configuração"}
                         </Button>
                       </CardContent>
                     </Card>
@@ -365,8 +450,21 @@ export function AIConfigPage({
                           value={aiPrompts.FATURA}
                           onChange={(e) => setAiPrompts(prev => ({ ...prev, FATURA: e.target.value }))}
                         />
-                        <Button className="w-full" onClick={handleSavePrompts} disabled={isSavingPrompts}>
-                          {isSavingPrompts ? "Salvando..." : "Salvar Configuração"}
+                        {validationErrors.FATURA?.length > 0 && (
+                          <div className="p-3 rounded bg-red-50 text-red-600 text-xs border border-red-200 space-y-1">
+                            <strong>Erros de Validação:</strong>
+                            <ul className="list-disc pl-4">
+                              {validationErrors.FATURA.map((err, i) => <li key={i}>{err}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {testResponses.FATURA && (
+                          <div className="p-3 rounded bg-green-50 text-green-700 text-xs border border-green-200">
+                            <strong>Teste Sandbox:</strong> {testResponses.FATURA}
+                          </div>
+                        )}
+                        <Button className="w-full" onClick={() => validateAndSave('FATURA', aiPrompts.FATURA)} disabled={isValidating['FATURA'] || isSavingPrompts}>
+                          {isValidating['FATURA'] || isSavingPrompts ? "Validando e Salvando..." : "Salvar Configuração"}
                         </Button>
                       </CardContent>
                     </Card>
@@ -389,8 +487,21 @@ export function AIConfigPage({
                           value={aiPrompts.RETENCAO}
                           onChange={(e) => setAiPrompts(prev => ({ ...prev, RETENCAO: e.target.value }))}
                         />
-                        <Button className="w-full" onClick={handleSavePrompts} disabled={isSavingPrompts}>
-                          {isSavingPrompts ? "Salvando..." : "Salvar Configuração"}
+                        {validationErrors.RETENCAO?.length > 0 && (
+                          <div className="p-3 rounded bg-red-50 text-red-600 text-xs border border-red-200 space-y-1">
+                            <strong>Erros de Validação:</strong>
+                            <ul className="list-disc pl-4">
+                              {validationErrors.RETENCAO.map((err, i) => <li key={i}>{err}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {testResponses.RETENCAO && (
+                          <div className="p-3 rounded bg-green-50 text-green-700 text-xs border border-green-200">
+                            <strong>Teste Sandbox:</strong> {testResponses.RETENCAO}
+                          </div>
+                        )}
+                        <Button className="w-full" onClick={() => validateAndSave('RETENCAO', aiPrompts.RETENCAO)} disabled={isValidating['RETENCAO'] || isSavingPrompts}>
+                          {isValidating['RETENCAO'] || isSavingPrompts ? "Validando e Salvando..." : "Salvar Configuração"}
                         </Button>
                       </CardContent>
                     </Card>
@@ -413,13 +524,98 @@ export function AIConfigPage({
                           value={aiPrompts.CADASTRO}
                           onChange={(e) => setAiPrompts(prev => ({ ...prev, CADASTRO: e.target.value }))}
                         />
-                        <Button className="w-full" onClick={handleSavePrompts} disabled={isSavingPrompts}>
-                          {isSavingPrompts ? "Salvando..." : "Salvar Configuração"}
+                        {validationErrors['CADASTRO']?.length > 0 && (
+                          <div className="bg-red-50 text-red-700 p-4 rounded-xl text-sm space-y-2">
+                            <p className="font-bold">Erros Encontrados (Corrija antes de salvar):</p>
+                            <ul className="list-disc pl-5 space-y-1">
+                              {validationErrors['CADASTRO'].map((err, i) => <li key={i}>{err}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {testResponses['CADASTRO'] && (
+                          <div className="bg-green-50 text-green-800 p-4 rounded-xl text-sm">
+                            <p className="font-bold">Validação aprovada. Teste Sandbox:</p>
+                            <p className="mt-1 opacity-80">{testResponses['CADASTRO']}</p>
+                          </div>
+                        )}
+                        <Button className="w-full" onClick={() => validateAndSave('CADASTRO', aiPrompts.CADASTRO)} disabled={isSavingPrompts || isValidating['CADASTRO']}>
+                          {isSavingPrompts || isValidating['CADASTRO'] ? "Salvando..." : "Salvar Configuração"}
                         </Button>
                       </CardContent>
                     </Card>
                   </TabsContent>
-                </div>
+                                                  <TabsContent value="ai_usage" className="mt-6">
+                    <Card className="border-none shadow-sm">
+                      <CardHeader>
+                        <CardTitle>Consumo de IA e Custos</CardTitle>
+                        <CardDescription>Acompanhe o gasto de tokens e interações da Inteligência Artificial em tempo real.</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {loadingAiUsage ? (
+                          <div className="text-center py-6 text-zinc-500">Carregando métricas...</div>
+                        ) : (
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-3 gap-4 mb-6">
+                              <div className="bg-zinc-50 dark:bg-zinc-900 rounded-xl p-4 border border-zinc-100 dark:border-zinc-800">
+                                <h4 className="text-xs font-bold text-zinc-500 uppercase">Tokens Input (Lidos)</h4>
+                                <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                                  {aiUsageLogs.reduce((acc, log) => acc + (log.promptTokens || 0), 0).toLocaleString()}
+                                </span>
+                              </div>
+                              <div className="bg-zinc-50 dark:bg-zinc-900 rounded-xl p-4 border border-zinc-100 dark:border-zinc-800">
+                                <h4 className="text-xs font-bold text-zinc-500 uppercase">Tokens Output (Enviados)</h4>
+                                <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                                  {aiUsageLogs.reduce((acc, log) => acc + (log.completionTokens || 0), 0).toLocaleString()}
+                                </span>
+                              </div>
+                              <div className="bg-zinc-50 dark:bg-zinc-900 rounded-xl p-4 border border-zinc-100 dark:border-zinc-800">
+                                <h4 className="text-xs font-bold text-zinc-500 uppercase">Total de Tokens</h4>
+                                <span className="text-2xl font-bold">
+                                  {aiUsageLogs.reduce((acc, log) => acc + (log.totalTokens || 0), 0).toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+                              <table className="w-full text-sm text-left">
+                                <thead className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
+                                  <tr>
+                                    <th className="px-4 py-3 font-medium text-zinc-500 uppercase text-xs">Data/Hora</th>
+                                    <th className="px-4 py-3 font-medium text-zinc-500 uppercase text-xs">Agente (Categoria)</th>
+                                    <th className="px-4 py-3 font-medium text-zinc-500 uppercase text-xs">Ticket ID</th>
+                                    <th className="px-4 py-3 font-medium text-zinc-500 uppercase text-xs text-right">Prompt</th>
+                                    <th className="px-4 py-3 font-medium text-zinc-500 uppercase text-xs text-right">Completion</th>
+                                    <th className="px-4 py-3 font-medium text-zinc-500 uppercase text-xs text-right">Total</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {aiUsageLogs.length > 0 ? aiUsageLogs.map(log => (
+                                    <tr key={log.id} className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50">
+                                      <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300">
+                                        {log.createdAt?.seconds ? new Date(log.createdAt.seconds * 1000).toLocaleString('pt-BR') : 'N/A'}
+                                      </td>
+                                      <td className="px-4 py-3 font-medium">
+                                        <Badge variant="outline" className="text-[10px]">{log.category}</Badge>
+                                      </td>
+                                      <td className="px-4 py-3 font-mono text-xs">{log.ticketId?.slice(0, 8)}...</td>
+                                      <td className="px-4 py-3 text-right text-indigo-600 dark:text-indigo-400">{log.promptTokens?.toLocaleString()}</td>
+                                      <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">{log.completionTokens?.toLocaleString()}</td>
+                                      <td className="px-4 py-3 text-right font-bold">{log.totalTokens?.toLocaleString()}</td>
+                                    </tr>
+                                  )) : (
+                                    <tr>
+                                      <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">Nenhum uso registrado nas últimas interações.</td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+</div>
               </Tabs>
             </motion.div>
           

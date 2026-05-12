@@ -21,7 +21,7 @@ service cloud.firestore {
 
     function getRole() {
       return exists(/databases/$(database)/documents/users/$(request.auth.uid)) 
-        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role 
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'guest')
         : 'guest';
     }
 
@@ -49,7 +49,7 @@ service cloud.firestore {
     function isValidCustomer(data) {
       return data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              data.email is string && (data.email == '' || data.email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")) &&
-             data.status in ['active', 'inactive', 'pending'] &&
+             data.status in ['active', 'inactive', 'pending', 'lead'] &&
              data.mrr is number && data.mrr >= 0 &&
              (!('createdAt' in data) || data.createdAt is timestamp);
     }
@@ -227,10 +227,37 @@ service cloud.firestore {
     }
 
 
+    function isValidLog(data) {
+      return data.timestamp is timestamp &&
+             data.session_id is string &&
+             data.agent is string &&
+             (!('step' in data) || data.step is string) &&
+             (!('active_flow' in data) || data.active_flow is string) &&
+             (!('tool_called' in data) || data.tool_called == null || data.tool_called is string) &&
+             (!('input_summary' in data) || data.input_summary is string) &&
+             data.result is string &&
+             (!('error_code' in data) || data.error_code == null || data.error_code is string) &&
+             data.escalated is bool;
+    }
+
+    match /logs/{logId} {
+      allow read: if isSupport();
+      allow create: if isAuthenticated() && isValidLog(request.resource.data);
+    }
+
+    match /leads_temp/{leadId} {
+      allow read: if isSupport();
+      allow write: if isAuthenticated();
+    }
+
     match /notifications/{notificationId} {
-      allow read: if isOwner();
+      allow read: if isSupport();
       allow create: if isAuthenticated() && isValidNotification(request.resource.data);
-      allow update: if isOwner();
+      allow update: if isSupport();
+    }
+
+    match /dead_letter_queue/{jobId} {
+      allow read, write: if isSupport();
     }
 
     match /settings/{settingId} {
@@ -250,10 +277,37 @@ service cloud.firestore {
       allow delete: if isAstrum();
     }
 
+    match /tenants/{tenantId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /cobrai_logs/{logId} {
+      allow read: if isSupport();
+      allow write: if true; // Allows the server worker to write logs
+    }
+
+    match /technicians/{tenantId}/list/{technicianId} {
+      allow read: if isSupport();
+      allow create, update: if isSupport() && isValidTechnician(request.resource.data);
+      allow delete: if isAstrum();
+    }
+
     match /technicians/{technicianId} {
       allow read: if isSupport();
       allow create, update: if isSupport() && isValidTechnician(request.resource.data);
       allow delete: if isAstrum();
+    }
+
+    match /plans/{planId} {
+      allow read;
+      allow write: if isAstrum();
+    }
+
+    match /contracts/{contractId} {
+      // REGRA: allow create; deny update, delete
+      allow read;
+      allow create;
+      allow update, delete: if false;
     }
   }
 }

@@ -2,7 +2,7 @@ import React from 'react';
 import { 
   Bot, ChevronLeft, ChevronRight, LayoutDashboard, Users, 
   Ticket, MessageSquare, Map, Settings, ShieldCheck, 
-  CreditCard, Briefcase, Package, LogOut 
+  CreditCard, Briefcase, Package, LogOut, Phone, BookOpen, Activity
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { useAppStore, canAccess } from '@/src/store/useAppStore';
@@ -16,39 +16,37 @@ import { signOut } from 'firebase/auth';
 
 function NavItem({ active, onClick, icon, label, collapsed, shortcut }: any) {
   return (
-    <TooltipProvider delayDuration={0}>
-      <UITooltip>
-        <TooltipTrigger asChild>
-          <button 
-            onClick={onClick}
-            className={cn(
-              "flex items-center justify-between rounded-full py-3 text-sm font-semibold transition-all group",
-              collapsed ? "w-12 h-12 justify-center px-0" : "w-full px-4",
-              active ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[0.98]" : "text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"
-            )}
-          >
-            <div className="flex items-center gap-3">
-              <div className="shrink-0">{icon}</div>
-              {!collapsed && <span>{label}</span>}
-            </div>
-            {!collapsed && shortcut && (
-              <span className={cn(
-                "text-[10px] px-1.5 py-0.5 rounded-md border opacity-0 group-hover:opacity-100 transition-opacity",
-                active ? "border-white/30 text-white/70" : "border-zinc-200 dark:border-zinc-800 text-zinc-400 bg-white dark:bg-zinc-900"
-              )}>
-                {shortcut}
-              </span>
-            )}
-          </button>
-        </TooltipTrigger>
-        {collapsed && (
-          <TooltipContent side="right" className="font-medium flex items-center gap-2 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-50">
-            {label}
-            {shortcut && <span className="text-[10px] text-zinc-400 dark:text-zinc-500 border border-zinc-200 dark:border-zinc-800 px-1 rounded bg-zinc-50 dark:bg-zinc-950 font-normal">{shortcut}</span>}
-          </TooltipContent>
-        )}
-      </UITooltip>
-    </TooltipProvider>
+    <UITooltip delayDuration={0}>
+      <TooltipTrigger asChild>
+        <button 
+          onClick={onClick}
+          className={cn(
+            "flex items-center justify-between rounded-full py-3 text-sm font-semibold transition-all group",
+            collapsed ? "w-12 h-12 justify-center px-0" : "w-full px-4",
+            active ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[0.98]" : "text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"
+          )}
+        >
+          <div className="flex items-center gap-3">
+            <div className="shrink-0">{icon}</div>
+            {!collapsed && <span>{label}</span>}
+          </div>
+          {!collapsed && shortcut && (
+            <span className={cn(
+              "text-[10px] px-1.5 py-0.5 rounded-md border opacity-0 group-hover:opacity-100 transition-opacity",
+              active ? "border-white/30 text-white/70" : "border-zinc-200 dark:border-zinc-800 text-zinc-400 bg-white dark:bg-zinc-900"
+            )}>
+              {shortcut}
+            </span>
+          )}
+        </button>
+      </TooltipTrigger>
+      {collapsed && (
+        <TooltipContent side="right" className="font-medium flex flex-row items-center gap-2 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-50 z-[100]">
+          {label}
+          {shortcut && <span className="text-[10px] text-zinc-400 dark:text-zinc-500 border border-zinc-200 dark:border-zinc-800 px-1 rounded bg-zinc-50 dark:bg-zinc-950 font-normal">{shortcut}</span>}
+        </TooltipContent>
+      )}
+    </UITooltip>
   );
 }
 
@@ -66,7 +64,7 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
   const handleLogout = () => signOut(auth);
 
   return (
-    <>
+    <TooltipProvider delayDuration={0}>
       <div 
         className={cn(
           "fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity", 
@@ -99,7 +97,6 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
             <Bot size={24} />
           </div>
         )}
-        {!isSidebarCollapsed && <span className="text-xl font-bold tracking-tight truncate">{companySettings?.name || 'Astrum'}</span>}
       </div>
 
       <nav className="space-y-1 w-full flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
@@ -114,10 +111,10 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
           />
         )}
         
-        {(canAccess(currentUserRole, 'customers') || canAccess(currentUserRole, 'tickets') || canAccess(currentUserRole, 'chat') || canAccess(currentUserRole, 'kb') || canAccess(currentUserRole, 'ai-config')) && (
+        {(canAccess(currentUserRole, 'customers') || canAccess(currentUserRole, 'tickets') || canAccess(currentUserRole, 'chat')) && (
           <>
             {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Atendimento</div>}
-            {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2">At</div>}
+            {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2"></div>}
           </>
         )}
         
@@ -141,41 +138,21 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
             shortcut="Alt+3"
           />
         )}
-        {canAccess(currentUserRole, 'os') && (
-          <NavItem 
-            active={currentPath === 'os'} 
-            onClick={() => navigate('/os')} 
-            icon={<Briefcase size={18} />} 
-            label="CRM Técnico" 
-            collapsed={isSidebarCollapsed}
-            shortcut="Alt+O"
-          />
-        )}
         {canAccess(currentUserRole, 'chat') && (
           <NavItem 
             active={currentPath === 'chat'} 
             onClick={() => navigate('/chat')} 
             icon={<MessageSquare size={18} />} 
-            label="Chat Humano" 
+            label="Chat" 
             collapsed={isSidebarCollapsed}
             shortcut="Alt+4"
           />
         )}
-        {canAccess(currentUserRole, 'ai-config') && (
-          <NavItem 
-            active={currentPath === 'ai-config'} 
-            onClick={() => navigate('/ai-config')} 
-            icon={<Bot size={18} />} 
-            label="Núcleo IA" 
-            collapsed={isSidebarCollapsed}
-            shortcut="Alt+8"
-          />
-        )}
         
-        {(canAccess(currentUserRole, 'billing') || canAccess(currentUserRole, 'inventory') || canAccess(currentUserRole, 'map') || canAccess(currentUserRole, 'team')) && (
+        {(canAccess(currentUserRole, 'billing') || canAccess(currentUserRole, 'inventory') || canAccess(currentUserRole, 'map') || canAccess(currentUserRole, 'team') || canAccess(currentUserRole, 'os')) && (
           <>
-            {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Gestão & Infra</div>}
-            {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2">Ge</div>}
+            {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Gestão (Provedor)</div>}
+            {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2"></div>}
           </>
         )}
         
@@ -187,6 +164,25 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
             label="Financeiro" 
             collapsed={isSidebarCollapsed}
             shortcut="Alt+6"
+          />
+        )}
+        {canAccess(currentUserRole, 'cobrai') && (
+          <NavItem 
+            active={currentPath === 'cobrai'} 
+            onClick={() => navigate('/cobrai')} 
+            icon={<Bot size={18} />} 
+            label="CobrAI" 
+            collapsed={isSidebarCollapsed}
+          />
+        )}
+        {canAccess(currentUserRole, 'os') && (
+          <NavItem 
+            active={currentPath === 'os'} 
+            onClick={() => navigate('/os')} 
+            icon={<Briefcase size={18} />} 
+            label="CRM Técnico / OS" 
+            collapsed={isSidebarCollapsed}
+            shortcut="Alt+O"
           />
         )}
         {canAccess(currentUserRole, 'inventory') && (
@@ -218,19 +214,68 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
             shortcut="Alt+7"
           />
         )}
-        
-        {canAccess(currentUserRole, 'settings') && (
+
+        {(canAccess(currentUserRole, 'settings') || canAccess(currentUserRole, 'ai-config') || canAccess(currentUserRole, 'whatsapp')) && (
           <>
-            {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Sistema</div>}
-            {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2">Si</div>}
-            <NavItem 
-              active={currentPath === 'settings'} 
-              onClick={() => navigate('/settings')} 
-              icon={<Settings size={18} />} 
-              label="Configurações" 
-              collapsed={isSidebarCollapsed}
-              shortcut="Alt+9"
-            />
+            {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Sistema (Dev)</div>}
+            {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2"></div>}
+            
+            {canAccess(currentUserRole, 'whatsapp') && (
+              <NavItem 
+                active={currentPath === 'whatsapp'} 
+                onClick={() => navigate('/whatsapp')} 
+                icon={<Phone size={18} />} 
+                label="Conexões WhatsApp" 
+                collapsed={isSidebarCollapsed}
+              />
+            )}
+            {canAccess(currentUserRole, 'ai-config') && (
+              <NavItem 
+                active={currentPath === 'ai-config'} 
+                onClick={() => navigate('/ai-config')} 
+                icon={<Bot size={18} />} 
+                label="Núcleo IA" 
+                collapsed={isSidebarCollapsed}
+                shortcut="Alt+8"
+              />
+            )}
+            {canAccess(currentUserRole, 'observability') && (
+              <NavItem 
+                active={currentPath === 'observability'} 
+                onClick={() => navigate('/observability')} 
+                icon={<Activity size={18} />} 
+                label="Observabilidade IA" 
+                collapsed={isSidebarCollapsed}
+              />
+            )}
+            {canAccess(currentUserRole, 'monitoring') && (
+              <NavItem 
+                active={currentPath === 'monitoring'} 
+                onClick={() => navigate('/monitoring')} 
+                icon={<Activity size={18} />} 
+                label="Monitoramento" 
+                collapsed={isSidebarCollapsed}
+              />
+            )}
+            {canAccess(currentUserRole, 'quality-monitor') && (
+              <NavItem 
+                active={currentPath === 'quality-monitor'} 
+                onClick={() => navigate('/quality-monitor')} 
+                icon={<Activity size={18} />} 
+                label="Qualidade" 
+                collapsed={isSidebarCollapsed}
+              />
+            )}
+            {canAccess(currentUserRole, 'settings') && (
+              <NavItem 
+                active={currentPath === 'settings'} 
+                onClick={() => navigate('/settings')} 
+                icon={<Settings size={18} />} 
+                label="Configurações" 
+                collapsed={isSidebarCollapsed}
+                shortcut="Alt+9"
+              />
+            )}
           </>
         )}
       </nav>
@@ -242,38 +287,37 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
             <AvatarFallback>{user?.displayName?.[0] || 'U'}</AvatarFallback>
           </Avatar>
           <div className={cn("flex-1 overflow-hidden", isSidebarCollapsed ? "block md:hidden" : "block")}>
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-medium truncate">{user?.displayName || 'Usuário Astrum'}</p>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-6 w-6 text-zinc-400 hover:text-destructive transition-colors shrink-0" 
-                onClick={handleLogout}
-              >
-                <LogOut size={14} />
-              </Button>
-            </div>
-            <div className="flex items-center gap-1">
-              <Badge variant="outline" className="text-[8px] h-3.5 px-1 uppercase border-zinc-300 dark:border-zinc-700">
-                {currentUserRole}
-              </Badge>
-              {(user?.email?.toLowerCase() === 'lucaspferraz123@gmail.com' || user?.email?.toLowerCase() === 'noturcursos1@gmail.com') && (
-                <select 
-                  className="bg-transparent text-[8px] text-zinc-400 outline-none cursor-pointer hover:text-zinc-600 dark:hover:text-zinc-200"
-                  value={currentUserRole}
-                  onChange={(e) => setCurrentUserRole(e.target.value as any)}
+             <div className="flex items-center justify-between gap-2">
+                <Badge variant="outline" className="text-[8px] h-3.5 px-1 uppercase border-zinc-300 dark:border-zinc-700">
+                  {currentUserRole}
+                </Badge>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-6 w-6 text-zinc-400 hover:text-destructive transition-colors shrink-0" 
+                  onClick={handleLogout}
                 >
-                  <option value="admin">Desenvolvedor</option>
-                  <option value="owner">Admin (Dono da provedora)</option>
-                  <option value="support">Operacional (Colaborador)</option>
-                  <option value="tecnico">Técnico de Campo</option>
-                </select>
-              )}
-            </div>
+                  <LogOut size={14} />
+                </Button>
+             </div>
+              <div className="flex items-center gap-1">
+                {(user?.email?.toLowerCase() === 'lucaspferraz123@gmail.com' || user?.email?.toLowerCase() === 'noturcursos1@gmail.com') && (
+                  <select 
+                    className="bg-transparent text-[8px] text-zinc-400 outline-none cursor-pointer hover:text-zinc-600 dark:hover:text-zinc-200"
+                    value={currentUserRole}
+                    onChange={(e) => setCurrentUserRole(e.target.value as any)}
+                  >
+                    <option value="admin">Dev</option>
+                    <option value="owner">Provedor (Admin)</option>
+                    <option value="support">Suporte</option>
+                    <option value="tecnico">Técnico</option>
+                  </select>
+                )}
+              </div>
           </div>
         </div>
       </div>
     </aside>
-    </>
+    </TooltipProvider>
   );
 }

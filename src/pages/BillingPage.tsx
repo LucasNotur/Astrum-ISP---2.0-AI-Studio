@@ -47,6 +47,14 @@ export function BillingPage() {
      }
   };
 
+  // Filter out invoices for customers that are fully registered avoiding pending/leads
+  const validInvoices = useMemo(() => {
+    return invoices.filter(inv => {
+      const customer = customers.find(c => c.id === inv.customerId);
+      return customer && customer.status !== 'pending' && customer.status !== 'lead';
+    });
+  }, [invoices, customers]);
+
   // --- Real-time Metrics Calculations ---
   const billingMetrics = useMemo(() => {
     const today = new Date();
@@ -58,7 +66,7 @@ export function BillingPage() {
     let overdue = 0;
     let totalPendingAllTime = 0;
 
-    invoices.forEach(inv => {
+    validInvoices.forEach(inv => {
       let dueDate: Date | null = null;
       if (inv.dueDate?.seconds) {
         dueDate = new Date(inv.dueDate.seconds * 1000);
@@ -88,7 +96,7 @@ export function BillingPage() {
   }, [invoices]);
 
   const filteredInvoices = useMemo(() => {
-    let filtered = invoices;
+    let filtered = validInvoices;
     
     if (invoiceSearch) {
       const lowerQuery = invoiceSearch.toLowerCase();
@@ -350,9 +358,9 @@ export function BillingPage() {
                   <input 
                     type="checkbox" 
                     className="rounded border-zinc-300 dark:border-zinc-700"
-                    checked={selectedInvoices.length === invoices.length && invoices.length > 0}
+                    checked={selectedInvoices.length === filteredInvoices.length && filteredInvoices.length > 0}
                     onChange={(e) => {
-                      if (e.target.checked) setSelectedInvoices(invoices.map(i => i.id));
+                      if (e.target.checked) setSelectedInvoices(filteredInvoices.map(i => i.id));
                       else setSelectedInvoices([]);
                     }}
                   />

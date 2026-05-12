@@ -16,7 +16,8 @@ import {
   Plus,
   RefreshCw,
   ArrowLeft,
-  Edit2
+  Edit2,
+  MoreVertical
 } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
@@ -44,6 +45,7 @@ export function ChatPage() {
     setSelectedTicket,
     messages,
     setMessages,
+    userProfile,
     isConfiguringAI,
     settings,
     integrationKeys,
@@ -81,11 +83,19 @@ export function ChatPage() {
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [newMessage, setNewMessage] = useState("");
+
+  React.useEffect(() => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView();
+    }, 100);
+  }, [messages, selectedTicket?.id]);
   const [selectedFile, setSelectedFile] = useState<{ file: File, type: string } | null>(null);
   const [isSummarizingTicket, setIsSummarizingTicket] = useState(false);
   const [ticketSummary, setTicketSummary] = useState<string | null>(null);
   const [isAiThinking, setIsAiThinking] = useState(false);
+  const [isChatMenuOpen, setIsChatMenuOpen] = useState(false);
 
   React.useEffect(() => {
     setTicketSummary(null);
@@ -362,9 +372,19 @@ export function ChatPage() {
         ticketId: selectedTicket.id,
         text: messageText,
         senderType: 'human', // Human agent sending from panel
+        agentId: userProfile?.uid || null,
+        agentName: userProfile?.name || 'Agente (Desconhecido)',
         attachment: attachmentData,
         createdAt: serverTimestamp()
       });
+
+      if (!selectedTicket.human_responded && (selectedTicket.status === 'escalated' || selectedTicket.shouldEscalate)) {
+         fetch("/api/tickets/human-response", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ticketId: selectedTicket.id })
+         }).catch(console.error);
+      }
 
       // Send via Evolution API to the customer's WhatsApp
       const customer = customers.find(c => c.id === selectedTicket.customerId);
@@ -476,7 +496,10 @@ export function ChatPage() {
 
   const visibleTickets = tickets.filter(t => {
      if (t.status === 'resolved') {
-       const resolvedTime = t.resolvedAt?.toMillis?.() || t.createdAt?.toMillis?.() || 0;
+       const resolvedTime = t.resolvedAt instanceof Date 
+        ? t.resolvedAt.getTime() 
+        : (t.resolvedAt?.toMillis?.() || t.createdAt?.toMillis?.() || 0);
+       
        if (Date.now() - resolvedTime > 24 * 60 * 60 * 1000) {
          return false;
        }
@@ -485,22 +508,18 @@ export function ChatPage() {
   });
 
   return (
-      <motion.div 
+    <motion.div 
       initial={{ opacity: 0, x: 10 }}
       animate={{ opacity: 1, x: 0 }}
-      className="flex flex-col md:flex-row h-[calc(100dvh-140px)] md:h-[calc(100dvh-120px)] gap-4 md:gap-5"
+      className="flex flex-col md:flex-row h-[calc(100dvh-60px)] md:h-[calc(100dvh-120px)] gap-0 md:gap-5 -m-4 md:m-0"
     >
       {/* Chat List */}
-      <Card className={cn(
-        "w-full md:w-[340px] lg:w-[360px] xl:w-[420px] border-none shadow-sm overflow-hidden shrink-0 rounded-[20px] md:rounded-[24px]",
-        selectedTicket ? "hidden md:flex flex-col" : "flex flex-col flex-1"
+      <div className={cn(
+        "w-full md:w-[340px] lg:w-[360px] xl:w-[420px] bg-white dark:bg-[#09090b] md:bg-card md:border md:shadow-sm overflow-hidden shrink-0 md:rounded-[24px] flex flex-col",
+        selectedTicket ? "hidden md:flex" : "flex flex-1"
       )}>
-        <CardHeader className="p-4 border-b shrink-0">
-          <CardTitle className="text-lg">Suporte Humano</CardTitle>
-          <CardDescription>Aguardando intervenção.</CardDescription>
-        </CardHeader>
         <ScrollArea className="flex-1">
-          <div className="p-2 space-y-1">
+          <div className="p-1 md:p-2 space-y-0.5 md:space-y-1">
             {visibleTickets.sort((a,b) => {
                // Sort 'escalated' first, then 'open', then others
                if (a.status === 'escalated' && b.status !== 'escalated') return -1;
@@ -511,18 +530,21 @@ export function ChatPage() {
                 key={t.id}
                 onClick={() => setSelectedTicket(t)}
                 className={cn(
-                  "w-full text-left p-3 rounded-xl transition-all cursor-pointer flex gap-3 items-center hover:bg-zinc-100 dark:hover:bg-zinc-800/50",
+                  "w-full text-left p-4 md:p-3 rounded-none md:rounded-xl transition-all cursor-pointer flex gap-3 items-center hover:bg-zinc-100 dark:hover:bg-zinc-800/50 border-b md:border-none border-zinc-100 dark:border-zinc-800/50 last:border-none",
                   selectedTicket?.id === t.id && "bg-zinc-100 dark:bg-zinc-800"
                 )}
               >
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-600/20 text-indigo-600 dark:text-purple-400 flex items-center justify-center text-lg font-bold shrink-0">
-                  {customers.find(c => c.id === t.customerId)?.name?.[0] || 'A'}
-                </div>
+                <Avatar className="w-12 h-12 shrink-0 border border-indigo-100 dark:border-purple-900/30">
+                  <AvatarImage src={customers.find(c => c.id === t.customerId)?.avatar || customers.find(c => c.id === t.customerId)?.photoUrl || customers.find(c => c.id === t.customerId)?.avatarUrl || customers.find(c => c.id === t.customerId)?.profilePicUrl} />
+                  <AvatarFallback className="bg-gradient-to-br from-indigo-500/20 to-purple-600/20 text-indigo-600 dark:text-purple-400 text-lg font-bold">
+                    {(customers.find(c => c.id === t.customerId)?.name || t.customerName || 'A')[0].toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-0.5">
                     <span className="font-semibold text-sm truncate pr-2 dark:text-zinc-50">
                       {(() => {
-                        const cName = customers.find(c => c.id === t.customerId)?.name;
+                        const cName = customers.find(c => c.id === t.customerId)?.name || t.customerName;
                         if (!t.subject || t.subject.toLowerCase().includes('atendimento via') || t.subject.toLowerCase().includes('atendimento de')) {
                           return cName ? cName : 'Desconhecido';
                         }
@@ -549,23 +571,30 @@ export function ChatPage() {
             )}
           </div>
         </ScrollArea>
-      </Card>
+      </div>
 
       {/* Chat Window */}
-      <Card className={cn(
-        "flex-1 border-none shadow-sm overflow-hidden flex-col rounded-[20px] md:rounded-[24px]",
-        selectedTicket ? "flex" : "hidden md:flex"
+      <div className={cn(
+        "flex-1 bg-white dark:bg-[#09090b] md:bg-card md:border md:shadow-sm overflow-hidden flex-col md:rounded-[24px]",
+        selectedTicket ? "flex fixed inset-0 z-[100] md:relative md:inset-auto md:z-auto" : "hidden md:flex"
       )}>
         {selectedTicket ? (
           <>
-            <CardHeader className="p-4 border-b flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
-              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-                <div className="flex items-center gap-3">
-                  <Button variant="ghost" size="icon" className="md:hidden shrink-0 -ml-2" onClick={() => setSelectedTicket(null)}>
-                    <ArrowLeft size={20} />
-                  </Button>
+            <header className="relative p-2 md:p-4 border-b flex flex-row items-center justify-between gap-2 shrink-0 bg-white dark:bg-[#09090b] z-10 w-full pt-[max(env(safe-area-inset-top),_8px)]">
+              <div className="flex items-center gap-1 md:gap-4 flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <div 
+                    className="md:hidden shrink-0 -ml-1 text-zinc-600 dark:text-zinc-300 p-2 cursor-pointer z-50 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setSelectedTicket(null);
+                    }}
+                  >
+                    <ArrowLeft size={24} />
+                  </div>
                   <button
-                    className="flex flex-row items-center gap-3 text-left outline-none p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors"
+                    className="flex flex-row items-center gap-2 md:gap-3 text-left outline-none p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors max-w-full"
                     onClick={() => {
                       const c = customers.find(c => c.id === selectedTicket.customerId);
                       if (c) {
@@ -574,93 +603,114 @@ export function ChatPage() {
                       }
                     }}
                   >
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-lg font-bold shadow-sm shrink-0">
-                      {customers.find(c => c.id === selectedTicket.customerId)?.name?.[0] || 'A'}
-                    </div>
-                    <div className="flex flex-col">
-                      <div className="text-base font-bold leading-tight">
+                    <Avatar className="w-9 h-9 md:w-10 md:h-10 shrink-0 border border-indigo-200/50 shadow-sm">
+                      <AvatarImage src={customers.find(c => c.id === selectedTicket.customerId)?.avatar || customers.find(c => c.id === selectedTicket.customerId)?.photoUrl || customers.find(c => c.id === selectedTicket.customerId)?.avatarUrl || customers.find(c => c.id === selectedTicket.customerId)?.profilePicUrl} />
+                      <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-base md:text-lg font-bold">
+                        {(customers.find(c => c.id === selectedTicket.customerId)?.name || selectedTicket.customerName || 'A')[0].toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col min-w-0 pr-2">
+                      <div className="text-sm md:text-base font-bold leading-tight truncate">
                         {(() => {
                           const c = customers.find(c => c.id === selectedTicket.customerId);
-                          const cName = c?.name;
+                          const cName = c?.name || selectedTicket.customerName;
                           const isGenericSubject = !selectedTicket.subject || selectedTicket.subject.toLowerCase().includes('atendimento via') || selectedTicket.subject.toLowerCase().includes('atendimento de');
                           return isGenericSubject ? (cName ? cName : 'Desconhecido') : selectedTicket.subject;
                         })()}
                       </div>
-                      <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 max-w-[200px] md:max-w-md truncate">
-                        {customers.find(c => c.id === selectedTicket.customerId)?.phone || customers.find(c => c.id === selectedTicket.customerId)?.name || selectedTicket.customerId}
+                      <div className="text-[10px] md:text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">
+                        {customers.find(c => c.id === selectedTicket.customerId)?.phone || selectedTicket.customerId}
                       </div>
                     </div>
                   </button>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                    {selectedTicket.aiEnabled !== false ? (
-                      <Button 
-                        size="sm" 
-                        variant="default"
-                        className="h-8 text-xs gap-2 rounded-full font-semibold shadow-sm bg-purple-600 hover:bg-purple-700 text-white"
-                        onClick={() => handleToggleAI(selectedTicket.id, true)}
-                      >
-                         <Bot size={14} className="text-white" /> IA Ativa
-                      </Button>
-                    ) : (
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        className="h-8 text-xs gap-2 rounded-full font-semibold border-zinc-300 dark:border-zinc-700 text-zinc-500 overflow-hidden"
-                        onClick={() => handleToggleAI(selectedTicket.id, false)}
-                      >
-                         <Bot size={14} className="text-zinc-400" /> IA Pausada
-                      </Button>
-                    )}
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleSyncHistory} 
-                    disabled={isSyncing}
-                    className="h-7 text-xs flex items-center gap-2"
-                  >
-                    <RefreshCw size={12} className={isSyncing ? "animate-spin" : ""} />
-                    {isSyncing ? "Puxando..." : "Sincronizar"}
-                  </Button>
-                </div>
               </div>
-              {selectedTicket.status === 'resolved' ? (
-                <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-900/30 px-3 py-1.5 rounded-lg border border-green-200 dark:border-green-800 self-start md:self-auto">
-                  <CheckCircle2 size={16} />
-                  <span className="font-medium">
-                    Resolvido {selectedTicket.resolvedAt?.seconds ? `em ${new Date(selectedTicket.resolvedAt.seconds * 1000).toLocaleDateString('pt-BR')} às ${new Date(selectedTicket.resolvedAt.seconds * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}
-                  </span>
-                </div>
-              ) : (
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="gap-2 text-purple-600 border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-700 dark:hover:text-purple-400"
-                    onClick={handleSummarizeTicket}
-                    disabled={isSummarizingTicket || messages.length === 0}
-                  >
-                    {isSummarizingTicket ? (
-                      <div className="h-4 w-4 rounded-full border-2 border-purple-600 border-t-transparent animate-spin" />
-                    ) : (
-                      <Sparkles size={14} />
+              
+              <div className="flex items-center gap-1 md:gap-2 shrink-0">
+                  {selectedTicket.aiEnabled !== false ? (
+                    <Button 
+                      size="icon" 
+                      variant="default"
+                      className="h-8 w-8 md:h-9 md:w-auto md:px-3 text-xs gap-1 md:gap-2 rounded-full font-semibold shadow-sm bg-purple-600 hover:bg-purple-700 text-white"
+                      onClick={() => handleToggleAI(selectedTicket.id, true)}
+                      title="IA Ativa"
+                    >
+                       <Bot size={16} className="text-white" /> <span className="hidden md:inline">IA Ativa</span>
+                    </Button>
+                  ) : (
+                    <Button 
+                      size="icon" 
+                      variant="outline"
+                      className="h-8 w-8 md:h-9 md:w-auto md:px-3 text-xs gap-1 md:gap-2 rounded-full font-semibold border-zinc-300 dark:border-zinc-700 text-zinc-500"
+                      onClick={() => handleToggleAI(selectedTicket.id, false)}
+                      title="IA Pausada"
+                    >
+                       <Bot size={16} className="text-zinc-400" /> <span className="hidden md:inline">IA Pausada</span>
+                    </Button>
+                  )}
+                  <div className="relative">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8"
+                      onClick={() => setIsChatMenuOpen(!isChatMenuOpen)}
+                    >
+                      <MoreVertical size={18} />
+                    </Button>
+                    {isChatMenuOpen && (
+                      <>
+                        <div 
+                          className="fixed inset-0 z-40" 
+                          onClick={() => setIsChatMenuOpen(false)} 
+                        />
+                        <div className="absolute right-0 mt-2 w-56 rounded-md border bg-popover p-1 text-popover-foreground shadow-lg z-50">
+                          <button
+                            className="relative flex w-full cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+                            onClick={() => {
+                              setIsChatMenuOpen(false);
+                              handleSyncHistory();
+                            }}
+                            disabled={isSyncing}
+                          >
+                            <RefreshCw size={14} className={cn("mr-2", isSyncing ? "animate-spin" : "")} />
+                            Sincronizar
+                          </button>
+                          {selectedTicket.status !== 'resolved' && (
+                            <>
+                              <button
+                                className="relative flex w-full cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+                                onClick={() => {
+                                  setIsChatMenuOpen(false);
+                                  handleSummarizeTicket();
+                                }}
+                                disabled={isSummarizingTicket || messages.length === 0}
+                              >
+                                {isSummarizingTicket ? (
+                                   <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin mr-2" />
+                                ) : (
+                                   <Sparkles size={14} className="mr-2" />
+                                )}
+                                Resumir Conversa
+                              </button>
+                              <div className="-mx-1 my-1 h-px bg-muted" />
+                              <button
+                                className="relative flex w-full cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground text-green-600 focus:text-green-600 disabled:pointer-events-none disabled:opacity-50"
+                                onClick={() => {
+                                  setIsChatMenuOpen(false);
+                                  updateTicketStatusLocal(selectedTicket.id, 'resolved');
+                                }}
+                              >
+                                <CheckCircle2 size={14} className="mr-2" />
+                                Finalizar Atendimento
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </>
                     )}
-                    Resumir
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="gap-2"
-                    onClick={() => simulateAiChat(selectedTicket.id, "Olá, minha internet está lenta.")}
-                  >
-                    <User size={14} /> <span className="hidden md:inline">Simular</span>
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => updateTicketStatusLocal(selectedTicket.id, 'resolved')}>
-                    Finalizar
-                  </Button>
-                </div>
-              )}
-            </CardHeader>
+                  </div>
+              </div>
+            </header>
             <ScrollArea className="flex-1 p-4">
               <div className="space-y-4">
                 {ticketSummary && (
@@ -698,6 +748,9 @@ export function ChatPage() {
                   )}>
                     {m.senderType !== 'system' && (
                       <Avatar className="h-8 w-8 shrink-0">
+                        {m.senderType === 'customer' && (
+                          <AvatarImage src={customers.find(c => c.id === selectedTicket.customerId)?.avatar || customers.find(c => c.id === selectedTicket.customerId)?.photoUrl || customers.find(c => c.id === selectedTicket.customerId)?.avatarUrl || customers.find(c => c.id === selectedTicket.customerId)?.profilePicUrl} />
+                        )}
                         <AvatarFallback className={cn(
                           m.senderType === 'ai' ? "bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400" : 
                           m.senderType === 'human' ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" : "bg-zinc-100 dark:bg-zinc-800"
@@ -725,7 +778,7 @@ export function ChatPage() {
                                ) : (
                                  <>
                                    <User size={10} />
-                                   Atendente
+                                   {m.agentName || 'Atendente'}
                                  </>
                                )}
                              </div>
@@ -773,11 +826,12 @@ export function ChatPage() {
                     </div>
                   </div>
                 )}
+                <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
-            <div className="p-4 border-t space-y-4">
+            <div className="flex flex-col border-t bg-white dark:bg-[#111214] pb-[max(env(safe-area-inset-bottom),_8px)]">
               {/* Quick Actions (Astrum Logic) */}
-              <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+              <div className="flex gap-2 overflow-x-auto p-3 no-scrollbar shrink-0">
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -813,7 +867,7 @@ export function ChatPage() {
               </div>
 
               {selectedFile && (
-                <div className="flex items-center justify-between p-2 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-800">
+                <div className="flex items-center justify-between mx-4 mb-2 p-2 bg-zinc-50 dark:bg-zinc-800/50 rounded-lg border border-zinc-200 dark:border-zinc-800 shrink-0">
                   <div className="flex items-center gap-2">
                     {selectedFile.type.startsWith('image/') ? <ImageIcon size={16} /> : <Paperclip size={16} />}
                     <span className="text-xs font-medium truncate max-w-[200px]">{selectedFile.file.name}</span>
@@ -821,7 +875,7 @@ export function ChatPage() {
                   <Button variant="ghost" size="sm" onClick={() => setSelectedFile(null)}>Remover</Button>
                 </div>
               )}
-              <form onSubmit={handleSendMessage} className="p-4 bg-white/50 dark:bg-[#111214]/80 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800/50">
+              <form onSubmit={handleSendMessage} className="px-3 pb-3 shrink-0">
                 <input 
                   type="file" 
                   ref={fileInputRef} 
@@ -829,23 +883,23 @@ export function ChatPage() {
                   onChange={handleFileChange}
                   accept="image/*,audio/*"
                 />
-                <div className="flex items-center gap-2 bg-white dark:bg-[#16171a] p-1.5 rounded-[24px] shadow-[0_4px_16px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_16px_rgba(255,255,255,0.02)] border border-black/5 dark:border-white/5 group focus-within:shadow-[0_4px_24px_rgba(234,179,8,0.15)] focus-within:border-primary/30 transition-all">
+                <div className="flex items-center gap-2 bg-zinc-100/80 dark:bg-zinc-800/80 p-1.5 rounded-[24px] border border-transparent focus-within:bg-white dark:focus-within:bg-[#16171a] focus-within:shadow-[0_4px_16px_rgba(0,0,0,0.05)] dark:focus-within:shadow-[0_4px_16px_rgba(255,255,255,0.02)] focus-within:border-zinc-200 dark:focus-within:border-white/10 transition-all">
                   <Button 
                     type="button" 
                     variant="ghost" 
                     size="icon" 
-                    className="shrink-0 h-10 w-10 rounded-full text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+                    className="shrink-0 h-10 w-10 rounded-full text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
                     onClick={() => fileInputRef.current?.click()}
                   >
                     <Paperclip size={20} />
                   </Button>
                   <Input 
-                    placeholder="Digite sua mensagem..." 
+                    placeholder="Mensagem" 
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    className="border-none shadow-none focus-visible:ring-0 bg-transparent px-2 h-10 w-full text-sm placeholder:text-zinc-500"
+                    className="border-none shadow-none focus-visible:ring-0 bg-transparent px-2 h-10 w-full text-[15px] placeholder:text-zinc-500"
                   />
-                  <Button type="submit" size="icon" className="shrink-0 h-10 w-10 rounded-full bg-amber-500 hover:bg-amber-600 text-black shadow-sm transition-colors">
+                  <Button type="submit" size="icon" className="shrink-0 h-10 w-10 rounded-full bg-amber-500 hover:bg-amber-600 text-black shadow-sm transition-colors" disabled={(!newMessage.trim() && !selectedFile)}>
                     <Send size={18} className="translate-x-0.5" />
                   </Button>
                 </div>
@@ -858,7 +912,7 @@ export function ChatPage() {
             <p>Selecione um ticket para iniciar o atendimento.</p>
           </div>
         )}
-      </Card>
+      </div>
 
       {/* Customer Context Sidebar */}
       {selectedTicket && (
@@ -867,10 +921,13 @@ export function ChatPage() {
           
           <CardHeader className="p-4 border-b border-transparent flex flex-row items-start justify-between relative z-10 pt-6">
             <div className="flex flex-col items-center w-full text-center">
-              <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xl font-bold shadow-lg shadow-purple-500/30 mb-3 mx-auto">
-                {customers.find(c => c.id === selectedTicket.customerId)?.name?.[0] || 'A'}
-              </div>
-              <CardTitle className="text-lg font-bold tracking-tight">{customers.find(c => c.id === selectedTicket.customerId)?.name || "Anônimo"}</CardTitle>
+              <Avatar className="w-16 h-16 shrink-0 border border-indigo-200/50 shadow-lg shadow-purple-500/30 mb-3 mx-auto">
+                <AvatarImage src={customers.find(c => c.id === selectedTicket.customerId)?.avatar || customers.find(c => c.id === selectedTicket.customerId)?.photoUrl || customers.find(c => c.id === selectedTicket.customerId)?.avatarUrl || customers.find(c => c.id === selectedTicket.customerId)?.profilePicUrl} />
+                <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-xl font-bold">
+                  {(customers.find(c => c.id === selectedTicket.customerId)?.name || selectedTicket.customerName || 'A')[0].toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <CardTitle className="text-lg font-bold tracking-tight">{customers.find(c => c.id === selectedTicket.customerId)?.name || selectedTicket.customerName || "Desconhecido"}</CardTitle>
               <CardDescription className="text-xs mt-1">
                 {customers.find(c => c.id === selectedTicket.customerId)?.document || "Atendimento Ativo"}
               </CardDescription>
@@ -911,11 +968,11 @@ export function ChatPage() {
                   <div className="flex flex-col gap-3">
                      <div className="flex items-center gap-3">
                        <Avatar className="h-12 w-12 border border-zinc-200 dark:border-zinc-800">
-                         <AvatarImage src={customers.find(c => c.id === selectedTicket.customerId)?.photoUrl || customers.find(c => c.id === selectedTicket.customerId)?.avatarUrl || customers.find(c => c.id === selectedTicket.customerId)?.profilePicUrl} />
-                         <AvatarFallback>{customers.find(c => c.id === selectedTicket.customerId)?.name?.[0]?.toUpperCase() || 'C'}</AvatarFallback>
+                         <AvatarImage src={customers.find(c => c.id === selectedTicket.customerId)?.avatar || customers.find(c => c.id === selectedTicket.customerId)?.photoUrl || customers.find(c => c.id === selectedTicket.customerId)?.avatarUrl || customers.find(c => c.id === selectedTicket.customerId)?.profilePicUrl} />
+                         <AvatarFallback>{(customers.find(c => c.id === selectedTicket.customerId)?.name || selectedTicket.customerName || 'C')[0].toUpperCase()}</AvatarFallback>
                        </Avatar>
                        <div className="flex flex-col flex-1 min-w-0">
-                         <span className="font-semibold text-sm truncate">{customers.find(c => c.id === selectedTicket.customerId)?.name}</span>
+                         <span className="font-semibold text-sm truncate">{customers.find(c => c.id === selectedTicket.customerId)?.name || selectedTicket.customerName || "Desconhecido"}</span>
                          <span className="font-mono text-xs text-zinc-500 truncate">ID: {selectedTicket.customerId?.slice(0, 8)}</span>
                        </div>
                      </div>

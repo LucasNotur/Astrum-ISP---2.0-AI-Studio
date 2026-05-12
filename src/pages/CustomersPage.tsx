@@ -9,9 +9,10 @@ import { Label } from "@/src/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/src/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/src/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
+import { Avatar, AvatarFallback, AvatarImage } from "@/src/components/ui/avatar";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/src/components/ui/tooltip";
 import { 
-  Users, Plus, Search, Filter, MoreVertical, Edit2, ShieldAlert, Zap, X, MapPin, Phone, Mail, Building, Bell, Copy, CheckCircle2, Eye, Upload, Download
+  Users, Plus, Search, Filter, MoreVertical, Edit2, ShieldAlert, Zap, X, MapPin, Phone, Mail, Building, Bell, Copy, CheckCircle2, Eye, Upload, Download, Clock
 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/src/components/ui/dropdown-menu";
 import { toast } from "sonner";
@@ -57,7 +58,9 @@ export function CustomersPage() {
         c.tags?.some((t: string) => t.toLowerCase().includes(term))
       );
       
-      const matchesStatus = customerStatusFilter === 'all' || c.status === customerStatusFilter;
+      const matchesStatus = customerStatusFilter === 'all' || 
+        c.status === customerStatusFilter || 
+        (customerStatusFilter === 'lead' && c.status === 'pending');
       
       const matchesPlan = customerPlanFilter === 'all' || 
         (customerPlanFilter === 'Premium' && c.plan === 'Premium') ||
@@ -299,6 +302,7 @@ export function CustomersPage() {
                         <option value="all">Todos os Status</option>
                         <option value="active">Ativos</option>
                         <option value="inactive">Inativos</option>
+                        <option value="lead">Pendente (Não Cadas.)</option>
                       </select>
                       <select 
                         className="flex h-10 w-full md:w-[160px] items-center justify-between rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm ring-offset-white dark:ring-offset-zinc-950 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-zinc-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -345,7 +349,7 @@ export function CustomersPage() {
                       {filteredCustomers.length > 0 ? filteredCustomers.map(c => {
                         const customerTickets = tickets.filter(t => t.customerId === c.id);
                         const openTicketsCount = customerTickets.filter(t => t.status !== 'resolved').length;
-                        const overdueInvoicesCount = invoices.filter(i => i.customerId === c.id && i.status === 'overdue').length;
+                        const overdueInvoicesCount = (c.status === 'lead' || c.status === 'pending') ? 0 : invoices.filter(i => i.customerId === c.id && i.status === 'overdue').length;
                         const negativeAICount = auditLogs.filter(l => l.sentiment === 'NEGATIVO' && customerTickets.some(t => t.id === l.ticketId)).length;
                         
                         const riskScore = c.riskScore || 0; // Existing global risk logic if available
@@ -382,9 +386,14 @@ export function CustomersPage() {
                               />
                             </TableCell>
                             <TableCell className="font-medium">
-                              <div className="flex flex-col gap-1">
-                                <div className="flex items-center gap-2">
-                                  {c.name}
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-8 w-8 shrink-0">
+                                  <AvatarImage src={c.avatar || c.photoUrl || c.avatarUrl || c.profilePicUrl} />
+                                  <AvatarFallback>{c.name.charAt(0).toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-2">
+                                    {c.name}
                                   <button 
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -408,6 +417,7 @@ export function CustomersPage() {
                                     ))}
                                   </div>
                                 )}
+                              </div>
                               </div>
                             </TableCell>
                             <TableCell>
@@ -453,11 +463,16 @@ export function CustomersPage() {
                             <TableCell>{c.plan}</TableCell>
                             <TableCell>R$ {c.mrr?.toFixed(2)}</TableCell>
                             <TableCell>
-                              <Badge variant={c.status === 'active' ? 'default' : 'secondary'} className={c.status === 'active' ? 'bg-green-500 hover:bg-green-600 flex items-center gap-1 w-fit' : 'bg-red-500 hover:bg-red-600 flex items-center gap-1 w-fit'}>
+                              <Badge variant={c.status === 'active' ? 'default' : c.status === 'lead' || c.status === 'pending' ? 'outline' : 'secondary'} className={c.status === 'active' ? 'bg-green-500 hover:bg-green-600 flex items-center gap-1 w-fit' : (c.status === 'lead' || c.status === 'pending') ? 'border-amber-500 text-amber-600 dark:border-amber-400 dark:text-amber-400 flex items-center gap-1 w-fit bg-amber-50 dark:bg-amber-950/30' : 'bg-red-500 hover:bg-red-600 flex items-center gap-1 w-fit'}>
                                 {c.status === 'active' ? (
                                   <>
                                     <CheckCircle2 size={12} />
                                     Ativo
+                                  </>
+                                ) : (c.status === 'lead' || c.status === 'pending') ? (
+                                  <>
+                                    <Clock size={12} />
+                                    Pendente
                                   </>
                                 ) : (
                                   <>
@@ -724,7 +739,32 @@ export function CustomersPage() {
                     </div>
                   </div>
                 </div>
-                <DialogFooter>
+                <DialogFooter className="flex items-center sm:justify-between w-full">
+                  {isOwner ? (
+                    <Button 
+                      type="button" 
+                      variant="destructive" 
+                      onClick={() => {
+                        setConfirmDialog({
+                          isOpen: true,
+                          title: 'Excluir Cliente',
+                          message: 'Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.',
+                          onConfirm: async () => {
+                            try {
+                              const { deleteCustomer } = await import('@/src/lib/db');
+                              await deleteCustomer(editingCustomer.id);
+                              toast.success('Cliente excluído com sucesso!');
+                              setIsEditDialogOpen(false);
+                            } catch (err) {
+                              toast.error('Erro ao excluir cliente.');
+                            }
+                          }
+                        });
+                      }}
+                    >
+                      Excluir
+                    </Button>
+                  ) : <div />}
                   <Button type="submit" disabled={isUpdatingCustomer}>
                     {isUpdatingCustomer ? 'Salvando...' : 'Salvar Alterações'}
                   </Button>

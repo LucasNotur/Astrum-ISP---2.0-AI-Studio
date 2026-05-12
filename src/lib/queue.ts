@@ -1,0 +1,163 @@
+import { Queue } from "bullmq";
+import redis from "./redis";
+import EventEmitter from "events";
+
+const isMockRedis = !((redis as any).options);
+export const mockQueueEmitter = new EventEmitter();
+
+export const messageQueue = isMockRedis ? {
+  add: async (name: string, payload: any, opts?: any) => {
+    console.warn("Using mock messageQueue (No real Redis)");
+    mockQueueEmitter.emit("process-message", { id: Math.random().toString(), data: payload });
+    return { id: "mock" };
+  },
+  getJob: async () => null,
+  getJobCounts: async () => ({})
+} as any : new Queue("message-processing", {
+  connection: redis as any,
+});
+
+export const deadLetterQueue = isMockRedis ? {
+  add: async () => {} 
+} as any : new Queue("message-dead-letter", {
+  connection: redis as any,
+});
+
+export function setupDLQ(worker: any) {
+  worker.on('failed', async (job: any, err: any) => {
+    if (!job) return;
+    const attempts = job.attemptsMade;
+    const maxAttempts = job.opts?.attempts ?? 3;
+    if (attempts >= maxAttempts) {
+      try {
+        const { db } = await import("./firebase");
+        const { collection, addDoc, serverTimestamp } = await import("firebase/firestore");
+        // Mover para DLQ no Firestore para visibilidade
+        await addDoc(collection(db, 'dead_letter_queue'), {
+          job_id: job.id,
+          job_name: job.name,
+          job_data: job.data,
+          error_message: err.message,
+          error_stack: err.stack?.substring(0, 500),
+          attempts: attempts,
+          failed_at: serverTimestamp(),
+          tenant_id: job.data?.tenantId ?? 'unknown',
+          resolved: false
+        });
+        console.error(`[DLQ] Job ${job.name} moved to DLQ after ${attempts} attempts:`, err.message);
+      } catch (e: any) {
+        console.error("Erro ao inserir no DLQ do firestore:", e.message);
+      }
+    }
+  });
+}
+
+export const tenantQueues = new Map<string, Queue>();
+
+export function getTenantQueue(tenantId: string): Queue {
+  if (isMockRedis) {
+    if (!tenantQueues.has(tenantId)) {
+      tenantQueues.set(tenantId, {
+        add: async (name: string, payload: any, opts?: any) => {
+          console.warn(`Using mock tenantQueue for ${tenantId}`);
+          mockQueueEmitter.emit("process-message", { id: Math.random().toString(), data: payload });
+          return { id: "mock" };
+        },
+        getJob: async () => null,
+        getJobCounts: async () => ({})
+      } as any);
+    }
+    return tenantQueues.get(tenantId)!;
+  }
+
+  if (!tenantQueues.has(tenantId)) {
+    const queue = new Queue(`messages:${tenantId}`, {
+      connection: redis as any,
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 2000 },
+        removeOnComplete: false,
+        removeOnFail: false
+      }
+    });
+    tenantQueues.set(tenantId, queue);
+  }
+  return tenantQueues.get(tenantId)!;
+}
+
+export async function getAggregateJobCounts(...types: any[]): Promise<Record<string, number>> {
+  const result: Record<string, number> = {};
+  for (const type of types) result[type] = 0;
+
+  if (isMockRedis) return result;
+
+  try {
+    const { db } = await import("./firebase");
+    const { collection, getDocs, where, query } = await import("firebase/firestore");
+    const tenantsSnap = await getDocs(query(collection(db, 'tenants'), where('active', '==', true)));
+    
+    for (const tenant of tenantsSnap.docs) {
+      const queue = getTenantQueue(tenant.id);
+      const counts = await queue.getJobCounts(...types);
+      for (const type of types) {
+        result[type] += (counts[type] as number) || 0;
+      }
+    }
+  } catch (e) {
+    console.error("Error fetching tenant queues job counts:", e);
+  }
+
+  try {
+    const globalCounts = await messageQueue.getJobCounts(...types);
+    for (const type of types) {
+      result[type] += (globalCounts[type] as number) || 0;
+    }
+  } catch (e) {}
+
+  return result;
+}
+
+export async function getMessagePriority(customerId: string, tenantId: string): Promise<number> {
+  if (!customerId) return 5; // prioridade padrão para não-clientes
+
+  const cacheKey = `priority:${customerId}`;
+  if (!isMockRedis) {
+    const cached = await redis.get(cacheKey);
+    if (cached) return parseInt(cached);
+  }
+
+  try {
+    const { db } = await import("./firebase");
+    const { doc, getDoc } = await import("firebase/firestore");
+    
+    const customerDoc = await getDoc(doc(db, 'customers', customerId));
+    const planId = customerDoc.data()?.plan_id;
+
+    // Quanto menor o número, maior a prioridade no BullMQ
+    const priorityMap: Record<string, number> = {
+      '1gb':   1, // máxima prioridade
+      '600mb': 2,
+      '300mb': 3,
+      '100mb': 5, // prioridade padrão
+    };
+
+    const priority = priorityMap[planId] ?? 5;
+    
+    if (!isMockRedis) {
+      await redis.set(cacheKey, String(priority), 'EX', 3600);
+    }
+    return priority;
+  } catch (e) {
+    return 5;
+  }
+}
+
+export async function enqueueMessage(tenantId: string, payload: any, opts?: any, jobName: string = 'process-message') {
+  const priority = await getMessagePriority(payload.customerId, tenantId);
+  const queue = getTenantQueue(tenantId);
+  return queue.add(jobName, payload, {
+    jobId: payload.messageId,
+    priority,
+    ...(opts || {})
+  });
+}

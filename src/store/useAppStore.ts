@@ -82,9 +82,9 @@ interface AppState {
 }
 
 const rolePermissions: Record<string, string[]> = {
-  admin: ['dashboard', 'customers', 'tickets', 'os', 'chat', 'map', 'kb', 'billing', 'team', 'ai-config', 'settings', 'inventory'],
-  owner: ['dashboard', 'customers', 'tickets', 'chat', 'billing', 'team'],
-  support: ['dashboard', 'customers', 'tickets', 'chat'],
+  admin: ['dashboard', 'customers', 'tickets', 'os', 'chat', 'map', 'kb', 'billing', 'team', 'ai-config', 'whatsapp', 'settings', 'inventory', 'observability', 'monitoring', 'cobrai', 'quality-monitor'],
+  owner: ['dashboard', 'customers', 'tickets', 'chat', 'billing', 'team', 'os', 'ai-config', 'settings', 'whatsapp', 'inventory', 'map', 'observability', 'monitoring', 'cobrai', 'quality-monitor'],
+  support: ['dashboard', 'customers', 'tickets', 'chat', 'ai-config'],
   tecnico: ['os']
 };
 

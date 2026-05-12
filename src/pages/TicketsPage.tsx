@@ -6,7 +6,7 @@ import { useAppStore } from '@/src/store/useAppStore';
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/card";
 import { Badge } from "@/src/components/ui/badge";
 import { ScrollArea } from "@/src/components/ui/scroll-area";
-import { Avatar, AvatarFallback } from "@/src/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/src/components/ui/avatar";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/src/components/ui/tooltip";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
@@ -47,61 +47,64 @@ export function TicketsPage({ onNewTicketClick }: { onNewTicketClick: () => void
             </Button>
           </div>
           <Button className="gap-2" onClick={onNewTicketClick}>
-            <Plus size={18} /> Novo Ticket
+            <Plus size={18} />
           </Button>
         </div>
       </header>
 
       {/* METRICS PANEL */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 shrink-0">
-        <Card className="shadow-sm border-zinc-200/50 dark:border-zinc-800">
-          <CardContent className="p-4 flex flex-col justify-center">
-            <p className="text-xs md:text-sm text-zinc-500 font-medium">Tickets em Aberto</p>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-xl md:text-2xl font-bold text-zinc-900 dark:text-zinc-50">{metrics.abertos}</span>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4 shrink-0">
+        <Card className="shadow-sm border-zinc-200/50 dark:border-zinc-800 rounded-[14px] overflow-hidden relative group">
+          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+          <CardContent className="p-2.5 md:p-4 flex flex-col justify-center">
+            <p className="text-[9px] md:text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider">Tickets em Aberto</p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-base md:text-2xl font-bold text-zinc-900 dark:text-zinc-50 leading-none">{metrics.abertos}</span>
             </div>
           </CardContent>
         </Card>
-        <Card className="shadow-sm border-zinc-200/50 dark:border-zinc-800">
-          <CardContent className="p-4 flex flex-col justify-center">
-            <p className="text-xs md:text-sm text-zinc-500 font-medium">TMA (Média)</p>
-            <div className="flex items-center gap-2 mt-1">
-              <Clock size={16} className="text-blue-500 hidden md:block" />
-              <span className="text-xl md:text-2xl font-bold text-zinc-900 dark:text-zinc-50">{metrics.tma}</span>
+        <Card className="shadow-sm border-zinc-200/50 dark:border-zinc-800 rounded-[14px] overflow-hidden relative group">
+          <div className="absolute top-0 left-0 w-1 h-full bg-amber-500"></div>
+          <CardContent className="p-2.5 md:p-4 flex flex-col justify-center">
+            <p className="text-[9px] md:text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider">TMA (Média)</p>
+            <div className="flex items-center gap-1 mt-0.5">
+              <Clock size={10} className="text-amber-500" />
+              <span className="text-base md:text-2xl font-bold text-zinc-900 dark:text-zinc-50 leading-none">{metrics.tma}</span>
             </div>
           </CardContent>
         </Card>
-        <Card className="shadow-sm border-zinc-200/50 dark:border-zinc-800">
-          <CardContent className="p-4 flex flex-col justify-center">
-            <p className="text-xs md:text-sm text-zinc-500 font-medium">Resolvidos no Mês</p>
-            <div className="flex items-center gap-2 mt-1">
-              <CheckCircle size={16} className="text-green-500 hidden md:block" />
-              <span className="text-xl md:text-2xl font-bold text-zinc-900 dark:text-zinc-50">{metrics.resolvidosMes}</span>
+        <Card className="shadow-sm border-zinc-200/50 dark:border-zinc-800 rounded-[14px] overflow-hidden relative group">
+          <div className="absolute top-0 left-0 w-1 h-full bg-green-500"></div>
+          <CardContent className="p-2.5 md:p-4 flex flex-col justify-center">
+            <p className="text-[9px] md:text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider">Resolvidos no Mês</p>
+            <div className="flex items-center gap-1 mt-0.5">
+              <CheckCircle size={10} className="text-green-500" />
+              <span className="text-base md:text-2xl font-bold text-zinc-900 dark:text-zinc-50 leading-none">{metrics.resolvidosMes}</span>
             </div>
           </CardContent>
         </Card>
-        <Card className="shadow-sm border-zinc-200/50 dark:border-zinc-800">
-          <CardContent className="p-4 flex flex-col justify-center">
-            <p className="text-xs md:text-sm text-zinc-500 font-medium">FCR (1º Contato)</p>
-            <div className="flex items-center gap-2 mt-1">
-              <Bot size={16} className="text-purple-500 hidden md:block" />
-              <span className="text-xl md:text-2xl font-bold text-zinc-900 dark:text-zinc-50">{metrics.fcr}</span>
+        <Card className="shadow-sm border-zinc-200/50 dark:border-zinc-800 rounded-[14px] overflow-hidden relative group">
+          <div className="absolute top-0 left-0 w-1 h-full bg-purple-500"></div>
+          <CardContent className="p-2.5 md:p-4 flex flex-col justify-center">
+            <p className="text-[9px] md:text-xs text-zinc-500 dark:text-zinc-400 font-semibold uppercase tracking-wider">FCR (1º Contato)</p>
+            <div className="flex items-center gap-1 mt-0.5">
+              <Bot size={10} className="text-purple-500" />
+              <span className="text-base md:text-2xl font-bold text-zinc-900 dark:text-zinc-50 leading-none">{metrics.fcr}</span>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* FILTERS */}
-      <div className="flex flex-wrap items-center gap-2 md:gap-4 bg-white dark:bg-zinc-900 p-2 md:px-4 rounded-xl border border-zinc-200/50 dark:border-zinc-800 shadow-sm shrink-0">
-        <Filter size={16} className="text-zinc-400 hidden md:block" />
-        <span className="text-sm font-medium text-zinc-500 hidden md:inline">Filtros:</span>
+      <div className="flex items-center gap-1.5 md:gap-3 bg-zinc-50/50 dark:bg-zinc-900/50 p-1 md:p-2 rounded-lg border border-zinc-200/50 dark:border-zinc-800 shrink-0 overflow-x-auto no-scrollbar">
+        <Filter size={14} className="text-zinc-400 shrink-0 ml-1" />
         
         <select 
-          className="w-[140px] md:w-[180px] h-8 text-xs border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 rounded outline-none focus:ring-1 focus:ring-zinc-300 dark:focus:ring-zinc-700 px-2"
+          className="h-7 text-[10px] md:text-xs border-none bg-white dark:bg-zinc-800 rounded outline-none focus:ring-1 focus:ring-zinc-300 dark:focus:ring-zinc-700 px-1 md:px-2 shadow-sm shrink-0 font-medium"
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
         >
-          <option value="all">Todos Status</option>
+          <option value="all">Status</option>
           <option value="open">Abertos</option>
           <option value="in-progress">Em Atendimento</option>
           <option value="escalated">Escalados</option>
@@ -109,11 +112,11 @@ export function TicketsPage({ onNewTicketClick }: { onNewTicketClick: () => void
         </select>
 
         <select 
-          className="w-[140px] md:w-[180px] h-8 text-xs border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 rounded outline-none focus:ring-1 focus:ring-zinc-300 dark:focus:ring-zinc-700 px-2"
+          className="h-7 text-[10px] md:text-xs border-none bg-white dark:bg-zinc-800 rounded outline-none focus:ring-1 focus:ring-zinc-300 dark:focus:ring-zinc-700 px-1 md:px-2 shadow-sm shrink-0 font-medium"
           value={filterPriority}
           onChange={(e) => setFilterPriority(e.target.value)}
         >
-          <option value="all">Todas Prioridades</option>
+          <option value="all">Prioridade</option>
           <option value="low">Baixa</option>
           <option value="medium">Normal</option>
           <option value="high">Alta</option>
@@ -121,11 +124,11 @@ export function TicketsPage({ onNewTicketClick }: { onNewTicketClick: () => void
         </select>
 
         <select 
-          className="w-[140px] md:w-[180px] h-8 text-xs border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 rounded outline-none focus:ring-1 focus:ring-zinc-300 dark:focus:ring-zinc-700 px-2"
+          className="h-7 text-[10px] md:text-xs border-none bg-white dark:bg-zinc-800 rounded outline-none focus:ring-1 focus:ring-zinc-300 dark:focus:ring-zinc-700 px-1 md:px-2 shadow-sm shrink-0 font-medium"
           value={filterCustomer}
           onChange={(e) => setFilterCustomer(e.target.value)}
         >
-          <option value="all">Todos Clientes</option>
+          <option value="all">Cliente</option>
           {customers.map(c => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
@@ -246,6 +249,7 @@ function TicketColumn({ title, status, tickets, customers, onTicketClick }: any)
                     
                     <div className="flex items-center gap-2 mb-4 bg-zinc-50 dark:bg-[#111214] p-2 rounded-lg">
                       <Avatar className="h-6 w-6">
+                        <AvatarImage src={customer?.avatar || customer?.photoUrl || customer?.avatarUrl || customer?.profilePicUrl} />
                         <AvatarFallback className="text-[9px] bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">{customer ? customer.name.charAt(0) : 'A'}</AvatarFallback>
                       </Avatar>
                       <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 line-clamp-1">{customer ? customer.name : 'Anônimo'}</span>

@@ -51,9 +51,18 @@ export function ServiceOrdersPage() {
       os.status !== 'concluida' && (
         (os.status === 'pendente' && os.scheduledDate && os.scheduledDate <= todayStr) ||
         os.status === 'em_deslocamento' || 
-        os.status === 'em_andamento'
+        os.status === 'em_andamento' ||
+        os.status === 'agendada' // Also include 'agendada'
       )
-    );
+    ).sort((a, b) => {
+      // Ordenação padrão: por route_sequence (se existir), depois horário
+      if (a.route_sequence && !b.route_sequence) return -1;
+      if (!a.route_sequence && b.route_sequence) return 1;
+      if (a.route_sequence && b.route_sequence) return a.route_sequence - b.route_sequence;
+      const timeA = a.scheduledTime || '23:59';
+      const timeB = b.scheduledTime || '23:59';
+      return timeA.localeCompare(timeB);
+    });
 
     // 3. Concluídas Recentes
     const completedOS = serviceOrders.filter(os => os.status === 'concluida').slice(0, 15);
@@ -366,7 +375,7 @@ export function ServiceOrdersPage() {
             <span className="hidden md:inline">Simulador WhatsApp Técnico</span>
           </Button>
           <Button className="gap-2 shrink-0 self-start md:self-auto" onClick={() => { setSelectedCustomer(null); setIsScheduleDialogOpen(true); }}>
-            <Plus size={16} /> Nova O.S.
+            <Plus size={16} />
           </Button>
         </div>
       </header>
@@ -384,10 +393,10 @@ export function ServiceOrdersPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="board" className="flex-1 overflow-x-auto overflow-y-auto md:overflow-y-hidden pb-4 mt-0 data-[state=active]:flex">
-          <div className="flex flex-col md:flex-row gap-4 md:min-w-max md:h-[calc(100vh-230px)]">
+        <TabsContent value="board" className="flex-1 overflow-y-auto md:overflow-x-auto md:overflow-y-hidden pb-4 mt-0 data-[state=active]:flex">
+          <div className="flex flex-col md:flex-row gap-4 md:min-w-max md:h-[calc(100vh-230px)] pt-2">
           {pipelines.map(column => (
-            <div key={column.id} className="flex flex-col w-full md:w-[340px] bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-100 dark:border-zinc-800 p-3 shadow-sm md:h-full md:overflow-hidden min-h-[min-content]">
+            <div key={column.id} className="flex flex-col w-full md:w-[340px] bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-100 dark:border-zinc-800 p-3 shadow-sm md:h-full md:overflow-hidden min-h-[min-content] md:min-h-0">
               <div className="mb-4 px-1">
                 <div className="flex items-center justify-between mb-1">
                   <h3 className="font-bold text-[15px] flex items-center gap-2">
@@ -408,15 +417,23 @@ export function ServiceOrdersPage() {
                            <div className="absolute top-0 bottom-0 left-6 border-l border-dashed border-zinc-200 dark:border-white/5" />
                            <CardContent className="p-4 pl-8 relative z-10">
                                <div className="flex justify-between items-start mb-2 cursor-pointer" onClick={() => setExpandedBoardOS(expandedBoardOS === item.id ? null : item.id)}>
-                                 <Badge variant="outline" className={`text-[10px] px-2 py-0 border-none font-bold ${
-                                    item.status === 'pendente' && !item.scheduledDate ? 'bg-zinc-100 text-zinc-500 dark:bg-white/5 dark:text-zinc-400' :
-                                    item.status === 'pendente' ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' :
-                                    item.status === 'em_deslocamento' ? 'bg-indigo-500/20 text-indigo-600 dark:text-indigo-400' :
-                                    item.status === 'em_andamento' ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400' :
-                                    'bg-purple-500/20 text-purple-600 dark:text-purple-400'
-                                 }`}>
-                                   {item.status.replace('_', ' ').toUpperCase()} {item.scheduledDate ? `• ${item.scheduledDate}` : ''}
-                                 </Badge>
+                                 <div className="flex flex-col items-start gap-1">
+                                   <Badge variant="outline" className={`text-[10px] px-2 py-0 border-none font-bold ${
+                                      item.status === 'pendente' && !item.scheduledDate ? 'bg-zinc-100 text-zinc-500 dark:bg-white/5 dark:text-zinc-400' :
+                                      item.status === 'pendente' ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' :
+                                      item.status === 'em_deslocamento' ? 'bg-indigo-500/20 text-indigo-600 dark:text-indigo-400' :
+                                      item.status === 'em_andamento' ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400' :
+                                      item.status === 'agendada' ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' :
+                                      'bg-purple-500/20 text-purple-600 dark:text-purple-400'
+                                   }`}>
+                                     {item.status.replace('_', ' ').toUpperCase()} {item.scheduledDate ? `• ${item.scheduledDate}` : ''}
+                                   </Badge>
+                                   {item.route_sequence && (
+                                      <Badge variant="outline" className="text-[9px] px-2 py-0 border-zinc-200 dark:border-zinc-700 bg-zinc-100 text-zinc-500 dark:bg-zinc-800/50 dark:text-zinc-400 font-semibold gap-1">
+                                         <MapPin size={8} /> Rota #{item.route_sequence} {item.route_region && `(CEP ${item.route_region})`}
+                                      </Badge>
+                                   )}
+                                 </div>
                                  <span className="text-[10px] text-zinc-400 font-mono">#{item.id.slice(0, 5)}</span>
                                </div>
                                
@@ -439,6 +456,30 @@ export function ServiceOrdersPage() {
 
                                {expandedBoardOS === item.id && (
                                  <div className="mt-2 mb-3 pt-3 border-t border-zinc-100 dark:border-white/5 space-y-3 animate-in slide-in-from-top-2 fade-in">
+                                    {(item.status === 'pendente' && (!item.assignedTo || item.assignedTo === 'A Definir')) && (
+                                      <div>
+                                        <h5 className="text-[10px] uppercase font-bold text-zinc-400 mb-1">Despacho Manual</h5>
+                                        <div className="flex gap-2">
+                                          <Select onValueChange={async (val) => {
+                                             toast.success(`OS Atribuída a ${val}`);
+                                             await updateServiceOrder(item.id, {
+                                                assignedTo: val,
+                                                assigned_at: new Date().toISOString(),
+                                                status: 'agendada'
+                                             });
+                                          }}>
+                                            <SelectTrigger className="h-8 text-xs bg-white dark:bg-zinc-900 flex-1">
+                                              <SelectValue placeholder="Selecionar Técnico..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              {technicians?.filter(t => t.active !== false).map(t => (
+                                                <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                        </div>
+                                      </div>
+                                    )}
                                     {item.description && (
                                       <div>
                                         <h5 className="text-[10px] uppercase font-bold text-zinc-400 mb-1">Descrição Detalhada</h5>
@@ -714,28 +755,37 @@ export function ServiceOrdersPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="history" className="flex-1 overflow-hidden mt-0 data-[state=active]:flex">
-           <div className="w-full flex gap-6 h-[calc(100vh-230px)]">
+        <TabsContent value="history" className="flex-1 mt-0 data-[state=active]:flex overflow-y-auto">
+           <div className="w-full flex flex-col md:flex-row gap-4 md:gap-6 h-auto md:h-[calc(100vh-230px)]">
              {/* Tech List */}
-             <div className="w-1/4 min-w-[280px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-col overflow-hidden shadow-sm">
+             <div className="w-full md:w-1/4 md:min-w-[280px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-col overflow-hidden shadow-sm shrink-0">
                  <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
                     <h3 className="font-bold mb-1">Técnicos</h3>
                     <p className="text-xs text-zinc-500">Selecione para ver o histórico</p>
                  </div>
                  <ScrollArea className="flex-1 p-4">
                     <div className="space-y-2">
-                       {technicians.map((tech: any) => (
+                       {technicians.map((tech: any) => {
+                         const osToday = serviceOrders.filter(os => os.assignedTo === tech.name && os.scheduledDate === new Date().toISOString().split('T')[0]).length;
+                         return (
                          <div 
                            key={tech.name} 
                            className={`p-3 rounded-xl border cursor-pointer hover:border-blue-500 transition-colors ${selectedHistoryTech?.name === tech.name ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'}`}
                            onClick={() => setSelectedHistoryTech(tech)}
                          >
                             <h4 className="font-semibold text-sm">{tech.name}</h4>
-                            <p className="text-xs text-zinc-500 flex items-center gap-1 mt-1">
-                               {tech.status === 'available' ? '🟢 Disponível' : tech.status === 'busy' ? '🟡 Em serviço' : '⚪ Offline'}
+                            <p className="text-[10px] text-zinc-500 flex items-center gap-1 mt-1">
+                               {tech.status === 'available' ? '🟢 Online' : tech.status === 'busy' ? '🟡 Em serviço' : '⚪ Offline'}
+                               <span className="mx-1">•</span>
+                               <Briefcase size={10} /> {osToday} OS Hoje
                             </p>
+                            {tech.coverage_regions && tech.coverage_regions.length > 0 && (
+                               <p className="text-[10px] text-zinc-400 mt-1 flex items-center gap-1">
+                                 <MapPin size={10} /> {tech.coverage_regions.join(', ')}
+                               </p>
+                            )}
                          </div>
-                       ))}
+                       )})}
                     </div>
                  </ScrollArea>
              </div>

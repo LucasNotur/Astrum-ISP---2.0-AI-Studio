@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Ticket, Briefcase, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, Users, Ticket, Briefcase, MessageSquare, CreditCard } from 'lucide-react';
 import { useAppStore, canAccess } from '@/src/store/useAppStore';
 import { cn } from '@/src/lib/utils';
 
@@ -14,7 +14,7 @@ export function BottomNav() {
     { id: 'customers', icon: Users, label: 'Clientes', role: 'customers' },
     { id: 'tickets', icon: Ticket, label: 'Tickets', role: 'tickets' },
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', role: 'dashboard' },
-    { id: 'os', icon: Briefcase, label: 'Serviços', role: 'os' },
+    { id: 'billing', icon: CreditCard, label: 'Financeiro', role: 'billing' },
     { id: 'chat', icon: MessageSquare, label: 'Chat', role: 'chat' },
   ];
 

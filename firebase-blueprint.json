@@ -13,7 +13,8 @@
         "plan": { "type": "string" },
         "mrr": { "type": "number" },
         "status": { "type": "string", "enum": ["active", "inactive", "pending"] },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "retention_discount_used_at": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "email", "status"]
     },
@@ -180,6 +181,29 @@
       },
       "required": ["customerId", "status", "type"]
     },
+    "Plan": {
+      "title": "Plan",
+      "description": "Internet Service Plan",
+      "type": "object",
+      "properties": {
+        "tenant_id": { "type": "string" },
+        "updated_at": { "type": "string", "format": "date-time" },
+        "plans": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "price": { "type": "number" },
+              "speed_mbps": { "type": "number" },
+              "active": { "type": "boolean" }
+            }
+          }
+        }
+      },
+      "required": ["tenant_id", "plans"]
+    },
     "Technician": {
       "title": "Technician",
       "description": "Field technician status and info",
@@ -246,6 +270,10 @@
     "/technicians/{technicianId}": {
       "schema": "Technician",
       "description": "Field technicians"
+    },
+    "/plans/{tenantId}": {
+      "schema": "Plan",
+      "description": "Internet Service Plans"
     }
   }
 }
