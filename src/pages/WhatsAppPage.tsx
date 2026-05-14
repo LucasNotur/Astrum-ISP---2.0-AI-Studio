@@ -24,13 +24,13 @@ export function WhatsAppConnectionsPage({
   const [connStates, setConnStates] = useState<Record<string, { status: string, qrCode: string | null, isFetching: boolean }>>({});
 
   useEffect(() => {
-    if (integrationKeys.whatsappInstances) {
+    if (integrationKeys?.whatsappInstances) {
       try {
         setConnections(JSON.parse(integrationKeys.whatsappInstances));
       } catch (e) {
         setConnections([]);
       }
-    } else if (integrationKeys.evolutionInstance) {
+    } else if (integrationKeys?.evolutionInstance) {
       // Migrate old config
       setConnections([{
         id: crypto.randomUUID(),

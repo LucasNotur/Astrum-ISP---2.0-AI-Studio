@@ -914,35 +914,8 @@ export const getEffectivePrompts = async (tenantId: string, forceRefresh: boolea
   return basePrompts;
 };
 
-export async function getSmartReplies(lastMessage: string) {
+export async function getSmartReplies(lastMessage: string, tenantId: string = "default") {
   try {
-    const integrationKeys = await getIntegrationKeys();
-    const provider = integrationKeys.smartreplyProvider || "gemini";
-    const isCustom = provider === "custom";
-    const isOpenAILike = provider === "openai" || isCustom;
-
-    const apiKey = isCustom
-      ? integrationKeys.customSmartreply || ""
-      : provider === "openai"
-        ? integrationKeys.openaiSmartreply || integrationKeys.openaiGlobal
-        : integrationKeys.geminiSmartreply ||
-          integrationKeys.geminiGlobal ||
-          process.env.GEMINI_API_KEY ||
-          "";
-
-    const modelName =
-      integrationKeys[`${provider}SmartreplyModel`] ||
-      (provider === "openai"
-        ? "gpt-4o-mini"
-        : isCustom
-          ? ""
-          : "gemini-2.5-flash");
-    const baseUrl = isCustom
-      ? integrationKeys.customSmartreplyBaseUrl
-      : undefined;
-
-    if (!apiKey) return [];
-
     const prompt = `Você é um assistente de suporte para um provedor de internet.
 Com base na mensagem do cliente abaixo, sugira 3 respostas curtas e úteis (máximo 10 palavras cada) que um atendente humano poderia usar.
 Responda APENAS um array JSON de strings.
@@ -951,37 +924,18 @@ Mensagem do Cliente: "${lastMessage}"
 
 Sugestões:`;
 
-    if (isOpenAILike) {
-      const openai = new OpenAI({
-        apiKey,
-        dangerouslyAllowBrowser: true,
-        baseURL: baseUrl,
-      });
-      const res = await callLLMWithRetry(() =>
-        openai.chat.completions.create({
-          model: modelName,
-          messages: [{ role: "user", content: prompt }],
-          response_format: { type: "json_object" },
-        }),
-      );
-      const text = res.choices[0]?.message?.content || "[]";
-      try {
-        return JSON.parse(text).replies || JSON.parse(text);
-      } catch {
-        return [];
-      }
-    } else {
-      const ai = new GoogleGenerativeAI(apiKey);
-      const modelFlash = ai.getGenerativeModel({ model: modelName });
-      const result = await callLLMWithRetry(() =>
-        modelFlash.generateContent({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: "application/json" },
-        }),
-      );
-      return JSON.parse(result.response.text());
+    const { aiProvider } = await import("../ai-provider/ai-provider.setup");
+    const result = await aiProvider.chat("chat", [{ role: "user", content: prompt }], tenantId);
+    
+    let text = result.content;
+    try {
+      // In case it returns markdown JSON wrapper
+      text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+      return JSON.parse(text).replies || JSON.parse(text);
+    } catch {
+      return [];
     }
-  } catch (error) {
+  } catch (error: any) {
     logger.error("error_smart_replies", { error: error?.message || String(error) });
     return [];
   }
@@ -995,32 +949,9 @@ export async function summarizeCustomerHistory(
     address?: string;
     phone?: string;
   },
+  tenantId: string = "default"
 ) {
   try {
-    const integrationKeys = await getIntegrationKeys();
-    const provider = integrationKeys.summaryProvider || "gemini";
-    const isCustom = provider === "custom";
-    const isOpenAILike = provider === "openai" || isCustom;
-
-    const apiKey = isCustom
-      ? integrationKeys.customSummary || ""
-      : provider === "openai"
-        ? integrationKeys.openaiSummary || integrationKeys.openaiGlobal
-        : integrationKeys.geminiSummary ||
-          integrationKeys.geminiGlobal ||
-          process.env.GEMINI_API_KEY ||
-          "";
-    const modelName =
-      integrationKeys[`${provider}SummaryModel`] ||
-      (provider === "openai"
-        ? "gpt-4o-mini"
-        : isCustom
-          ? ""
-          : "gemini-2.5-flash");
-    const baseUrl = isCustom ? integrationKeys.customSummaryBaseUrl : undefined;
-
-    if (!apiKey) return "Erro: Chave da API não configurada.";
-
     const prompt = `Você é um assistente de IA. Sua tarefa é criar um resumo curto e direto sobre o cliente.
 Regras:
 1. Comece com uma ou duas frases sobre o perfil do cliente e seu comportamento (ex: paga em dia, tem contatado bastante recentemente).
@@ -1036,28 +967,10 @@ ${historyText}
 
 Resumo:`;
 
-    if (isOpenAILike) {
-      const openai = new OpenAI({
-        apiKey,
-        baseURL: baseUrl,
-        dangerouslyAllowBrowser: true,
-      });
-      const res = await callLLMWithRetry(() =>
-        openai.chat.completions.create({
-          model: modelName,
-          messages: [{ role: "user", content: prompt }],
-        }),
-      );
-      return res.choices[0]?.message?.content || "";
-    } else {
-      const ai = new GoogleGenerativeAI(apiKey);
-      const modelFlash = ai.getGenerativeModel({ model: modelName });
-      const result = await callLLMWithRetry(() =>
-        modelFlash.generateContent(prompt),
-      );
-      return result.response.text();
-    }
-  } catch (error) {
+    const { aiProvider } = await import("../ai-provider/ai-provider.setup");
+    const result = await aiProvider.chat("summary", [{ role: "user", content: prompt }], tenantId);
+    return result.content || "";
+  } catch (error: any) {
     logger.error("error_ai_summarize", { error: error?.message || String(error) });
     return "Erro ao gerar resumo do cliente.";
   }
@@ -1071,32 +984,9 @@ export async function summarizeTicketHistory(
     address?: string;
     phone?: string;
   },
+  tenantId: string = "default"
 ) {
   try {
-    const integrationKeys = await getIntegrationKeys();
-    const provider = integrationKeys.summaryProvider || "gemini";
-    const isCustom = provider === "custom";
-    const isOpenAILike = provider === "openai" || isCustom;
-
-    const apiKey = isCustom
-      ? integrationKeys.customSummary || ""
-      : provider === "openai"
-        ? integrationKeys.openaiSummary || integrationKeys.openaiGlobal
-        : integrationKeys.geminiSummary ||
-          integrationKeys.geminiGlobal ||
-          process.env.GEMINI_API_KEY ||
-          "";
-    const modelName =
-      integrationKeys[`${provider}SummaryModel`] ||
-      (provider === "openai"
-        ? "gpt-4o-mini"
-        : isCustom
-          ? ""
-          : "gemini-2.5-flash");
-    const baseUrl = isCustom ? integrationKeys.customSummaryBaseUrl : undefined;
-
-    if (!apiKey) return "Erro: Chave da API não configurada.";
-
     const customerHead = customerData
       ? `
 INFORMAÇÕES DO CLIENTE (Cache/Heads):
@@ -1119,59 +1009,17 @@ ${historyText}
 
 Resumo:`;
 
-    if (isOpenAILike) {
-      const openai = new OpenAI({
-        apiKey,
-        dangerouslyAllowBrowser: true,
-        baseURL: baseUrl,
-      });
-      const res = await callLLMWithRetry(() =>
-        openai.chat.completions.create({
-          model: modelName,
-          messages: [{ role: "user", content: prompt }],
-        }),
-      );
-      return res.choices[0]?.message?.content || "";
-    } else {
-      const ai = new GoogleGenerativeAI(apiKey);
-      const modelFlash = ai.getGenerativeModel({ model: modelName });
-      const result = await callLLMWithRetry(() =>
-        modelFlash.generateContent(prompt),
-      );
-      return result.response.text();
-    }
-  } catch (error) {
+    const { aiProvider } = await import("../ai-provider/ai-provider.setup");
+    const result = await aiProvider.chat("summary", [{ role: "user", content: prompt }], tenantId);
+    return result.content || "";
+  } catch (error: any) {
     logger.error("error_ai_summarize", { error: error?.message || String(error) });
     return "Erro ao gerar resumo do ticket.";
   }
 }
 
-export async function generateKBArticleFromTickets(ticketsText: string) {
+export async function generateKBArticleFromTickets(ticketsText: string, tenantId: string = "default") {
   try {
-    const integrationKeys = await getIntegrationKeys();
-    const provider = integrationKeys.kbProvider || "gemini";
-    const isCustom = provider === "custom";
-    const isOpenAILike = provider === "openai" || isCustom;
-
-    const apiKey = isCustom
-      ? integrationKeys.customKb || ""
-      : provider === "openai"
-        ? integrationKeys.openaiKb || integrationKeys.openaiGlobal
-        : integrationKeys.geminiKb ||
-          integrationKeys.geminiGlobal ||
-          process.env.GEMINI_API_KEY ||
-          "";
-    const modelName =
-      integrationKeys[`${provider}KbModel`] ||
-      (provider === "openai"
-        ? "gpt-4o-mini"
-        : isCustom
-          ? ""
-          : "gemini-2.5-flash");
-    const baseUrl = isCustom ? integrationKeys.customKbBaseUrl : undefined;
-
-    if (!apiKey) return null;
-
     const prompt = `Você é um especialista em documentação técnica para um provedor de internet.
 Com base nos problemas relatados nos tickets abaixo, crie um artigo de Base de Conhecimento útil para outros clientes ou para a equipe de suporte.
 
@@ -1192,33 +1040,13 @@ Responda EXATAMENTE no formato JSON:
   "tags": ["tag1", "tag2"]
 }`;
 
-    if (isOpenAILike) {
-      const openai = new OpenAI({
-        apiKey,
-        dangerouslyAllowBrowser: true,
-        baseURL: baseUrl,
-      });
-      const res = await callLLMWithRetry(() =>
-        openai.chat.completions.create({
-          model: modelName,
-          messages: [{ role: "user", content: prompt }],
-          response_format: { type: "json_object" },
-        }),
-      );
-      const text = res.choices[0]?.message?.content || "{}";
-      return JSON.parse(text);
-    } else {
-      const ai = new GoogleGenerativeAI(apiKey);
-      const modelFlash = ai.getGenerativeModel({ model: modelName });
-      const result = await callLLMWithRetry(() =>
-        modelFlash.generateContent({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: "application/json" },
-        }),
-      );
-      return JSON.parse(result.response.text());
-    }
-  } catch (error) {
+    const { aiProvider } = await import("../ai-provider/ai-provider.setup");
+    const result = await aiProvider.chat("chat", [{ role: "user", content: prompt }], tenantId);
+    
+    let text = result.content;
+    text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    return JSON.parse(text);
+  } catch (error: any) {
     logger.error("error_kb_generation", { error: error?.message || String(error) });
     return null;
   }
@@ -1394,36 +1222,27 @@ export async function getAIResponse(
 
   if (!sessionStateObj.customer && remoteJid) {
     try {
-      const { getDocs, query, collection, where, limit } = await import("firebase/firestore");
-      const { db } = await import("./firebase");
-      
-      const customerLookup = await getDocs(
-        query(
-          collection(db, "customers"),
-          where("phone", "==", remoteJid),
-          where("tenant_id", "==", tenantId),
-          limit(1)
-        )
-      );
-
-      const existingCustomer = customerLookup.empty ? null : {
-        customerId: customerLookup.docs[0].id,
-        ...customerLookup.docs[0].data()
-      };
+      const { getCustomerRepository } = await import("../repositories");
+      const customerRepo = getCustomerRepository();
+      const existingCustomer = await customerRepo.findByPhone(remoteJid, tenantId);
 
       if (existingCustomer) {
-        sessionStateObj.customer = existingCustomer;
+        sessionStateObj.customer = {
+          customerId: existingCustomer.id,
+          ...existingCustomer
+        };
         try {
           const { getDoc, doc } = await import("firebase/firestore");
-          const prefsDoc = await getDoc(doc(db, "customers", existingCustomer.customerId, "preferences", "main"));
+          const { db } = await import("./firebase");
+          const prefsDoc = await getDoc(doc(db, "customers", existingCustomer.id!, "preferences", "main"));
           if (prefsDoc.exists()) {
              sessionStateObj.customer_preferences = prefsDoc.data();
           }
-        } catch (e) {
+        } catch (e: any) {
           logger.error("error_fetch_preferences", { error: e?.message || String(e) });
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       logger.error("error_fetch_customer", { error: err?.message || String(err) });
     }
   }
@@ -1462,9 +1281,10 @@ export async function getAIResponse(
         lastTicketCategory: recentTickets.docs[0]?.data().category ?? null
       };
 
-      await updateDoc(doc(db, 'customers', customerData.id), {
+      const { getCustomerRepository } = await import("../repositories");
+      await getCustomerRepository().update(customerData.id, {
         'engagement.monthly_contacts': recentTickets.size,
-        'engagement.last_updated': serverTimestamp()
+        'engagement.last_updated': new Date().toISOString()
       });
     } catch (e) {
       logger.error("error_compute_frequency", { error: e?.message || String(e) });
@@ -1492,77 +1312,6 @@ export async function getAIResponse(
   };
 
   try {
-    const integrationKeys = await getIntegrationKeys();
-
-    const chatProvider = integrationKeys.chatProvider || "openai";
-    const orchestratorProvider =
-      integrationKeys.orchestratorProvider || "openai";
-
-    const chatKey =
-      chatProvider === "openai"
-        ? integrationKeys.openaiChat || integrationKeys.openaiGlobal
-        : chatProvider === "gemini"
-          ? integrationKeys.geminiChat ||
-            integrationKeys.geminiGlobal ||
-            process.env.GEMINI_API_KEY
-          : integrationKeys.customChat || "";
-
-    const orchestratorKey =
-      orchestratorProvider === "openai"
-        ? integrationKeys.openaiOrchestrator || integrationKeys.openaiGlobal
-        : orchestratorProvider === "gemini"
-          ? integrationKeys.geminiOrchestrator ||
-            integrationKeys.geminiGlobal ||
-            process.env.GEMINI_API_KEY
-          : integrationKeys.customOrchestrator || "";
-
-    const chatModel =
-      chatProvider === "openai"
-        ? integrationKeys.openaiChatModel || "gpt-4o-mini"
-        : chatProvider === "gemini"
-          ? integrationKeys.geminiChatModel || "gemini-2.5-flash"
-          : integrationKeys.customChatModel || "";
-
-    const orchestratorModel =
-      orchestratorProvider === "openai"
-        ? integrationKeys.openaiOrchestratorModel || "gpt-4o-mini"
-        : orchestratorProvider === "gemini"
-          ? integrationKeys.geminiOrchestratorModel || "gemini-2.5-flash"
-          : integrationKeys.customOrchestratorModel || "";
-
-    const chatBaseUrl =
-      chatProvider === "gemini"
-        ? "https://generativelanguage.googleapis.com/v1beta/openai/"
-        : chatProvider === "custom"
-          ? integrationKeys.customChatBaseUrl
-          : undefined;
-    const orchestratorBaseUrl =
-      orchestratorProvider === "gemini"
-        ? "https://generativelanguage.googleapis.com/v1beta/openai/"
-        : orchestratorProvider === "custom"
-          ? integrationKeys.customOrchestratorBaseUrl
-          : undefined;
-
-    if (!chatKey || !orchestratorKey) {
-      return {
-        message:
-          "Erro: Chaves da API (Chat e Orquestrador) não configuradas. Configure na aba de Integrações.",
-        shouldEscalate: true,
-      };
-    }
-
-    const openaiOrchestrator = new OpenAI({
-      apiKey: orchestratorKey,
-      dangerouslyAllowBrowser: true,
-      baseURL: orchestratorBaseUrl,
-    });
-
-    const openaiChat = new OpenAI({
-      apiKey: chatKey,
-      dangerouslyAllowBrowser: true,
-      baseURL: chatBaseUrl,
-    });
-
     const lastMessagePart = history[history.length - 1].parts.find(
       (p) => p.text,
     );
@@ -1617,33 +1366,20 @@ export async function getAIResponse(
           const { doc, updateDoc } = await import("firebase/firestore");
           const { db } = await import("./firebase");
 
-          const orchestratorModel =
-            integrationKeys.orchestratorModel || "gpt-4o-mini";
-          const openaiOrchestrator = new OpenAI({
-            apiKey: chatKey,
-            dangerouslyAllowBrowser: true,
-            baseURL: orchestratorBaseUrl,
-          });
+          const { aiProvider } = await import("../ai-provider/ai-provider.setup");
+          const summaryRes = await aiProvider.chat("summary", [
+            {
+              role: "system",
+              content:
+                "Você é um assistente que resume conversas de atendimento.",
+            },
+            {
+              role: "user",
+              content: `Resuma em 3 frases o que foi discutido:\n${oldMessages}`,
+            },
+          ], tenantId);
 
-          const summaryRes = await callLLMWithRetry(() =>
-            openaiOrchestrator.chat.completions.create({
-              model: orchestratorModel,
-              messages: [
-                {
-                  role: "system",
-                  content:
-                    "Você é um assistente que resume conversas de atendimento.",
-                },
-                {
-                  role: "user",
-                  content: `Resuma em 3 frases o que foi discutido:\n${oldMessages}`,
-                },
-              ],
-              max_tokens: 200,
-            }),
-          );
-
-          historySummary = summaryRes.choices[0]?.message?.content || "";
+          historySummary = summaryRes.content || "";
 
           if (historySummary) {
             const { runTransaction, doc } = await import("firebase/firestore");
@@ -1695,34 +1431,31 @@ export async function getAIResponse(
         sessionStateContext += `\nCONTEXTO: cliente já cadastrado, plano atual: ${c.plan || 'N/A'}, status: ${c.status || 'N/A'}. Priorize SUPORTE ou UPGRADE antes de CADASTRO.`;
       }
 
+      const { aiProvider } = await import("../ai-provider/ai-provider.setup");
       const classificationRes = await callLLMWithRetry(() =>
-        openaiOrchestrator.chat.completions.create({
-          model: orchestratorModel,
-          messages: [
-            {
-              role: "system",
-              content: `${SECURITY_BLOCK}\n\n${effectivePrompts.ORCHESTRATOR}${sessionStateContext}\n\nREGRA VITAL DE CONTEXTO E ROTEAMENTO:\n1. Se o cliente estiver respondendo a uma pergunta anterior feita pelo agente (ex: enviou o CPF/CEP após o agente de VENDAS pedir, ou enviou dados após o agente de SUPORTE pedir), VOCÊ DEVE MANTER A MESMA CATEGORIA do agente atual. \n2. O envio de um CPF, CEP, ou E-mail solto no meio de um cadastro DEVE continuar como 'CADASTRO'. NUNCA mude para SAC_GERAL nessas situações em andamento.\n\nAlém da categoria, analise o SENTIMENTO da mensagem (POSITIVO, NEUTRO, NEGATIVO).\nIdentifique se há PALAVRAS-CHAVE CRÍTICAS (cancelar, anatel, procon, processo, lixo, péssimo).\n\nAlém da categoria e sentimento, classifique o REGISTRO LINGUÍSTICO:\n- informal: gírias, abreviações (vc, tb, pq), erros ortográficos propositais\n- formal: linguagem estruturada, palavras completas\n- tecnico: termos técnicos (ping, latência, roteador, ONU, fibra)\n\nSe a mensagem contém palavrões, xingamentos ou linguagem extremamente agressiva, retorne isAbusive: true.\n\nSe o cliente mencionar como conheceu a ISP (ex: 'vi no instagram', 'meu vizinho indicou', 'vi o panfleto', 'parceiro X me indicou'), extraia e inclua no JSON:\n'referral_source': 'instagram' | 'indicacao' | 'panfleto' | 'parceiro' | 'organico' | null\n\nResponda EXATAMENTE no formato JSON:\n{\n  "category": "NOME_DA_CATEGORIA",\n  "sentiment": "SENTIMENTO",\n  "isCritical": true/false,\n  "register": "informal", // ou formal, ou tecnico\n  "isAbusive": false,\n  "confidence": "HIGH",\n  "isSpam": false,\n  "isMinor": false,\n  "referral_source": null\n}`,
-            },
-            {
-              role: "user",
-              content: `Histórico recente:\n${historyContext}\n\nÚltima mensagem do cliente: ${lastMessage || "Análise de mídia enviada"}`,
-            },
-          ],
-          response_format: { type: "json_object" },
-        }),
+        aiProvider.chat("orchestrator", [
+          {
+            role: "system",
+            content: `${SECURITY_BLOCK}\n\n${effectivePrompts.ORCHESTRATOR}${sessionStateContext}\n\nREGRA VITAL DE CONTEXTO E ROTEAMENTO:\n1. Se o cliente estiver respondendo a uma pergunta anterior feita pelo agente (ex: enviou o CPF/CEP após o agente de VENDAS pedir, ou enviou dados após o agente de SUPORTE pedir), VOCÊ DEVE MANTER A MESMA CATEGORIA do agente atual. \n2. O envio de um CPF, CEP, ou E-mail solto no meio de um cadastro DEVE continuar como 'CADASTRO'. NUNCA mude para SAC_GERAL nessas situações em andamento.\n\nAlém da categoria, analise o SENTIMENTO da mensagem (POSITIVO, NEUTRO, NEGATIVO).\nIdentifique se há PALAVRAS-CHAVE CRÍTICAS (cancelar, anatel, procon, processo, lixo, péssimo).\n\nAlém da categoria e sentimento, classifique o REGISTRO LINGUÍSTICO:\n- informal: gírias, abreviações (vc, tb, pq), erros ortográficos propositais\n- formal: linguagem estruturada, palavras completas\n- tecnico: termos técnicos (ping, latência, roteador, ONU, fibra)\n\nSe a mensagem contém palavrões, xingamentos ou linguagem extremamente agressiva, retorne isAbusive: true.\n\nSe o cliente mencionar como conheceu a ISP (ex: 'vi no instagram', 'meu vizinho indicou', 'vi o panfleto', 'parceiro X me indicou'), extraia e inclua no JSON:\n'referral_source': 'instagram' | 'indicacao' | 'panfleto' | 'parceiro' | 'organico' | null\n\nResponda EXATAMENTE no formato JSON:\n{\n  "category": "NOME_DA_CATEGORIA",\n  "sentiment": "SENTIMENTO",\n  "isCritical": true/false,\n  "register": "informal", // ou formal, ou tecnico\n  "isAbusive": false,\n  "confidence": "HIGH",\n  "isSpam": false,\n  "isMinor": false,\n  "referral_source": null\n}`,
+          },
+          {
+            role: "user",
+            content: `Histórico recente:\n${historyContext}\n\nÚltima mensagem do cliente: ${lastMessage || "Análise de mídia enviada"}`,
+          },
+        ], tenantId)
       );
 
       if (classificationRes.usage) {
-        totalUsage.prompt_tokens += classificationRes.usage.prompt_tokens;
+        totalUsage.prompt_tokens += classificationRes.usage.input;
         totalUsage.completion_tokens +=
-          classificationRes.usage.completion_tokens;
-        totalUsage.total_tokens += classificationRes.usage.total_tokens;
+          classificationRes.usage.output;
+        totalUsage.total_tokens += classificationRes.usage.total;
       }
 
       try {
-        classification = JSON.parse(
-          classificationRes.choices[0].message.content || "{}",
-        );
+        let content = classificationRes.content || "{}";
+        content = content.replace(/```json/g, "").replace(/```/g, "").trim();
+        classification = JSON.parse(content);
       } catch {
         const text = (classificationRes.choices[0].message.content || "")
           .trim()
@@ -1781,9 +1514,10 @@ export async function getAIResponse(
           if (recentNeg >= 3) {
             const { doc, updateDoc, serverTimestamp } = await import("firebase/firestore");
             const { db } = await import("./firebase");
-            await updateDoc(doc(db, "customers", customerData.id), {
+            const { getCustomerRepository } = await import("../repositories");
+            await getCustomerRepository().update(customerData.id, {
               churn_risk: true,
-              churn_risk_at: serverTimestamp()
+              churn_risk_at: new Date().toISOString()
             });
             sessionState.churn_risk = true;
           }
@@ -1998,32 +1732,33 @@ Use o 'ID do Banco' sempre que uma ferramenta lhe pedir o 'customerId'. Use outr
       }
     }
 
+    const { aiProvider } = await import("../ai-provider/ai-provider.setup");
     chatRes = await callLLMWithRetry(() =>
-      openaiChat.chat.completions.create({
-        model: chatModel,
-        messages: chatMessages,
-        tools: activeTools,
-        response_format: { type: "json_object" },
-      })
+      aiProvider.chat("chat", chatMessages as any[], tenantId, { tools: activeTools })
     );
 
     if (chatRes.usage) {
-      totalUsage.prompt_tokens += chatRes.usage.prompt_tokens;
-      totalUsage.completion_tokens += chatRes.usage.completion_tokens;
-      totalUsage.total_tokens += chatRes.usage.total_tokens;
+      totalUsage.prompt_tokens += chatRes.usage.input;
+      totalUsage.completion_tokens += chatRes.usage.output;
+      totalUsage.total_tokens += chatRes.usage.total;
     }
 
-    const responseMessage = chatRes.choices[0].message;
+    const responseContentStr = chatRes.content ? chatRes.content.replace(/```json/g, "").replace(/```/g, "").trim() : "";
+    const responseMessage = {
+      role: "assistant",
+      content: responseContentStr,
+      tool_calls: (chatRes.toolCalls as any[]) || undefined
+    };
 
     // Handle Tool Calls
     if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
       const toolCall = responseMessage.tool_calls[0] as any;
-      toolCalled = toolCall?.function?.name || null;
+      toolCalled = toolCall?.name || toolCall?.function?.name || null;
       let toolResult;
 
-      if (toolCall.type === "function") {
+      if (toolCall) {
         try {
-          const args = JSON.parse(toolCall.function.arguments);
+          const args = toolCall.args ? (typeof toolCall.args === 'string' ? JSON.parse(toolCall.args) : toolCall.args) : {};
 
           let ownershipValid = true;
           let resolvedCustomerId = args.customerId;
@@ -2082,20 +1817,15 @@ Use o 'ID do Banco' sempre que uma ferramenta lhe pedir o 'customerId'. Use outr
 
                 if (canProceed) {
                   const cleanedCpf = args.cpf.replace(/\D/g, "");
-                  const { decryptCpf } = await import("./db");
-                  const snap = await getDocs(query(
-                    collection(db, "customers"),
-                    where("tenant_id", "==", tenantId)
-                  ));
-                  const match = snap.docs.find((d: any) => {
-                    const c = d.data().cpf;
-                    return c && decryptCpf(c) === cleanedCpf;
-                  });
+                  const { getCustomerRepository } = await import("../repositories");
+                  const customerRepo = getCustomerRepository();
+                  const match = await customerRepo.findByCpf(cleanedCpf, tenantId);
+                  
                   if (match) {
                     resolvedCustomerId = match.id;
                     customerPhone = (
-                      match.data().phone_number ||
-                      match.data().phone ||
+                      match.phone_number ||
+                      match.phone ||
                       ""
                     ).replace(/\D/g, "");
                   } else {
@@ -2262,15 +1992,11 @@ Use o 'ID do Banco' sempre que uma ferramenta lhe pedir o 'customerId'. Use outr
             const { db } = await import("./firebase");
 
             // VERIFICAÇÃO A — OS já existente para o cliente
-            const existingOSLookup = await getDocs(
-              query(
-                collection(db, "service_orders"),
-                where("customer_id", "==", args.customerId),
-                where("status", "in", ["aberta", "agendada", "em_andamento"]),
-                where("tenant_id", "==", tenantId),
-                limit(1)
-              )
-            );
+            const { getServiceOrderRepository } = await import("../repositories");
+            const soRepo = getServiceOrderRepository();
+            const openOrders = await soRepo.findOpenByCustomer(args.customerId, tenantId);
+            const hasExistingOS = openOrders.length > 0;
+            const existingOS = openOrders[0];
 
             let cDocData: any = null;
             if (args.customerId && args.customerId !== "Não informado") {
@@ -2334,12 +2060,12 @@ Use o 'ID do Banco' sempre que uma ferramenta lhe pedir o 'customerId'. Use outr
               // toolResult already set to OS_LIMIT_EXCEEDED
             } else if (incidentToolResult) {
               toolResult = incidentToolResult;
-            } else if (!existingOSLookup.empty) {
+            } else if (hasExistingOS) {
               toolResult = {
                 success: false,
                 error: "OS_ALREADY_OPEN",
-                existing_os_id: existingOSLookup.docs[0].id,
-                scheduled_date: existingOSLookup.docs[0].data().scheduledTime || "Não definida",
+                existing_os_id: existingOS.id,
+                scheduled_date: existingOS.scheduledTime || existingOS.scheduled_date || "Não definida",
               };
             } else {
               // VERIFICAÇÃO B — Inadimplência antes de instalação de novo cliente
@@ -2348,10 +2074,10 @@ Use o 'ID do Banco' sempre que uma ferramenta lhe pedir o 'customerId'. Use outr
                 if (args.marketing_consent === undefined || args.marketing_consent === null) {
                   toolResult = { success: false, error: 'CONSENT_REQUIRED' };
                 } else {
-                  const { updateDoc, doc, serverTimestamp } = await import("firebase/firestore");
-                  await updateDoc(doc(db, 'customers', args.customerId), {
+                  const { getCustomerRepository } = await import("../repositories");
+                  await getCustomerRepository().update(args.customerId, {
                     marketing_opt_in: args.marketing_consent === true,
-                    marketing_opt_in_at: serverTimestamp(),
+                    marketing_opt_in_at: new Date().toISOString(),
                     marketing_opt_in_version: 'v1.0-2026',
                     marketing_opt_in_text: 'Autoriza envio de comunicações WhatsApp sobre conta, faturas e serviços. Pode cancelar respondendo PARAR.'
                   });
@@ -2453,14 +2179,15 @@ Use o 'ID do Banco' sempre que uma ferramenta lhe pedir o 'customerId'. Use outr
                     immutable: true
                   };
                   await addDoc(collection(db, "contracts"), immutableContract);
-                  await updateDoc(doc(db, "customers", args.customerId), {
+                  const { getCustomerRepository } = await import("../repositories");
+                  await getCustomerRepository().update(args.customerId, {
                     current_contract_version: immutableContract.contract_version,
-                    contract_start: serverTimestamp(),
+                    contract_start: new Date().toISOString(),
                     current_price: args.price || 0,
                     fidelity_months: args.fidelity_months ?? 0,
                     referral_source: (sessionState as any)?.referral_source ?? 'organico',
                     marketing_opt_in: args.marketing_consent === true,
-                    marketing_opt_in_at: serverTimestamp(),
+                    marketing_opt_in_at: new Date().toISOString(),
                     marketing_opt_in_text: 'Versão do texto de consentimento apresentado v1.0',
                     marketing_opt_in_channel: 'whatsapp_bot'
                   });
@@ -2603,10 +2330,8 @@ Use o 'ID do Banco' sempre que uma ferramenta lhe pedir o 'customerId'. Use outr
                       timestamp: serverTimestamp(),
                     });
 
-                    await updateDoc(
-                      doc(db, "customers", args.customerId),
-                      updates,
-                    );
+                const { getCustomerRepository } = await import("../repositories");
+                await getCustomerRepository().update(args.customerId, updates);
                     toolResult = {
                       message: `Dados do cliente atualizados com sucesso.`,
                     };
@@ -2786,26 +2511,22 @@ Use o 'ID do Banco' sempre que uma ferramenta lhe pedir o 'customerId'. Use outr
 
       chatMessages.push(responseMessage as any);
       chatMessages.push({
-        role: "tool" as const,
-        tool_call_id: toolCall.id,
-        content: JSON.stringify(toolResult),
+        role: "user" as const, // For aiProvider, tool responses usually go back as user, or system. 
+        content: `Resultado da ferramenta: ${JSON.stringify(toolResult)}`,
       } as any);
 
       const toolResponse = await callLLMWithRetry(() =>
-        openaiChat.chat.completions.create({
-          model: chatModel,
-          messages: chatMessages,
-          response_format: { type: "json_object" },
-        }),
+        aiProvider.chat("chat", chatMessages as any[], tenantId)
       );
 
       if (toolResponse.usage) {
-        totalUsage.prompt_tokens += toolResponse.usage.prompt_tokens;
-        totalUsage.completion_tokens += toolResponse.usage.completion_tokens;
-        totalUsage.total_tokens += toolResponse.usage.total_tokens;
+        totalUsage.prompt_tokens += toolResponse.usage.input;
+        totalUsage.completion_tokens += toolResponse.usage.output;
+        totalUsage.total_tokens += toolResponse.usage.total;
       }
 
-      const text = toolResponse.choices[0].message.content || "{}";
+      let text = toolResponse.content || "{}";
+      text = text.replace(/```json/g, "").replace(/```/g, "").trim();
       try {
         const parsed = JSON.parse(text);
         finalResult = {
@@ -2827,7 +2548,7 @@ Use o 'ID do Banco' sempre que uma ferramenta lhe pedir o 'customerId'. Use outr
         };
       }
     } else {
-      const text = responseMessage.content || "{}";
+      let text = responseMessage.content || "{}";
       try {
         const parsed = JSON.parse(text);
         finalResult = {
@@ -3001,7 +2722,9 @@ Use o 'ID do Banco' sempre que uma ferramenta lhe pedir o 'customerId'. Use outr
         human_responded: false
       };
 
-      await updateDoc(doc(db, "tickets", ticketId), escalationData);
+      const { getTicketRepository } = await import("../repositories");
+      const ticketRepo = getTicketRepository();
+      await ticketRepo.update(ticketId, escalationData);
 
       fetch("/api/jobs/schedule-sla", {
         method: "POST",
@@ -3070,10 +2793,10 @@ Use o 'ID do Banco' sempre que uma ferramenta lhe pedir o 'customerId'. Use outr
     }
     
     if (needsAccessibleFormat(history)) {
-      sessionStateObj.accessibility_mode = true;
-      finalResult.session_state_update.accessibility_mode = true;
+      (sessionStateObj as any).accessibility_mode = true;
+      (finalResult.session_state_update as any).accessibility_mode = true;
     }
-    if (sessionStateObj?.accessibility_mode) {
+    if ((sessionStateObj as any)?.accessibility_mode) {
       finalResult.message = stripMarkdownForAccessibility(finalResult.message);
     }
 

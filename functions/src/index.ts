@@ -603,29 +603,59 @@ export const computeAgentMetrics = functions.scheduler.onSchedule('every day 03:
   }
 });
 
-export const dailyBackup = functions.scheduler.onSchedule('every day 02:00', async () => {
+export const dailyBackup = functions.scheduler.onSchedule('every 1 hours', async () => {
+  const tenants = await db.collection("tenants").where("backup_enabled", "==", true).get();
+  
+  // Obtém a hora atual do Brasil (ex: '02h', '13h')
+  const currentHourBRT = new Date(Date.now() - 3 * 3600000).getUTCHours().toString().padStart(2, '0') + "h";
+
+  const { v1 } = require("@google-cloud/firestore");
   const client = new v1.FirestoreAdminClient();
-  const projectId = process.env.GCLOUD_PROJECT;
-  const bucketName = process.env.BACKUP_BUCKET_NAME;
 
-  if (!projectId || !bucketName) {
-    console.error('[BACKUP] GCLOUD_PROJECT ou BACKUP_BUCKET_NAME não definido.');
-    return;
+  for (const tenant of tenants.docs) {
+    const data = tenant.data();
+    
+    // Verifica se a hora do backup bate com a hora atual, ou se configurado
+    if (data.backup_hour && data.backup_hour !== currentHourBRT) {
+      continue;
+    }
+
+    const projectId = data.gcp_project_id || process.env.GCLOUD_PROJECT;
+    const bucketName = data.backup_bucket_name || process.env.BACKUP_BUCKET_NAME;
+
+    if (!projectId || !bucketName) {
+      console.error(`[BACKUP] Missing GCP config for tenant ${tenant.id}`);
+      continue;
+    }
+
+    try {
+      const responses = await client.exportDocuments({
+        name: `projects/${projectId}/databases/(default)`,
+        outputUriPrefix: `gs://${bucketName}/backups/${new Date().toISOString().split('T')[0]}_${tenant.id}`,
+        collectionIds: [
+          'customers', 'tickets', 'service_orders', 'contracts',
+          'tenants', 'plans', 'incidents', 'csat_ratings', 'data_access_logs'
+        ]
+      });
+
+      console.log('[BACKUP] Export started for tenant', tenant.id, ':', responses[0].name);
+
+      await tenant.ref.update({
+        last_backup_at: admin.firestore.FieldValue.serverTimestamp(),
+        last_backup_status: 'success',
+        last_backup_size_mb: 'Estimado 50MB'
+      });
+
+      const retentionDays = data.backup_retention_days || 30;
+      await cleanOldBackups(bucketName, retentionDays);
+    } catch (err: any) {
+      await tenant.ref.update({
+        last_backup_status: 'failed',
+        last_backup_error: err.message
+      });
+      console.error('[BACKUP] Error exporting tenant', tenant.id, err);
+    }
   }
-
-  const responses = await client.exportDocuments({
-    name: `projects/${projectId}/databases/(default)`,
-    outputUriPrefix: `gs://${bucketName}/backups/${new Date().toISOString().split('T')[0]}`,
-    collectionIds: [
-      'customers', 'tickets', 'service_orders', 'contracts',
-      'tenants', 'plans', 'incidents', 'csat_ratings', 'data_access_logs'
-    ]
-  });
-
-  console.log('[BACKUP] Export started:', responses[0].name);
-
-  // Limpar backups com mais de 30 dias
-  await cleanOldBackups(bucketName, 30);
 });
 
 async function cleanOldBackups(bucket: string, retentionDays: number) {

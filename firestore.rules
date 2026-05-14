@@ -245,6 +245,20 @@ service cloud.firestore {
       allow create: if isAuthenticated() && isValidLog(request.resource.data);
     }
 
+    function isValidCsatRating(data) {
+      return data.ticketId is string &&
+             data.customerId is string &&
+             data.score is number &&
+             (!('resolved_by' in data) || data.resolved_by is string) &&
+             (!('category' in data) || data.category is string) &&
+             (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
+    match /csat_ratings/{ratingId} {
+      allow read: if isSupport();
+      allow create: if isAuthenticated() && isValidCsatRating(request.resource.data);
+    }
+
     match /leads_temp/{leadId} {
       allow read: if isSupport();
       allow write: if isAuthenticated();

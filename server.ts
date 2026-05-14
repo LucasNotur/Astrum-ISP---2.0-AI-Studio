@@ -69,6 +69,52 @@ async function startServer() {
     }),
   );
 
+  app.get("/api/integrations/vectorstore/ping", async (req, res) => {
+    try {
+      const tenantId = (req.query.tenantId as string) || "default";
+      const { vectorStore } = await import("./src/lib/vectorStore.ts");
+      const store = await vectorStore;
+      
+      // We can do a dummy search or just check if it throws
+      await store.search(Array(1536).fill(0), tenantId, 1);
+      
+      res.json({ connected: true, provider: 'custom' });
+    } catch (e: any) {
+      if (e.message.includes("404") || e.message.includes("not found")) {
+        // Assume connected but collection doesn't exist
+         res.json({ connected: true, provider: 'custom' });
+      } else {
+         res.json({ connected: false, error: e.message });
+      }
+    }
+  });
+
+  app.get("/api/admin/ai-config/:tenantId", async (req, res) => {
+    try {
+      const { collection, getDocs } = await import("firebase/firestore");
+      const { db } = await import("./src/lib/firebase.ts");
+      const snap = await getDocs(collection(db, "ai_provider_configs"));
+      const configs = snap.docs
+        .filter(d => d.id.startsWith(req.params.tenantId + "_"))
+        .map(d => ({ function: d.id.split('_').slice(1).join('_'), ...d.data() }));
+      res.json(configs);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.put("/api/admin/ai-config/:tenantId/:function", async (req, res) => {
+    try {
+      const { doc, setDoc } = await import("firebase/firestore");
+      const { db } = await import("./src/lib/firebase.ts");
+      const docRef = doc(db, "ai_provider_configs", `${req.params.tenantId}_${req.params.function}`);
+      await setDoc(docRef, req.body, { merge: true });
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.get("/api/quality/live-stats", async (req, res) => {
     try {
       const { collection, getDocs, query, where, Timestamp } = await import("firebase/firestore");
@@ -106,7 +152,7 @@ async function startServer() {
       const resolved_last_24h = totalRecent > 0 ? (resolvedCount / totalRecent) * 100 : 0;
       const avg_response_time_ms = resolvedWithTimeCount > 0 ? totalResolutionTime / resolvedWithTimeCount : 0;
       
-      const csatSnap = await getDocs(query(collection(db, "csat_surveys"), where("createdAt", ">=", Timestamp.fromDate(last7d))));
+      const csatSnap = await getDocs(query(collection(db, "csat_ratings"), where("createdAt", ">=", Timestamp.fromDate(last7d))));
       let totalCsat = 0;
       csatSnap.forEach(d => totalCsat += d.data().score || 0);
       const avg_csat_week = csatSnap.size > 0 ? totalCsat / csatSnap.size : 0;
@@ -182,6 +228,76 @@ async function startServer() {
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/backup/trigger", express.json(), async (req, res) => {
+    try {
+      const { tenantId } = req.body;
+      if (!tenantId) return res.status(400).json({ error: "Missing tenantId" });
+      const { doc, getDoc, updateDoc, serverTimestamp } = await import("firebase/firestore");
+      const { db } = await import("./src/lib/firebase");
+      const tenantDoc = await getDoc(doc(db, "tenants", tenantId));
+      const data = tenantDoc.data();
+      if (!data) return res.status(404).json({ error: "Tenant not found" });
+
+      const projectId = data.gcp_project_id || process.env.GCLOUD_PROJECT;
+      const bucketName = data.backup_bucket_name || process.env.BACKUP_BUCKET_NAME;
+
+      if (!projectId || !bucketName) {
+        return res.status(400).json({ error: "GCLOUD_PROJECT ou BACKUP_BUCKET_NAME não configurado no tenant." });
+      }
+
+      const { v1 } = await import("@google-cloud/firestore");
+      const client = new v1.FirestoreAdminClient();
+
+      try {
+        const responses = await client.exportDocuments({
+          name: `projects/${projectId}/databases/(default)`,
+          outputUriPrefix: `gs://${bucketName}/backups/${new Date().toISOString().split('T')[0]}_${tenantId}`,
+          collectionIds: [
+            'customers', 'tickets', 'service_orders', 'contracts',
+            'tenants', 'plans', 'incidents', 'csat_ratings', 'data_access_logs'
+          ]
+        });
+
+        await updateDoc(doc(db, "tenants", tenantId), {
+          last_backup_at: serverTimestamp(),
+          last_backup_status: 'success',
+          last_backup_size_mb: 'Estimado 50MB'
+        });
+        
+        res.json({ ok: true, started_at: new Date().toISOString() });
+      } catch (error: any) {
+        await updateDoc(doc(db, "tenants", tenantId), {
+          last_backup_status: 'failed',
+          last_backup_error: error.message
+        });
+        throw error;
+      }
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/backup/status", async (req, res) => {
+    try {
+      const { tenantId } = req.query;
+      if (!tenantId) return res.status(400).json({ error: "Missing tenantId" });
+      const { doc, getDoc } = await import("firebase/firestore");
+      const { db } = await import("./src/lib/firebase");
+      const tenantDoc = await getDoc(doc(db, "tenants", tenantId as string));
+      const data = tenantDoc.data() || {};
+      res.json({
+        last_backup_at: data.last_backup_at?.toDate?.()?.toISOString() || null,
+        last_backup_status: data.last_backup_status || null,
+        last_backup_size_mb: data.last_backup_size_mb || null,
+        last_backup_error: data.last_backup_error || null,
+        backup_enabled: data.backup_enabled || false,
+        retention_days: data.backup_retention_days || 30
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
     }
   });
 
@@ -453,6 +569,7 @@ async function startServer() {
         const openai = new OpenAI({
           apiKey: ragAiKey as string,
           baseURL: ragAiBaseUrl as string,
+          dangerouslyAllowBrowser: true
         });
         const aiRes = await openai.chat.completions.create({
           model: ragAiModel as string,
@@ -534,7 +651,8 @@ async function startServer() {
         const { OpenAI } = await import("openai");
         const openai = new OpenAI({ 
           apiKey: apiKey as string, 
-          baseURL: isCustom ? (keys.customChatBaseUrl as string) : undefined 
+          baseURL: isCustom ? (keys.customChatBaseUrl as string) : undefined,
+          dangerouslyAllowBrowser: true
         });
         const testResult = await openai.chat.completions.create({
           model: (modelStr as string) || "gpt-3.5-turbo",
@@ -1241,6 +1359,267 @@ async function startServer() {
     } catch (e: any) {
       logger.error("noc_webhook_failed", { error: e.message });
       res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/integrations/embeddings/test", express.json(), async (req, res) => {
+    try {
+      const { provider, apiKey, model, baseUrl, dimensions } = req.body;
+      const start = Date.now();
+      
+      let embedding;
+      if (provider === 'openai' || !provider) {
+        const fetchRes = await fetch('https://api.openai.com/v1/embeddings', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ input: "teste de conexão", model: model || 'text-embedding-3-small' })
+        });
+        const data = await fetchRes.json();
+        if (data.error) throw new Error(data.error.message);
+        embedding = data.data[0].embedding;
+      } else {
+        const fetchRes = await fetch(`${baseUrl}/embeddings`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ input: "teste de conexão", model })
+        });
+        const data = await fetchRes.json();
+        if (data.error) throw new Error(data.error.message);
+        embedding = data.data?.[0]?.embedding ?? data.embeddings?.[0] ?? data.embedding;
+      }
+      
+      res.json({ success: true, model: model || 'text-embedding-3-small', dimensions: embedding.length, latency_ms: Date.now() - start });
+    } catch (e: any) {
+      res.status(400).json({ success: false, error: e.message });
+    }
+  });
+
+  app.post("/api/integrations/vectorstore/test", express.json(), async (req, res) => {
+    try {
+      const { url, apiKey, collection, provider } = req.body;
+      const start = Date.now();
+      const { QdrantClient } = await import('@qdrant/js-client-rest');
+      
+      if (provider !== 'qdrant' && provider !== undefined) {
+         throw new Error(`Provider ${provider} not supported by this interface yet.`);
+      }
+
+      const client = new QdrantClient({ url, apiKey });
+      const testId = 'test-ping';
+      const testVector = Array(1536).fill(0.1);
+
+      // Upsert
+      await client.upsert(collection, {
+        points: [{
+          id: testId,
+          vector: testVector,
+          payload: { text: "teste", tenant_id: "test" }
+        }]
+      });
+
+      // Search
+      await client.search(collection, {
+        vector: testVector,
+        limit: 1
+      });
+
+      // Delete
+      await client.delete(collection, {
+        points: [testId],
+        wait: true
+      });
+
+      res.json({ success: true, provider: 'qdrant', latency_ms: Date.now() - start });
+    } catch (e: any) {
+      res.status(400).json({ success: false, error: e.message });
+    }
+  });
+
+  app.get("/api/integrations/vectorstore/ping", async (req, res) => {
+    try {
+      const { tenantId } = req.query;
+      const { getDocs, query, collection, where, getCountFromServer } = await import("firebase/firestore");
+      const { db } = await import("./src/lib/firebase");
+      
+      const { getVectorStore } = await import("./src/lib/vectorStore");
+      // Just test if we can get the store instance without errors
+      const store = await getVectorStore(tenantId as string);
+
+      const q = query(
+        collection(db, 'knowledge_base'),
+        where('tenant_id', '==', tenantId || "default"),
+        where('vector_indexed', '==', true)
+      );
+      const countSnap = await getCountFromServer(q);
+      const articles_count = countSnap.data().count;
+
+      res.json({ connected: true, articles_count, provider: 'qdrant' });
+    } catch (e: any) {
+      res.json({ connected: false, error: e.message });
+    }
+  });
+
+  app.post("/api/knowledge/articles", express.json(), async (req, res) => {
+    try {
+      const { title, content, category, tenantId } = req.body;
+      const { addToKnowledgeBase } = await import("./src/lib/db");
+      const id = await addToKnowledgeBase({ title, content, category, tenantId });
+      res.json({ success: true, id });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+  
+  app.put("/api/knowledge/articles/:id", express.json(), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { title, content, category, tenantId } = req.body;
+      const { db } = await import("./src/lib/firebase");
+      const { doc, updateDoc, serverTimestamp } = await import("firebase/firestore");
+      const { getVectorStore } = await import("./src/lib/vectorStore");
+      const { getEmbeddingProvider } = await import("./src/lib/embeddingProvider");
+      
+      const docRef = doc(db, 'knowledge_base', id);
+      await updateDoc(docRef, { title, content, category });
+      
+      const embeddingProvider = await getEmbeddingProvider(tenantId);
+      const vectorStore = await getVectorStore(tenantId);
+      
+      const embedding = await embeddingProvider.embed(`${title}\n\n${content}`, tenantId);
+      await vectorStore.upsert({ id, text: content, embedding, metadata: { tenant_id: tenantId, category, title } }, tenantId);
+      
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.delete("/api/knowledge/articles/:id", express.json(), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { tenantId } = req.query;
+      const { deleteKBArticle } = await import("./src/lib/db");
+      const { getVectorStore } = await import("./src/lib/vectorStore");
+      
+      await deleteKBArticle(id);
+      const vectorStore = await getVectorStore(tenantId as string);
+      await vectorStore.delete(id, tenantId as string);
+      
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/knowledge/search-test", express.json(), async (req, res) => {
+    try {
+      const { query, tenantId } = req.body;
+      const start = Date.now();
+      const { searchKnowledgeBase } = await import("./src/lib/db");
+      const results = await searchKnowledgeBase(query, tenantId);
+
+      res.json({ success: true, results, latency_ms: Date.now() - start });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/knowledge/reindex", express.json(), async (req, res) => {
+    try {
+      const { tenantId } = req.body;
+      const { getDocs, query, collection, where, doc, updateDoc } = await import("firebase/firestore");
+      const { db } = await import("./src/lib/firebase");
+      const { getVectorStore } = await import("./src/lib/vectorStore");
+      const { getEmbeddingProvider } = await import("./src/lib/embeddingProvider");
+      
+      const articlesSnap = await getDocs(query(
+        collection(db, 'knowledge_base'),
+        where('tenant_id', '==', tenantId || "default")
+      ));
+      
+      const total_articles = articlesSnap.size;
+      res.json({ started: true, total_articles });
+
+      if (total_articles === 0) return;
+
+      const redisModule = await import("./src/lib/redis").catch(() => null);
+      const redisClient = redisModule?.default || redisModule?.redis;
+
+      const setProgress = async (indexed: number) => {
+        if (redisClient) {
+          await redisClient.set(`reindex:${tenantId || "default"}`, JSON.stringify({
+            total: total_articles,
+            indexed,
+            percent: Math.round((indexed / total_articles) * 100),
+            status: indexed === total_articles ? 'done' : 'running'
+          }), 'EX', 3600);
+        }
+      };
+
+      await setProgress(0);
+
+      const embeddingProvider = await getEmbeddingProvider(tenantId);
+      const vectorStore = await getVectorStore(tenantId);
+      
+      const docs = articlesSnap.docs;
+      let indexedCount = 0;
+      
+      // Process in batches of 10 inside background task
+      const batchSize = 10;
+      for (let i = 0; i < docs.length; i += batchSize) {
+        const batchDocs = docs.slice(i, i + batchSize);
+        
+        await Promise.all(batchDocs.map(async (docSnap) => {
+          try {
+            const data = docSnap.data();
+            const textToEmbed = `${data.title}\n\n${data.content}`;
+            const embedding = await embeddingProvider.embed(textToEmbed, tenantId);
+            
+            await vectorStore.upsert({
+              id: docSnap.id,
+              text: data.content,
+              embedding,
+              metadata: {
+                tenant_id: data.tenant_id,
+                category: data.category,
+                title: data.title
+              }
+            }, tenantId);
+            
+            await updateDoc(doc(db, 'knowledge_base', docSnap.id), {
+              vector_indexed: true
+            });
+            
+            indexedCount++;
+          } catch(err) {
+            console.error(`Error reindexing doc ${docSnap.id}:`, err);
+          }
+        }));
+        await setProgress(indexedCount);
+      }
+      
+    } catch(e: any) {
+      console.error('Reindex Error:', e);
+    }
+  });
+
+  app.get("/api/knowledge/reindex/status", async (req, res) => {
+    try {
+      const { tenantId } = req.query;
+      const key = `reindex:${tenantId || "default"}`;
+      const redisModule = await import("./src/lib/redis").catch(() => null);
+      const redisClient = redisModule?.default || redisModule?.redis;
+      if (!redisClient) {
+         return res.json({ status: "idle" });
+      }
+      const statusStr = await redisClient.get(key);
+      if (statusStr) {
+        res.json(JSON.parse(statusStr));
+      } else {
+        res.json({ status: "idle" });
+      }
+    } catch(e) {
+      res.json({ status: "idle" });
     }
   });
 

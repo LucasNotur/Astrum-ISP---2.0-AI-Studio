@@ -12,11 +12,15 @@
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "deploy": "bash scripts/deploy.sh",
-    "test:regression": "tsx scripts/regression-test.ts"
+    "test:regression": "tsx scripts/regression-test.ts",
+    "reindex": "tsx scripts/reindex-knowledge.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.96.0",
+    "@google-cloud/firestore": "^8.6.0",
     "@google/genai": "^1.48.0",
     "@google/generative-ai": "^0.24.1",
+    "@qdrant/js-client-rest": "^1.18.0",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",

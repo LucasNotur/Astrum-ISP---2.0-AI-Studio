@@ -57,8 +57,12 @@ export function MonitoringPage() {
     setIsCheckingWa(true);
     try {
       const res = await fetch('/api/health/whatsapp');
-      const data = await res.json();
-      setWaHealth(data);
+      if (res.ok) {
+        const data = await res.json();
+        setWaHealth(data);
+      } else {
+        console.error("WA Health non-ok response");
+      }
     } catch (e) {
       toast.error('Erro ao buscar saúde do WhatsApp');
     } finally {
@@ -70,8 +74,12 @@ export function MonitoringPage() {
     setIsFetchingStats(true);
     try {
       const res = await fetch('/api/queues/stats');
-      const data = await res.json();
-      setQueueStats(data);
+      if (res.ok) {
+        const data = await res.json();
+        setQueueStats(data);
+      } else {
+        console.error("Queue stats non-ok response");
+      }
     } catch (e) {
       toast.error('Erro ao buscar filas');
     } finally {

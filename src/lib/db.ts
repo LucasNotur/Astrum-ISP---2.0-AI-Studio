@@ -868,68 +868,112 @@ export const deleteKBArticle = async (id: string) => {
   }
 };
 
-export const searchKnowledgeBase = async (searchTerm: string, tenantId: string = "default") => {
-  const searchByKeyword = async (term: string, currentTenant: string) => {
-    const q = collection(db, "knowledge_base");
-    const snapshot = await getDocs(q);
-    const articles = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    
-    // We split terms to ensure better matches
-    const searchTerms = term.toLowerCase().split(' ').filter(t => t.trim().length > 2);
-    if (searchTerms.length === 0) searchTerms.push(term.toLowerCase().trim()); // fallback
+import { getEmbeddingProvider } from './embeddingProvider';
+import { getVectorStore } from './vectorStore';
+import { logger } from './logger';
 
-    return articles.filter((a: any) => {
-      if (a.tenant_id !== currentTenant) return false;
-      const textToSearch = [
-        a.title?.toLowerCase() || '',
-        a.content?.toLowerCase() || '',
-        ...(a.tags?.map((t: string) => t.toLowerCase()) || [])
-      ].join(' ');
-      
-      return searchTerms.some(st => textToSearch.includes(st));
-    });
-  };
+export const searchKnowledgeBase = async (
+  searchTerm: string,
+  tenantId: string = "default"
+): Promise<{ text: string; title: string; score: number }[]> => {
 
   try {
-    // Normalizar: remover acentos, lowercase, expandir gírias comuns
-    const slangMap: Record<string, string> = {
-      'travando': 'lentidão instabilidade',
-      'caindo': 'queda desconexão',
-      'sem sinal': 'sem conexão offline',
-      'tá lento': 'velocidade baixa lentidão',
-      'não abre': 'sem acesso conexão',
-      'net ruim': 'qualidade baixa instabilidade',
-      'caiu a net': 'queda de conexão offline',
-      'tá fora': 'sem sinal offline',
-    };
+    const embeddingProvider = await getEmbeddingProvider(tenantId);
+    const vectorStore = await getVectorStore(tenantId);
 
-    let normalizedTerm = searchTerm.toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    // 1. Converter a pergunta do cliente em números (embedding)
+    const queryEmbedding = await embeddingProvider.embed(searchTerm, tenantId);
 
-    Object.entries(slangMap).forEach(([slang, formal]) => {
-      if (normalizedTerm.includes(slang)) {
-        normalizedTerm = normalizedTerm + ' ' + formal;
+    // 2. Buscar no banco vetorial os artigos mais parecidos
+    const results = await vectorStore.search(queryEmbedding, tenantId, 3);
+
+    // 3. Filtrar resultados com score muito baixo (pouco relevantes)
+    const MIN_SCORE = parseFloat(process.env.VECTOR_MIN_SCORE ?? '0.7');
+    const relevant = results.filter((r: any) => r.score >= MIN_SCORE);
+
+    if (relevant.length === 0) {
+      logger.info('vector_search_no_results', { tenant_id: tenantId, data: { searchTerm: searchTerm.substring(0, 50) } });
+      return [];
+    }
+
+    logger.info('vector_search_success', {
+      tenant_id: tenantId,
+      data: {
+        results: relevant.length,
+        topScore: relevant[0].score,
+        topTitle: relevant[0].metadata.title
       }
     });
 
-    // Buscar com termo normalizado + termo original
-    const results = await Promise.all([
-      searchByKeyword(normalizedTerm, tenantId),
-      searchByKeyword(searchTerm, tenantId)
-    ]);
+    return relevant.map((r: any) => ({
+      text: r.text,
+      title: r.metadata.title,
+      score: r.score
+    }));
 
-    // Deduplicar e retornar
-    const allResults = [...results[0], ...results[1]];
-    const seen = new Set();
-    return allResults.filter(r => {
-      if (seen.has(r.id)) return false;
-      seen.add(r.id);
-      return true; // tenant filtering already done in searchByKeyword
-    });
-  } catch (err) {
-    console.error("RAG Error:", err);
-    return [];
+  } catch (err: any) {
+    // Fallback para busca simples se vetorial falhar
+    logger.warn('vector_search_failed_fallback', { error: err.message, tenant_id: tenantId });
+    return searchKnowledgeBaseKeyword(searchTerm, tenantId);
   }
+};
+
+// Manter busca por keyword como fallback
+async function searchKnowledgeBaseKeyword(searchTerm: string, tenantId: string) {
+  const snapshot = await getDocs(query(
+    collection(db, 'knowledge_base'),
+    where('tenant_id', '==', tenantId),
+    limit(3)
+  ));
+  return snapshot.docs.map(d => ({
+    text: d.data().content,
+    title: d.data().title,
+    score: 0.5
+  }));
+}
+
+export const addToKnowledgeBase = async (
+  article: { title: string; content: string; category: string; tenantId: string }
+): Promise<string> => {
+
+  // Salvar no Firestore (fonte de verdade)
+  const docRef = await addDoc(collection(db, 'knowledge_base'), {
+    title: article.title,
+    content: article.content,
+    category: article.category,
+    tenant_id: article.tenantId,
+    created_at: serverTimestamp(),
+    vector_indexed: false
+  });
+
+  try {
+    const embeddingProvider = await getEmbeddingProvider(article.tenantId);
+    const vectorStore = await getVectorStore(article.tenantId);
+
+    // Gerar embedding e salvar no banco vetorial
+    const embedding = await embeddingProvider.embed(
+      `${article.title}\n\n${article.content}`,
+      article.tenantId
+    );
+
+    await vectorStore.upsert({
+      id: docRef.id,
+      text: article.content,
+      embedding,
+      metadata: {
+        tenant_id: article.tenantId,
+        category: article.category,
+        title: article.title
+      }
+    }, article.tenantId);
+
+    // Marcar como indexado no Firestore
+    await updateDoc(docRef, { vector_indexed: true, vector_indexed_at: serverTimestamp() });
+  } catch (err) {
+    logger.warn('Initial vector store indexing failed', { error: err });
+  }
+
+  return docRef.id;
 };
 
 // Real Tools Logic

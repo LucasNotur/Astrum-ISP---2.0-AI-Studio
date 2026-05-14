@@ -1,6 +1,6 @@
 import OpenAI, { toFile } from 'openai';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'dummy_key', dangerouslyAllowBrowser: true });
 
 export async function transcribeAudio(audioUrl: string): Promise<string | null> {
   try {

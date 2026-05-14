@@ -83,8 +83,13 @@ export function CobrAIPage() {
 
       // 4. Queue Stats
       const resStats = await fetch('/api/cobrai/queue-stats');
-      const dataStats = await resStats.json();
-      setQueueStats(dataStats);
+      if (resStats.ok) {
+        const dataStats = await resStats.json();
+        setQueueStats(dataStats);
+      } else {
+        const text = await resStats.text();
+        console.error("Queue stats responded with non-ok status:", resStats.status, text);
+      }
       
     } catch (e) {
       console.error("Erro fetchMetrics", e);
@@ -94,8 +99,13 @@ export function CobrAIPage() {
   const fetchQueue = async () => {
     try {
       const res = await fetch('/api/cobrai/queue');
-      const data = await res.json();
-      setQueueJobs(data);
+      if (res.ok) {
+        const data = await res.json();
+        setQueueJobs(data);
+      } else {
+        const text = await res.text();
+        console.error("Queue responded with non-ok status:", res.status, text);
+      }
     } catch (e) {
       console.error("Erro fetchQueue", e);
     }

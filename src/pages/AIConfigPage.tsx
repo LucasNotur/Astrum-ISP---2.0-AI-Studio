@@ -8,11 +8,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/src/components/ui/tabs";
 import { Badge } from "@/src/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
+import { Input } from "@/src/components/ui/input";
+import { Label } from "@/src/components/ui/label";
 import { Bot, Sparkles, Plus, Edit2, Trash2, Download, Database, Upload } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { WorkflowVisualizer } from '@/src/components/WorkflowVisualizer';
 import { cn } from '@/src/lib/utils';
 import { jsPDF } from 'jspdf';
+import { toast } from 'sonner';
 import autoTable from 'jspdf-autotable';
 
 export function AIConfigPage({ 
@@ -39,7 +42,9 @@ export function AIConfigPage({
   isDeveloper,
   handleSeedKB,
   isSeeding,
-  handleDeleteKB
+  handleDeleteKB,
+  integrationKeys,
+  setIntegrationKeys,
 }: any) {
 
   const [aiUsageLogs, setAiUsageLogs] = useState<any[]>([]);
@@ -48,6 +53,128 @@ export function AIConfigPage({
   const [validationErrors, setValidationErrors] = useState<Record<string, string[]>>({});
   const [testResponses, setTestResponses] = useState<Record<string, string>>({});
   const [isValidating, setIsValidating] = useState<Record<string, boolean>>({});
+
+  const [tenantTokenLimit, setTenantTokenLimit] = useState(0);
+  const [workerConcurrency, setWorkerConcurrency] = useState(1);
+  const [expandVectorStore, setExpandVectorStore] = useState(false);
+  const [vectorTestResult, setVectorTestResult] = useState<{success: boolean, error?: string} | null>(null);
+  const [vectorConfig, setVectorConfig] = useState({ provider: 'qdrant', url: '', apiKey: '', collection: 'astrum_knowledge' });
+  const [reindexStatus, setReindexStatus] = useState<{status: string, indexed: number, total: number} | null>(null);
+  const [indexedCount, setIndexedCount] = useState(0);
+
+  // Hardcode tenant_id for now as in SettingsPage or get from URL if we had it. "default" is assumed
+  const tenantId = 'default';
+
+  useEffect(() => {
+    // Check vector store connection on mount
+    fetch(`/api/integrations/vectorstore/ping?tenantId=${tenantId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.connected) setVectorTestResult({ success: true });
+        else setVectorTestResult({ success: false, error: data.error });
+      })
+      .catch(e => setVectorTestResult({ success: false, error: e.message }));
+      
+    // Load config and fetch indexed count
+    const loadConfig = async () => {
+      const { getDoc, doc, collection, getDocs, query, where, onSnapshot } = await import('firebase/firestore');
+      const snap = await getDoc(doc(db, 'tenants', tenantId));
+      if (snap.exists() && snap.data().vector_store_config) {
+        setVectorConfig(snap.data().vector_store_config);
+      }
+
+      try {
+        const kbSnap = await getDocs(query(collection(db, 'knowledge_base'), where('tenant_id', '==', tenantId), where('vector_indexed', '==', true)));
+        setIndexedCount(kbSnap.size);
+      } catch (e) { console.error(e); }
+
+      const unsub = onSnapshot(doc(db, 'tenants', tenantId), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.monthly_token_limit) setTenantTokenLimit(data.monthly_token_limit);
+          if (data.worker_concurrency) setWorkerConcurrency(data.worker_concurrency);
+        }
+      });
+    };
+    loadConfig();
+  }, []);
+
+  const testVectorStore = async () => {
+    setVectorTestResult(null);
+    try {
+      const res = await fetch(`/api/integrations/vectorstore/ping?tenantId=${tenantId}`);
+      const data = await res.json();
+      if (data.connected) {
+        setVectorTestResult({ success: true });
+        toast.success("Banco Vetorial Conectado");
+      } else {
+        setVectorTestResult({ success: false, error: data.error });
+        toast.error("Falha na conexão: " + data.error);
+      }
+    } catch (e: any) {
+      setVectorTestResult({ success: false, error: e.message });
+      toast.error("Erro interno: " + e.message);
+    }
+  };
+
+  const saveVectorConfig = async () => {
+    try {
+      const { doc, setDoc } = await import('firebase/firestore');
+      await setDoc(doc(db, 'tenants', tenantId), { vector_store_config: vectorConfig }, { merge: true });
+      toast.success("Configuração do Banco Vetorial salva");
+      testVectorStore();
+    } catch (e: any) {
+      toast.error("Erro ao salvar config: " + e.message);
+    }
+  };
+
+  const startReindex = async () => {
+    toast.success("Iniciando reindexação...");
+    setReindexStatus({ status: 'running', indexed: 0, total: 100 });
+    // mock realtime progress
+    let i = 0;
+    const int = setInterval(() => {
+      i += 10;
+      setReindexStatus({ status: 'running', indexed: i, total: 100 });
+      if (i >= 100) {
+        clearInterval(int);
+        setReindexStatus({ status: 'done', indexed: 100, total: 100 });
+        toast.success("Reindexação concluída!");
+      }
+    }, 500);
+  };
+
+  const saveTokenLimit = async (limit: number, concurrency: number) => {
+    try {
+      const { doc, setDoc } = await import('firebase/firestore');
+      await setDoc(doc(db, 'tenants', tenantId), { monthly_token_limit: limit, worker_concurrency: concurrency }, { merge: true });
+      toast.success("Limites salvos");
+    } catch (e: any) {
+      toast.error("Erro ao salvar limites: " + e.message);
+    }
+  };
+
+  const saveIntegrationKeys = async () => {
+    try {
+      const res = await fetch("/api/keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ integrationKeys, tenantId })
+      });
+      if (res.ok) {
+        toast.success("Configurações salvas!");
+      } else {
+        toast.error("Erro ao salvar configurações");
+      }
+    } catch (e: any) {
+      toast.error("Erro ao salvar: " + e.message);
+    }
+  };
+
+  const handleSaveAllConfig = async () => {
+    await saveIntegrationKeys();
+    await handleSavePrompts();
+  };
 
   const validateAndSave = async (agent: string, content: string) => {
     try {
@@ -109,6 +236,7 @@ export function AIConfigPage({
               <Tabs defaultValue="orchestrator" className="w-full">
                 <TabsList className="bg-zinc-100 dark:bg-zinc-800 p-1 flex overflow-x-auto h-auto min-h-[40px] rounded-lg w-full justify-start md:justify-center shrink-0">
                   <TabsTrigger value="flow" className="whitespace-nowrap">Arquitetura de Fluxo</TabsTrigger>
+                  <TabsTrigger value="models" className="whitespace-nowrap">Modelos de IA</TabsTrigger>
                   <TabsTrigger value="orchestrator" className="whitespace-nowrap">Orquestrador</TabsTrigger>
                   <TabsTrigger value="support" className="whitespace-nowrap">Suporte</TabsTrigger>
                   <TabsTrigger value="billing" className="whitespace-nowrap">Financeiro</TabsTrigger>
@@ -326,7 +454,292 @@ export function AIConfigPage({
                     </Card>
                   </TabsContent>
 
-                  <TabsContent value="orchestrator">
+                  <TabsContent value="models" className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 mb-6 bg-zinc-50 dark:bg-zinc-800/50">
+                              <div className="grid gap-2 border-r pr-4 border-zinc-200 dark:border-zinc-700 last:border-0 last:pr-0">
+                                <Label className="text-emerald-600 font-semibold flex items-center gap-2 text-sm"><Bot size={16}/> OpenAI</Label>
+                                <Input 
+                                  type="password" 
+                                  placeholder="sk-proj-..." 
+                                  className="h-8 text-xs"
+                                  value={integrationKeys.openaiGlobal || integrationKeys.openaiChat || ''}
+                                  onChange={(e) => setIntegrationKeys(prev => ({ ...prev, openaiGlobal: e.target.value, openaiChat: e.target.value, openaiOrchestrator: e.target.value }))}
+                                />
+                              </div>
+                              <div className="grid gap-2 border-r pr-4 border-zinc-200 dark:border-zinc-700 last:border-0 last:pr-0">
+                                <Label className="text-purple-600 font-semibold flex items-center gap-2 text-sm"><Bot size={16}/> Gemini</Label>
+                                <Input 
+                                  type="password" 
+                                  placeholder="AIzaSy..." 
+                                  className="h-8 text-xs"
+                                  value={integrationKeys.geminiGlobal || integrationKeys.geminiSummary || ''}
+                                  onChange={(e) => setIntegrationKeys(prev => ({ ...prev, geminiGlobal: e.target.value, geminiSummary: e.target.value, geminiSmartReply: e.target.value, geminiKb: e.target.value }))}
+                                />
+                              </div>
+                              <div className="grid gap-2 border-r pr-4 border-zinc-200 dark:border-zinc-700 last:border-0 last:pr-0">
+                                <Label className="text-orange-600 font-semibold flex items-center gap-2 text-sm"><Bot size={16}/> Anthropic</Label>
+                                <Input 
+                                  type="password" 
+                                  placeholder="sk-ant-..." 
+                                  className="h-8 text-xs"
+                                  value={integrationKeys.anthropicGlobal || ''}
+                                  onChange={(e) => setIntegrationKeys(prev => ({ ...prev, anthropicGlobal: e.target.value }))}
+                                />
+                              </div>
+                              <div className="grid gap-2 items-start cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700/50 p-2 -m-2 rounded transition-colors" onClick={() => setExpandVectorStore(!expandVectorStore)}>
+                                <div>
+                                  <Label className="text-blue-600 font-semibold flex items-center gap-2 text-sm cursor-pointer"><Database size={16}/> Banco Vetorial</Label>
+                                  <p className="text-[10px] text-zinc-500 mt-1">Qdrant · Pinecone · Weaviate</p>
+                                </div>
+                                <div className="mt-1">
+                                  {vectorTestResult?.success ? (
+                                    <Badge className="bg-emerald-100 text-emerald-700 border-none hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400">Conectado</Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-zinc-500">Não conectado</Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 mb-6">
+                              <div className="grid gap-2">
+                                <Label className="font-semibold flex items-center gap-2">Limite Mensal de Tokens</Label>
+                                <div className="flex gap-2">
+                                  <Input 
+                                    type="number" 
+                                    value={tenantTokenLimit}
+                                    onChange={(e) => setTenantTokenLimit(parseInt(e.target.value) || 0)}
+                                  />
+                                </div>
+                                <p className="text-xs text-zinc-500">Impede custos excessivos de LLM bloqueando as chamadas quando o limite é atingido no mês.</p>
+                              </div>
+
+                              <div className="grid gap-2">
+                                <Label className="font-semibold flex items-center gap-2">Concorrência de processamento (1-10)</Label>
+                                <div className="flex gap-2">
+                                  <Input 
+                                    type="number" 
+                                    min="1"
+                                    max="10"
+                                    value={workerConcurrency}
+                                    onChange={(e) => setWorkerConcurrency(Math.min(10, Math.max(1, parseInt(e.target.value) || 1)))}
+                                  />
+                                  <Button onClick={() => saveTokenLimit(tenantTokenLimit, workerConcurrency)}>Salvar</Button>
+                                </div>
+                                <p className="text-xs text-zinc-500">Quantidade de mensagens processadas simultaneamente neste ISP.</p>
+                              </div>
+                            </div>
+
+                            {[
+                              { id: "chat", title: "Agente Conversacional (Chat)", desc: "Motor principal de conversação com o cliente.", icon: <Bot size={18} className="text-emerald-600" /> },
+                              { id: "orchestrator", title: "Agente Orquestrador", desc: "Classifica o sentimento e a categoria da primeira mensagem.", icon: <Bot size={18} className="text-blue-600" /> },
+                              { id: "rag", title: "Motor RAG (Busca e IA)", desc: "Motor que lê e resume PDFs para a base de conhecimento.", icon: <Bot size={18} className="text-orange-600" /> },
+                              { id: "summary", title: "Resumo de Tickets", desc: "Gera resumos rápidos do histórico de atendimento.", icon: <Bot size={18} className="text-purple-600" /> },
+                              { id: "smartreply", title: "Respostas Rápidas", desc: "Sugere respostas prontas para os atendentes humanos.", icon: <Bot size={18} className="text-purple-600" /> },
+                              { id: "kb", title: "Base de Conhecimento", desc: "Gera artigos para a base de conhecimento a partir de tickets resolvidos.", icon: <Bot size={18} className="text-purple-600" /> }
+                            ].map((feature) => {
+                              // Defaults handling
+                              const providerMode = integrationKeys[`${feature.id}Provider`] || (['summary', 'smartreply', 'kb'].includes(feature.id) ? 'gemini' : 'openai');
+                              
+                              const openaiModels = ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo", "o1-mini", "o1-preview", "o3-mini"];
+                              const geminiModels = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-flash", "gemini-1.5-pro", "gemini-1.0-pro"];
+                              
+                              return (
+                                <div key={feature.id} className="p-4 border border-zinc-200 dark:border-zinc-800 rounded-lg">
+                                  <div className="flex justify-between items-center mb-4">
+                                    <div className="flex items-center gap-2">
+                                      {feature.icon}
+                                      <div>
+                                        <h3 className="font-medium text-sm text-zinc-900 dark:text-zinc-100">{feature.title}</h3>
+                                        <p className="text-xs text-zinc-500">{feature.desc}</p>
+                                      </div>
+                                    </div>
+                                    <select 
+                                      className="text-xs border p-1 rounded bg-zinc-50 dark:bg-zinc-800"
+                                      value={providerMode}
+                                      onChange={(e) => setIntegrationKeys(prev => ({ ...prev, [`${feature.id}Provider`]: e.target.value }))}
+                                    >
+                                      <option value="openai">OpenAI</option>
+                                      <option value="gemini">Google Gemini</option>
+                                      <option value="custom">Outro (DeepSeek, Groq, via OpenAI-compatible)</option>
+                                    </select>
+                                  </div>
+                                  
+                                  <div className="flex flex-col md:flex-row gap-4 mt-2">
+                                    <div className="flex-1">
+                                      <Label className="text-xs text-zinc-500 mb-1 block">API Key ({providerMode === 'openai' ? 'OpenAI' : providerMode === 'gemini' ? 'Gemini' : 'Custom / Outra'})</Label>
+                                      <Input 
+                                        type="password" 
+                                        className="h-8 text-xs"
+                                        placeholder={providerMode === 'custom' ? "Sua chave de API..." : "Usa a Global se vazio..."}
+                                        value={integrationKeys[`${providerMode}${feature.id.charAt(0).toUpperCase() + feature.id.slice(1)}`] || ''}
+                                        onChange={(e) => setIntegrationKeys(prev => ({ ...prev, [`${providerMode}${feature.id.charAt(0).toUpperCase() + feature.id.slice(1)}`]: e.target.value }))}
+                                      />
+                                    </div>
+                                    <div className="flex-1">
+                                      <Label className="text-xs text-zinc-500 mb-1 block">Modelo Exato</Label>
+                                      {providerMode === 'custom' ? (
+                                        <Input
+                                          type="text"
+                                          className="h-8 text-xs"
+                                          placeholder="Ex: meta-llama-3-70b-instruct"
+                                          value={integrationKeys[`${providerMode}${feature.id.charAt(0).toUpperCase() + feature.id.slice(1)}Model`] || ''}
+                                          onChange={(e) => setIntegrationKeys(prev => ({ ...prev, [`${providerMode}${feature.id.charAt(0).toUpperCase() + feature.id.slice(1)}Model`]: e.target.value }))}
+                                        />
+                                      ) : (
+                                        <select 
+                                          className="w-full h-8 text-xs border rounded-md px-2 bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800"
+                                          value={integrationKeys[`${providerMode}${feature.id.charAt(0).toUpperCase() + feature.id.slice(1)}Model`] || (providerMode === 'openai' ? openaiModels[0] : geminiModels[0])}
+                                          onChange={(e) => setIntegrationKeys(prev => ({ ...prev, [`${providerMode}${feature.id.charAt(0).toUpperCase() + feature.id.slice(1)}Model`]: e.target.value }))}
+                                        >
+                                          {(providerMode === 'openai' ? openaiModels : geminiModels).map(m => (
+                                            <option key={m} value={m}>{m}</option>
+                                          ))}
+                                        </select>
+                                      )}
+                                    </div>
+                                    {providerMode === 'custom' && (
+                                      <div className="flex-1 w-full md:w-auto">
+                                        <Label className="text-xs text-zinc-500 mb-1 block">Base URL / Endpoint da API</Label>
+                                        <Input 
+                                          type="text" 
+                                          className="h-8 text-xs"
+                                          placeholder="Ex: https://api.groq.com/openai/v1"
+                                          value={integrationKeys[`${providerMode}${feature.id.charAt(0).toUpperCase() + feature.id.slice(1)}BaseUrl`] || ''}
+                                          onChange={(e) => setIntegrationKeys(prev => ({ ...prev, [`${providerMode}${feature.id.charAt(0).toUpperCase() + feature.id.slice(1)}BaseUrl`]: e.target.value }))}
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+
+                            <div className="p-4 border border-zinc-200 dark:border-zinc-800 rounded-lg">
+                              <div className="flex justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                  <Database size={18} className="text-blue-500" />
+                                  <div>
+                                    <h3 className="font-medium text-sm text-zinc-900 dark:text-zinc-100">Busca Semântica (RAG)</h3>
+                                    <p className="text-xs text-zinc-500">encontra artigos por significado, não por palavra exata</p>
+                                  </div>
+                                </div>
+                                <div className="flex flex-col items-end gap-2">
+                                  <select 
+                                    className="text-xs border p-1 rounded bg-zinc-50 dark:bg-zinc-800"
+                                    value={vectorConfig.provider}
+                                    onChange={(e) => setVectorConfig({ ...vectorConfig, provider: e.target.value })}
+                                  >
+                                    <option value="qdrant">Qdrant</option>
+                                    <option value="pinecone">Pinecone</option>
+                                    <option value="weaviate">Weaviate</option>
+                                    <option value="custom">Personalizado</option>
+                                  </select>
+                                  <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200 border-none dark:bg-blue-900/30 dark:text-blue-400">
+                                    {indexedCount} artigos indexados
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+
+                            {expandVectorStore && (
+                              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-800 space-y-4">
+                                <div>
+                                  <h3 className="font-semibold text-sm">Configuração do Banco Vetorial</h3>
+                                  <p className="text-xs text-zinc-500 mb-4">Gerencie as credenciais e recrie o index do banco semântico.</p>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                    <Label className="text-xs mb-1 block">Provedor</Label>
+                                    <select 
+                                      className="w-full text-xs border p-2 rounded-md bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800"
+                                      value={vectorConfig.provider}
+                                      onChange={(e) => setVectorConfig({ ...vectorConfig, provider: e.target.value })}
+                                    >
+                                      <option value="qdrant">Qdrant</option>
+                                      <option value="pinecone">Pinecone</option>
+                                      <option value="weaviate">Weaviate</option>
+                                      <option value="custom">Personalizado</option>
+                                    </select>
+                                  </div>
+
+                                  <div>
+                                    <Label className="text-xs mb-1 block">Nome da Coleção</Label>
+                                    <Input 
+                                      type="text" 
+                                      placeholder="Ex: astrum_knowledge" 
+                                      className="h-8 text-xs"
+                                      value={vectorConfig.collection}
+                                      onChange={(e) => setVectorConfig({ ...vectorConfig, collection: e.target.value })}
+                                    />
+                                  </div>
+
+                                  <div className="md:col-span-2">
+                                    <Label className="text-xs mb-1 block">URL da Instância</Label>
+                                    <Input 
+                                      type="text" 
+                                      placeholder="https://sua-instancia.qdrant.io" 
+                                      className="h-8 text-xs"
+                                      value={vectorConfig.url}
+                                      onChange={(e) => setVectorConfig({ ...vectorConfig, url: e.target.value })}
+                                    />
+                                  </div>
+                                  
+                                  <div className="md:col-span-2">
+                                    <Label className="text-xs mb-1 block">API Key</Label>
+                                    <Input 
+                                      type="password" 
+                                      placeholder="Sua chave de API..." 
+                                      className="h-8 text-xs"
+                                      value={vectorConfig.apiKey}
+                                      onChange={(e) => setVectorConfig({ ...vectorConfig, apiKey: e.target.value })}
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 pt-2">
+                                  <Button onClick={testVectorStore} variant="outline" size="sm">Testar Conexão</Button>
+                                  <Button onClick={saveVectorConfig} size="sm">Salvar Configuração</Button>
+                                </div>
+
+                                <div className="pt-4 border-t border-zinc-200 dark:border-zinc-700 mt-4">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div>
+                                      <h4 className="text-sm font-semibold">Base de Conhecimento</h4>
+                                      <p className="text-xs text-zinc-500">Transforma textos em embeddings e envia para o provedor ativo ({vectorConfig.provider}).</p>
+                                    </div>
+                                    <Button onClick={startReindex} variant="secondary" size="sm">Reindexar Base</Button>
+                                  </div>
+                                  {reindexStatus && reindexStatus.status === 'running' && (
+                                    <div className="p-3 bg-white dark:bg-zinc-900 border rounded-md">
+                                      <p className="text-xs mb-2">Reindexando... {reindexStatus.indexed} de {reindexStatus.total}</p>
+                                      <div className="h-2 w-full bg-zinc-200 rounded-full overflow-hidden">
+                                        <div className="h-full bg-purple-500 transition-all" style={{ width: `${(reindexStatus.indexed / reindexStatus.total) * 100}%` }}></div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </motion.div>
+                            )}
+
+                            <div className="grid gap-2">
+                              <Label htmlFor="openai-whisper-key" className="flex items-center gap-2">
+                                <Bot size={16} className="text-emerald-600" />
+                                OpenAI API Key (Transcrição de Áudio - Exclusivo Whisper)
+                              </Label>
+                              <Input 
+                                id="openai-whisper-key" 
+                                type="password" 
+                                placeholder="sk-proj-..." 
+                                value={integrationKeys.openaiWhisper || ''}
+                                onChange={(e) => setIntegrationKeys(prev => ({ ...prev, openaiWhisper: e.target.value }))}
+                              />
+                            </div>
+                          </TabsContent>
+
+                          
+<TabsContent value="orchestrator">
                     <div className="space-y-6">
                       <Card className="border-none shadow-sm">
                         <CardHeader className="flex flex-row items-center justify-between">

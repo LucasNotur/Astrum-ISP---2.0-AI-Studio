@@ -444,7 +444,7 @@ const processMessageJob = async (job: any) => {
               );
               fs.writeFileSync(tempFilePath, buffer);
 
-              const openai = new OpenAI({ apiKey: whisperKey });
+              const openai = new OpenAI({ apiKey: whisperKey, dangerouslyAllowBrowser: true });
               const transcription = await openai.audio.transcriptions.create({
                 file: fs.createReadStream(tempFilePath),
                 model: "whisper-1",
@@ -930,7 +930,7 @@ const processMessageJob = async (job: any) => {
             body: JSON.stringify({ number: remoteJid, text: minorMessage }),
           });
         } catch (e) {}
-        log('blocked_session_ignored');
+        logger.info('blocked_session_ignored');
         return;
       }
       

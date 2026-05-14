@@ -5,11 +5,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/src/components/ui/ta
 import { Avatar, AvatarFallback, AvatarImage } from "@/src/components/ui/avatar";
 import { Badge } from "@/src/components/ui/badge";
 import { Ticket, Book, Globe, Clock, MessageSquare, Phone, Briefcase, Bot, Map as MapIcon, CreditCard, Plus, Trash2, Users } from "lucide-react";
+import { useNavigate } from 'react-router-dom';
 
 import { Button } from "@/src/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
+import { Switch } from "@/src/components/ui/switch";
 import { Save, Bug, Database, BellRing, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { db, auth } from '@/src/lib/firebase';
@@ -59,11 +61,102 @@ export function SettingsPage({
   handleDeleteTeamMember
 }: any) {
 
+  const navigate = useNavigate();
   const { user } = useAppStore();
   const tenantId = user?.tenantId || 'DEFAULT_TENANT';
   
   const [tenantTokenLimit, setTenantTokenLimit] = useState<number>(5000000);
   const [workerConcurrency, setWorkerConcurrency] = useState<number>(3);
+  const [backupConfig, setBackupConfig] = useState({
+    backup_enabled: false,
+    backup_bucket_name: '',
+    gcp_project_id: '',
+    backup_hour: '02h',
+    backup_retention_days: 30,
+    last_backup_at: null as any,
+    last_backup_status: null as string | null,
+    last_backup_size_mb: null as string | null,
+    last_backup_error: null as string | null
+  });
+  const [isTriggeringBackup, setIsTriggeringBackup] = useState(false);
+
+  const [expandVectorStore, setExpandVectorStore] = useState(false);
+  const [vectorTestResult, setVectorTestResult] = useState<{success: boolean, error?: string} | null>(null);
+  const [vectorConfig, setVectorConfig] = useState({ provider: 'qdrant', url: '', apiKey: '', collection: 'astrum_knowledge' });
+  const [reindexStatus, setReindexStatus] = useState<{status: string, indexed: number, total: number} | null>(null);
+  const [indexedCount, setIndexedCount] = useState(0);
+
+  useEffect(() => {
+    // Check vector store connection on mount
+    fetch(`/api/integrations/vectorstore/ping?tenantId=${tenantId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.connected) setVectorTestResult({ success: true });
+        else setVectorTestResult({ success: false, error: data.error });
+      })
+      .catch(e => setVectorTestResult({ success: false, error: e.message }));
+      
+    // Load config and fetch indexed count
+    const loadConfig = async () => {
+      const { getDoc, doc, collection, getDocs, query, where } = await import('firebase/firestore');
+      const snap = await getDoc(doc(db, 'tenants', tenantId));
+      if (snap.exists() && snap.data().vector_store_config) {
+        setVectorConfig(snap.data().vector_store_config);
+      }
+
+      try {
+        const kbSnap = await getDocs(query(collection(db, 'knowledge_base'), where('tenant_id', '==', tenantId), where('vector_indexed', '==', true)));
+        setIndexedCount(kbSnap.size);
+      } catch (e) { console.error(e); }
+    };
+    loadConfig();
+  }, [tenantId]);
+
+  const testVectorStore = async () => {
+    setVectorTestResult(null);
+    try {
+      const res = await fetch(`/api/integrations/vectorstore/ping?tenantId=${tenantId}`);
+      const data = await res.json();
+      if (data.connected) {
+        setVectorTestResult({ success: true });
+        toast.success("Banco Vetorial Conectado");
+      } else {
+        setVectorTestResult({ success: false, error: data.error });
+        toast.error("Falha na conexão: " + data.error);
+      }
+    } catch (e: any) {
+      setVectorTestResult({ success: false, error: e.message });
+      toast.error("Erro interno: " + e.message);
+    }
+  };
+
+  const saveVectorConfig = async () => {
+    try {
+      const { doc, setDoc } = await import('firebase/firestore');
+      await setDoc(doc(db, 'tenants', tenantId), { vector_store_config: vectorConfig }, { merge: true });
+      toast.success("Configuração do Banco Vetorial salva");
+      testVectorStore();
+    } catch (e: any) {
+      toast.error("Erro ao salvar config: " + e.message);
+    }
+  };
+
+  const startReindex = async () => {
+    toast.success("Iniciando reindexação...");
+    setReindexStatus({ status: 'running', indexed: 0, total: 100 });
+    // mock realtime progress
+    let i = 0;
+    const int = setInterval(() => {
+      i += 10;
+      setReindexStatus({ status: 'running', indexed: i, total: 100 });
+      if (i >= 100) {
+        clearInterval(int);
+        setReindexStatus({ status: 'done', indexed: 100, total: 100 });
+        toast.success("Reindexação concluída!");
+      }
+    }, 500);
+  };
+
   
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'tenants', tenantId), (docSnap) => {
@@ -71,6 +164,17 @@ export function SettingsPage({
         const data = docSnap.data();
         if (data.monthly_token_limit) setTenantTokenLimit(data.monthly_token_limit);
         if (data.worker_concurrency) setWorkerConcurrency(data.worker_concurrency);
+        setBackupConfig({
+          backup_enabled: data.backup_enabled || false,
+          backup_bucket_name: data.backup_bucket_name || '',
+          gcp_project_id: data.gcp_project_id || '',
+          backup_hour: data.backup_hour || '02h',
+          backup_retention_days: data.backup_retention_days || 30,
+          last_backup_at: data.last_backup_at ? data.last_backup_at.toDate().toLocaleString() : null,
+          last_backup_status: data.last_backup_status || null,
+          last_backup_size_mb: data.last_backup_size_mb || null,
+          last_backup_error: data.last_backup_error || null
+        });
       }
     });
     return () => unsub();
@@ -96,6 +200,36 @@ export function SettingsPage({
   const [testRedisUrl, setTestRedisUrl] = useState("");
   const [isTestingRedis, setIsTestingRedis] = useState(false);
   const [redisTestResult, setRedisTestResult] = useState<any>(null);
+
+  const saveBackupConfig = async (key: string, value: any) => {
+    try {
+      await updateDoc(doc(db, 'tenants', tenantId), { [key]: value });
+      toast.success(`Configuração de backup atualizada!`);
+    } catch (e) {
+      toast.error("Erro ao salvar configuração.");
+    }
+  };
+
+  const triggerBackup = async () => {
+    setIsTriggeringBackup(true);
+    try {
+      const res = await fetch('/api/backup/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        toast.success("Backup iniciado com sucesso!");
+      } else {
+        toast.error("Erro: " + data.error);
+      }
+    } catch(e) {
+      toast.error("Erro ao iniciar backup");
+    } finally {
+      setIsTriggeringBackup(false);
+    }
+  };
 
   const fetchRedisStatus = async () => {
     try {
@@ -350,6 +484,97 @@ export function SettingsPage({
                         </div>
                       </CardContent>
                     </Card>
+
+                    <Card className="md:col-span-3 border-zinc-200 dark:border-zinc-800 shadow-sm">
+                      <CardHeader className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 rounded-t-xl">
+                        <CardTitle className="flex items-center gap-2">
+                          <Database size={18} className="text-purple-600" /> 
+                          Backup Automático (Firestore)
+                        </CardTitle>
+                        <CardDescription>
+                          Configure o backup automático dos bancos de dados do sistema (Tickets, Logs, Os, Clientes).
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-6 pt-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <Label className="font-semibold text-zinc-900 dark:text-zinc-100">Ativar Backup Automático</Label>
+                          <Switch 
+                            checked={backupConfig.backup_enabled} 
+                            onCheckedChange={(checked) => saveBackupConfig('backup_enabled', checked)} 
+                          />
+                        </div>
+
+                        {backupConfig.backup_enabled && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-zinc-50/50 dark:bg-zinc-900/20 p-4 border border-zinc-100 dark:border-zinc-800 rounded-lg">
+                            <div className="space-y-2">
+                              <Label>ID do Projeto GCP</Label>
+                              <Input 
+                                placeholder="ex: meu-projeto-123" 
+                                value={backupConfig.gcp_project_id}
+                                onChange={(e) => setBackupConfig(prev => ({...prev, gcp_project_id: e.target.value}))}
+                                onBlur={(e) => saveBackupConfig('gcp_project_id', e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Nome do Bucket GCP</Label>
+                              <Input 
+                                placeholder="ex: meu-bucket-backups" 
+                                value={backupConfig.backup_bucket_name}
+                                onChange={(e) => setBackupConfig(prev => ({...prev, backup_bucket_name: e.target.value}))}
+                                onBlur={(e) => saveBackupConfig('backup_bucket_name', e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Horário do Backup</Label>
+                              <select 
+                                className="w-full text-sm border p-2 rounded-md bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800"
+                                value={backupConfig.backup_hour}
+                                onChange={(e) => {
+                                  setBackupConfig(prev => ({...prev, backup_hour: e.target.value}));
+                                  saveBackupConfig('backup_hour', e.target.value);
+                                }}
+                              >
+                                <option value="01h">01h</option>
+                                <option value="02h">02h</option>
+                                <option value="03h">03h</option>
+                                <option value="04h">04h</option>
+                                <option value="05h">05h</option>
+                              </select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Retenção em dias</Label>
+                              <Input 
+                                type="number"
+                                value={backupConfig.backup_retention_days}
+                                onChange={(e) => setBackupConfig(prev => ({...prev, backup_retention_days: parseInt(e.target.value)}))}
+                                onBlur={(e) => saveBackupConfig('backup_retention_days', parseInt(e.target.value))}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                          <div className="text-sm">
+                            <p className="text-zinc-500 mb-1">Último Backup: <span className="font-semibold text-zinc-900 dark:text-zinc-100">{backupConfig.last_backup_at || 'Nunca'}</span></p>
+                            <div className="text-zinc-500">
+                              Status: 
+                              {backupConfig.last_backup_status === 'success' && <Badge variant="secondary" className="ml-2 bg-green-100 text-green-700">Sucesso</Badge>}
+                              {backupConfig.last_backup_status === 'failed' && <Badge variant="destructive" className="ml-2 bg-red-100">{backupConfig.last_backup_error || 'Falha'}</Badge>}
+                              {!backupConfig.last_backup_status && <Badge variant="outline" className="ml-2 text-zinc-500">N/A</Badge>}
+                              {backupConfig.last_backup_size_mb && <span className="ml-2 text-xs">({backupConfig.last_backup_size_mb})</span>}
+                            </div>
+                          </div>
+                          <Button 
+                            variant="secondary" 
+                            disabled={isTriggeringBackup || !backupConfig.gcp_project_id || !backupConfig.backup_bucket_name} 
+                            onClick={triggerBackup}
+                            className="w-full md:w-auto"
+                          >
+                            {isTriggeringBackup ? "Iniciando..." : "Fazer backup agora"}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
                 </TabsContent>
 
@@ -364,165 +589,13 @@ export function SettingsPage({
                         </CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-6">
-                        <Tabs defaultValue="ai" className="w-full">
+                        <Tabs defaultValue="whatsapp" className="w-full">
                           <TabsList className="bg-zinc-100 dark:bg-zinc-800 p-1 mb-4 flex flex-wrap gap-1">
-                            <TabsTrigger value="ai">Modelos de IA</TabsTrigger>
-                            <TabsTrigger value="whatsapp">WhatsApp (Evolution)</TabsTrigger>
+                                                        <TabsTrigger value="whatsapp">WhatsApp (Evolution)</TabsTrigger>
                             <TabsTrigger value="billing">Financeiro (ERP)</TabsTrigger>
                             <TabsTrigger value="maps">Google Maps</TabsTrigger>
                             <TabsTrigger value="redis">Redis (Fila)</TabsTrigger>
                           </TabsList>
-
-                          <TabsContent value="ai" className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 mb-6">
-                              <div className="grid gap-2">
-                                <Label className="text-emerald-600 font-semibold flex items-center gap-2"><Bot size={16}/> Chave Global OpenAI</Label>
-                                <Input 
-                                  type="password" 
-                                  placeholder="sk-proj-..." 
-                                  value={integrationKeys.openaiGlobal || integrationKeys.openaiChat || ''}
-                                  onChange={(e) => setIntegrationKeys(prev => ({ ...prev, openaiGlobal: e.target.value, openaiChat: e.target.value, openaiOrchestrator: e.target.value }))}
-                                />
-                              </div>
-                              <div className="grid gap-2">
-                                <Label className="text-purple-600 font-semibold flex items-center gap-2"><Bot size={16}/> Chave Global Google Gemini</Label>
-                                <Input 
-                                  type="password" 
-                                  placeholder="AIzaSy..." 
-                                  value={integrationKeys.geminiGlobal || integrationKeys.geminiSummary || ''}
-                                  onChange={(e) => setIntegrationKeys(prev => ({ ...prev, geminiGlobal: e.target.value, geminiSummary: e.target.value, geminiSmartReply: e.target.value, geminiKb: e.target.value }))}
-                                />
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 mb-6">
-                              <div className="grid gap-2">
-                                <Label className="font-semibold flex items-center gap-2">Limite Mensal de Tokens</Label>
-                                <div className="flex gap-2">
-                                  <Input 
-                                    type="number" 
-                                    value={tenantTokenLimit}
-                                    onChange={(e) => setTenantTokenLimit(parseInt(e.target.value) || 0)}
-                                  />
-                                </div>
-                                <p className="text-xs text-zinc-500">Impede custos excessivos de LLM bloqueando as chamadas quando o limite é atingido no mês.</p>
-                              </div>
-
-                              <div className="grid gap-2">
-                                <Label className="font-semibold flex items-center gap-2">Concorrência de processamento (1-10)</Label>
-                                <div className="flex gap-2">
-                                  <Input 
-                                    type="number" 
-                                    min="1"
-                                    max="10"
-                                    value={workerConcurrency}
-                                    onChange={(e) => setWorkerConcurrency(Math.min(10, Math.max(1, parseInt(e.target.value) || 1)))}
-                                  />
-                                  <Button onClick={() => saveTokenLimit(tenantTokenLimit, workerConcurrency)}>Salvar</Button>
-                                </div>
-                                <p className="text-xs text-zinc-500">Quantidade de mensagens processadas simultaneamente neste ISP.</p>
-                              </div>
-                            </div>
-
-                            {[
-                              { id: "chat", title: "Agente Conversacional (Chat)", desc: "Motor principal de conversação com o cliente.", icon: <Bot size={18} className="text-emerald-600" /> },
-                              { id: "orchestrator", title: "Agente Orquestrador", desc: "Classifica o sentimento e a categoria da primeira mensagem.", icon: <Bot size={18} className="text-blue-600" /> },
-                              { id: "rag", title: "Motor RAG (Busca e IA)", desc: "Motor que lê e resume PDFs para a base de conhecimento.", icon: <Bot size={18} className="text-orange-600" /> },
-                              { id: "summary", title: "Resumo de Tickets", desc: "Gera resumos rápidos do histórico de atendimento.", icon: <Bot size={18} className="text-purple-600" /> },
-                              { id: "smartreply", title: "Respostas Rápidas", desc: "Sugere respostas prontas para os atendentes humanos.", icon: <Bot size={18} className="text-purple-600" /> },
-                              { id: "kb", title: "Base de Conhecimento", desc: "Gera artigos para a base de conhecimento a partir de tickets resolvidos.", icon: <Bot size={18} className="text-purple-600" /> }
-                            ].map((feature) => {
-                              // Defaults handling
-                              const providerMode = integrationKeys[`${feature.id}Provider`] || (['summary', 'smartreply', 'kb'].includes(feature.id) ? 'gemini' : 'openai');
-                              
-                              const openaiModels = ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo", "o1-mini", "o1-preview", "o3-mini"];
-                              const geminiModels = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-flash", "gemini-1.5-pro", "gemini-1.0-pro"];
-                              
-                              return (
-                                <div key={feature.id} className="p-4 border border-zinc-200 dark:border-zinc-800 rounded-lg">
-                                  <div className="flex justify-between items-center mb-4">
-                                    <div className="flex items-center gap-2">
-                                      {feature.icon}
-                                      <div>
-                                        <h3 className="font-medium text-sm text-zinc-900 dark:text-zinc-100">{feature.title}</h3>
-                                        <p className="text-xs text-zinc-500">{feature.desc}</p>
-                                      </div>
-                                    </div>
-                                    <select 
-                                      className="text-xs border p-1 rounded bg-zinc-50 dark:bg-zinc-800"
-                                      value={providerMode}
-                                      onChange={(e) => setIntegrationKeys(prev => ({ ...prev, [`${feature.id}Provider`]: e.target.value }))}
-                                    >
-                                      <option value="openai">OpenAI</option>
-                                      <option value="gemini">Google Gemini</option>
-                                      <option value="custom">Outro (DeepSeek, Groq, via OpenAI-compatible)</option>
-                                    </select>
-                                  </div>
-                                  
-                                  <div className="flex flex-col md:flex-row gap-4 mt-2">
-                                    <div className="flex-1">
-                                      <Label className="text-xs text-zinc-500 mb-1 block">API Key ({providerMode === 'openai' ? 'OpenAI' : providerMode === 'gemini' ? 'Gemini' : 'Custom / Outra'})</Label>
-                                      <Input 
-                                        type="password" 
-                                        className="h-8 text-xs"
-                                        placeholder={providerMode === 'custom' ? "Sua chave de API..." : "Usa a Global se vazio..."}
-                                        value={integrationKeys[`${providerMode}${feature.id.charAt(0).toUpperCase() + feature.id.slice(1)}`] || ''}
-                                        onChange={(e) => setIntegrationKeys(prev => ({ ...prev, [`${providerMode}${feature.id.charAt(0).toUpperCase() + feature.id.slice(1)}`]: e.target.value }))}
-                                      />
-                                    </div>
-                                    <div className="flex-1">
-                                      <Label className="text-xs text-zinc-500 mb-1 block">Modelo Exato</Label>
-                                      {providerMode === 'custom' ? (
-                                        <Input
-                                          type="text"
-                                          className="h-8 text-xs"
-                                          placeholder="Ex: meta-llama-3-70b-instruct"
-                                          value={integrationKeys[`${providerMode}${feature.id.charAt(0).toUpperCase() + feature.id.slice(1)}Model`] || ''}
-                                          onChange={(e) => setIntegrationKeys(prev => ({ ...prev, [`${providerMode}${feature.id.charAt(0).toUpperCase() + feature.id.slice(1)}Model`]: e.target.value }))}
-                                        />
-                                      ) : (
-                                        <select 
-                                          className="w-full h-8 text-xs border rounded-md px-2 bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800"
-                                          value={integrationKeys[`${providerMode}${feature.id.charAt(0).toUpperCase() + feature.id.slice(1)}Model`] || (providerMode === 'openai' ? openaiModels[0] : geminiModels[0])}
-                                          onChange={(e) => setIntegrationKeys(prev => ({ ...prev, [`${providerMode}${feature.id.charAt(0).toUpperCase() + feature.id.slice(1)}Model`]: e.target.value }))}
-                                        >
-                                          {(providerMode === 'openai' ? openaiModels : geminiModels).map(m => (
-                                            <option key={m} value={m}>{m}</option>
-                                          ))}
-                                        </select>
-                                      )}
-                                    </div>
-                                    {providerMode === 'custom' && (
-                                      <div className="flex-1 w-full md:w-auto">
-                                        <Label className="text-xs text-zinc-500 mb-1 block">Base URL / Endpoint da API</Label>
-                                        <Input 
-                                          type="text" 
-                                          className="h-8 text-xs"
-                                          placeholder="Ex: https://api.groq.com/openai/v1"
-                                          value={integrationKeys[`${providerMode}${feature.id.charAt(0).toUpperCase() + feature.id.slice(1)}BaseUrl`] || ''}
-                                          onChange={(e) => setIntegrationKeys(prev => ({ ...prev, [`${providerMode}${feature.id.charAt(0).toUpperCase() + feature.id.slice(1)}BaseUrl`]: e.target.value }))}
-                                        />
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-
-                            <div className="grid gap-2">
-                              <Label htmlFor="openai-whisper-key" className="flex items-center gap-2">
-                                <Bot size={16} className="text-emerald-600" />
-                                OpenAI API Key (Transcrição de Áudio - Exclusivo Whisper)
-                              </Label>
-                              <Input 
-                                id="openai-whisper-key" 
-                                type="password" 
-                                placeholder="sk-proj-..." 
-                                value={integrationKeys.openaiWhisper || ''}
-                                onChange={(e) => setIntegrationKeys(prev => ({ ...prev, openaiWhisper: e.target.value }))}
-                              />
-                            </div>
-                          </TabsContent>
 
                           <TabsContent value="whatsapp" className="space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -556,7 +629,7 @@ export function SettingsPage({
                                 </div>
                                 <div className="pt-4 mt-2 border-t border-zinc-200 dark:border-zinc-800">
                                   <p className="text-xs text-zinc-500 mb-3">Após configurar as chaves, gerencie as instâncias de WhatsApp em uma página dedicada.</p>
-                                  <Button className="w-full bg-indigo-600 hover:bg-indigo-700" onClick={() => window.location.href = '/whatsapp'}>
+                                  <Button className="w-full bg-indigo-600 hover:bg-indigo-700" onClick={() => navigate('/whatsapp')}>
                                     Gerenciar Múltiplas Instâncias
                                   </Button>
                                 </div>

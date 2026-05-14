@@ -2936,6 +2936,8 @@ export default function App() {
                   handleSeedKB={handleSeedKB}
                   isSeeding={isSeeding}
                   handleDeleteKB={handleDeleteKB}
+                  integrationKeys={integrationKeys}
+                  setIntegrationKeys={setIntegrationKeys}
                 />
               }
             />
