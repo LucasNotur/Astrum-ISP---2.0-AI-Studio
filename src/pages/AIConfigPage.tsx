@@ -10,7 +10,7 @@ import { Badge } from "@/src/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
-import { Bot, Sparkles, Plus, Edit2, Trash2, Download, Database, Upload } from 'lucide-react';
+import { Bot, Sparkles, Plus, Edit2, Trash2, Download, Database, Upload, Eye, EyeOff } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { WorkflowVisualizer } from '@/src/components/WorkflowVisualizer';
 import { cn } from '@/src/lib/utils';
@@ -46,6 +46,28 @@ export function AIConfigPage({
   integrationKeys,
   setIntegrationKeys,
 }: any) {
+
+  const PasswordInput = ({ value, onChange, placeholder, className }: any) => {
+    const [show, setShow] = useState(false);
+    return (
+      <div className="relative w-full">
+        <Input
+          type={show ? "text" : "password"}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          className={cn("pr-8", className)}
+        />
+        <button
+          type="button"
+          onClick={() => setShow(!show)}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 focus:outline-none"
+        >
+          {show ? <EyeOff size={14} /> : <Eye size={14} />}
+        </button>
+      </div>
+    );
+  };
 
   const [aiUsageLogs, setAiUsageLogs] = useState<any[]>([]);
   const [loadingAiUsage, setLoadingAiUsage] = useState(false);
@@ -233,21 +255,51 @@ export function AIConfigPage({
             >
               
               
-              <Tabs defaultValue="orchestrator" className="w-full">
-                <TabsList className="bg-zinc-100 dark:bg-zinc-800 p-1 flex overflow-x-auto h-auto min-h-[40px] rounded-lg w-full justify-start md:justify-center shrink-0">
-                  <TabsTrigger value="flow" className="whitespace-nowrap">Arquitetura de Fluxo</TabsTrigger>
-                  <TabsTrigger value="models" className="whitespace-nowrap">Modelos de IA</TabsTrigger>
-                  <TabsTrigger value="orchestrator" className="whitespace-nowrap">Orquestrador</TabsTrigger>
-                  <TabsTrigger value="support" className="whitespace-nowrap">Suporte</TabsTrigger>
-                  <TabsTrigger value="billing" className="whitespace-nowrap">Financeiro</TabsTrigger>
-                  <TabsTrigger value="retention" className="whitespace-nowrap">Retenção</TabsTrigger>
-                  <TabsTrigger value="sales" className="whitespace-nowrap">Vendas</TabsTrigger>
-                  <TabsTrigger value="kb" className="whitespace-nowrap">Base de Conhecimento</TabsTrigger>
-                  <TabsTrigger value="audit" className="whitespace-nowrap">Logs de Auditoria</TabsTrigger>
-                  <TabsTrigger value="ai_usage" className="whitespace-nowrap">Custos & Uso de Tokens</TabsTrigger>
+              <Tabs defaultValue="orchestrator" className="flex flex-col md:flex-row w-full gap-6 lg:gap-10">
+                <TabsList className="flex flex-row md:flex-col justify-start md:h-auto overflow-x-auto bg-transparent p-0 w-full md:w-64 lg:w-72 shrink-0 space-x-1 md:space-x-0 md:space-y-1 border-b md:border-b-0 md:border-r border-zinc-200 dark:border-zinc-800 pb-2 md:pb-0 md:pr-4">
+                  <TabsTrigger 
+                    value="flow" 
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >Arquitetura de Fluxo</TabsTrigger>
+                  <TabsTrigger 
+                    value="models" 
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >Chaves de API</TabsTrigger>
+                  <TabsTrigger 
+                    value="orchestrator" 
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >Orquestrador</TabsTrigger>
+                  <TabsTrigger 
+                    value="support" 
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >Suporte</TabsTrigger>
+                  <TabsTrigger 
+                    value="billing" 
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >Financeiro</TabsTrigger>
+                  <TabsTrigger 
+                    value="retention" 
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >Retenção</TabsTrigger>
+                  <TabsTrigger 
+                    value="sales" 
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >Vendas</TabsTrigger>
+                  <TabsTrigger 
+                    value="kb" 
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >Base de Conhecimento</TabsTrigger>
+                  <TabsTrigger 
+                    value="audit" 
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >Logs de Auditoria</TabsTrigger>
+                  <TabsTrigger 
+                    value="ai_usage" 
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >Custos & Uso de Tokens</TabsTrigger>
                 </TabsList>
                 
-                <div className="mt-6">
+                <div className="flex-1 w-full min-w-0 md:mt-0">
                   <TabsContent value="flow">
                     <WorkflowVisualizer />
                   </TabsContent>
@@ -458,32 +510,40 @@ export function AIConfigPage({
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 mb-6 bg-zinc-50 dark:bg-zinc-800/50">
                               <div className="grid gap-2 border-r pr-4 border-zinc-200 dark:border-zinc-700 last:border-0 last:pr-0">
                                 <Label className="text-emerald-600 font-semibold flex items-center gap-2 text-sm"><Bot size={16}/> OpenAI</Label>
-                                <Input 
-                                  type="password" 
+                                <PasswordInput 
                                   placeholder="sk-proj-..." 
                                   className="h-8 text-xs"
-                                  value={integrationKeys.openaiGlobal || integrationKeys.openaiChat || ''}
-                                  onChange={(e) => setIntegrationKeys(prev => ({ ...prev, openaiGlobal: e.target.value, openaiChat: e.target.value, openaiOrchestrator: e.target.value }))}
+                                  value={integrationKeys.openaiGlobal || ''}
+                                  onChange={(e: any) => setIntegrationKeys((prev: any) => ({ 
+                                    ...prev, 
+                                    openaiGlobal: e.target.value, 
+                                    openaiChat: prev.openaiChat || e.target.value, 
+                                    openaiOrchestrator: prev.openaiOrchestrator || e.target.value 
+                                  }))}
                                 />
                               </div>
                               <div className="grid gap-2 border-r pr-4 border-zinc-200 dark:border-zinc-700 last:border-0 last:pr-0">
                                 <Label className="text-purple-600 font-semibold flex items-center gap-2 text-sm"><Bot size={16}/> Gemini</Label>
-                                <Input 
-                                  type="password" 
+                                <PasswordInput 
                                   placeholder="AIzaSy..." 
                                   className="h-8 text-xs"
-                                  value={integrationKeys.geminiGlobal || integrationKeys.geminiSummary || ''}
-                                  onChange={(e) => setIntegrationKeys(prev => ({ ...prev, geminiGlobal: e.target.value, geminiSummary: e.target.value, geminiSmartReply: e.target.value, geminiKb: e.target.value }))}
+                                  value={integrationKeys.geminiGlobal || ''}
+                                  onChange={(e: any) => setIntegrationKeys((prev: any) => ({ 
+                                    ...prev, 
+                                    geminiGlobal: e.target.value, 
+                                    geminiSummary: prev.geminiSummary || e.target.value, 
+                                    geminiSmartReply: prev.geminiSmartReply || e.target.value, 
+                                    geminiKb: prev.geminiKb || e.target.value 
+                                  }))}
                                 />
                               </div>
                               <div className="grid gap-2 border-r pr-4 border-zinc-200 dark:border-zinc-700 last:border-0 last:pr-0">
                                 <Label className="text-orange-600 font-semibold flex items-center gap-2 text-sm"><Bot size={16}/> Anthropic</Label>
-                                <Input 
-                                  type="password" 
+                                <PasswordInput 
                                   placeholder="sk-ant-..." 
                                   className="h-8 text-xs"
                                   value={integrationKeys.anthropicGlobal || ''}
-                                  onChange={(e) => setIntegrationKeys(prev => ({ ...prev, anthropicGlobal: e.target.value }))}
+                                  onChange={(e: any) => setIntegrationKeys((prev: any) => ({ ...prev, anthropicGlobal: e.target.value }))}
                                 />
                               </div>
                               <div className="grid gap-2 items-start cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700/50 p-2 -m-2 rounded transition-colors" onClick={() => setExpandVectorStore(!expandVectorStore)}>
@@ -568,12 +628,11 @@ export function AIConfigPage({
                                   <div className="flex flex-col md:flex-row gap-4 mt-2">
                                     <div className="flex-1">
                                       <Label className="text-xs text-zinc-500 mb-1 block">API Key ({providerMode === 'openai' ? 'OpenAI' : providerMode === 'gemini' ? 'Gemini' : 'Custom / Outra'})</Label>
-                                      <Input 
-                                        type="password" 
+                                      <PasswordInput 
                                         className="h-8 text-xs"
                                         placeholder={providerMode === 'custom' ? "Sua chave de API..." : "Usa a Global se vazio..."}
-                                        value={integrationKeys[`${providerMode}${feature.id.charAt(0).toUpperCase() + feature.id.slice(1)}`] || ''}
-                                        onChange={(e) => setIntegrationKeys(prev => ({ ...prev, [`${providerMode}${feature.id.charAt(0).toUpperCase() + feature.id.slice(1)}`]: e.target.value }))}
+                                        value={integrationKeys[`${providerMode}${feature.id.charAt(0).toUpperCase() + feature.id.slice(1)}`] || integrationKeys[`${providerMode}Global`] || ''}
+                                        onChange={(e: any) => setIntegrationKeys((prev: any) => ({ ...prev, [`${providerMode}${feature.id.charAt(0).toUpperCase() + feature.id.slice(1)}`]: e.target.value }))}
                                       />
                                     </div>
                                     <div className="flex-1">

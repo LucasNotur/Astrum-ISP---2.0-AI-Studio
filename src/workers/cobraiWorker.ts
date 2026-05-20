@@ -1,23 +1,23 @@
 import { Queue, Worker } from "bullmq";
 import redis, { connection } from "../lib/redis";
-import { db } from "../lib/firebase";
-import { collection, doc, getDoc, getDocs, query, where, Timestamp, addDoc, serverTimestamp, limit } from "firebase/firestore";
+import { adminDb as db } from "../lib/firebaseAdmin";
+import admin from "../lib/firebaseAdmin";
 import { subBusinessDays, differenceInHours } from "date-fns";
 import { COBRAI_TEMPLATES } from "../lib/cobraiTemplates";
 import { buildTemplateComponents } from "../lib/templateBuilder";
-import { incrementShardedCounter } from "../lib/db";
+import { incrementShardedCounter } from "../lib/dbAdmin";
 import { logger } from "../lib/logger";
 
 const isMockRedis = !((redis as any).options);
 
 async function logCobraiSkip(customerId: string, tenantId: string, reason: string) {
   try {
-    await addDoc(collection(db, "logs"), {
+    await db.collection("logs").add({
       type: "COBRAI_SKIP",
       customerId,
       tenantId,
       reason,
-      timestamp: serverTimestamp()
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
     });
     logger.info("cobrai_skipped", { tenant_id: tenantId, session_id: customerId, data: { reason } });
   } catch (err: any) {
@@ -44,9 +44,9 @@ async function processCobraiStage(job: any, customerId: string, tenantId: string
   try {
     if (!customerId) return;
 
-    const tenantSnap = await getDoc(doc(db, "tenants", tenantId));
-    if (!tenantSnap.exists()) return;
-    const tenantData = tenantSnap.data();
+    const tenantSnap = await db.collection("tenants").doc(tenantId).get();
+    if (!tenantSnap.exists) return;
+    const tenantData = tenantSnap.data() as any;
 
     // 1. Verificar se CobrAI está globalmente ativo
     if (tenantData.cobrai_enabled === false) {
@@ -88,9 +88,9 @@ async function processCobraiStage(job: any, customerId: string, tenantId: string
     }
 
     // PROTEÇÃO A — Respeitar acordo de parcelamento ativo:
-    const customer = await getDoc(doc(db, "customers", customerId));
-    if (!customer.exists()) return;
-    const data = customer.data();
+    const customer = await db.collection("customers").doc(customerId).get();
+    if (!customer.exists) return;
+    const data = customer.data() as any;
 
     // PROTEÇÃO — Verificar opt-in
     if (!data.marketing_opt_in) {
@@ -99,7 +99,7 @@ async function processCobraiStage(job: any, customerId: string, tenantId: string
     }
 
     if (data.payment_agreement?.active === true) {
-      const nextDue = data.payment_agreement.next_due_date?.toDate();
+      const nextDue = data.payment_agreement.next_due_date?.toDate?.() || data.payment_agreement.next_due_date;
       if (nextDue && nextDue > new Date()) {
         // Cliente tem acordo em dia — pular disparo, logar skip
         await logCobraiSkip(customerId, tenantId, 'ACTIVE_PAYMENT_AGREEMENT');
@@ -110,15 +110,12 @@ async function processCobraiStage(job: any, customerId: string, tenantId: string
     // PROTEÇÃO B — Janela de compensação bancária antes de suspender (D+61):
     if (stage === 'suspensao_automatica') {
       const threeBizDaysAgo = subBusinessDays(new Date(), 3);
-      const recentPayment = await getDocs(
-        query(
-          collection(db, 'payments'),
-          where('customer_id', '==', customerId),
-          where('paid_at', '>=', Timestamp.fromDate(threeBizDaysAgo)),
-          where('status', 'in', ['confirmado', 'pendente_compensacao']),
-          limit(1)
-        )
-      );
+      const recentPayment = await db.collection('payments')
+        .where('customer_id', '==', customerId)
+        .where('paid_at', '>=', admin.firestore.Timestamp.fromDate(threeBizDaysAgo))
+        .where('status', 'in', ['confirmado', 'pendente_compensacao'])
+        .limit(1)
+        .get();
 
       if (!recentPayment.empty) {
         // Pagamento recente — suspender após compensação, não agora
@@ -133,7 +130,7 @@ async function processCobraiStage(job: any, customerId: string, tenantId: string
     let isWithin24hWindow = false;
     let templateName = 'Livre';
     if (data.last_customer_message_at) {
-      const lastMsgDate = data.last_customer_message_at.toDate();
+      const lastMsgDate = data.last_customer_message_at.toDate?.() || data.last_customer_message_at;
       if (differenceInHours(new Date(), lastMsgDate) < 24) {
         isWithin24hWindow = true;
       }
@@ -174,12 +171,12 @@ async function processCobraiStage(job: any, customerId: string, tenantId: string
     logger.info("cobrai_action_success", { tenant_id: tenantId, session_id: customerId, data: { stage } });
 
     // Registrar sucesso na cobrai_logs
-    await addDoc(collection(db, "cobrai_logs"), {
+    await db.collection("cobrai_logs").add({
       customer_id: customerId,
       tenant_id: tenantId,
       stage: stage,
       template_name: templateName,
-      sent_at: serverTimestamp(),
+      sent_at: admin.firestore.FieldValue.serverTimestamp(),
       status: 'sent'
     });
 
@@ -188,11 +185,11 @@ async function processCobraiStage(job: any, customerId: string, tenantId: string
   } catch (error: any) {
     logger.error("cobrai_action_failed", { tenant_id: tenantId, session_id: customerId, error: error.message, data: { stage } });
     // Registrar falha na cobrai_logs
-    await addDoc(collection(db, "cobrai_logs"), {
+    await db.collection("cobrai_logs").add({
       customer_id: customerId,
       tenant_id: tenantId,
       stage: stage,
-      sent_at: serverTimestamp(),
+      sent_at: admin.firestore.FieldValue.serverTimestamp(),
       status: 'failed',
       error_message: error.message
     });
@@ -226,14 +223,14 @@ worker.on('failed', async (job: any, err: any) => {
   const maxAttempts = job.opts?.attempts ?? 3;
   if (attempts >= maxAttempts) {
     // Mover para DLQ no Firestore para visibilidade
-    await addDoc(collection(db, 'dead_letter_queue'), {
+    await db.collection('dead_letter_queue').add({
       job_id: job.id,
       job_name: job.name,
       job_data: job.data,
       error_message: err.message,
       error_stack: err.stack?.substring(0, 500),
       attempts: attempts,
-      failed_at: serverTimestamp(),
+      failed_at: admin.firestore.FieldValue.serverTimestamp(),
       tenant_id: job.data?.tenantId ?? 'unknown',
       resolved: false
     });

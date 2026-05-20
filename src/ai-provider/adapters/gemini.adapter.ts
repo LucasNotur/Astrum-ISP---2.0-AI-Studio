@@ -1,52 +1,56 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { AIProvider, ProviderConfig, Message, ChatResult, EmbedResult } from "../types";
+import { getGeminiKey } from "../../lib/dbAdmin";
 
 export class GeminiAdapter implements AIProvider {
   name: 'gemini' = 'gemini';
-  private client: GoogleGenerativeAI;
+  private clients: Map<string, GoogleGenAI> = new Map();
 
-  constructor() {
-    this.client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'dummy_key');
+  constructor() {}
+
+  private async getClient(tenantId: string): Promise<GoogleGenAI> {
+    const key = await getGeminiKey(tenantId);
+    if (this.clients.has(key)) return this.clients.get(key)!;
+    
+    const client = new GoogleGenAI({
+      apiKey: key,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+    this.clients.set(key, client);
+    return client;
   }
 
-  async chat(messages: Message[], config: ProviderConfig, options?: { tools?: any[] }): Promise<ChatResult> {
-    const modelParams: any = { model: config.model || "gemini-2.0-flash" };
-    if (options?.tools) {
-      modelParams.tools = options.tools;
-    }
-    const model = this.client.getGenerativeModel(modelParams);
+  async chat(messages: Message[], config: ProviderConfig, tenantId: string, options?: { tools?: any[] }): Promise<ChatResult> {
+    const client = await this.getClient(tenantId);
+    const model = config.model || "gemini-3.1-flash-lite"; 
 
-    // Filter out system prompts for strict google gen AI logic or convert them
     const systemInstruction = messages.find(m => m.role === 'system')?.content;
-    const history = messages
+    const contents = messages
       .filter(m => m.role !== 'system')
       .map(m => ({
         role: m.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: m.content }]
       }));
-      
-    if (systemInstruction) {
-        modelParams.systemInstruction = systemInstruction;
-    }
 
-    const genModel = this.client.getGenerativeModel(modelParams);
-
-    // Reconstruct parts for gemini input
-    const latestMessage = history.pop()?.parts[0].text || "";
-    
-    const chatSession = genModel.startChat({
-        history: history as any,
+    const response = await client.models.generateContent({
+      model,
+      contents,
+      config: {
+        tools: options?.tools as any,
+        systemInstruction,
+        temperature: config.temperature,
+      }
     });
 
-    const result = await chatSession.sendMessage(latestMessage);
-    const response = result.response;
-
-    const content = response.text();
+    const content = response.text;
     let toolCalls = undefined;
 
-    const functionCalls = response.functionCalls();
-    if (functionCalls && functionCalls.length > 0) {
-      toolCalls = functionCalls.map(fc => ({
+    if (response.functionCalls && response.functionCalls.length > 0) {
+      toolCalls = response.functionCalls.map((fc: any) => ({
         name: fc.name,
         args: fc.args
       }));
@@ -59,33 +63,36 @@ export class GeminiAdapter implements AIProvider {
       content,
       toolCalls,
       provider: this.name,
-      model: config.model,
+      model,
       usage: {
         input: inputTokens,
         output: outputTokens,
         total: inputTokens + outputTokens,
-        estimatedCostUsd: this.calculateCost(config.model, inputTokens, outputTokens)
+        estimatedCostUsd: this.calculateCost(model, inputTokens, outputTokens)
       }
     };
   }
 
-  async embed(texts: string[], config: ProviderConfig): Promise<EmbedResult> {
-    const model = this.client.getGenerativeModel({ model: config.model || "text-embedding-004" });
-    const result = await model.embedContent(texts[0]); // Simple single embedding
-    const vector = result.embedding.values;
-
-    // We hardcode token estimation since it's not provided usually for embed
+  async embed(texts: string[], config: ProviderConfig, tenantId: string): Promise<EmbedResult> {
+    const client = await this.getClient(tenantId);
+    const model = config.model || "text-embedding-004";
+    const response = await client.models.embedContent({
+      model,
+      contents: texts[0]
+    });
+    
+    const vector = response.embeddings[0].values;
     const estimatedTokens = texts[0].length / 4;
 
     return {
       vector,
       provider: this.name,
-      model: config.model || "text-embedding-004",
+      model,
       usage: {
         input: estimatedTokens,
         output: 0,
         total: estimatedTokens,
-        estimatedCostUsd: this.calculateCost(config.model, estimatedTokens, 0)
+        estimatedCostUsd: this.calculateCost(model, estimatedTokens, 0)
       }
     };
   }

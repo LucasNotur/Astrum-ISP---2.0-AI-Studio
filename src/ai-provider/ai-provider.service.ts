@@ -25,7 +25,7 @@ export class AIProviderService {
     
     try {
       if (!adapter) throw new Error(`Provider ${config.provider} not initialized`);
-      const result = await adapter.chat(messages, config, options);
+      const result = await adapter.chat(messages, config, tenantId, options);
       
       await this.onTokenLog({
         tenantId, aiFunction, provider: result.provider, model: result.model,
@@ -39,7 +39,7 @@ export class AIProviderService {
          console.warn(`[AIProvider] ${config.provider} failed for ${aiFunction}. Using fallback ${config.fallbackProvider}. Error: ${e.message}`);
          const fallbackAdapter = this.adapters[config.fallbackProvider];
          const fallbackConfig = { ...config, provider: config.fallbackProvider, model: config.fallbackModel || config.model };
-         const result = await fallbackAdapter.chat(messages, fallbackConfig, options);
+         const result = await fallbackAdapter.chat(messages, fallbackConfig, tenantId, options);
          
          await this.onTokenLog({
            tenantId, aiFunction, provider: result.provider, model: result.model,
@@ -59,7 +59,7 @@ export class AIProviderService {
     
     try {
       if (!adapter) throw new Error(`Provider ${config.provider} not initialized`);
-      const result = await adapter.embed(texts, config);
+      const result = await adapter.embed(texts, config, tenantId);
       
       await this.onTokenLog({
         tenantId, aiFunction, provider: result.provider, model: result.model,
@@ -73,7 +73,7 @@ export class AIProviderService {
          console.warn(`[AIProvider] ${config.provider} failed for embed ${aiFunction}. Using fallback ${config.fallbackProvider}.`);
          const fallbackAdapter = this.adapters[config.fallbackProvider];
          const fallbackConfig = { ...config, provider: config.fallbackProvider, model: config.fallbackModel || config.model };
-         const result = await fallbackAdapter.embed(texts, fallbackConfig);
+         const result = await fallbackAdapter.embed(texts, fallbackConfig, tenantId);
          
          await this.onTokenLog({
            tenantId, aiFunction, provider: result.provider, model: result.model,

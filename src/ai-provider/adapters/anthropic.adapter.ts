@@ -1,22 +1,34 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { AIProvider, ProviderConfig, Message, ChatResult, EmbedResult } from "../types";
+import { getAnthropicKey } from "../../lib/dbAdmin";
 
 export class AnthropicAdapter implements AIProvider {
   name: 'anthropic' = 'anthropic';
-  private client: Anthropic;
+  private clients: Map<string, Anthropic> = new Map();
 
-  constructor() {
-    this.client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY || 'dummy_key', dangerouslyAllowBrowser: true });
+  constructor() {}
+
+  private async getClient(tenantId: string): Promise<Anthropic> {
+    const key = await getAnthropicKey(tenantId);
+    if (this.clients.has(key)) return this.clients.get(key)!;
+    
+    const client = new Anthropic({ 
+      apiKey: key,
+      dangerouslyAllowBrowser: true 
+    });
+    this.clients.set(key, client);
+    return client;
   }
 
-  async chat(messages: Message[], config: ProviderConfig, options?: { tools?: any[] }): Promise<ChatResult> {
+  async chat(messages: Message[], config: ProviderConfig, tenantId: string, options?: { tools?: any[] }): Promise<ChatResult> {
+    const client = await this.getClient(tenantId);
     const system = messages.find(m => m.role === 'system')?.content;
     const coreMessages = messages.filter(m => m.role !== 'system').map(m => ({
         role: m.role === 'user' ? 'user' : 'assistant',
         content: m.content
     })) as any;
 
-    const response = await this.client.messages.create({
+    const response = await client.messages.create({
       model: config.model || "claude-3-haiku-20240307",
       max_tokens: config.maxTokens || 1024,
       temperature: config.temperature ?? 0.7,
@@ -43,7 +55,7 @@ export class AnthropicAdapter implements AIProvider {
     };
   }
 
-  async embed(texts: string[], config: ProviderConfig): Promise<EmbedResult> {
+  async embed(texts: string[], config: ProviderConfig, tenantId: string): Promise<EmbedResult> {
     throw new Error('Anthropic does not natively support embeddings currently');
   }
 

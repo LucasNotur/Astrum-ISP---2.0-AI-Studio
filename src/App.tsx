@@ -371,168 +371,124 @@ export default function App() {
   const configureEvolutionWebhook = async () => {
     if (
       !integrationKeys.evolutionUrl ||
-      !integrationKeys.evolutionInstance ||
       !integrationKeys.evolutionApiKey
     ) {
       toast.error(
-        "Preencha a URL, Instância e Global API Key primeiro para configurar o webhook.",
+        "Preencha a URL e Global API Key primeiro para configurar o webhook.",
       );
       return;
     }
 
-    let webhookUrl = `${window.location.origin}/api/webhook/evolution`;
-    try {
-      const sysRes = await fetch("/api/system/webhook-url");
-      if (sysRes.ok) {
-        const sysData = await sysRes.json();
-        if (sysData.webhookUrl) {
-          webhookUrl = sysData.webhookUrl;
+    let instancesToUpdate = [];
+    if (integrationKeys.whatsappInstances) {
+      try {
+        const arr = JSON.parse(integrationKeys.whatsappInstances);
+        instancesToUpdate = arr.map((a: any) => a.instanceName);
+      } catch(e) {}
+    }
+    if (instancesToUpdate.length === 0 && integrationKeys.evolutionInstance) {
+      instancesToUpdate.push(integrationKeys.evolutionInstance);
+    }
+    
+    if (instancesToUpdate.length === 0) {
+      toast.error("Nenhuma conexão de WhatsApp encontrada.");
+      return;
+    }
+
+    let webhookUrl = integrationKeys.evolutionWebhookUrl || `${window.location.origin}/api/webhook/evolution`;
+    if (!integrationKeys.evolutionWebhookUrl) {
+      try {
+        const sysRes = await fetch("/api/system/webhook-url");
+        if (sysRes.ok) {
+          const sysData = await sysRes.json();
+          if (sysData.webhookUrl) {
+            webhookUrl = sysData.webhookUrl;
+          }
         }
+      } catch (err) {
+        console.error("Could not fetch proxy webhook url, using fallback", err);
       }
-    } catch (err) {
-      console.error("Could not fetch proxy webhook url, using fallback", err);
     }
 
     setIsFetchingQr(true);
     try {
-      const payloads = [
-        {
-          // Evolution V2 / set global
-          path: `/webhook/set/${integrationKeys.evolutionInstance}`,
-          body: {
-            webhook: {
+      for (const instance of instancesToUpdate) {
+        const payloads = [
+          {
+            path: `/webhook/set/${instance}`,
+            body: {
+              webhook: {
+                enabled: true,
+                url: webhookUrl,
+                byEvents: false,
+                base64: false,
+                events: ["MESSAGES_UPSERT", "SEND_MESSAGE"],
+              },
+            },
+          },
+          {
+            path: `/webhook/set/${instance}`,
+            body: {
               enabled: true,
               url: webhookUrl,
-              byEvents: false,
-              base64: false,
+              webhookByEvents: false,
               events: ["MESSAGES_UPSERT", "SEND_MESSAGE"],
             },
           },
-        },
-        {
-          // Evolution V1 / set with camelCase
-          path: `/webhook/set/${integrationKeys.evolutionInstance}`,
-          body: {
-            enabled: true,
-            url: webhookUrl,
-            webhookByEvents: false,
-            events: ["MESSAGES_UPSERT", "SEND_MESSAGE"],
-          },
-        },
-        {
-          // Evolution V1 / set with snake_case
-          path: `/webhook/set/${integrationKeys.evolutionInstance}`,
-          body: {
-            enabled: true,
-            url: webhookUrl,
-            webhook_by_events: false,
-            webhook_base64: false,
-            events: ["MESSAGES_UPSERT", "SEND_MESSAGE"],
-          },
-        },
-        {
-          // Evolution V1 / instance (old version some people use)
-          path: `/webhook/instance/${integrationKeys.evolutionInstance}`,
-          body: {
-            webhook: {
+          {
+            path: `/webhook/set/${instance}`,
+            body: {
               enabled: true,
               url: webhookUrl,
-              byEvents: false,
-              base64: false,
+              webhook_by_events: false,
+              webhook_base64: false,
               events: ["MESSAGES_UPSERT", "SEND_MESSAGE"],
             },
           },
-        },
-      ];
+          {
+            path: `/webhook/find/${instance}`,
+          },
+        ];
 
-      let success = false;
-      let lastData = null;
-
-      for (const p of payloads) {
-        console.log(`Tentando payload ${p.path}...`);
-        const res = await fetch(`/api/evolution/proxy`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            path: p.path,
-            method: "POST",
-            evolutionUrl: integrationKeys.evolutionUrl,
-            evolutionApiKey: integrationKeys.evolutionApiKey,
-            body: p.body,
-          }),
-        });
-
-        const data = await res.json();
-        lastData = data;
-
-        if (
-          res.ok &&
-          !data.error &&
-          (!data.response ||
-            !data.response.message ||
-            !Array.isArray(data.response.message) ||
-            data.response.message.length === 0 ||
-            typeof data.response.message === "string")
-        ) {
-          success = true;
-          break;
+        let success = false;
+        for (const pd of payloads) {
+          try {
+            const res = await fetch("/api/evolution/proxy", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                path: pd.path,
+                method: pd.body ? "POST" : "GET",
+                body: pd.body,
+                evolutionUrl: integrationKeys.evolutionUrl,
+                evolutionApiKey: integrationKeys.evolutionApiKey,
+              }),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (
+                data?.webhook?.url === webhookUrl ||
+                data?.url === webhookUrl ||
+                data?.webhook === webhookUrl ||
+                data?.id
+              ) {
+                success = true;
+                break;
+              }
+            }
+          } catch (e) {
+            console.error("Evolution Proxy Error", e);
+          }
         }
       }
-
-      if (success) {
-        toast.success("Webhook configurado com sucesso na Evolution API!");
-      } else {
-        console.error("Falha ao configurar Webhook:", lastData);
-        toast.error(
-          `Falha ao configurar Webhook: ${lastData?.response?.message || lastData?.error || lastData?.message || "Erro de formato esperado no payload"}`,
-        );
-      }
+      
+      toast.success("Webhook configurado em todas as instâncias ativas.");
     } catch (error) {
-      console.error("Evolution Webhook Error:", error);
-      toast.error("Erro ao configurar Webhook da Evolution.");
+      toast.error("Erro ao configurar Webhook. Verifique a URL e Chave.");
     } finally {
       setIsFetchingQr(false);
     }
   };
-
-  const checkEvolutionConnection = async () => {
-    if (
-      !integrationKeys.evolutionUrl ||
-      !integrationKeys.evolutionApiKey ||
-      !integrationKeys.evolutionInstance
-    ) {
-      setEvoStatus("disconnected");
-      return;
-    }
-
-    try {
-      const stateRes = await fetch(`/api/evolution/proxy`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          path: `/instance/connectionState/${integrationKeys.evolutionInstance}`,
-          method: "GET",
-          evolutionUrl: integrationKeys.evolutionUrl,
-          evolutionApiKey: integrationKeys.evolutionApiKey,
-        }),
-      });
-      const stateData = await stateRes.json();
-
-      if (stateData?.instance?.state === "open") {
-        setEvoStatus("connected");
-      } else {
-        setEvoStatus("disconnected");
-      }
-    } catch (e) {
-      console.error("Erro ao checar Evolution", e);
-      setEvoStatus("disconnected");
-    }
-  };
-
-  useEffect(() => {
-    // wait a bit for DB keys to load
-    setTimeout(checkEvolutionConnection, 2000);
-  }, [integrationKeys.evolutionInstance]);
 
   const disconnectEvolutionInstance = async () => {
     if (
@@ -1010,7 +966,7 @@ export default function App() {
 
   // Use canAccess from store
   const checkAccess = (tab: string) => {
-    return canAccess(currentUserRole, tab);
+    return canAccess(currentUserRole, tab, companySettings?.rolePermissions);
   };
 
   const isAstrum = currentUserRole === "admin";
@@ -2893,6 +2849,7 @@ export default function App() {
                   integrationKeys={integrationKeys}
                   setIntegrationKeys={setIntegrationKeys}
                   handleSaveKeys={saveIntegrationKeys}
+                  configureEvolutionWebhook={configureEvolutionWebhook}
                 />
               }
             />

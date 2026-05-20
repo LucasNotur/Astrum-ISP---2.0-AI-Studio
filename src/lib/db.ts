@@ -18,6 +18,7 @@ import {
   arrayUnion,
   deleteField,
   writeBatch,
+  runTransaction,
 } from "firebase/firestore";
 import { db, auth } from "./firebase.ts";
 
@@ -272,7 +273,6 @@ export const updateTicketSessionState = async (
   newSessionState: any,
 ) => {
   try {
-    const { runTransaction } = await import("firebase/firestore");
     await runTransaction(db, async (transaction) => {
       const ticketRef = doc(db, "tickets", ticketId);
       const ticketSnap = await transaction.get(ticketRef);
@@ -866,114 +866,6 @@ export const deleteKBArticle = async (id: string) => {
   } catch (err) {
     handleFirestoreError(err, OperationType.DELETE, `knowledge_base/${id}`);
   }
-};
-
-import { getEmbeddingProvider } from './embeddingProvider';
-import { getVectorStore } from './vectorStore';
-import { logger } from './logger';
-
-export const searchKnowledgeBase = async (
-  searchTerm: string,
-  tenantId: string = "default"
-): Promise<{ text: string; title: string; score: number }[]> => {
-
-  try {
-    const embeddingProvider = await getEmbeddingProvider(tenantId);
-    const vectorStore = await getVectorStore(tenantId);
-
-    // 1. Converter a pergunta do cliente em números (embedding)
-    const queryEmbedding = await embeddingProvider.embed(searchTerm, tenantId);
-
-    // 2. Buscar no banco vetorial os artigos mais parecidos
-    const results = await vectorStore.search(queryEmbedding, tenantId, 3);
-
-    // 3. Filtrar resultados com score muito baixo (pouco relevantes)
-    const MIN_SCORE = parseFloat(process.env.VECTOR_MIN_SCORE ?? '0.7');
-    const relevant = results.filter((r: any) => r.score >= MIN_SCORE);
-
-    if (relevant.length === 0) {
-      logger.info('vector_search_no_results', { tenant_id: tenantId, data: { searchTerm: searchTerm.substring(0, 50) } });
-      return [];
-    }
-
-    logger.info('vector_search_success', {
-      tenant_id: tenantId,
-      data: {
-        results: relevant.length,
-        topScore: relevant[0].score,
-        topTitle: relevant[0].metadata.title
-      }
-    });
-
-    return relevant.map((r: any) => ({
-      text: r.text,
-      title: r.metadata.title,
-      score: r.score
-    }));
-
-  } catch (err: any) {
-    // Fallback para busca simples se vetorial falhar
-    logger.warn('vector_search_failed_fallback', { error: err.message, tenant_id: tenantId });
-    return searchKnowledgeBaseKeyword(searchTerm, tenantId);
-  }
-};
-
-// Manter busca por keyword como fallback
-async function searchKnowledgeBaseKeyword(searchTerm: string, tenantId: string) {
-  const snapshot = await getDocs(query(
-    collection(db, 'knowledge_base'),
-    where('tenant_id', '==', tenantId),
-    limit(3)
-  ));
-  return snapshot.docs.map(d => ({
-    text: d.data().content,
-    title: d.data().title,
-    score: 0.5
-  }));
-}
-
-export const addToKnowledgeBase = async (
-  article: { title: string; content: string; category: string; tenantId: string }
-): Promise<string> => {
-
-  // Salvar no Firestore (fonte de verdade)
-  const docRef = await addDoc(collection(db, 'knowledge_base'), {
-    title: article.title,
-    content: article.content,
-    category: article.category,
-    tenant_id: article.tenantId,
-    created_at: serverTimestamp(),
-    vector_indexed: false
-  });
-
-  try {
-    const embeddingProvider = await getEmbeddingProvider(article.tenantId);
-    const vectorStore = await getVectorStore(article.tenantId);
-
-    // Gerar embedding e salvar no banco vetorial
-    const embedding = await embeddingProvider.embed(
-      `${article.title}\n\n${article.content}`,
-      article.tenantId
-    );
-
-    await vectorStore.upsert({
-      id: docRef.id,
-      text: article.content,
-      embedding,
-      metadata: {
-        tenant_id: article.tenantId,
-        category: article.category,
-        title: article.title
-      }
-    }, article.tenantId);
-
-    // Marcar como indexado no Firestore
-    await updateDoc(docRef, { vector_indexed: true, vector_indexed_at: serverTimestamp() });
-  } catch (err) {
-    logger.warn('Initial vector store indexing failed', { error: err });
-  }
-
-  return docRef.id;
 };
 
 // Real Tools Logic

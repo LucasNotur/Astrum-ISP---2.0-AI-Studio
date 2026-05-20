@@ -5,23 +5,10 @@ import os from "os";
 import crypto from "crypto";
 import path from "path";
 import OpenAI from "openai";
-import {
-  getDocs,
-  query,
-  collection,
-  where,
-  orderBy,
-  limit,
-  addDoc,
-  updateDoc,
-  doc,
-  serverTimestamp,
-  setDoc,
-  getDoc,
-} from "firebase/firestore";
-import { db } from "../lib/firebase";
-import { getIntegrationKeys, decryptCpf, incrementShardedCounter } from "../lib/db";
-import { getAIResponse } from "../lib/gemini";
+import { adminDb as db } from "../lib/firebaseAdmin";
+import admin from "../lib/firebaseAdmin";
+import { getIntegrationKeys, decryptCpf, incrementShardedCounter } from "../lib/dbAdmin";
+import { getAIResponse } from "../lib/gemini.server";
 import { deadLetterQueue, setupDLQ } from "../lib/queue";
 import { logger } from "../lib/logger";
 
@@ -73,16 +60,11 @@ const processMessageJob = async (job: any) => {
       const { customerId, tenantId, osId, installedPlan } = job.data;
       
       const last24h = new Date(Date.now() - 86400000);
-      const Timestamp = (await import("firebase/firestore")).Timestamp;
+      const { Timestamp } = await import("firebase-admin/firestore");
       
-      const recentSupport = await getDocs(
-        query(
-          collection(db, 'tickets'),
-          where('customerId', '==', customerId),
-          // Fallback verification since we already query customer ticket:
-          // Just check if there's any recent ticket 
-        )
-      );
+      const recentSupport = await db.collection('tickets')
+        .where('customerId', '==', customerId)
+        .get();
 
       const hasRecentTicket = recentSupport.docs.some(d => {
          const createdAt = d.data().createdAt?.toDate ? d.data().createdAt.toDate() : new Date();
@@ -91,9 +73,9 @@ const processMessageJob = async (job: any) => {
       
       const templateName = hasRecentTicket ? 'pos_instalacao_com_problema' : 'pos_instalacao_ok';
       
-      const customerSnap = await getDocs(query(collection(db, "customers"), where("__name__", "==", customerId)));
-      if (!customerSnap.empty) {
-        const customer = customerSnap.docs[0].data();
+      const customerSnap = await db.collection("customers").doc(customerId).get();
+      if (customerSnap.exists) {
+        const customer = customerSnap.data() as any;
         if (customer.phone) {
           const keys = await getIntegrationKeys();
           const evoUrl = keys.evolutionUrl?.replace(/\/+$/, "");
@@ -113,9 +95,9 @@ const processMessageJob = async (job: any) => {
               body: JSON.stringify({ number: remoteJid, text: textToSend }),
             });
             
-            await updateDoc(doc(db, "service_orders", osId), {
+            await db.collection("service_orders").doc(osId).update({
               pos_instalacao_sent: true,
-              pos_instalacao_sent_at: serverTimestamp()
+              pos_instalacao_sent_at: admin.firestore.FieldValue.serverTimestamp()
             });
           }
         }
@@ -126,17 +108,17 @@ const processMessageJob = async (job: any) => {
     if (job.name === 'sla_warning') {
       const { ticketId, level, tenantId, customerId } = job.data;
       
-      const ticketSnap = await getDoc(doc(db, 'tickets', ticketId));
-      if (!ticketSnap.exists()) return;
-      const tData = ticketSnap.data();
+      const ticketSnap = await db.collection('tickets').doc(ticketId).get();
+      if (!ticketSnap.exists) return;
+      const tData = ticketSnap.data() as any;
       
       // Verificar se humano já respondeu — se sim, cancelar
       if (tData.human_responded) return;
       if (tData.status === 'resolved' || tData.status === 'closed') return;
 
-      const customerSnap = await getDocs(query(collection(db, "customers"), where("__name__", "==", customerId)));
-      if (!customerSnap.empty) {
-        const customer = customerSnap.docs[0].data();
+      const customerSnap = await db.collection("customers").doc(customerId).get();
+      if (customerSnap.exists) {
+        const customer = customerSnap.data() as any;
         if (customer.phone) {
           const keys = await getIntegrationKeys();
           const evoUrl = keys.evolutionUrl?.replace(/\/+$/, "");
@@ -150,13 +132,13 @@ const processMessageJob = async (job: any) => {
           } else if (level === 2) {
             textToSend = "Pedimos desculpas pela espera. Estou escalando para um supervisor agora. Você será atendido em instantes.";
             // Notificar gerente
-            await addDoc(collection(db, "notifications"), {
+            await db.collection("notifications").add({
               title: "ALERTA DE SLA",
               message: `Ticket ${ticketId} sem resposta humana há 15 minutos!`,
               type: "sla_breach",
               ticketId,
               tenantId,
-              createdAt: serverTimestamp(),
+              createdAt: admin.firestore.FieldValue.serverTimestamp(),
               read: false
             });
           }
@@ -167,11 +149,11 @@ const processMessageJob = async (job: any) => {
               headers: { "Content-Type": "application/json", apikey: evoApiKey },
               body: JSON.stringify({ number: remoteJid, text: textToSend }),
             });
-            await addDoc(collection(db, `tickets/${ticketId}/messages`), {
+            await db.collection(`tickets/${ticketId}/messages`).add({
               ticketId,
               senderType: "ai",
               text: textToSend,
-              createdAt: serverTimestamp(),
+              createdAt: admin.firestore.FieldValue.serverTimestamp(),
             });
           }
         }
@@ -182,9 +164,9 @@ const processMessageJob = async (job: any) => {
     if (job.name === 'send_csat') {
       const { ticketId, customerId, tenantId, category, resolved_by } = job.data;
       
-      const customerSnap = await getDocs(query(collection(db, "customers"), where("__name__", "==", customerId)));
-      if (!customerSnap.empty) {
-        const cData = customerSnap.docs[0].data();
+      const customerSnap = await db.collection("customers").doc(customerId).get();
+      if (customerSnap.exists) {
+        const cData = customerSnap.data() as any;
 
         // Enviar CSAT
         const keys = await getIntegrationKeys();
@@ -202,7 +184,7 @@ const processMessageJob = async (job: any) => {
             body: JSON.stringify({ number: remotePhone, text: csatText }),
           });
           
-          await updateDoc(doc(db, "tickets", ticketId), {
+          await db.collection("tickets").doc(ticketId).update({
             "session_state.awaiting_csat": true,
             "session_state.csat_resolved_by": resolved_by,
             "session_state.csat_category": category,
@@ -258,7 +240,8 @@ const processMessageJob = async (job: any) => {
     
     if (isAudio && audioUrl) {
       const { transcribeAudio } = await import("../lib/transcription");
-      const transcription = await transcribeAudio(audioUrl);
+      const whisperKey = keys.openaiWhisper || keys.openaiGlobal || keys.openaiChat;
+      const transcription = await transcribeAudio(audioUrl, whisperKey as string);
       if (transcription) {
         textMessage = `[Áudio transcrito]: ${transcription}`;
         logger.info('whisper_transcribed', { ...logCtx, data: { partial: transcription.substring(0, 100) } });
@@ -346,33 +329,20 @@ const processMessageJob = async (job: any) => {
         let targetTicketId = ticketMatch ? ticketMatch[1] : null;
 
         if (!targetTicketId) {
-          const lastEscalated = await getDocs(
-            query(
-              collection(db, "tickets"),
-              where("status", "==", "escalated"),
-              orderBy("createdAt", "desc"),
-              limit(1),
-            ),
-          );
+          const lastEscalated = await db.collection("tickets")
+            .where("status", "==", "escalated")
+            .orderBy("createdAt", "desc")
+            .limit(1)
+            .get();
           if (!lastEscalated.empty) targetTicketId = lastEscalated.docs[0].id;
         }
 
         if (targetTicketId) {
-          const tDoc = await getDocs(
-            query(
-              collection(db, "tickets"),
-              where("__name__", "==", targetTicketId),
-            ),
-          );
+          const tDoc = await db.collection("tickets").where("__name__", "==", targetTicketId).get();
           if (!tDoc.empty) {
             const ticketData = tDoc.docs[0].data();
             const customerId = ticketData.customerId;
-            const cDoc = await getDocs(
-              query(
-                collection(db, "customers"),
-                where("__name__", "==", customerId),
-              ),
-            );
+            const cDoc = await db.collection("customers").where("__name__", "==", customerId).get();
 
             if (!cDoc.empty) {
               const customerPhone = cDoc.docs[0].data().phone;
@@ -383,15 +353,12 @@ const processMessageJob = async (job: any) => {
 
               logger.info("relay_sent_client", { ...logCtx, phone_last4: customerPhone?.slice(-4) });
 
-              await addDoc(
-                collection(db, `tickets/${targetTicketId}/messages`),
-                {
-                  ticketId: targetTicketId,
-                  senderType: "human",
-                  text: cleanMsg,
-                  createdAt: serverTimestamp(),
-                },
-              );
+              await db.collection(`tickets/${targetTicketId}/messages`).add({
+                ticketId: targetTicketId,
+                senderType: "human",
+                text: cleanMsg,
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+              });
 
               await fetch(`${evoUrl}/message/sendText/${evoInstance}`, {
                 method: "POST",
@@ -492,35 +459,7 @@ const processMessageJob = async (job: any) => {
         }
       }
 
-      // 3. Language check (English / Spanish bypass)
-      if (processedTextMessage) {
-        const lowerMsg = processedTextMessage.toLowerCase().trim();
-        const englishRegex = /^(hello|hi\b|hey\b|good morning|good afternoon|good evening|how are you|i want to|can you|please\b|help\b)/;
-        const spanishRegex = /^(hola|buenos d[íi]as|buenas tardes|buenas noches|c[óo]mo est[áa]s|quiero|puedes|por favor|ayuda\b)/;
-        
-        let languageWarning = null;
-        if (englishRegex.test(lowerMsg)) {
-           languageWarning = "Hello! Our support is currently only available in Portuguese. How can I help you today? / Olá! Nosso atendimento é fornecido exclusivamente em português. Como posso ajudar?";
-        } else if (spanishRegex.test(lowerMsg)) {
-           languageWarning = "¡Hola! Nuestro soporte actualmente solo está disponible en portugués. ¿En qué te puedo ayudar hoy? / Olá! Nosso atendimento é fornecido exclusivamente em português. Como posso ajudar?";
-        }
-
-        if (languageWarning) {
-          logger.info("foreign_language_detected", { ...logCtx, data: { warning: languageWarning } });
-          await fetch(`${evoUrl}/message/sendText/${evoInstance}`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              apikey: evoApiKey,
-            },
-            body: JSON.stringify({
-              number: remoteJid,
-              text: languageWarning,
-            }),
-          });
-          return;
-        }
-      }
+      // Language check removed
 
       if (!processedTextMessage) {
         logger.info("skipped_unsupported_media", logCtx);
@@ -532,7 +471,7 @@ const processMessageJob = async (job: any) => {
         .replace(/\D/g, "");
       const { safeFirestoreGet } = await import("../lib/dbSafe");
       const { data: custSnap, degraded: custDegraded } = await safeFirestoreGet(
-        () => getDocs(query(collection(db, "customers"))),
+        () => db.collection("customers").get(),
         { docs: [] as any[] } as any,
         'customer_lookup'
       );
@@ -584,7 +523,7 @@ const processMessageJob = async (job: any) => {
             else if (picData?.pictureUrl) profilePicUrl = picData.pictureUrl;
 
             if (profilePicUrl) {
-              await updateDoc(doc(db, "customers", customerId), {
+              await db.collection("customers").doc(customerId).update({
                 avatar: profilePicUrl,
               });
             }
@@ -610,7 +549,7 @@ const processMessageJob = async (job: any) => {
           else if (picData?.pictureUrl) profilePicUrl = picData.pictureUrl;
         } catch (e) {}
 
-        const newCust = await addDoc(collection(db, "customers"), {
+        const newCust = await db.collection("customers").add({
           name: pushName,
           phone: phoneOnly,
           email: "",
@@ -618,7 +557,7 @@ const processMessageJob = async (job: any) => {
           mrr: 0,
           status: "lead",
           avatar: profilePicUrl,
-          createdAt: serverTimestamp(),
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
         customerId = newCust.id;
       }
@@ -630,39 +569,37 @@ const processMessageJob = async (job: any) => {
 
       // CSAT Check
       if (processedTextMessage && /^[1-5]$/.test(processedTextMessage.trim())) {
-        const { orderBy, limit } = await import("firebase/firestore");
-        const csatCheckQ = query(
-          collection(db, "tickets"),
-          where("customerId", "==", customerId),
-          orderBy("createdAt", "desc"),
-          limit(1)
-        );
-        const csatSnap = await getDocs(csatCheckQ);
+
+        const csatCheckQ = db.collection("tickets")
+          .where("customerId", "==", customerId)
+          .orderBy("createdAt", "desc")
+          .limit(1);
+        const csatSnap = await csatCheckQ.get();
         if (!csatSnap.empty) {
           const lastTicketDoc = csatSnap.docs[0];
-          const lastTicketData = lastTicketDoc.data();
+          const lastTicketData = lastTicketDoc.data() as any;
           if (lastTicketData.session_state?.awaiting_csat) {
             const score = parseInt(processedTextMessage.trim());
             const tenantIdCheck = lastTicketData.tenantId;
             if (!tenantIdCheck) throw new Error('TENANT_ID_MISSING');
             const tenantId = tenantIdCheck;
 
-            await addDoc(collection(db, 'csat_ratings'), {
-              ticket_id: lastTicketDoc.id,
-              customer_id: customerId,
-              tenant_id: tenantId,
+            await db.collection('csat_ratings').add({
+              ticketId: lastTicketDoc.id,
+              customerId: customerId,
+              tenantId: tenantId,
               score,
-              resolved_by: lastTicketData.session_state.csat_resolved_by || 'unknown',
-              category: lastTicketData.session_state.csat_category || 'unknown',
-              created_at: serverTimestamp()
+              resolved_by: lastTicketData.session_state?.csat_resolved_by || 'unknown',
+              category: lastTicketData.session_state?.csat_category || 'unknown',
+              createdAt: admin.firestore.FieldValue.serverTimestamp()
             });
 
-            await updateDoc(doc(db, 'customers', customerId), {
+            await db.collection('customers').doc(customerId).update({
               'last_csat_score': score,
-              'last_csat_at': serverTimestamp()
+              'last_csat_at': admin.firestore.FieldValue.serverTimestamp()
             });
 
-            await updateDoc(doc(db, "tickets", lastTicketDoc.id), {
+            await db.collection("tickets").doc(lastTicketDoc.id).update({
               "session_state.awaiting_csat": false
             });
 
@@ -680,7 +617,7 @@ const processMessageJob = async (job: any) => {
 
             if (score <= 2) {
               // Create improvement ticket
-              await addDoc(collection(db, "tickets"), {
+              await db.collection("tickets").add({
                 customerId,
                 tenantId,
                 subject: `Baixa Satisfação (CSAT: ${score}) - Melhoria`,
@@ -688,17 +625,17 @@ const processMessageJob = async (job: any) => {
                 priority: "high",
                 tags: ["low_csat"],
                 aiEnabled: false,
-                createdAt: serverTimestamp(),
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 description: `O cliente avaliou o último atendimento com nota ${score}. Verifique o ticket original: ${lastTicketDoc.id}`
               });
               
-              await addDoc(collection(db, "notifications"), {
+              await db.collection("notifications").add({
                 title: "ALERTA DE CSAT BAIXO",
                 message: `O cliente ${cDataForContext.name} avaliou o atendimento com nota ${score}! Ticket gerado para melhoria.`,
                 type: "low_csat",
                 customerId,
                 tenantId,
-                createdAt: serverTimestamp(),
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 read: false
               });
             }
@@ -709,10 +646,10 @@ const processMessageJob = async (job: any) => {
 
       let ticketData: any = {};
       if (ticketId) {
-        const tDocRef = doc(db, "tickets", ticketId);
+        const tDocRef = db.collection("tickets").doc(ticketId);
         const { data: tDocSnap, degraded: ticketDegraded } = await safeFirestoreGet(
-          () => getDoc(tDocRef),
-          { exists: () => false } as any,
+          () => tDocRef.get(),
+          { exists: false } as any,
           'ticket_lookup'
         );
         if (ticketDegraded) {
@@ -721,24 +658,22 @@ const processMessageJob = async (job: any) => {
           await enqueueMessage(tenantId, job.data, { delay: 120000 });
           return;
         }
-        if (tDocSnap.exists()) {
-          ticketData = tDocSnap.data();
-          if (!ticketData.customerId && customerId) {
-            await updateDoc(tDocRef, { customerId });
+        if (tDocSnap.exists) {
+          ticketData = tDocSnap.data() as any;
+          if ((!ticketData.customerId || ticketData.customerId === remoteJid) && customerId) {
+            await tDocRef.update({ customerId });
           }
         }
       } else {
         // Fallback robusto se n tiver ticketId no worker (nao deve ocorrer pela mudança no server.ts)
-        const tQuery = query(
-          collection(db, "tickets"),
-          where("customerId", "==", customerId),
-          where("status", "in", ["open", "in-progress", "escalated"]),
-        );
-        const tSnap = await getDocs(tQuery);
+        const tQuery = db.collection("tickets")
+          .where("customerId", "==", customerId)
+          .where("status", "in", ["open", "in-progress", "escalated"]);
+        const tSnap = await tQuery.get();
 
         const validOpenDocs = [];
         for (const docSnap of tSnap.docs) {
-          const tDocData = docSnap.data();
+          const tDocData = docSnap.data() as any;
           if (!tDocData.createdAt) {
             validOpenDocs.push(docSnap);
             continue;
@@ -751,9 +686,9 @@ const processMessageJob = async (job: any) => {
                 : Date.now())) /
             (1000 * 60 * 60);
           if (ageHours > 24) {
-            await updateDoc(doc(db, "tickets", docSnap.id), {
+            await db.collection("tickets").doc(docSnap.id).update({
               status: "resolved",
-              resolvedAt: serverTimestamp()
+              resolvedAt: admin.firestore.FieldValue.serverTimestamp()
             });
 
             // Schedule CSAT since ticket was auto-resolved
@@ -778,15 +713,16 @@ const processMessageJob = async (job: any) => {
           ticketId = theDoc.id;
           ticketData = theDoc.data();
         } else {
-          const ticketSubjectName = cDoc ? cDoc.data().name : pushName;
-          const newTick = await addDoc(collection(db, "tickets"), {
+          const ticketSubjectName = (cDoc as any) ? (cDoc as any).data().name : pushName;
+          const newTick = await db.collection("tickets").add({
             customerId,
+            tenantId,
             subject: ticketSubjectName || "Desconhecido",
             status: "open",
             priority: "medium",
             aiEnabled: true,
             aiAttempts: 0,
-            createdAt: serverTimestamp(),
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
           });
           ticketId = newTick.id;
           ticketData = { aiEnabled: true, status: "open", session_state: { active_flow: "IDLE" } };
@@ -795,18 +731,16 @@ const processMessageJob = async (job: any) => {
       
       // Detecção de Reagendamento (D-1)
       if (processedTextMessage.toLowerCase().includes("reagendar")) {
-        const d1Query = query(
-          collection(db, "service_orders"),
-          where("customer_id", "==", customerId),
-          where("status", "==", "agendada"),
-          where("d1_confirmation_sent", "==", true)
-        );
-        const d1Snap = await getDocs(d1Query);
+        const d1Snap = await db.collection("service_orders")
+          .where("customer_id", "==", customerId)
+          .where("status", "==", "agendada")
+          .where("d1_confirmation_sent", "==", true)
+          .get();
         if (!d1Snap.empty) {
           const osId = d1Snap.docs[0].id;
           if (ticketData?.session_state?.active_flow !== "REAGENDAMENTO") {
             ticketData.session_state = { active_flow: "REAGENDAMENTO", os_id: osId, agent: "Maria Suporte" };
-            await updateDoc(doc(db, "tickets", ticketId), {
+            await db.collection("tickets").doc(ticketId).update({
               "session_state": ticketData.session_state
             });
             callerContext = `\n[SISTEMA: O cliente respondeu "Reagendar" à mensagem de confirmação de visita. A OS do cliente é ${osId}. Conduza o cancelamento/reagendamento da OS.]\n` + callerContext;
@@ -814,63 +748,35 @@ const processMessageJob = async (job: any) => {
         }
       }
 
-      await addDoc(collection(db, `tickets/${ticketId}/messages`), {
+      await db.collection(`tickets/${ticketId}/messages`).add({
         ticketId,
         senderType: "customer",
         text: processedTextMessage,
-        createdAt: serverTimestamp(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      await updateDoc(doc(db, "tickets", ticketId), {
-        lastMessageAt: serverTimestamp()
+      await db.collection("tickets").doc(ticketId).update({
+        lastMessageAt: admin.firestore.FieldValue.serverTimestamp()
       });
+
+      if (job.data.isHistoricalSync) {
+        logger.info('historical_sync_saved_no_ai', logCtx);
+        return;
+      }
 
       if (ticketData.aiEnabled === false || ticketData.status === "escalated") {
         logger.info("ai_disabled_or_escalated", logCtx);
         return;
       }
 
-      // PARTE A — Mensagem em idioma estrangeiro
+      // PARTE A removida: O LLM agora lidará com a detecção de idioma e respostas estrangeiras naturalmente.
+      
       const checkText = processedTextMessage ?? '';
-      const isPortuguese = /[ãõáéíóúâêîôûàèìòùç]/i.test(checkText) || checkText.length < 10;
-      const hasSpanish = /\b(hola|gracias|como|está|necesito|quiero|ayuda|internet|servicio)\b/i.test(checkText);
-      const hasEnglish = /\b(hello|hi|help|internet|service|need|want|please|thanks)\b/i.test(checkText);
-
-      if (!isPortuguese && (hasSpanish || hasEnglish)) {
-        const lang = hasSpanish ? 'espanhol' : 'inglês';
-        const escMsg = hasSpanish
-          ? 'Hola! Nuestro servicio es en portugués. ¿Puedo conectarte con un agente que te ayude?'
-          : 'Hello! Our service is in Portuguese. Can I connect you with an agent who can help you?';
-
-        await fetch(`${evoUrl}/message/sendText/${evoInstance}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", apikey: evoApiKey },
-          body: JSON.stringify({ number: remoteJid, text: escMsg }),
-        });
-
-        await addDoc(collection(db, `tickets/${ticketId}/messages`), {
-          ticketId,
-          senderType: "ai",
-          text: escMsg,
-          createdAt: serverTimestamp(),
-        });
-
-        await updateDoc(doc(db, "tickets", ticketId), {
-          status: "escalated",
-          aiEnabled: false,
-          escalation_reason: "FOREIGN_LANGUAGE",
-          escalation_lang: lang
-        });
-        return;
-      }
-
-      const msgSnap = await getDocs(
-        query(
-          collection(db, `tickets/${ticketId}/messages`),
-          orderBy("createdAt", "desc"),
-          limit(50)
-        )
-      );
+      
+      const msgSnap = await db.collection(`tickets/${ticketId}/messages`)
+        .orderBy("createdAt", "desc")
+        .limit(50)
+        .get();
       let historyBuffer: any[] = [];
 
       const sortedMsgs = msgSnap.docs
@@ -937,7 +843,7 @@ const processMessageJob = async (job: any) => {
       if (payload?.location_cep_detected) {
         sessionState.location_cep_detected = payload.location_cep_detected;
         sessionState.location_source = 'gps';
-        await updateDoc(doc(db, "tickets", ticketId), {
+        await db.collection("tickets").doc(ticketId).update({
           session_state: sessionState
         });
       }
@@ -961,7 +867,7 @@ const processMessageJob = async (job: any) => {
         
         if (aiResult.referral_source) {
           try {
-            await updateDoc(doc(db, "tickets", ticketId), {
+            await db.collection("tickets").doc(ticketId).update({
               "session_state.referral_source": aiResult.referral_source
             });
             logger.info('referral_source_recorded', { ...logCtx, data: { source: aiResult.referral_source } });
@@ -989,7 +895,7 @@ const processMessageJob = async (job: any) => {
         const { logSecurityEvent } = await import("../lib/audit");
         await logSecurityEvent('MINOR_DETECTED', { ticketId, tenantId });
 
-        await updateDoc(doc(db, "tickets", ticketId), {
+        await db.collection("tickets").doc(ticketId).update({
            "session_state.minor_detected": true,
            "session_state.active_flow": "BLOCKED"
         });
@@ -1005,36 +911,36 @@ const processMessageJob = async (job: any) => {
         try {
           // just keeping log event, but no console needed
           logger.info('ai_usage', { ...logCtx, data: aiResult.usage });
-          await addDoc(collection(db, `ai_usage`), {
+          await db.collection(`ai_usage`).add({
             ticketId,
             customerId: customerId || "unknown",
             category: aiResult.category || "UNKNOWN",
             promptTokens: aiResult.usage.prompt_tokens,
             completionTokens: aiResult.usage.completion_tokens,
             totalTokens: aiResult.usage.total_tokens,
-            createdAt: serverTimestamp(),
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
           });
         } catch (e) {}
       }
 
-      await addDoc(collection(db, `tickets/${ticketId}/messages`), {
+      await db.collection(`tickets/${ticketId}/messages`).add({
         ticketId,
         senderType: "ai",
         category: aiResult.category || "SAC_GERAL",
         text: aiResult.message,
-        createdAt: serverTimestamp(),
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       if (traceId) {
         try {
-          await addDoc(collection(db, `tickets/${ticketId}/message_traces`), {
+          await db.collection(`tickets/${ticketId}/message_traces`).add({
             trace_id: traceId,
             message_id: messageId || crypto.randomUUID(),
-            category: aiResult.category,
-            agent: aiResult.session_state_update?.agent || aiResult.category,
+            category: aiResult.category || "UNKNOWN",
+            agent: aiResult.session_state_update?.agent || aiResult.category || "UNKNOWN",
             tools_called: aiResult.tools_called || [],
             latency_ms: Date.now() - workerStartTime,
-            timestamp: serverTimestamp()
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
           });
         } catch (traceErr: any) {
           logger.error("error_saving_trace", { ...logCtx, error: traceErr.message });
@@ -1042,18 +948,18 @@ const processMessageJob = async (job: any) => {
       }
 
       if (aiResult.shouldEscalate) {
-        await updateDoc(doc(db, "tickets", ticketId), {
+        await db.collection("tickets").doc(ticketId).update({
           status: "escalated",
           aiEnabled: false,
         });
 
         const systemMsg =
           "[SISTEMA]: A IA não conseguiu resolver ou requer verificação manual. O ticket foi transferido para a central da empresa mãe.";
-        await addDoc(collection(db, `tickets/${ticketId}/messages`), {
+        await db.collection(`tickets/${ticketId}/messages`).add({
           ticketId,
           senderType: "system",
           text: systemMsg,
-          createdAt: serverTimestamp(),
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
 
         if (supportRelayNumber) {
@@ -1130,9 +1036,8 @@ async function startWorkers() {
   }
 
   try {
-    const { getDocs, collection, where, query } = await import("firebase/firestore");
-    const { db } = await import("../lib/firebase");
-    const tenantsSnap = await getDocs(query(collection(db, 'tenants'), where('active', '==', true)));
+    const { adminDb: db } = await import("../lib/firebaseAdmin");
+    const tenantsSnap = await db.collection('tenants').where('active', '==', true).get();
 
     for (const tenant of tenantsSnap.docs) {
       const tenantId = tenant.id;

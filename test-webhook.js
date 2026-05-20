@@ -3,6 +3,7 @@ fetch("http://localhost:3000/api/webhook/evolution", {
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
     event: "messages.upsert",
+    instance: "Astrum",
     data: {
       message: { extendedTextMessage: { text: "Teste de sincronismo ao vivo" } },
       key: { remoteJid: "5511999999999@s.whatsapp.net", fromMe: false }

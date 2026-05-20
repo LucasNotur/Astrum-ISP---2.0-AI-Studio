@@ -14,7 +14,7 @@ import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger }
 import { 
   Users, Plus, Search, Filter, MoreVertical, Edit2, ShieldAlert, Zap, X, MapPin, Phone, Mail, Building, Bell, Copy, CheckCircle2, Eye, Upload, Download, Clock
 } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/src/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuCheckboxItem } from "@/src/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { createCustomer, updateCustomer as updateCustomerDb } from '@/src/lib/db';
 import { cn } from "@/src/lib/utils";
@@ -28,6 +28,17 @@ export function CustomersPage() {
   const [customerStatusFilter, setCustomerStatusFilter] = useState('all');
   const [customerPlanFilter, setCustomerPlanFilter] = useState('all');
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
+  const [selectedTagsFilter, setSelectedTagsFilter] = useState<string[]>([]);
+  
+  const allTags = useMemo(() => {
+    const tags = new Set<string>();
+    customers.forEach(c => {
+      if (Array.isArray(c.tags)) {
+        c.tags.forEach((t: string) => tags.add(t));
+      }
+    });
+    return Array.from(tags).sort();
+  }, [customers]);
   
   React.useEffect(() => {
     const timer = setTimeout(() => {
@@ -67,9 +78,11 @@ export function CustomersPage() {
         (customerPlanFilter === 'Fibra' && c.plan?.includes('Fibra')) ||
         (customerPlanFilter === 'Radio' && c.plan?.includes('Rádio'));
         
-      return matchesSearch && matchesStatus && matchesPlan;
+      const matchesTags = selectedTagsFilter.length === 0 || selectedTagsFilter.some(tag => c.tags?.includes(tag));
+        
+      return matchesSearch && matchesStatus && matchesPlan && matchesTags;
     });
-  }, [customers, customerSearch, customerStatusFilter, customerPlanFilter]);
+  }, [customers, customerSearch, customerStatusFilter, customerPlanFilter, selectedTagsFilter]);
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -294,6 +307,52 @@ export function CustomersPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 w-full md:w-auto">
+                      {allTags.length > 0 && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="h-10 w-full md:w-auto justify-between gap-2 border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 border font-normal px-3">
+                              <span className="truncate text-sm">
+                                {selectedTagsFilter.length === 0 
+                                  ? "Tags" 
+                                  : `${selectedTagsFilter.length} tag${selectedTagsFilter.length > 1 ? 's' : ''}`}
+                              </span>
+                              <Filter size={14} className="text-zinc-500" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-[200px]">
+                            <DropdownMenuLabel>Filtrar por Tags</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <div className="max-h-[300px] overflow-y-auto">
+                              {allTags.map((tag) => (
+                                <DropdownMenuCheckboxItem
+                                  key={tag}
+                                  checked={selectedTagsFilter.includes(tag)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setSelectedTagsFilter([...selectedTagsFilter, tag]);
+                                    } else {
+                                      setSelectedTagsFilter(selectedTagsFilter.filter((t) => t !== tag));
+                                    }
+                                  }}
+                                >
+                                  {tag}
+                                </DropdownMenuCheckboxItem>
+                              ))}
+                            </div>
+                            {selectedTagsFilter.length > 0 && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  className="justify-center text-xs text-red-500 font-medium" 
+                                  onSelect={(e) => { e.preventDefault(); setSelectedTagsFilter([]); }}
+                                >
+                                  Limpar Filtro
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                       <select 
                         className="flex h-10 w-full md:w-[140px] items-center justify-between rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm ring-offset-white dark:ring-offset-zinc-950 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-zinc-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                         value={customerStatusFilter}

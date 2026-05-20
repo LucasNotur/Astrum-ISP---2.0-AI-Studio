@@ -10,12 +10,17 @@ import { toast } from "sonner";
 import { Avatar, AvatarFallback } from '@/src/components/ui/avatar';
 import { cn } from '@/src/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/src/components/ui/dialog";
+import { useAppStore } from '@/src/store/useAppStore';
+import { db } from '@/src/lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 export function WhatsAppConnectionsPage({
   integrationKeys,
   setIntegrationKeys,
-  handleSaveKeys
+  handleSaveKeys,
+  configureEvolutionWebhook
 }: any) {
+  const { user, companySettings } = useAppStore();
   const [connections, setConnections] = useState<any[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newConn, setNewConn] = useState({ instanceName: '', alias: '' });
@@ -41,11 +46,19 @@ export function WhatsAppConnectionsPage({
     }
   }, [integrationKeys]);
 
-  const saveConnections = (newConnections: any[]) => {
+  const saveConnections = async (newConnections: any[]) => {
     const jsonStr = JSON.stringify(newConnections);
     setIntegrationKeys((prev: any) => ({ ...prev, whatsappInstances: jsonStr }));
     if (handleSaveKeys) {
       handleSaveKeys({ ...integrationKeys, whatsappInstances: jsonStr });
+    }
+    
+    const tId = companySettings?.tenant_id || user?.tenantId || 'default';
+    const instanceNames = newConnections.map(c => c.instanceName);
+    try {
+      await updateDoc(doc(db, 'tenants', tId), { evolution_instances: instanceNames });
+    } catch(e) {
+      console.warn("Could not update tenants evolution_instances", e);
     }
   };
 

@@ -51,6 +51,6 @@ export interface TokenLog {
 
 export interface AIProvider {
   name: ProviderName;
-  chat(messages: Message[], config: ProviderConfig, options?: { tools?: any[] }): Promise<ChatResult>;
-  embed(texts: string[], config: ProviderConfig): Promise<EmbedResult>;
+  chat(messages: Message[], config: ProviderConfig, tenantId: string, options?: { tools?: any[] }): Promise<ChatResult>;
+  embed(texts: string[], config: ProviderConfig, tenantId: string): Promise<EmbedResult>;
 }

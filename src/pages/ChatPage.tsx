@@ -773,7 +773,7 @@ export function ChatPage() {
                                {m.senderType === 'ai' ? (
                                  <>
                                    <Bot size={10} />
-                                   Agente {m.category ? (AGENT_CATEGORIES[m.category as keyof typeof AGENT_CATEGORIES] || m.category) : 'IA'}
+                                   Agente {m.category ? (AGENT_CATEGORIES[m.category as keyof typeof AGENT_CATEGORIES]?.name || m.category) : 'IA'}
                                  </>
                                ) : (
                                  <>

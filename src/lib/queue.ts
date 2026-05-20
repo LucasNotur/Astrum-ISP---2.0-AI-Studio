@@ -30,17 +30,16 @@ export function setupDLQ(worker: any) {
     const maxAttempts = job.opts?.attempts ?? 3;
     if (attempts >= maxAttempts) {
       try {
-        const { db } = await import("./firebase");
-        const { collection, addDoc, serverTimestamp } = await import("firebase/firestore");
+        const { adminDb: db } = await import("./firebaseAdmin");
         // Mover para DLQ no Firestore para visibilidade
-        await addDoc(collection(db, 'dead_letter_queue'), {
+        await db.collection('dead_letter_queue').add({
           job_id: job.id,
           job_name: job.name,
           job_data: job.data,
           error_message: err.message,
           error_stack: err.stack?.substring(0, 500),
           attempts: attempts,
-          failed_at: serverTimestamp(),
+          failed_at: new Date(),
           tenant_id: job.data?.tenantId ?? 'unknown',
           resolved: false
         });
@@ -92,9 +91,8 @@ export async function getAggregateJobCounts(...types: any[]): Promise<Record<str
   if (isMockRedis) return result;
 
   try {
-    const { db } = await import("./firebase");
-    const { collection, getDocs, where, query } = await import("firebase/firestore");
-    const tenantsSnap = await getDocs(query(collection(db, 'tenants'), where('active', '==', true)));
+    const { adminDb: db } = await import("./firebaseAdmin");
+    const tenantsSnap = await db.collection('tenants').where('active', '==', true).get();
     
     for (const tenant of tenantsSnap.docs) {
       const queue = getTenantQueue(tenant.id);
@@ -127,10 +125,9 @@ export async function getMessagePriority(customerId: string, tenantId: string): 
   }
 
   try {
-    const { db } = await import("./firebase");
-    const { doc, getDoc } = await import("firebase/firestore");
+    const { adminDb: db } = await import("./firebaseAdmin");
     
-    const customerDoc = await getDoc(doc(db, 'customers', customerId));
+    const customerDoc = await db.collection('customers').doc(customerId).get();
     const planId = customerDoc.data()?.plan_id;
 
     // Quanto menor o número, maior a prioridade no BullMQ

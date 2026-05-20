@@ -81,15 +81,16 @@ interface AppState {
   setSelectedInvoiceDetails: (details: any) => void;
 }
 
-const rolePermissions: Record<string, string[]> = {
+const defaultRolePermissions: Record<string, string[]> = {
   admin: ['dashboard', 'customers', 'tickets', 'os', 'chat', 'map', 'kb', 'billing', 'team', 'ai-config', 'whatsapp', 'settings', 'inventory', 'observability', 'monitoring', 'cobrai', 'quality-monitor'],
   owner: ['dashboard', 'customers', 'tickets', 'chat', 'billing', 'team', 'os', 'ai-config', 'settings', 'whatsapp', 'inventory', 'map', 'observability', 'monitoring', 'cobrai', 'quality-monitor'],
   support: ['dashboard', 'customers', 'tickets', 'chat', 'ai-config'],
   tecnico: ['os']
 };
 
-export const canAccess = (role: 'admin' | 'owner' | 'support' | 'tecnico', tab: string) => {
-  return rolePermissions[role]?.includes(tab);
+export const canAccess = (role: 'admin' | 'owner' | 'support' | 'tecnico' | string, tab: string, customPermissions?: Record<string, string[]>) => {
+  const permissions = customPermissions && Object.keys(customPermissions).length > 0 ? customPermissions : defaultRolePermissions;
+  return permissions[role]?.includes(tab) || false;
 };
 
 export const useAppStore = create<AppState>((set) => ({

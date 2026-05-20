@@ -216,6 +216,36 @@
         "currentTask": { "type": "string" }
       },
       "required": ["name", "phone", "status"]
+    },
+    "AIProviderConfig": {
+      "title": "AI Provider Config",
+      "description": "Configuration for AI functions (provider, model, etc.)",
+      "type": "object",
+      "properties": {
+        "provider": { "type": "string" },
+        "model": { "type": "string" },
+        "fallback_provider": { "type": "string" },
+        "fallback_model": { "type": "string" },
+        "temperature": { "type": "number" },
+        "max_tokens": { "type": "number" }
+      }
+    },
+    "AITokenLog": {
+      "title": "AI Token Log",
+      "description": "Usage logs for AI operations",
+      "type": "object",
+      "properties": {
+        "tenantId": { "type": "string" },
+        "aiFunction": { "type": "string" },
+        "provider": { "type": "string" },
+        "model": { "type": "string" },
+        "inputTokens": { "type": "number" },
+        "outputTokens": { "type": "number" },
+        "estimatedCostUsd": { "type": "number" },
+        "usedFallback": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["tenantId", "aiFunction", "provider", "model", "inputTokens", "outputTokens"]
     }
   },
   "firestore": {
@@ -274,6 +304,14 @@
     "/plans/{tenantId}": {
       "schema": "Plan",
       "description": "Internet Service Plans"
+    },
+    "/ai_provider_configs/{configId}": {
+      "schema": "AIProviderConfig",
+      "description": "AI model configurations"
+    },
+    "/ai_token_logs/{logId}": {
+      "schema": "AITokenLog",
+      "description": "AI token usage logs"
     }
   }
 }

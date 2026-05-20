@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
@@ -7,31 +8,30 @@ import fs from "fs";
 import os from "os";
 import { createHmac } from "crypto";
 import multer from "multer";
-import { signInAnonymously } from "firebase/auth";
+import { adminAuth as auth, adminDb as db } from "./src/lib/firebaseAdmin.ts";
+import admin from "./src/lib/firebaseAdmin.ts";
 import SmeeClient from "smee-client";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  addDoc,
-  serverTimestamp,
-  doc,
-  updateDoc,
-  orderBy,
-  limit,
-} from "firebase/firestore";
-import { auth, db } from "./src/lib/firebase.ts";
-import { getIntegrationKeys, decryptCpf } from "./src/lib/db.ts";
-import { getAIResponse } from "./src/lib/gemini.ts";
+import { getIntegrationKeys, decryptCpf } from "./src/lib/dbAdmin";
+import { getAIResponse } from "./src/lib/gemini.server.ts";
 import redis from "./src/lib/redis.ts";
 import { logger } from "./src/lib/logger.ts";
-// Workers are run in a separate process via "npm run worker"
-// import "./src/workers/messageWorker.ts";
+import "./src/workers/messageWorker.ts";
 import "./src/workers/cobraiWorker.ts";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const isESM = typeof import.meta !== 'undefined' && typeof import.meta.url !== 'undefined';
+let _filename: string;
+let _dirname: string;
+
+if (isESM) {
+  _filename = fileURLToPath(import.meta.url);
+  _dirname = path.dirname(_filename);
+} else {
+  // @ts-ignore
+  _filename = __filename;
+  // @ts-ignore
+  _dirname = __dirname;
+}
+
 
 const processingNumbers = new Map<string, Promise<void>>();
 
@@ -40,22 +40,6 @@ import { tenantQueues } from "./src/lib/queue.ts";
 const tenantWorkers = new Map<string, any>();
 
 async function startServer() {
-  // Autenticação anônima do servidor para bypass nas Rules (via isWebhook no Firestore)
-  // IMPORTANTE: Se der erro 'admin-restricted-operation', habilite o provedor "Anônimo" no Console do Firebase.
-  try {
-    await signInAnonymously(auth);
-    logger.info("system_authenticated_firebase");
-  } catch (err: any) {
-    if (
-      err.code === "auth/admin-restricted-operation" ||
-      err.message?.includes("admin-restricted-operation")
-    ) {
-      logger.warn("firebase_anonymous_provider_disabled");
-    } else {
-      logger.error("system_authentication_failed", { error: err.message });
-    }
-  }
-
   const app = express();
   const PORT = 3000;
 
@@ -91,9 +75,7 @@ async function startServer() {
 
   app.get("/api/admin/ai-config/:tenantId", async (req, res) => {
     try {
-      const { collection, getDocs } = await import("firebase/firestore");
-      const { db } = await import("./src/lib/firebase.ts");
-      const snap = await getDocs(collection(db, "ai_provider_configs"));
+      const snap = await db.collection("ai_provider_configs").get();
       const configs = snap.docs
         .filter(d => d.id.startsWith(req.params.tenantId + "_"))
         .map(d => ({ function: d.id.split('_').slice(1).join('_'), ...d.data() }));
@@ -105,11 +87,40 @@ async function startServer() {
 
   app.put("/api/admin/ai-config/:tenantId/:function", async (req, res) => {
     try {
-      const { doc, setDoc } = await import("firebase/firestore");
-      const { db } = await import("./src/lib/firebase.ts");
-      const docRef = doc(db, "ai_provider_configs", `${req.params.tenantId}_${req.params.function}`);
-      await setDoc(docRef, req.body, { merge: true });
+      const docRef = db.collection("ai_provider_configs").doc(`${req.params.tenantId}_${req.params.function}`);
+      await docRef.set(req.body, { merge: true });
       res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post("/api/keys", express.json(), async (req, res) => {
+    try {
+      const { integrationKeys, tenantId } = req.body;
+      const tId = tenantId || 'default';
+      
+      if (tId === 'default') {
+        // Global keys
+        await db.collection("settings").doc("integrations").set(integrationKeys, { merge: true });
+      } else {
+        // Tenant-specific keys
+        await db.collection("tenants").doc(tId).collection("settings").doc("integrations").set(integrationKeys, { merge: true });
+      }
+      
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Wrapper for Client-Side testing AI directly
+  app.post("/api/ai/ask", express.json(), async (req, res) => {
+    try {
+      const { history, forceCategory, customerData, ticketId, sessionState, tenantId, remoteJid } = req.body;
+      const { getAIResponse } = await import("./src/lib/gemini.server.ts");
+      const result = await getAIResponse(history, forceCategory, customerData, ticketId, sessionState, tenantId || "default", remoteJid);
+      res.json(result);
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
@@ -117,17 +128,14 @@ async function startServer() {
 
   app.get("/api/quality/live-stats", async (req, res) => {
     try {
-      const { collection, getDocs, query, where, Timestamp } = await import("firebase/firestore");
-      const { db } = await import("./src/lib/firebase");
-      
       const now = new Date();
-      const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-      const last7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const last24h = admin.firestore.Timestamp.fromDate(new Date(now.getTime() - 24 * 60 * 60 * 1000));
+      const last7d = admin.firestore.Timestamp.fromDate(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000));
 
-      const openTicketsSnap = await getDocs(query(collection(db, "tickets"), where("status", "==", "open")));
+      const openTicketsSnap = await db.collection("tickets").where("status", "==", "open").get();
       const open_tickets = openTicketsSnap.size;
 
-      const recentTicketsSnap = await getDocs(query(collection(db, "tickets"), where("createdAt", ">=", Timestamp.fromDate(last24h))));
+      const recentTicketsSnap = await db.collection("tickets").where("createdAt", ">=", last24h).get();
       let resolvedCount = 0;
       let escalatedCount = 0;
       let totalResolutionTime = 0;
@@ -152,12 +160,12 @@ async function startServer() {
       const resolved_last_24h = totalRecent > 0 ? (resolvedCount / totalRecent) * 100 : 0;
       const avg_response_time_ms = resolvedWithTimeCount > 0 ? totalResolutionTime / resolvedWithTimeCount : 0;
       
-      const csatSnap = await getDocs(query(collection(db, "csat_ratings"), where("createdAt", ">=", Timestamp.fromDate(last7d))));
+      const csatSnap = await db.collection("csat_ratings").where("createdAt", ">=", last7d).get();
       let totalCsat = 0;
       csatSnap.forEach(d => totalCsat += d.data().score || 0);
       const avg_csat_week = csatSnap.size > 0 ? totalCsat / csatSnap.size : 0;
 
-      const logsSnap = await getDocs(query(collection(db, "logs"), where("escalated", "==", true), where("timestamp", ">=", Timestamp.fromDate(last24h))));
+      const logsSnap = await db.collection("logs").where("escalated", "==", true).where("timestamp", ">=", last24h).get();
       const agentEscalationMap: Record<string, number> = {};
       logsSnap.forEach(d => {
          const ag = d.data().agent || 'UNKNOWN';
@@ -181,6 +189,15 @@ async function startServer() {
         top_escalating_agent
       });
     } catch (e: any) {
+      if (e.message?.includes("FIREBASE_SERVICE_ACCOUNT_JSON")) {
+        return res.status(200).json({
+          open_tickets: 0,
+          recent_tickets: 0,
+          avg_response_time_ms: 0,
+          avg_csat_week: 0,
+          top_escalating_agent: "None"
+        });
+      }
       logger.error("live_stats_failed", { error: e.message });
       res.status(500).json({ error: e.message });
     }
@@ -188,17 +205,14 @@ async function startServer() {
 
   app.get("/api/contracts/:contractId/promises", async (req, res) => {
     try {
-      const { doc, getDoc } = await import("firebase/firestore");
-      const { db } = await import("./src/lib/firebase");
-      
       const contractId = req.params.contractId;
-      const contractDoc = await getDoc(doc(db, "contracts", contractId));
+      const contractDoc = await db.collection("contracts").doc(contractId).get();
       
-      if (!contractDoc.exists()) {
+      if (!contractDoc.exists) {
         return res.status(404).json({ error: "Contrato não encontrado." });
       }
       
-      const data = contractDoc.data();
+      const data = contractDoc.data() || {};
       res.json({
         sales_promises: data.sales_promises || [],
         sales_summary: data.sales_summary || "Sem resumo registrado.",
@@ -235,9 +249,7 @@ async function startServer() {
     try {
       const { tenantId } = req.body;
       if (!tenantId) return res.status(400).json({ error: "Missing tenantId" });
-      const { doc, getDoc, updateDoc, serverTimestamp } = await import("firebase/firestore");
-      const { db } = await import("./src/lib/firebase");
-      const tenantDoc = await getDoc(doc(db, "tenants", tenantId));
+      const tenantDoc = await db.collection("tenants").doc(tenantId).get();
       const data = tenantDoc.data();
       if (!data) return res.status(404).json({ error: "Tenant not found" });
 
@@ -261,15 +273,15 @@ async function startServer() {
           ]
         });
 
-        await updateDoc(doc(db, "tenants", tenantId), {
-          last_backup_at: serverTimestamp(),
+        await db.collection("tenants").doc(tenantId).update({
+          last_backup_at: admin.firestore.FieldValue.serverTimestamp(),
           last_backup_status: 'success',
           last_backup_size_mb: 'Estimado 50MB'
         });
         
         res.json({ ok: true, started_at: new Date().toISOString() });
       } catch (error: any) {
-        await updateDoc(doc(db, "tenants", tenantId), {
+        await db.collection("tenants").doc(tenantId).update({
           last_backup_status: 'failed',
           last_backup_error: error.message
         });
@@ -284,9 +296,7 @@ async function startServer() {
     try {
       const { tenantId } = req.query;
       if (!tenantId) return res.status(400).json({ error: "Missing tenantId" });
-      const { doc, getDoc } = await import("firebase/firestore");
-      const { db } = await import("./src/lib/firebase");
-      const tenantDoc = await getDoc(doc(db, "tenants", tenantId as string));
+      const tenantDoc = await db.collection("tenants").doc(tenantId as string).get();
       const data = tenantDoc.data() || {};
       res.json({
         last_backup_at: data.last_backup_at?.toDate?.()?.toISOString() || null,
@@ -303,7 +313,7 @@ async function startServer() {
 
   // API routes FIRST
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok" });
+    res.json({ status: "ok", firebaseJsonPresent: !!process.env.FIREBASE_SERVICE_ACCOUNT_JSON });
   });
 
   const upload = multer({ dest: os.tmpdir() });
@@ -351,8 +361,6 @@ async function startServer() {
       const redis = (await import("./src/lib/redis")).default as any;
       const { messageQueue } = await import("./src/lib/queue");
       const { cobraiQueue } = await import("./src/workers/cobraiWorker");
-      const { getDocs, query, collection, where } = await import("firebase/firestore");
-      const { db } = await import("./src/lib/firebase");
 
       let connected = false;
       let memoryUsed = "0M";
@@ -372,8 +380,8 @@ async function startServer() {
         cobraiStats = await cobraiQueue.getJobCounts('waiting', 'active');
       }
       
-      const q = query(collection(db, 'dead_letter_queue'), where('resolved', '==', false));
-      const dlqSnap = await getDocs(q);
+      const q = db.collection('dead_letter_queue').where('resolved', '==', false);
+      const dlqSnap = await q.get();
       const dlqCount = dlqSnap.size;
 
       res.json({
@@ -399,22 +407,30 @@ async function startServer() {
       const testRedis = new Redis(url, {
         maxRetriesPerRequest: 1,
         connectTimeout: 5000,
+        retryStrategy() {
+          return null; // Don't retry on test connection
+        }
       });
 
-      await new Promise<void>((resolve, reject) => {
-        testRedis.once('ready', () => resolve());
-        testRedis.once('error', (err) => reject(err));
-      });
+      testRedis.on('error', () => {}); // Catch all errors to avoid Unhandled error event
 
-      await testRedis.set('test_key', 'test_value', 'EX', 5);
-      const val = await testRedis.get('test_key');
-      
-      if (val !== 'test_value') throw new Error("Falha na validação de SET/GET");
-      
-      const latencyMs = Date.now() - startTime;
-      await testRedis.quit();
-      
-      res.json({ success: true, latencyMs });
+      try {
+        await new Promise<void>((resolve, reject) => {
+          testRedis.once('ready', () => resolve());
+          testRedis.once('error', (err) => reject(err));
+        });
+
+        await testRedis.set('test_key', 'test_value', 'EX', 5);
+        const val = await testRedis.get('test_key');
+        
+        if (val !== 'test_value') throw new Error("Falha na validação de SET/GET");
+        
+        const latencyMs = Date.now() - startTime;
+        
+        res.json({ success: true, latencyMs });
+      } finally {
+        testRedis.disconnect();
+      }
     } catch (error: any) {
       res.json({ success: false, error: error.message });
     }
@@ -501,9 +517,7 @@ async function startServer() {
   app.get("/api/traces/:traceId", async (req, res) => {
     try {
       const { traceId } = req.params;
-      const { collectionGroup, query, where, getDocs } = await import("firebase/firestore");
-      const { db } = await import("./src/lib/firebase");
-      const snap = await getDocs(query(collectionGroup(db, 'message_traces'), where('trace_id', '==', traceId)));
+      const snap = await db.collectionGroup('message_traces').where('trace_id', '==', traceId).get();
       if (snap.empty) return res.status(404).json({ error: 'Trace not found' });
       const docs = snap.docs.map(d => ({ ticketId: d.ref.parent.parent?.id, id: d.id, ...d.data() }));
       res.json({ traces: docs });
@@ -633,12 +647,12 @@ async function startServer() {
     }
 
     try {
-      const { getIntegrationKeys } = await import("./src/lib/db");
-      const keys = await getIntegrationKeys();
+      const { getIntegrationKeys } = await import("./src/lib/dbAdmin");
+      const keys = await getIntegrationKeys(tId);
       
       const provider = keys.chatProvider || "gemini";
       const isCustom = provider === "custom";
-      const apiKey = isCustom ? keys.customChat : (provider === "openai" ? (keys.openaiChat || keys.openaiGlobal) : keys.geminiGlobal);
+      const apiKey = isCustom ? keys.customChat : (provider === "openai" ? (keys.openaiChat || keys.openaiGlobal) : (keys.gemini_api_key || keys.geminiGlobal || process.env.GEMINI_API_KEY));
       const modelStr = isCustom ? keys.customChatModel : (provider === "openai" ? keys.openaiChatModel : "gemini-1.5-flash");
 
       if (!apiKey) {
@@ -725,18 +739,14 @@ async function startServer() {
   app.post("/api/tickets/human-response", express.json(), async (req, res) => {
       try {
         const { ticketId } = req.body;
-        const { doc, updateDoc, serverTimestamp } = await import("firebase/firestore");
-        const { db } = await import("./src/lib/firebase");
-        
-        const docRef = doc(db, "tickets", ticketId);
-        const { getDoc } = await import("firebase/firestore");
-        const tDoc = await getDoc(docRef);
-        const tenantId = tDoc.exists() ? tDoc.data()?.tenantId : null;
+        const docRef = db.collection("tickets").doc(ticketId);
+        const tDoc = await docRef.get();
+        const tenantId = tDoc.exists ? tDoc.data()?.tenantId : null;
 
-        await updateDoc(docRef, {
+        await docRef.update({
           human_responded: true,
-          human_first_response_at: serverTimestamp(),
-          lastMessageAt: serverTimestamp(),
+          human_first_response_at: admin.firestore.FieldValue.serverTimestamp(),
+          lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
         });
         
         if (tenantId) {
@@ -769,13 +779,11 @@ async function startServer() {
       }
 
       // Get customer phone
-      const custSnap = await getDocs(
-        query(collection(db, "customers"), where("__name__", "==", customerId)),
-      );
-      if (custSnap.empty) {
+      const custDoc = await db.collection("customers").doc(customerId).get();
+      if (!custDoc.exists) {
         return res.status(404).json({ error: "Cliente não encontrado." });
       }
-      let phone = custSnap.docs[0].data().phone;
+      let phone = custDoc.data()?.phone;
       if (!phone) {
         return res
           .status(400)
@@ -827,13 +835,13 @@ async function startServer() {
 
         // try to avoid duplicate insertion by checking if same text exists recently in ticket?
         // for safety we just insert. A real app would check message key/id.
-        await addDoc(collection(db, `tickets/${ticketId}/messages`), {
+        await db.collection(`tickets/${ticketId}/messages`).add({
           ticketId,
           senderType: fromMe ? "human" : "customer",
           text,
           createdAt: msg.messageTimestamp
-            ? new Date(msg.messageTimestamp * 1000)
-            : serverTimestamp(),
+            ? admin.firestore.Timestamp.fromDate(new Date(msg.messageTimestamp * 1000))
+            : admin.firestore.FieldValue.serverTimestamp(),
           isImported: true,
         });
         count++;
@@ -915,9 +923,7 @@ async function startServer() {
           }
           // Tentar remover da fila se ainda aguardando
           if (instance) {
-             const { getDocs, query, collection, where, limit } = await import("firebase/firestore");
-             const { db } = await import("./src/lib/firebase");
-             const tq = await getDocs(query(collection(db, "tenants"), where('evolution_instance', '==', instance), limit(1)));
+             const tq = await db.collection("tenants").where('evolution_instance', '==', instance).limit(1).get();
              if (!tq.empty) {
                 const tenantId = tq.docs[0].id;
                 const { getTenantQueue } = await import("./src/lib/queue");
@@ -967,7 +973,11 @@ async function startServer() {
         return res.status(200).json({ ok: true, skipped: "no_instance_field" });
       }
 
-      const tenantQuery = await getDocs(query(collection(db, "tenants"), where('evolution_instance', '==', instance), limit(1)));
+      let tenantQuery = await db.collection("tenants").where('evolution_instance', '==', instance).limit(1).get();
+
+      if (tenantQuery.empty) {
+         tenantQuery = await db.collection("tenants").where('evolution_instances', 'array-contains', instance).limit(1).get();
+      }
 
       if (tenantQuery.empty) {
         logger.warn("webhook_received", { error: 'unknown_instance', data: { instance } });
@@ -1086,6 +1096,17 @@ async function startServer() {
         return res.status(200).json({ status: "received" });
       }
 
+      // NOVO: TRATAMENTO DE SINCRONIZAÇÃO HISTÓRICA
+      let isHistoricalSync = false;
+      const messageTs = messageContainer.messageTimestamp || messageContainer.timestamp;
+      if (messageTs) {
+        const nowInSeconds = Math.floor(Date.now() / 1000);
+        if (nowInSeconds - messageTs > 3600) { // older than 1 hour
+          logger.info("webhook_historical_sync_detected", { data: { messageTs, remoteJid } });
+          isHistoricalSync = true;
+        }
+      }
+
       // NOVO: TRATAMENTO DE NÚMEROS INTERNACIONAIS (PARTE A)
       const phoneNumber = remoteJid.replace('@s.whatsapp.net', '');
       const isBrazilian = phoneNumber.startsWith('55') && phoneNumber.length >= 12;
@@ -1095,7 +1116,7 @@ async function startServer() {
           ? 'Hello! Our service is currently available only in Portuguese for Brazilian customers. For support, please contact us at [email].'
           : 'Olá! Nosso atendimento é em português para clientes no Brasil. Para suporte internacional, entre em contato pelo email [email].';
 
-        const { getIntegrationKeys } = await import("./src/lib/db");
+        const { getIntegrationKeys } = await import("./src/lib/dbAdmin");
         const keys = await getIntegrationKeys();
         const evoUrl = keys.evolutionUrl?.replace(/\/+$/, "");
         const evoInstance = keys.evolutionInstance;
@@ -1114,22 +1135,26 @@ async function startServer() {
         return res.status(200).json({ ok: true, skipped: 'international_number' });
       }
 
-      const existingTicket = await getDocs(query(
-        collection(db, 'tickets'),
-        where('phone_number', '==', remoteJid),
-        where('tenant_id', '==', tenantId),
-        where('status', '==', 'open'),
-        limit(1)
-      ));
+      const existingTicket = await db.collection('tickets')
+        .where('phone_number', '==', remoteJid)
+        .where('tenantId', '==', tenantId)
+        .where('status', '==', 'open')
+        .limit(1)
+        .get();
 
       let ticketId;
       if (existingTicket.empty) {
-        const newTicket = await addDoc(collection(db, 'tickets'), {
+        const newTicket = await db.collection('tickets').add({
           phone_number: remoteJid,
-          tenant_id: tenantId,
+          tenantId: tenantId,
           status: 'open',
-          created_at: serverTimestamp(),
-          session_state: { active_flow: 'IDLE' }
+          customerId: remoteJid, // Fallback customerId
+          subject: 'Novo atendimento WhatsApp',
+          priority: 'medium',
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          session_state: { active_flow: 'IDLE' },
+          aiEnabled: true,
+          aiAttempts: 0
         });
         ticketId = newTicket.id;
       } else {
@@ -1181,7 +1206,7 @@ async function startServer() {
           textContent = cep;
           payload.location_cep_detected = cep;
         } else {
-          const { getIntegrationKeys } = await import("./src/lib/db");
+          const { getIntegrationKeys } = await import("./src/lib/dbAdmin");
           const keys = await getIntegrationKeys();
           const evoUrl = keys.evolutionUrl?.replace(/\/+$/, "");
           const evoInstance = keys.evolutionInstance;
@@ -1234,7 +1259,7 @@ async function startServer() {
         // Primeira mensagem da janela — agendar processamento para 2.1s depois
         const { enqueueMessage } = await import("./src/lib/queue");
         await enqueueMessage(tenantId,
-          { remoteJid, tenantId, bufferKey, pushName, messageId, ticketId, traceId },
+          { remoteJid, tenantId, bufferKey, pushName, messageId, ticketId, traceId, isHistoricalSync },
           { delay: 2100, jobId: `window:${instance}:${remoteJid}:${Date.now()}` },
           "process-message"
         );
@@ -1243,9 +1268,16 @@ async function startServer() {
       // Respond immediately to prevent Evolution API from retrying/timing out
       return res.status(200).json({ status: "queued" });
     } catch (error: any) {
+      if (error.message?.includes("FIREBASE_SERVICE_ACCOUNT_JSON")) {
+        logger.info("webhook_skipped_no_firebase", { message: "Firebase Admin is disabled due to missing environment keys." });
+        if (!res.headersSent) {
+           return res.status(200).json({ status: "skipped_no_firebase" });
+        }
+        return;
+      }
       logger.error("webhook_processing_failed", { error: error.message });
       if (!res.headersSent) {
-        res.status(500).json({ error: "Internal enqueue error" });
+        res.status(500).json({ error: "Internal enqueue error", message: error.message, stack: error.stack });
       }
     }
   });
@@ -1267,35 +1299,31 @@ async function startServer() {
   };
 
   const resolveIncident = async (ctoId: string, tenantId: string) => {
-    const { getDocs, query, collection, where, doc, updateDoc, deleteDoc } = await import("firebase/firestore");
-    const { db } = await import("./src/lib/firebase");
     const { cobraiQueue } = await import("./src/workers/cobraiWorker");
 
     // 1. Atualizar incidents com status: 'resolved', resolved_at
-    const incidentsSnap = await getDocs(query(
-      collection(db, "incidents"),
-      where("cto_id", "==", ctoId),
-      where("tenant_id", "==", tenantId),
-      where("status", "==", "active")
-    ));
+    const incidentsSnap = await db.collection("incidents")
+      .where("cto_id", "==", ctoId)
+      .where("tenant_id", "==", tenantId)
+      .where("status", "==", "active")
+      .get();
 
     for (const incidentDoc of incidentsSnap.docs) {
-      await updateDoc(incidentDoc.ref, {
+      await incidentDoc.ref.update({
         status: 'resolved',
-        resolved_at: new Date() // Ou serverTimestamp()
+        resolved_at: new Date()
       });
     }
 
     // 2. Deletar cto_incidents/{ctoId}
-    await deleteDoc(doc(db, "cto_incidents", ctoId));
+    await db.collection("cto_incidents").doc(ctoId).delete();
 
     // 3. Enviar template HSM de resolução para clientes afetados
-    const affectedCustomers = await getDocs(query(
-      collection(db, "customers"),
-      where("cto_id", "==", ctoId),
-      where("tenant_id", "==", tenantId),
-      where("status", "==", "ativo")
-    ));
+    const affectedCustomers = await db.collection("customers")
+      .where("cto_id", "==", ctoId)
+      .where("tenant_id", "==", tenantId)
+      .where("status", "==", "ativo")
+      .get();
 
     for (const customer of affectedCustomers.docs) {
       await cobraiQueue.add('noc_notification', {
@@ -1310,34 +1338,31 @@ async function startServer() {
   app.post("/api/webhook/noc", express.json(), validateNocSignature, async (req, res) => {
     try {
       const { event_type, cto_id, cto_name, tenant_id, severity, description } = req.body;
-      const { db } = await import("./src/lib/firebase");
-      const { collection, addDoc, doc, setDoc, query, where, getDocs, Timestamp, serverTimestamp } = await import("firebase/firestore");
       const { cobraiQueue } = await import("./src/workers/cobraiWorker");
 
       if (event_type === 'DOWN' && severity >= parseInt(process.env.NOC_ALERT_SEVERITY_THRESHOLD ?? '3')) {
         // 1. Registrar incidente no Firestore
-        const incidentRef = await addDoc(collection(db, 'incidents'), {
+        const incidentRef = await db.collection('incidents').add({
           cto_id, cto_name, tenant_id,
           status: 'active',
           source: 'NOC',
           severity,
           description,
-          created_at: serverTimestamp()
+          created_at: admin.firestore.FieldValue.serverTimestamp()
         });
         
         // 2. Bloquear OS para essa CTO por 6h
-        await setDoc(doc(db, 'cto_incidents', cto_id), {
+        await db.collection('cto_incidents').doc(cto_id).set({
           incident_id: incidentRef.id,
-          blocked_until: Timestamp.fromDate(new Date(Date.now() + 6 * 60 * 60 * 1000))
+          blocked_until: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 6 * 60 * 60 * 1000))
         });
         
         // 3. Buscar todos os clientes ativos nessa CTO
-        const affectedCustomers = await getDocs(query(
-          collection(db, 'customers'),
-          where('cto_id', '==', cto_id),
-          where('tenant_id', '==', tenant_id),
-          where('status', '==', 'ativo')
-        ));
+        const affectedCustomers = await db.collection('customers')
+          .where('cto_id', '==', cto_id)
+          .where('tenant_id', '==', tenant_id)
+          .where('status', '==', 'ativo')
+          .get();
         
         // 4. Disparar mensagem proativa para cada cliente via CobrAI queue
         for (const customer of affectedCustomers.docs) {
@@ -1398,38 +1423,28 @@ async function startServer() {
     try {
       const { url, apiKey, collection, provider } = req.body;
       const start = Date.now();
-      const { QdrantClient } = await import('@qdrant/js-client-rest');
       
       if (provider !== 'qdrant' && provider !== undefined) {
          throw new Error(`Provider ${provider} not supported by this interface yet.`);
       }
 
-      const client = new QdrantClient({ url, apiKey });
-      const testId = 'test-ping';
-      const testVector = Array(1536).fill(0.1);
+      const response = await fetch(
+        `${url}/collections/${collection}`,
+        { headers: { 'api-key': apiKey } }
+      );
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data?.status?.error || `Request failed with status ${response.status}`);
+      }
 
-      // Upsert
-      await client.upsert(collection, {
-        points: [{
-          id: testId,
-          vector: testVector,
-          payload: { text: "teste", tenant_id: "test" }
-        }]
+      res.json({
+        success: response.ok,
+        collection: data.result?.name,
+        vectors_count: data.result?.vectors_count ?? 0,
+        status: data.result?.status,
+        latency_ms: Date.now() - start
       });
-
-      // Search
-      await client.search(collection, {
-        vector: testVector,
-        limit: 1
-      });
-
-      // Delete
-      await client.delete(collection, {
-        points: [testId],
-        wait: true
-      });
-
-      res.json({ success: true, provider: 'qdrant', latency_ms: Date.now() - start });
     } catch (e: any) {
       res.status(400).json({ success: false, error: e.message });
     }
@@ -1438,19 +1453,15 @@ async function startServer() {
   app.get("/api/integrations/vectorstore/ping", async (req, res) => {
     try {
       const { tenantId } = req.query;
-      const { getDocs, query, collection, where, getCountFromServer } = await import("firebase/firestore");
-      const { db } = await import("./src/lib/firebase");
-      
       const { getVectorStore } = await import("./src/lib/vectorStore");
       // Just test if we can get the store instance without errors
       const store = await getVectorStore(tenantId as string);
 
-      const q = query(
-        collection(db, 'knowledge_base'),
-        where('tenant_id', '==', tenantId || "default"),
-        where('vector_indexed', '==', true)
-      );
-      const countSnap = await getCountFromServer(q);
+      const q = db.collection('knowledge_base')
+        .where('tenant_id', '==', tenantId || "default")
+        .where('vector_indexed', '==', true);
+      
+      const countSnap = await q.count().get();
       const articles_count = countSnap.data().count;
 
       res.json({ connected: true, articles_count, provider: 'qdrant' });
@@ -1462,7 +1473,7 @@ async function startServer() {
   app.post("/api/knowledge/articles", express.json(), async (req, res) => {
     try {
       const { title, content, category, tenantId } = req.body;
-      const { addToKnowledgeBase } = await import("./src/lib/db");
+      const { addToKnowledgeBase } = await import("./src/lib/dbAdmin");
       const id = await addToKnowledgeBase({ title, content, category, tenantId });
       res.json({ success: true, id });
     } catch (e: any) {
@@ -1474,13 +1485,11 @@ async function startServer() {
     try {
       const { id } = req.params;
       const { title, content, category, tenantId } = req.body;
-      const { db } = await import("./src/lib/firebase");
-      const { doc, updateDoc, serverTimestamp } = await import("firebase/firestore");
       const { getVectorStore } = await import("./src/lib/vectorStore");
       const { getEmbeddingProvider } = await import("./src/lib/embeddingProvider");
       
-      const docRef = doc(db, 'knowledge_base', id);
-      await updateDoc(docRef, { title, content, category });
+      const docRef = db.collection('knowledge_base').doc(id);
+      await docRef.update({ title, content, category });
       
       const embeddingProvider = await getEmbeddingProvider(tenantId);
       const vectorStore = await getVectorStore(tenantId);
@@ -1498,7 +1507,7 @@ async function startServer() {
     try {
       const { id } = req.params;
       const { tenantId } = req.query;
-      const { deleteKBArticle } = await import("./src/lib/db");
+      const { deleteKBArticle } = await import("./src/lib/dbAdmin");
       const { getVectorStore } = await import("./src/lib/vectorStore");
       
       await deleteKBArticle(id);
@@ -1515,7 +1524,7 @@ async function startServer() {
     try {
       const { query, tenantId } = req.body;
       const start = Date.now();
-      const { searchKnowledgeBase } = await import("./src/lib/db");
+      const { searchKnowledgeBase } = await import("./src/lib/dbAdmin");
       const results = await searchKnowledgeBase(query, tenantId);
 
       res.json({ success: true, results, latency_ms: Date.now() - start });
@@ -1527,15 +1536,12 @@ async function startServer() {
   app.post("/api/knowledge/reindex", express.json(), async (req, res) => {
     try {
       const { tenantId } = req.body;
-      const { getDocs, query, collection, where, doc, updateDoc } = await import("firebase/firestore");
-      const { db } = await import("./src/lib/firebase");
       const { getVectorStore } = await import("./src/lib/vectorStore");
       const { getEmbeddingProvider } = await import("./src/lib/embeddingProvider");
       
-      const articlesSnap = await getDocs(query(
-        collection(db, 'knowledge_base'),
-        where('tenant_id', '==', tenantId || "default")
-      ));
+      const articlesSnap = await db.collection('knowledge_base')
+        .where('tenant_id', '==', tenantId || "default")
+        .get();
       
       const total_articles = articlesSnap.size;
       res.json({ started: true, total_articles });
@@ -1586,7 +1592,7 @@ async function startServer() {
               }
             }, tenantId);
             
-            await updateDoc(doc(db, 'knowledge_base', docSnap.id), {
+            await docSnap.ref.update({
               vector_indexed: true
             });
             
@@ -1637,7 +1643,7 @@ async function startServer() {
     } catch { checks.redis = 'error'; }
 
     try {
-      await getDocs(query(collection(db, 'tenants'), limit(1)));
+      await db.collection('tenants').limit(1).get();
       checks.firestore = 'ok';
     } catch { checks.firestore = 'error'; }
 

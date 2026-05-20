@@ -1,8 +1,9 @@
 import OpenAI, { toFile } from 'openai';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'dummy_key', dangerouslyAllowBrowser: true });
+export async function transcribeAudio(audioUrl: string, apiKey?: string): Promise<string | null> {
+  const currentApiKey = apiKey || process.env.OPENAI_API_KEY || '';
+  const openai = new OpenAI({ apiKey: currentApiKey, dangerouslyAllowBrowser: true });
 
-export async function transcribeAudio(audioUrl: string): Promise<string | null> {
   try {
     let audioBuffer: ArrayBuffer;
     

@@ -43,7 +43,7 @@ function createStoreFromConfig(config: any): VectorStore {
       await client.upsert(config.collection, {
         points: [{
           id: doc.id,
-          vector: doc.embedding,
+          vector: { dense: doc.embedding },
           payload: { text: doc.text, ...doc.metadata }
         }]
       });
@@ -54,7 +54,7 @@ function createStoreFromConfig(config: any): VectorStore {
       await client.upsert(config.collection, {
         points: docs.map(doc => ({
           id: doc.id,
-          vector: doc.embedding,
+          vector: { dense: doc.embedding },
           payload: { text: doc.text, ...doc.metadata }
         }))
       });
@@ -62,7 +62,10 @@ function createStoreFromConfig(config: any): VectorStore {
     search: async (embedding: number[], tenantId: string, limit = 3) => {
       const client = getQdrantClient(config);
       const res = await client.search(config.collection, {
-        vector: embedding,
+        vector: {
+          name: 'dense',
+          vector: embedding
+        },
         limit,
         with_payload: true,
         filter: {

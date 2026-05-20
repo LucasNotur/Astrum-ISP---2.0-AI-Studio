@@ -2,7 +2,7 @@ import { db } from '../src/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { embeddingProvider } from '../src/lib/embeddingProvider';
 import { vectorStore } from '../src/lib/vectorStore';
-import { redis } from '../src/lib/redis';
+import redis from '../src/lib/redis';
 
 // Reindexar toda a base de conhecimento existente no banco vetorial
 // Usar quando trocar de provedor vetorial ou reconstruir a coleção

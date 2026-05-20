@@ -1,8 +1,8 @@
 import * as RedisModule from 'ioredis';
 const Redis = (RedisModule as any).default || (RedisModule as any).Redis || RedisModule;
 
-const isLocalRedis = !process.env.REDIS_URL || process.env.REDIS_URL.includes('localhost') || process.env.REDIS_URL.includes('127.0.0.1');
-const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+const isLocalRedis = !process.env.REDIS_URL || process.env.REDIS_URL.includes('localhost') || process.env.REDIS_URL.includes('127.0.0.1') || !process.env.REDIS_URL.startsWith('redis');
+const redisUrl = process.env.REDIS_URL && process.env.REDIS_URL.startsWith('redis') ? process.env.REDIS_URL : 'redis://localhost:6379';
 
 const createRedisClient = () => {
   if (isLocalRedis) {
@@ -47,6 +47,15 @@ const createRedisClient = () => {
         store.set(key, { value: val.toString(), expiresAt: item?.expiresAt || null });
         return val;
       },
+      incrby: async (key: string, increment: number) => {
+        const item = store.get(key);
+        let val = Number(increment);
+        if (item && (!item.expiresAt || Date.now() <= item.expiresAt)) {
+          val = parseInt(item.value, 10) + Number(increment);
+        }
+        store.set(key, { value: val.toString(), expiresAt: item?.expiresAt || null });
+        return val;
+      },
       expire: async (key: string, time: number) => {
         const item = store.get(key);
         if (item && (!item.expiresAt || Date.now() <= item.expiresAt)) {
@@ -66,6 +75,15 @@ const createRedisClient = () => {
       },
       del: async (key: string) => {
         store.delete(key);
+        return 1;
+      },
+      exists: async (key: string) => {
+        const item = store.get(key);
+        if (!item) return 0;
+        if (item.expiresAt && Date.now() > item.expiresAt) {
+          store.delete(key);
+          return 0;
+        }
         return 1;
       }
     } as any;

@@ -7,17 +7,52 @@ import { Badge } from "@/src/components/ui/badge";
 import { Ticket, Book, Globe, Clock, MessageSquare, Phone, Briefcase, Bot, Map as MapIcon, CreditCard, Plus, Trash2, Users } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 
+import { cn } from '@/src/lib/utils';
 import { Button } from "@/src/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import { Switch } from "@/src/components/ui/switch";
-import { Save, Bug, Database, BellRing, LogOut } from 'lucide-react';
+import { Save, Bug, Database, BellRing, LogOut, Copy, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { db, auth } from '@/src/lib/firebase';
 import { collection, query, getDocs, orderBy, limit, doc, setDoc, deleteDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useAppStore } from '../store/useAppStore';
+
+
+const AVAILABLE_MENUS = [
+  { id: 'dashboard', label: 'Dashboard', group: 'Geral' },
+  { id: 'customers', label: 'Clientes', group: 'Atendimento' },
+  { id: 'tickets', label: 'Tickets', group: 'Atendimento' },
+  { id: 'chat', label: 'Chat', group: 'Atendimento' },
+  { id: 'billing', label: 'Financeiro', group: 'Gestão' },
+  { id: 'cobrai', label: 'CobrAI', group: 'Gestão' },
+  { id: 'os', label: 'CRM Técnico / OS', group: 'Gestão' },
+  { id: 'inventory', label: 'Estoque', group: 'Gestão' },
+  { id: 'map', label: 'Mapa de Cobertura', group: 'Gestão' },
+  { id: 'team', label: 'Equipe', group: 'Gestão' },
+  { id: 'whatsapp', label: 'Conexões WhatsApp', group: 'Sistema (Dev)' },
+  { id: 'ai-config', label: 'Núcleo IA', group: 'Sistema (Dev)' },
+  { id: 'observability', label: 'Observabilidade IA', group: 'Sistema (Dev)' },
+  { id: 'monitoring', label: 'Monitoramento', group: 'Sistema (Dev)' },
+  { id: 'quality-monitor', label: 'Qualidade', group: 'Sistema (Dev)' },
+  { id: 'settings', label: 'Configurações', group: 'Sistema (Dev)' }
+];
+
+const ROLES = [
+  { id: 'admin', label: 'Desenvolvedor' },
+  { id: 'owner', label: 'Provedor (Admin)' },
+  { id: 'support', label: 'Suporte' },
+  { id: 'tecnico', label: 'Técnico' }
+];
+
+const DEFAULT_PERMISSIONS = {
+  admin: ['dashboard', 'customers', 'tickets', 'os', 'chat', 'map', 'kb', 'billing', 'team', 'ai-config', 'whatsapp', 'settings', 'inventory', 'observability', 'monitoring', 'cobrai', 'quality-monitor'],
+  owner: ['dashboard', 'customers', 'tickets', 'chat', 'billing', 'team', 'os', 'ai-config', 'settings', 'whatsapp', 'inventory', 'map', 'observability', 'monitoring', 'cobrai', 'quality-monitor'],
+  support: ['dashboard', 'customers', 'tickets', 'chat', 'ai-config'],
+  tecnico: ['os']
+};
 
 export function SettingsPage({ 
   integrationKeys, 
@@ -62,6 +97,37 @@ export function SettingsPage({
 }: any) {
 
   const navigate = useNavigate();
+const [editingRolePermissions, setEditingRolePermissions] = useState<Record<string, string[]>>({});
+  
+  useEffect(() => {
+    if (companySettings?.rolePermissions) {
+      setEditingRolePermissions(companySettings.rolePermissions);
+    } else {
+      setEditingRolePermissions(DEFAULT_PERMISSIONS);
+    }
+  }, [companySettings?.rolePermissions]);
+
+  const togglePermission = (role: string, menuId: string) => {
+    setEditingRolePermissions(prev => {
+      const rolePerms = prev[role] || [];
+      const hasPerm = rolePerms.includes(menuId);
+      const newPerms = hasPerm ? rolePerms.filter(id => id !== menuId) : [...rolePerms, menuId];
+      return { ...prev, [role]: newPerms };
+    });
+  };
+
+  const savePermissions = async () => {
+    try {
+      toast.info('Salvando permissões...', { id: 'save-perms' });
+      await setDoc(doc(db, 'settings', 'company'), { rolePermissions: editingRolePermissions }, { merge: true });
+      setCompanySettings((prev: any) => ({ ...prev, rolePermissions: editingRolePermissions }));
+      toast.success('Permissões salvas no banco de dados com sucesso!', { id: 'save-perms' });
+    } catch (error) {
+      console.error(error);
+      toast.error('Erro ao salvar as permissões.', { id: 'save-perms' });
+    }
+  };
+
   const { user } = useAppStore();
   const tenantId = user?.tenantId || 'DEFAULT_TENANT';
   
@@ -329,6 +395,7 @@ export function SettingsPage({
                   <TabsTrigger value="general">Geral</TabsTrigger>
                   {isAstrum && <TabsTrigger value="integrations">Integrações (APIs)</TabsTrigger>}
                   <TabsTrigger value="team">Equipe</TabsTrigger>
+                  {isAstrum && <TabsTrigger value="permissions">Perfis e Permissões</TabsTrigger>}
                 </TabsList>
                 
                 <TabsContent value="general" className="mt-6">
@@ -627,7 +694,35 @@ export function SettingsPage({
                                     onChange={(e) => setIntegrationKeys(prev => ({ ...prev, evolutionApiKey: e.target.value }))}
                                   />
                                 </div>
+                                
+                                <div className="pt-2">
+                                  <Label>Webhook URL (Retorno na Astrum)</Label>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <Input
+                                      value={integrationKeys.evolutionWebhookUrl || webhookUrlDisplay}
+                                      onChange={(e) => setIntegrationKeys(prev => ({ ...prev, evolutionWebhookUrl: e.target.value }))}
+                                      className="font-mono text-xs"
+                                      placeholder="https://sua-url/api/webhook/evolution"
+                                    />
+                                    <Button size="icon" variant="outline" onClick={() => {
+                                      navigator.clipboard.writeText(integrationKeys.evolutionWebhookUrl || webhookUrlDisplay);
+                                      toast.success("Webhook URL copiada!");
+                                    }}>
+                                      <Copy size={16} />
+                                    </Button>
+                                  </div>
+                                </div>
+
                                 <div className="pt-4 mt-2 border-t border-zinc-200 dark:border-zinc-800">
+                                  <Button 
+                                    className="w-full mb-3" 
+                                    variant="outline"
+                                    onClick={configureEvolutionWebhook}
+                                    disabled={isFetchingQr}
+                                  >
+                                    <RefreshCw size={16} className={cn("mr-2", isFetchingQr && "animate-spin")} />
+                                    Sincronizar Webhook (Todas as Instâncias)
+                                  </Button>
                                   <p className="text-xs text-zinc-500 mb-3">Após configurar as chaves, gerencie as instâncias de WhatsApp em uma página dedicada.</p>
                                   <Button className="w-full bg-indigo-600 hover:bg-indigo-700" onClick={() => navigate('/whatsapp')}>
                                     Gerenciar Múltiplas Instâncias
@@ -998,6 +1093,56 @@ export function SettingsPage({
                     </CardContent>
                   </Card>
                 </TabsContent>
+                {isAstrum && (<TabsContent value="permissions" className="mt-6">
+                  <Card className="border-none shadow-sm">
+                    <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div>
+                        <CardTitle>Perfis e Permissões de Acesso</CardTitle>
+                        <CardDescription>Gerencie quais menus cada perfil pode visualizar e acessar.</CardDescription>
+                      </div>
+                      <Button onClick={savePermissions} className="gap-2">
+                        <Save size={18} /> Salvar Permissões
+                      </Button>
+                    </CardHeader>
+                    <CardContent className="overflow-x-auto">
+                      <table className="w-full text-sm text-left border-collapse">
+                        <thead className="text-xs text-zinc-500 uppercase bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
+                          <tr>
+                            <th className="px-4 py-3 min-w-[200px]">Menu / Módulo</th>
+                            {ROLES.map(role => (
+                              <th key={role.id} className="px-4 py-3 text-center">{role.label}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                          {Array.from(new Set(AVAILABLE_MENUS.map(m => m.group))).map((group) => (
+                            <React.Fragment key={group}>
+                              <tr className="bg-zinc-50/50 dark:bg-zinc-900/50">
+                                <td colSpan={ROLES.length + 1} className="px-4 py-2 text-xs font-bold text-zinc-400 uppercase tracking-wider">{group}</td>
+                              </tr>
+                              {AVAILABLE_MENUS.filter(m => m.group === group).map(menu => (
+                                <tr key={menu.id} className="bg-white dark:bg-zinc-950">
+                                  <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                                    {menu.label}
+                                  </td>
+                                  {ROLES.map(role => (
+                                    <td key={role.id} className="px-4 py-3 text-center">
+                                      <Switch 
+                                        checked={editingRolePermissions[role.id]?.includes(menu.id) || false}
+                                        onCheckedChange={() => togglePermission(role.id, menu.id)}
+                                      />
+                                    </td>
+                                  ))}
+                                </tr>
+                              ))}
+                            </React.Fragment>
+                          ))}
+                        </tbody>
+                      </table>
+                    </CardContent>
+                  </Card>
+                </TabsContent>)}
+
 
               </Tabs>
             </motion.div>

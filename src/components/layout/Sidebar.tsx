@@ -15,37 +15,49 @@ import { auth } from '@/src/lib/firebase';
 import { signOut } from 'firebase/auth';
 
 function NavItem({ active, onClick, icon, label, collapsed, shortcut }: any) {
-  return (
-    <UITooltip delayDuration={0}>
-      <TooltipTrigger asChild>
-        <button 
-          onClick={onClick}
-          className={cn(
-            "flex items-center justify-between rounded-full py-3 text-sm font-semibold transition-all group",
-            collapsed ? "w-12 h-12 justify-center px-0" : "w-full px-4",
-            active ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[0.98]" : "text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"
-          )}
-        >
-          <div className="flex items-center gap-3">
-            <div className="shrink-0">{icon}</div>
-            {!collapsed && <span>{label}</span>}
-          </div>
-          {!collapsed && shortcut && (
-            <span className={cn(
-              "text-[10px] px-1.5 py-0.5 rounded-md border opacity-0 group-hover:opacity-100 transition-opacity",
-              active ? "border-white/30 text-white/70" : "border-zinc-200 dark:border-zinc-800 text-zinc-400 bg-white dark:bg-zinc-900"
-            )}>
-              {shortcut}
-            </span>
-          )}
-        </button>
-      </TooltipTrigger>
-      {collapsed && (
-        <TooltipContent side="right" className="font-medium flex flex-row items-center gap-2 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-50 z-[100]">
-          {label}
-          {shortcut && <span className="text-[10px] text-zinc-400 dark:text-zinc-500 border border-zinc-200 dark:border-zinc-800 px-1 rounded bg-zinc-50 dark:bg-zinc-950 font-normal">{shortcut}</span>}
-        </TooltipContent>
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    onClick?.(e);
+    // Remove focus to prevent tooltip from sticking around after click
+    (e.currentTarget as HTMLButtonElement).blur();
+  };
+
+  const button = (
+    <button 
+      onClick={handleClick}
+      className={cn(
+        "flex items-center justify-between rounded-xl py-3 text-sm font-semibold transition-all group outline-none",
+        collapsed ? "w-12 h-12 justify-center px-0 mx-auto" : "w-full px-4",
+        active ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[0.98]" : "text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"
       )}
+    >
+      <div className={cn("flex items-center gap-3", collapsed && "justify-center w-full")}>
+        <div className="shrink-0 flex items-center justify-center">{icon}</div>
+        {!collapsed && <span>{label}</span>}
+      </div>
+      {!collapsed && shortcut && (
+        <span className={cn(
+          "text-[10px] px-1.5 py-0.5 rounded-md border opacity-0 group-hover:opacity-100 transition-opacity",
+          active ? "border-white/30 text-white/70" : "border-zinc-200 dark:border-zinc-800 text-zinc-400 bg-white dark:bg-zinc-900"
+        )}>
+          {shortcut}
+        </span>
+      )}
+    </button>
+  );
+
+  if (!collapsed) {
+    return button;
+  }
+
+  return (
+    <UITooltip delayDuration={200}>
+      <TooltipTrigger asChild>
+        {button}
+      </TooltipTrigger>
+      <TooltipContent side="right" className="font-medium flex flex-row items-center gap-2 bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-50 z-[100]">
+        {label}
+        {shortcut && <span className="text-[10px] text-zinc-400 dark:text-zinc-500 border border-zinc-200 dark:border-zinc-800 px-1 rounded bg-zinc-50 dark:bg-zinc-950 font-normal">{shortcut}</span>}
+      </TooltipContent>
     </UITooltip>
   );
 }
@@ -60,11 +72,12 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
   const location = useLocation();
   const currentPath = location.pathname.substring(1) || 'dashboard';
 
+  const hasAccess = (tab: string) => canAccess(currentUserRole, tab, companySettings?.rolePermissions);
   const isDeveloper = user?.email?.toLowerCase() === 'lucaspferraz123@gmail.com' || user?.email?.toLowerCase() === 'noturcursos1@gmail.com';
   const handleLogout = () => signOut(auth);
 
   return (
-    <TooltipProvider delayDuration={0}>
+    <TooltipProvider delayDuration={200}>
       <div 
         className={cn(
           "fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity", 
@@ -100,177 +113,177 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
       </div>
 
       <nav className="space-y-1 w-full flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
-        {canAccess(currentUserRole, 'dashboard') && (
+        {hasAccess('dashboard') && (
           <NavItem 
             active={currentPath === 'dashboard'} 
             onClick={() => navigate('/dashboard')} 
-            icon={<LayoutDashboard size={18} />} 
+            icon={<LayoutDashboard size={24} />} 
             label="Dashboard" 
             collapsed={isSidebarCollapsed}
             shortcut="Alt+1"
           />
         )}
         
-        {(canAccess(currentUserRole, 'customers') || canAccess(currentUserRole, 'tickets') || canAccess(currentUserRole, 'chat')) && (
+        {(hasAccess('customers') || hasAccess('tickets') || hasAccess('chat')) && (
           <>
             {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Atendimento</div>}
             {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2"></div>}
           </>
         )}
         
-        {canAccess(currentUserRole, 'customers') && (
+        {hasAccess('customers') && (
           <NavItem 
             active={currentPath === 'customers'} 
             onClick={() => navigate('/customers')} 
-            icon={<Users size={18} />} 
+            icon={<Users size={24} />} 
             label="Clientes" 
             collapsed={isSidebarCollapsed}
             shortcut="Alt+2"
           />
         )}
-        {canAccess(currentUserRole, 'tickets') && (
+        {hasAccess('tickets') && (
           <NavItem 
             active={currentPath === 'tickets'} 
             onClick={() => navigate('/tickets')} 
-            icon={<Ticket size={18} />} 
+            icon={<Ticket size={24} />} 
             label="Tickets (Suporte)" 
             collapsed={isSidebarCollapsed}
             shortcut="Alt+3"
           />
         )}
-        {canAccess(currentUserRole, 'chat') && (
+        {hasAccess('chat') && (
           <NavItem 
             active={currentPath === 'chat'} 
             onClick={() => navigate('/chat')} 
-            icon={<MessageSquare size={18} />} 
+            icon={<MessageSquare size={24} />} 
             label="Chat" 
             collapsed={isSidebarCollapsed}
             shortcut="Alt+4"
           />
         )}
         
-        {(canAccess(currentUserRole, 'billing') || canAccess(currentUserRole, 'inventory') || canAccess(currentUserRole, 'map') || canAccess(currentUserRole, 'team') || canAccess(currentUserRole, 'os')) && (
+        {(hasAccess('billing') || hasAccess('inventory') || hasAccess('map') || hasAccess('team') || hasAccess('os')) && (
           <>
             {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Gestão (Provedor)</div>}
             {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2"></div>}
           </>
         )}
         
-        {canAccess(currentUserRole, 'billing') && (
+        {hasAccess('billing') && (
           <NavItem 
             active={currentPath === 'billing'} 
             onClick={() => navigate('/billing')} 
-            icon={<CreditCard size={18} />} 
+            icon={<CreditCard size={24} />} 
             label="Financeiro" 
             collapsed={isSidebarCollapsed}
             shortcut="Alt+6"
           />
         )}
-        {canAccess(currentUserRole, 'cobrai') && (
+        {hasAccess('cobrai') && (
           <NavItem 
             active={currentPath === 'cobrai'} 
             onClick={() => navigate('/cobrai')} 
-            icon={<Bot size={18} />} 
+            icon={<Bot size={24} />} 
             label="CobrAI" 
             collapsed={isSidebarCollapsed}
           />
         )}
-        {canAccess(currentUserRole, 'os') && (
+        {hasAccess('os') && (
           <NavItem 
             active={currentPath === 'os'} 
             onClick={() => navigate('/os')} 
-            icon={<Briefcase size={18} />} 
+            icon={<Briefcase size={24} />} 
             label="CRM Técnico / OS" 
             collapsed={isSidebarCollapsed}
             shortcut="Alt+O"
           />
         )}
-        {canAccess(currentUserRole, 'inventory') && (
+        {hasAccess('inventory') && (
           <NavItem 
             active={currentPath === 'inventory'} 
             onClick={() => navigate('/inventory')} 
-            icon={<Package size={18} />} 
+            icon={<Package size={24} />} 
             label="Estoque" 
             collapsed={isSidebarCollapsed}
           />
         )}
-        {canAccess(currentUserRole, 'map') && (
+        {hasAccess('map') && (
           <NavItem 
             active={currentPath === 'map'} 
             onClick={() => navigate('/map')} 
-            icon={<Map size={18} />} 
+            icon={<Map size={24} />} 
             label="Mapa de Cobertura" 
             collapsed={isSidebarCollapsed}
             shortcut="Alt+5"
           />
         )}
-        {canAccess(currentUserRole, 'team') && (
+        {hasAccess('team') && (
           <NavItem 
             active={currentPath === 'team'} 
             onClick={() => navigate('/team')} 
-            icon={<ShieldCheck size={18} />} 
+            icon={<ShieldCheck size={24} />} 
             label="Equipe" 
             collapsed={isSidebarCollapsed}
             shortcut="Alt+7"
           />
         )}
 
-        {(canAccess(currentUserRole, 'settings') || canAccess(currentUserRole, 'ai-config') || canAccess(currentUserRole, 'whatsapp')) && (
+        {(hasAccess('settings') || hasAccess('ai-config') || hasAccess('whatsapp')) && (
           <>
             {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Sistema (Dev)</div>}
             {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2"></div>}
             
-            {canAccess(currentUserRole, 'whatsapp') && (
+            {hasAccess('whatsapp') && (
               <NavItem 
                 active={currentPath === 'whatsapp'} 
                 onClick={() => navigate('/whatsapp')} 
-                icon={<Phone size={18} />} 
+                icon={<Phone size={24} />} 
                 label="Conexões WhatsApp" 
                 collapsed={isSidebarCollapsed}
               />
             )}
-            {canAccess(currentUserRole, 'ai-config') && (
+            {hasAccess('ai-config') && (
               <NavItem 
                 active={currentPath === 'ai-config'} 
                 onClick={() => navigate('/ai-config')} 
-                icon={<Bot size={18} />} 
+                icon={<Bot size={24} />} 
                 label="Núcleo IA" 
                 collapsed={isSidebarCollapsed}
                 shortcut="Alt+8"
               />
             )}
-            {canAccess(currentUserRole, 'observability') && (
+            {hasAccess('observability') && (
               <NavItem 
                 active={currentPath === 'observability'} 
                 onClick={() => navigate('/observability')} 
-                icon={<Activity size={18} />} 
+                icon={<Activity size={24} />} 
                 label="Observabilidade IA" 
                 collapsed={isSidebarCollapsed}
               />
             )}
-            {canAccess(currentUserRole, 'monitoring') && (
+            {hasAccess('monitoring') && (
               <NavItem 
                 active={currentPath === 'monitoring'} 
                 onClick={() => navigate('/monitoring')} 
-                icon={<Activity size={18} />} 
+                icon={<Activity size={24} />} 
                 label="Monitoramento" 
                 collapsed={isSidebarCollapsed}
               />
             )}
-            {canAccess(currentUserRole, 'quality-monitor') && (
+            {hasAccess('quality-monitor') && (
               <NavItem 
                 active={currentPath === 'quality-monitor'} 
                 onClick={() => navigate('/quality-monitor')} 
-                icon={<Activity size={18} />} 
+                icon={<Activity size={24} />} 
                 label="Qualidade" 
                 collapsed={isSidebarCollapsed}
               />
             )}
-            {canAccess(currentUserRole, 'settings') && (
+            {hasAccess('settings') && (
               <NavItem 
                 active={currentPath === 'settings'} 
                 onClick={() => navigate('/settings')} 
-                icon={<Settings size={18} />} 
+                icon={<Settings size={24} />} 
                 label="Configurações" 
                 collapsed={isSidebarCollapsed}
                 shortcut="Alt+9"

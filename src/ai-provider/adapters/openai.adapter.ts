@@ -1,16 +1,28 @@
 import OpenAI from "openai";
 import { AIProvider, ProviderConfig, Message, ChatResult, EmbedResult } from "../types";
+import { getOpenAIKey } from "../../lib/dbAdmin";
 
 export class OpenAIAdapter implements AIProvider {
   name: 'openai' = 'openai';
-  private client: OpenAI;
+  private clients: Map<string, OpenAI> = new Map();
 
-  constructor() {
-    this.client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'dummy_key', dangerouslyAllowBrowser: true });
+  constructor() {}
+
+  private async getClient(tenantId: string): Promise<OpenAI> {
+    const key = await getOpenAIKey(tenantId);
+    if (this.clients.has(key)) return this.clients.get(key)!;
+    
+    const client = new OpenAI({ 
+      apiKey: key,
+      dangerouslyAllowBrowser: true 
+    });
+    this.clients.set(key, client);
+    return client;
   }
 
-  async chat(messages: Message[], config: ProviderConfig, options?: { tools?: any[] }): Promise<ChatResult> {
-    const response = await this.client.chat.completions.create({
+  async chat(messages: Message[], config: ProviderConfig, tenantId: string, options?: { tools?: any[] }): Promise<ChatResult> {
+    const client = await this.getClient(tenantId);
+    const response = await client.chat.completions.create({
       model: config.model,
       messages: messages as any,
       temperature: config.temperature ?? 0.7,
@@ -21,6 +33,9 @@ export class OpenAIAdapter implements AIProvider {
     const choice = response.choices[0];
     const content = choice.message.content || '';
     const toolCalls = choice.message.tool_calls?.map((tc: any) => ({
+      id: tc.id,
+      type: tc.type || 'function',
+      function: tc.function,
       name: tc.function.name,
       args: JSON.parse(tc.function.arguments || '{}')
     }));
@@ -42,8 +57,9 @@ export class OpenAIAdapter implements AIProvider {
     };
   }
 
-  async embed(texts: string[], config: ProviderConfig): Promise<EmbedResult> {
-    const response = await this.client.embeddings.create({
+  async embed(texts: string[], config: ProviderConfig, tenantId: string): Promise<EmbedResult> {
+    const client = await this.getClient(tenantId);
+    const response = await client.embeddings.create({
       model: config.model || "text-embedding-3-small",
       input: texts,
     });

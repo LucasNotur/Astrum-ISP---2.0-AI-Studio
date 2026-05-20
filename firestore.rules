@@ -159,7 +159,32 @@ service cloud.firestore {
              (!('currentTask' in data) || data.currentTask == null || data.currentTask is string);
     }
 
+    function isValidAIProviderConfig(data) {
+      return (!('provider' in data) || data.provider is string) &&
+             (!('model' in data) || data.model is string) &&
+             (!('fallback_provider' in data) || data.fallback_provider is string) &&
+             (!('fallback_model' in data) || data.fallback_model is string) &&
+             (!('temperature' in data) || data.temperature is number) &&
+             (!('max_tokens' in data) || data.max_tokens is number);
+    }
+
+    function isValidAITokenLog(data) {
+      return data.tenantId is string &&
+             data.aiFunction is string &&
+             data.provider is string &&
+             data.model is string &&
+             data.inputTokens is number &&
+             data.outputTokens is number &&
+             (!('estimatedCostUsd' in data) || data.estimatedCostUsd is number) &&
+             (!('usedFallback' in data) || data.usedFallback is bool) &&
+             (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
     // Rules
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
     match /users/{userId} {
       allow read: if isAuthenticated();
       // Users can only update their own document, and cannot elevate their own role to admin unless they are already Astrum.
@@ -190,6 +215,31 @@ service cloud.firestore {
         allow read: if isSupport();
         allow create: if isSupport() && isValidMessage(request.resource.data);
       }
+      match /message_traces/{traceId} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+
+    match /prompts/{promptId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /customer_preferences/{prefId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /ai_provider_configs/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /ai_token_logs/{logId} {
+      allow read: if isAstrum();
+      allow create: if true && isValidAITokenLog(request.resource.data);
+    }
+
+    match /metrics_shards/{shardId} {
+      allow read, write: if isAuthenticated();
     }
 
     match /billing_invoices/{invoiceId} {

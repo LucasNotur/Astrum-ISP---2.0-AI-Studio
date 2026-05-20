@@ -1,7 +1,7 @@
 import { AIProviderService } from "./ai-provider.service";
 import { AIFunction, ProviderConfig } from "./types";
-import { db } from "../lib/firebase";
-import { collection, doc, getDoc, addDoc } from "firebase/firestore";
+import { adminDb as db } from "../lib/firebaseAdmin";
+import admin from "../lib/firebaseAdmin";
 
 const DEFAULT_CONFIGS: Record<AIFunction, ProviderConfig> = {
   orchestrator: { provider: 'openai', model: 'gpt-4o', fallbackProvider: 'gemini', fallbackModel: 'gemini-2.0-flash' },
@@ -14,10 +14,9 @@ const DEFAULT_CONFIGS: Record<AIFunction, ProviderConfig> = {
 export const aiProvider = new AIProviderService(
   async (tenantId: string, aiFunction: AIFunction): Promise<ProviderConfig> => {
     try {
-      const docRef = doc(db, 'ai_provider_configs', `${tenantId}_${aiFunction}`);
-      const snap = await getDoc(docRef);
-      if (snap.exists()) {
-        const data = snap.data();
+      const snap = await db.collection('ai_provider_configs').doc(`${tenantId}_${aiFunction}`).get();
+      if (snap.exists) {
+        const data = snap.data() as any;
         return {
           provider: data.provider || DEFAULT_CONFIGS[aiFunction].provider,
           model: data.model || DEFAULT_CONFIGS[aiFunction].model,
@@ -34,7 +33,10 @@ export const aiProvider = new AIProviderService(
   },
   async (log: any) => {
     try {
-      await addDoc(collection(db, 'ai_token_logs'), log);
+      await db.collection('ai_token_logs').add({
+        ...log,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
     } catch (e) {
       console.error("[AIProvider] Error logging tokens to Firestore", e);
     }

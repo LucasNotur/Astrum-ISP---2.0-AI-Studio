@@ -98,7 +98,7 @@ export default function QualityMonitorPage() {
           <CardContent className="p-4 flex flex-col justify-center items-center text-center">
             <CheckCircle2 className="w-8 h-8 text-green-500 mb-2 opacity-80" />
             <h3 className="text-sm font-medium text-zinc-500">% s/ Escalation (24h)</h3>
-            <p className="text-3xl font-bold">{stats.resolved_last_24h.toFixed(1)}%</p>
+            <p className="text-3xl font-bold">{(stats?.resolved_last_24h ?? 0).toFixed(1)}%</p>
           </CardContent>
         </Card>
         <Card className="shadow-sm">
@@ -112,7 +112,7 @@ export default function QualityMonitorPage() {
           <CardContent className="p-4 flex flex-col justify-center items-center text-center">
             <ThermometerSun className="w-8 h-8 text-orange-500 mb-2 opacity-80" />
             <h3 className="text-sm font-medium text-zinc-500">CSAT Médio (7d)</h3>
-            <p className="text-3xl font-bold">{stats.avg_csat_week.toFixed(2)}</p>
+            <p className="text-3xl font-bold">{(stats?.avg_csat_week ?? 0).toFixed(2)}</p>
           </CardContent>
         </Card>
         <Card className="shadow-sm">
