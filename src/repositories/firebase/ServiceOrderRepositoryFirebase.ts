@@ -1,6 +1,7 @@
 import { ServiceOrderRepository, ServiceOrder } from '../interfaces';
 import { db } from '../../lib/firebase';
-import { collection, doc, getDoc, getDocs, updateDoc, addDoc, query, where, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, getDocs, updateDoc, addDoc, query, where, Timestamp } from 'firebase/firestore';
+import { wrapFirestoreCollection } from '../../lib/tenantGuard';
 
 export class ServiceOrderRepositoryFirebase implements ServiceOrderRepository {
   async findById(id: string): Promise<ServiceOrder | null> {
@@ -11,10 +12,9 @@ export class ServiceOrderRepositoryFirebase implements ServiceOrderRepository {
   }
 
   async findOpenByCustomer(customerId: string, tenantId: string): Promise<ServiceOrder[]> {
-    const q = query(
-      collection(db, 'service_orders'),
+    if (!tenantId) throw new Error('TENANT_REQUIRED');
+    const q = wrapFirestoreCollection(db, 'service_orders', tenantId).query(
       where('customer_id', '==', customerId),
-      where('tenant_id', '==', tenantId),
       where('status', 'in', ['open', 'in_progress', 'scheduled'])
     );
     const snap = await getDocs(q);
@@ -22,9 +22,8 @@ export class ServiceOrderRepositoryFirebase implements ServiceOrderRepository {
   }
 
   async findByDateRange(tenantId: string, start: Date, end: Date): Promise<ServiceOrder[]> {
-    const q = query(
-      collection(db, 'service_orders'),
-      where('tenant_id', '==', tenantId),
+    if (!tenantId) throw new Error('TENANT_REQUIRED');
+    const q = wrapFirestoreCollection(db, 'service_orders', tenantId).query(
       where('date', '>=', Timestamp.fromDate(start)),
       where('date', '<=', Timestamp.fromDate(end))
     );
@@ -33,7 +32,8 @@ export class ServiceOrderRepositoryFirebase implements ServiceOrderRepository {
   }
 
   async create(data: Partial<ServiceOrder>): Promise<ServiceOrder> {
-    const docRef = await addDoc(collection(db, 'service_orders'), data);
+    if (!data.tenant_id) throw new Error('TENANT_REQUIRED');
+    const docRef = await addDoc(wrapFirestoreCollection(db, 'service_orders', data.tenant_id as string).ref, data);
     return { id: docRef.id, ...data } as ServiceOrder;
   }
 

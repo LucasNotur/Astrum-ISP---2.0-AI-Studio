@@ -10,13 +10,29 @@ import { Badge } from "@/src/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
-import { Bot, Sparkles, Plus, Edit2, Trash2, Download, Database, Upload, Eye, EyeOff } from 'lucide-react';
+import { Bot, Sparkles, Plus, Edit2, Trash2, Download, Database, Upload, Eye, EyeOff, ShieldAlert, Lock, Info, ExternalLink } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/src/components/ui/tooltip";
+import { Switch } from "@/src/components/ui/switch";
 import { WorkflowVisualizer } from '@/src/components/WorkflowVisualizer';
+import { EscalationRulesBuilder } from '@/src/components/EscalationRulesBuilder';
 import { cn } from '@/src/lib/utils';
 import { jsPDF } from 'jspdf';
 import { toast } from 'sonner';
 import autoTable from 'jspdf-autotable';
+
+const toolsCatalog = [
+  { id: "check_billing_status", name: "Consultar Faturas", desc: "Permite à IA verificar e enviar faturas, status de pagamento e linha digitável.", required_plan: "basic", requires_erp_integration: true, risk_level: "low" },
+  { id: "generate_second_copy", name: "Segunda Via", desc: "Permite gerar código PIX e PDF da segunda via diretamente do ERP.", required_plan: "basic", requires_erp_integration: true, risk_level: "low" },
+  { id: "unlock_customer", name: "Desbloqueio em Confiança", desc: "Permite desbloquear a conexão do cliente automaticamente (com promessa de pagamento).", required_plan: "pro", requires_erp_integration: true, risk_level: "high" },
+  { id: "check_connection_status", name: "Diagnóstico de Conexão", desc: "Realiza ping, verifica uptime e status da ONU/Roteador.", required_plan: "basic", requires_erp_integration: true, risk_level: "low" },
+  { id: "open_service_order", name: "Abertura de Chamados (OS)", desc: "Permite que a IA abra OS automaticamente no ERP baseada em problemas técnicos.", required_plan: "pro", requires_erp_integration: true, risk_level: "medium" },
+  { id: "schedule_technician", name: "Agendamento de Visita Técnica", desc: "Integra o calendário e reserva horários reais nas frotas técnicas.", required_plan: "enterprise", requires_erp_integration: true, risk_level: "medium" },
+  { id: "get_plans_info", name: "Consultar Planos e Preços", desc: "Fornece valores, gigas e informações sobre os planos da provedora.", required_plan: "basic", requires_erp_integration: false, risk_level: "low" },
+  { id: "process_upsell", name: "Processar Upsell/Upgrade", desc: "Permite que a IA altere o plano do cliente no sistema sem humano.", required_plan: "pro", requires_erp_integration: true, risk_level: "medium" },
+  { id: "send_nps", name: "Pesquisa de Satisfação (NPS)", desc: "Envia perguntas automáticas de avaliação após encerramento do chamado.", required_plan: "pro", requires_erp_integration: false, risk_level: "low" },
+  { id: "check_cto_status", name: "Consultar Alarme Massivo (CTO)", desc: "Identifica alarmes e quedas em massa antes de encaminhar ao atendente.", required_plan: "enterprise", requires_erp_integration: true, risk_level: "low" },
+];
 
 export function AIConfigPage({ 
   aiPrompts, 
@@ -77,12 +93,87 @@ export function AIConfigPage({
   const [isValidating, setIsValidating] = useState<Record<string, boolean>>({});
 
   const [tenantTokenLimit, setTenantTokenLimit] = useState(0);
+  const [tenantPlan, setTenantPlan] = useState('basic');
   const [workerConcurrency, setWorkerConcurrency] = useState(1);
   const [expandVectorStore, setExpandVectorStore] = useState(false);
   const [vectorTestResult, setVectorTestResult] = useState<{success: boolean, error?: string} | null>(null);
   const [vectorConfig, setVectorConfig] = useState({ provider: 'qdrant', url: '', apiKey: '', collection: 'astrum_knowledge' });
+  const [transcriptionConfig, setTranscriptionConfig] = useState({ enabled: true, provider: 'whisper', apiKey: '' });
   const [reindexStatus, setReindexStatus] = useState<{status: string, indexed: number, total: number} | null>(null);
   const [indexedCount, setIndexedCount] = useState(0);
+
+  const [personas, setPersonas] = useState<any[]>([]);
+  const [loadingPersonas, setLoadingPersonas] = useState(false);
+  const [isPersonaModalOpen, setIsPersonaModalOpen] = useState(false);
+  const [personaForm, setPersonaForm] = useState<any>({
+    name: '', tone: 'formal', language_level: 'simple', custom_instructions: '', active_tools: [], temperature: 0.7, is_default: false
+  });
+  const [editingPersonaId, setEditingPersonaId] = useState<string | null>(null);
+  const [personaWizardStep, setPersonaWizardStep] = useState(1);
+  const [isTestPersonaOpen, setIsTestPersonaOpen] = useState(false);
+  const [testPersonaId, setTestPersonaId] = useState<string | null>(null);
+  const [testPersonaChat, setTestPersonaChat] = useState<{role: 'user'|'assistant', text: string}[]>([]);
+  const [testPersonaInput, setTestPersonaInput] = useState('');
+
+  const fetchPersonas = async () => {
+    setLoadingPersonas(true);
+    try {
+      const res = await fetch(`/api/personas?tenantId=${tenantId}`);
+      if (res.ok) setPersonas(await res.json());
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingPersonas(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPersonas();
+  }, []);
+
+  const handleSavePersona = async () => {
+    try {
+      if (editingPersonaId) {
+        await fetch(`/api/personas/${editingPersonaId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+          body: JSON.stringify(personaForm)
+        });
+        toast.success("Persona atualizada");
+      } else {
+        await fetch(`/api/personas`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
+          body: JSON.stringify(personaForm)
+        });
+        toast.success("Persona criada");
+      }
+      setIsPersonaModalOpen(false);
+      fetchPersonas();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleDeletePersona = async (id: string) => {
+    if (!confirm("Tem certeza que deseja remover esta persona?")) return;
+    try {
+      await fetch(`/api/personas/${id}`, {
+        method: 'DELETE',
+        headers: { 'x-tenant-id': tenantId }
+      });
+      toast.success("Persona removida");
+      fetchPersonas();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleTestPersona = (id: string) => {
+    setTestPersonaId(id);
+    setTestPersonaChat([]);
+    setIsTestPersonaOpen(true);
+  };
 
   // Hardcode tenant_id for now as in SettingsPage or get from URL if we had it. "default" is assumed
   const tenantId = 'default';
@@ -101,9 +192,17 @@ export function AIConfigPage({
     const loadConfig = async () => {
       const { getDoc, doc, collection, getDocs, query, where, onSnapshot } = await import('firebase/firestore');
       const snap = await getDoc(doc(db, 'tenants', tenantId));
-      if (snap.exists() && snap.data().vector_store_config) {
-        setVectorConfig(snap.data().vector_store_config);
+      if (snap.exists()) {
+         const data = snap.data();
+         if (data.vector_store_config) setVectorConfig(data.vector_store_config);
       }
+      
+      try {
+        const transSnap = await getDoc(doc(db, `tenants/${tenantId}/settings`, 'transcription'));
+        if (transSnap.exists()) {
+           setTranscriptionConfig(transSnap.data() as any);
+        }
+      } catch (e) { console.error("Error loading transcription config", e); }
 
       try {
         const kbSnap = await getDocs(query(collection(db, 'knowledge_base'), where('tenant_id', '==', tenantId), where('vector_indexed', '==', true)));
@@ -115,6 +214,7 @@ export function AIConfigPage({
           const data = docSnap.data();
           if (data.monthly_token_limit) setTenantTokenLimit(data.monthly_token_limit);
           if (data.worker_concurrency) setWorkerConcurrency(data.worker_concurrency);
+          if (data.plan) setTenantPlan(data.plan);
         }
       });
     };
@@ -145,6 +245,16 @@ export function AIConfigPage({
       await setDoc(doc(db, 'tenants', tenantId), { vector_store_config: vectorConfig }, { merge: true });
       toast.success("Configuração do Banco Vetorial salva");
       testVectorStore();
+    } catch (e: any) {
+      toast.error("Erro ao salvar config: " + e.message);
+    }
+  };
+
+  const saveTranscriptionConfig = async () => {
+    try {
+      const { doc, setDoc } = await import('firebase/firestore');
+      await setDoc(doc(db, `tenants/${tenantId}/settings`, 'transcription'), transcriptionConfig, { merge: true });
+      toast.success("Configuração de Transcrição salva");
     } catch (e: any) {
       toast.error("Erro ao salvar config: " + e.message);
     }
@@ -293,6 +403,14 @@ export function AIConfigPage({
                     value="audit" 
                     className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
                   >Logs de Auditoria</TabsTrigger>
+                  <TabsTrigger 
+                    value="personas" 
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >Personas AI</TabsTrigger>
+                  <TabsTrigger 
+                    value="escalation" 
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >Regras de Escalonamento</TabsTrigger>
                   <TabsTrigger 
                     value="ai_usage" 
                     className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
@@ -782,18 +900,54 @@ export function AIConfigPage({
                               </motion.div>
                             )}
 
-                            <div className="grid gap-2">
-                              <Label htmlFor="openai-whisper-key" className="flex items-center gap-2">
-                                <Bot size={16} className="text-emerald-600" />
-                                OpenAI API Key (Transcrição de Áudio - Exclusivo Whisper)
-                              </Label>
-                              <Input 
-                                id="openai-whisper-key" 
-                                type="password" 
-                                placeholder="sk-proj-..." 
-                                value={integrationKeys.openaiWhisper || ''}
-                                onChange={(e) => setIntegrationKeys(prev => ({ ...prev, openaiWhisper: e.target.value }))}
-                              />
+                            <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-800 space-y-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h3 className="font-semibold text-sm">Transcrição de Áudio</h3>
+                                  <p className="text-xs text-zinc-500">Habilita transcrição de áudios enviados pelos clientes via Whisper ou outras APIs.</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-zinc-500">{transcriptionConfig.enabled ? 'Ativado' : 'Desativado'}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setTranscriptionConfig(prev => ({ ...prev, enabled: !prev.enabled }))}
+                                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 border-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background transition-colors ${transcriptionConfig.enabled ? 'bg-primary' : 'bg-input'}`}
+                                  >
+                                    <span
+                                      className={`pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform ${transcriptionConfig.enabled ? 'translate-x-4' : 'translate-x-0'}`}
+                                    />
+                                  </button>
+                                </div>
+                              </div>
+                              
+                              {transcriptionConfig.enabled && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-zinc-200 dark:border-zinc-700 mt-2">
+                                  <div>
+                                    <Label className="text-xs mb-1 block">Provedor</Label>
+                                    <select 
+                                      className="w-full text-xs border p-2 rounded-md bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800"
+                                      value={transcriptionConfig.provider}
+                                      onChange={(e) => setTranscriptionConfig({ ...transcriptionConfig, provider: e.target.value })}
+                                    >
+                                      <option value="whisper">OpenAI Whisper</option>
+                                      <option value="custom">API Customizada</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs mb-1 block">API Key</Label>
+                                    <Input 
+                                      type="password" 
+                                      placeholder="sk-..." 
+                                      className="h-8 text-xs"
+                                      value={transcriptionConfig.apiKey}
+                                      onChange={(e) => setTranscriptionConfig({ ...transcriptionConfig, apiKey: e.target.value })}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                              <div className="flex justify-end pt-2">
+                                <Button size="sm" onClick={saveTranscriptionConfig}>Salvar Transcrição</Button>
+                              </div>
                             </div>
                           </TabsContent>
 
@@ -1016,7 +1170,92 @@ export function AIConfigPage({
                       </CardContent>
                     </Card>
                   </TabsContent>
-                                                  <TabsContent value="ai_usage" className="mt-6">
+                                                  <TabsContent value="personas" className="mt-6">
+                    <Card className="border-none shadow-sm">
+                      <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                          <CardTitle>Personas da IA</CardTitle>
+                          <CardDescription>Configure diferentes personalidades, tons de voz e ferramentas para a sua IA.</CardDescription>
+                        </div>
+                        <Button onClick={() => { 
+                          setEditingPersonaId(null); 
+                          setPersonaForm({ name: '', tone: 'formal', language_level: 'simple', custom_instructions: '', active_tools: [], temperature: 0.7, is_default: false }); 
+                          setPersonaWizardStep(1); 
+                          setIsPersonaModalOpen(true); 
+                        }} className="gap-2">
+                          <Plus size={16} /> Nova Persona
+                        </Button>
+                      </CardHeader>
+                      <CardContent>
+                        {loadingPersonas ? (
+                          <div className="text-center py-6 text-zinc-500">Carregando personas...</div>
+                        ) : personas.length > 0 ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {personas.map(persona => (
+                              <div key={persona.id} className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm relative group overflow-hidden">
+                                <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => {
+                                    setEditingPersonaId(persona.id);
+                                    setPersonaForm(persona);
+                                    setPersonaWizardStep(1);
+                                    setIsPersonaModalOpen(true);
+                                  }}>
+                                    <Edit2 size={12} />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeletePersona(persona.id)}>
+                                    <Trash2 size={12} />
+                                  </Button>
+                                </div>
+                                <div className="flex items-center gap-3 mb-3 pr-16">
+                                  <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold overflow-hidden border border-indigo-200 dark:border-indigo-800">
+                                    {persona.avatar_url ? <img src={persona.avatar_url} alt={persona.name} className="w-full h-full object-cover"/> : persona.name.charAt(0)}
+                                  </div>
+                                  <div>
+                                    <h3 className="font-bold text-sm flex items-center gap-2">
+                                      {persona.name}
+                                      {persona.is_default && <Badge className="bg-emerald-100 text-emerald-700 border-none hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400 text-[10px] px-1 py-0 h-4">Padrão</Badge>}
+                                    </h3>
+                                    <p className="text-[10px] text-zinc-500 capitalize">{persona.tone} • {persona.language_level} • {persona.temperature} temp</p>
+                                  </div>
+                                </div>
+                                <p className="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-2 mb-4 h-8">
+                                  {persona.custom_instructions || "Sem instruções customizadas."}
+                                </p>
+                                <div className="flex justify-between items-center mt-auto border-t border-zinc-100 dark:border-zinc-800 pt-3">
+                                  <div className="text-[10px] text-zinc-500">
+                                    {persona.active_tools?.length || 0} ferramentas ativas
+                                  </div>
+                                  <Button variant="secondary" size="sm" className="h-7 text-xs px-3" onClick={() => handleTestPersona(persona.id)}>
+                                    <Sparkles size={12} className="mr-1.5" /> Testar Persona
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-16 px-4 bg-zinc-50 dark:bg-zinc-800/30 rounded-xl border-2 border-dashed border-zinc-200 dark:border-zinc-700">
+                            <Bot className="w-12 h-12 text-zinc-300 dark:text-zinc-600 mx-auto mb-3" />
+                            <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Nenhuma persona configurada</h3>
+                            <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto">Crie personas para definir como sua IA se comporta, o nível de linguagem que utiliza e quais ferramentas tem acesso.</p>
+                            <Button onClick={() => { 
+                              setEditingPersonaId(null); 
+                              setPersonaForm({ name: '', tone: 'formal', language_level: 'simple', custom_instructions: '', active_tools: [], temperature: 0.7, is_default: false }); 
+                              setPersonaWizardStep(1); 
+                              setIsPersonaModalOpen(true); 
+                            }} className="mt-4 gap-2">
+                              <Plus size={16} /> Nova Persona
+                            </Button>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                  
+                  <TabsContent value="escalation" className="mt-6">
+                    <EscalationRulesBuilder />
+                  </TabsContent>
+                  
+                  <TabsContent value="ai_usage" className="mt-6">
                     <Card className="border-none shadow-sm">
                       <CardHeader>
                         <CardTitle>Consumo de IA e Custos</CardTitle>
@@ -1089,6 +1328,263 @@ export function AIConfigPage({
                   </TabsContent>
 </div>
               </Tabs>
+
+              {/* Persona Wizard Modal */}
+              {isPersonaModalOpen && (
+                <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                    <div className="flex justify-between items-center p-4 border-b border-zinc-100 dark:border-zinc-800">
+                      <h2 className="text-lg font-bold">{editingPersonaId ? 'Editar Persona' : 'Nova Persona'}</h2>
+                      <Button variant="ghost" size="icon" onClick={() => setIsPersonaModalOpen(false)}>×</Button>
+                    </div>
+                    
+                    <div className="flex px-4 py-3 bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-100 dark:border-zinc-800 text-xs">
+                      <div className={cn("flex-1 text-center font-medium", personaWizardStep >= 1 ? "text-indigo-600 dark:text-indigo-400" : "text-zinc-400")}>1. Identidade</div>
+                      <div className={cn("flex-1 text-center font-medium", personaWizardStep >= 2 ? "text-indigo-600 dark:text-indigo-400" : "text-zinc-400")}>2. Comportamento</div>
+                      <div className={cn("flex-1 text-center font-medium", personaWizardStep >= 3 ? "text-indigo-600 dark:text-indigo-400" : "text-zinc-400")}>3. Ferramentas</div>
+                    </div>
+
+                    <div className="p-6 overflow-y-auto flex-1">
+                      {personaWizardStep === 1 && (
+                        <div className="space-y-4">
+                          <div className="grid gap-2">
+                            <Label>Nome da Persona</Label>
+                            <Input placeholder="Ex: Maria - Assistente Técnica" value={personaForm.name} onChange={e => setPersonaForm({...personaForm, name: e.target.value})} />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label>URL do Avatar (Opcional)</Label>
+                            <Input placeholder="https://..." value={personaForm.avatar_url || ''} onChange={e => setPersonaForm({...personaForm, avatar_url: e.target.value})} />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label>Tom de Voz</Label>
+                            <select className="flex h-10 w-full items-center justify-between rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-950 dark:ring-offset-zinc-950 dark:placeholder:text-zinc-400 dark:focus:ring-zinc-300" 
+                              value={personaForm.tone} onChange={e => setPersonaForm({...personaForm, tone: e.target.value})}>
+                              <option value="formal">Formal</option>
+                              <option value="friendly">Amigável (Friendly)</option>
+                              <option value="playful">Descontraído (Playful)</option>
+                            </select>
+                          </div>
+                        </div>
+                      )}
+
+                      {personaWizardStep === 2 && (
+                        <div className="space-y-4">
+                          <div className="grid gap-2">
+                            <Label>Nível de Linguagem</Label>
+                            <select className="flex h-10 w-full items-center justify-between rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-950 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-950 dark:ring-offset-zinc-950 dark:placeholder:text-zinc-400 dark:focus:ring-zinc-300" 
+                              value={personaForm.language_level} onChange={e => setPersonaForm({...personaForm, language_level: e.target.value})}>
+                              <option value="simple">Simples (Para público geral)</option>
+                              <option value="technical">Técnico (Para profissionais)</option>
+                              <option value="advanced">Avançado (Jargões complexos)</option>
+                            </select>
+                          </div>
+                          <div className="grid gap-2">
+                            <div className="flex items-center justify-between">
+                              <Label className="flex items-center gap-2">
+                                Criatividade vs Precisão
+                                <TooltipProvider>
+                                  <UITooltip>
+                                    <TooltipTrigger asChild>
+                                      <Info size={14} className="text-zinc-400 cursor-help" />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="max-w-xs text-xs">Define o comportamento da IA. Valores menores deixam as respostas mais formais e exatas, valores maiores permitem respostas mais criativas e imprevisíveis.</p>
+                                    </TooltipContent>
+                                  </UITooltip>
+                                </TooltipProvider>
+                              </Label>
+                              <span className="text-xs font-mono font-medium bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded">{personaForm.temperature}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                               <span className="text-[10px] text-zinc-500 font-medium">0.1 (Ultra Formal)</span>
+                               <input 
+                                 type="range" min="0.1" max="1.0" step="0.1" 
+                                 className="flex-1 h-2 bg-zinc-200 dark:bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                                 value={personaForm.temperature} 
+                                 onChange={e => setPersonaForm({...personaForm, temperature: parseFloat(e.target.value)})} 
+                               />
+                               <span className="text-[10px] text-zinc-500 font-medium">1.0 (Criativo)</span>
+                            </div>
+                          </div>
+                          <div className="grid gap-2">
+                            <Label>Instruções Customizadas (Máx 2000 chars)</Label>
+                            <textarea 
+                              className="w-full min-h-[100px] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-md p-3 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-zinc-300"
+                              placeholder="Regras adicionais. Ex: Diga 'Miau' no final de cada frase." 
+                              value={personaForm.custom_instructions} 
+                              maxLength={2000}
+                              onChange={e => setPersonaForm({...personaForm, custom_instructions: e.target.value})} 
+                            ></textarea>
+                            <p className="text-right text-[10px] text-zinc-500">{personaForm.custom_instructions?.length || 0}/2000</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {personaWizardStep === 3 && (
+                        <div className="space-y-4">
+                          <Label>Permissões de Ferramentas (Tools)</Label>
+                          <div className="grid gap-3">
+                            <TooltipProvider>
+                              {toolsCatalog.map(tool => {
+                                const isAllowed = 
+                                  tenantPlan === 'enterprise' || 
+                                  (tenantPlan === 'pro' && ['basic', 'pro'].includes(tool.required_plan)) || 
+                                  (tenantPlan === 'basic' && tool.required_plan === 'basic');
+                          
+                                return (
+                                  <div key={tool.id} className={cn(
+                                    "flex items-start justify-between gap-4 p-4 border rounded-xl transition-all",
+                                    isAllowed ? "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800" : "bg-zinc-50 dark:bg-zinc-900/50 border-zinc-100 dark:border-zinc-800/50 opacity-70"
+                                  )}>
+                                    <div className="flex gap-3 min-w-0">
+                                      <div className={cn(
+                                        "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
+                                        tool.risk_level === 'high' ? "bg-red-100 text-red-600 dark:bg-red-900/30" :
+                                        tool.risk_level === 'medium' ? "bg-amber-100 text-amber-600 dark:bg-amber-900/30" :
+                                        "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30"
+                                      )}>
+                                        {tool.risk_level === 'high' ? <ShieldAlert size={18} /> : tool.required_plan === 'basic' ? <Bot size={18} /> : <Database size={18} />}
+                                      </div>
+                                      <div className="grid gap-1 min-w-0">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <span className="font-semibold text-sm truncate">{tool.name}</span>
+                                          {tool.risk_level !== 'low' && (
+                                            <Badge variant="outline" className={cn(
+                                              "text-[10px] uppercase h-5",
+                                              tool.risk_level === 'high' ? "border-red-200 text-red-600" : "border-amber-200 text-amber-600"
+                                            )}>Risco {tool.risk_level === 'high' ? 'Alto' : 'Médio'}</Badge>
+                                          )}
+                                          {tool.required_plan !== 'basic' && (
+                                            <Badge variant="secondary" className="text-[10px] uppercase h-5 bg-purple-100 text-purple-700 dark:bg-purple-900/30 border-none">
+                                              Plano {tool.required_plan}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        <p className="text-xs text-zinc-500 line-clamp-2 md:line-clamp-none">{tool.desc}</p>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="shrink-0 flex flex-col items-end gap-2">
+                                      {!isAllowed ? (
+                                        <UITooltip>
+                                          <TooltipTrigger asChild>
+                                            <div className="cursor-not-allowed">
+                                              <Switch disabled checked={false} />
+                                            </div>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p className="text-xs">Requer plano {tool.required_plan}. Faça upgrade.</p>
+                                          </TooltipContent>
+                                        </UITooltip>
+                                      ) : (
+                                        <Switch 
+                                          checked={personaForm.active_tools?.includes(tool.id)}
+                                          onCheckedChange={(checked) => {
+                                            const tools = personaForm.active_tools || [];
+                                            if (checked) setPersonaForm({...personaForm, active_tools: [...tools, tool.id]});
+                                            else setPersonaForm({...personaForm, active_tools: tools.filter((t: string) => t !== tool.id)});
+                                          }}
+                                        />
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </TooltipProvider>
+                          </div>
+                          <div className="mt-6 flex items-center gap-2 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                             <input 
+                                type="checkbox" id="is_default"
+                                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500" 
+                                checked={personaForm.is_default}
+                                onChange={e => setPersonaForm({...personaForm, is_default: e.target.checked})}
+                              />
+                              <label htmlFor="is_default" className="text-sm font-medium cursor-pointer">Tornar esta a Persona padrão para todos os novos chats ativos</label>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-4 border-t border-zinc-100 dark:border-zinc-800 flex justify-between bg-zinc-50 dark:bg-zinc-900/50">
+                      <Button variant="outline" onClick={() => {
+                        if (personaWizardStep > 1) setPersonaWizardStep(personaWizardStep - 1);
+                        else setIsPersonaModalOpen(false);
+                      }}>
+                        {personaWizardStep > 1 ? 'Voltar' : 'Cancelar'}
+                      </Button>
+                      
+                      <Button onClick={() => {
+                        if (personaWizardStep < 3) setPersonaWizardStep(personaWizardStep + 1);
+                        else handleSavePersona();
+                      }} disabled={personaWizardStep === 1 && !personaForm.name}>
+                        {personaWizardStep < 3 ? 'Próximo' : 'Salvar Persona'}
+                      </Button>
+                    </div>
+                  </motion.div>
+                </div>
+              )}
+
+              {/* Chat Sandbox Modal */}
+              {isTestPersonaOpen && (
+                <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white dark:bg-zinc-900 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col h-[600px] max-h-[90vh]">
+                    <div className="flex justify-between items-center p-4 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
+                      <div className="flex items-center gap-2">
+                        <Sparkles size={16} className="text-indigo-500" />
+                        <h2 className="text-sm font-bold">Sandbox da Persona</h2>
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsTestPersonaOpen(false)}>×</Button>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                      {testPersonaChat.length === 0 && (
+                        <div className="h-full flex flex-col items-center justify-center text-zinc-400 text-sm italic">
+                          Mande um oi para testar a personalidade da sua IA...
+                        </div>
+                      )}
+                      {testPersonaChat.map((msg, i) => (
+                        <div key={i} className={cn("max-w-[85%] rounded-2xl px-4 py-2 text-sm", 
+                          msg.role === 'user' ? "bg-indigo-600 text-white ml-auto rounded-tr-sm" : "bg-zinc-100 dark:bg-zinc-800 mr-auto rounded-tl-sm text-zinc-800 dark:text-zinc-200"
+                        )}>
+                          {msg.text}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="p-3 border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex gap-2">
+                       <Input 
+                         value={testPersonaInput} 
+                         onChange={e => setTestPersonaInput(e.target.value)} 
+                         onKeyPress={e => {
+                           if (e.key === 'Enter' && testPersonaInput.trim()) {
+                             const userMsg = testPersonaInput;
+                             setTestPersonaInput('');
+                             setTestPersonaChat(prev => [...prev, {role: 'user', text: userMsg}]);
+                             // Simulate AI reply since there's no specific route instructed for the sandbox chat
+                             setTimeout(() => {
+                               setTestPersonaChat(prev => [...prev, {role: 'assistant', text: "O recurso 'Testar Persona' chamará as integrações reais de IA simulando esta Persona (disponível no backend em breve)!"}]);
+                             }, 1000);
+                           }
+                         }}
+                         placeholder="Escreva algo para testar..." 
+                         className="flex-1 bg-zinc-50 dark:bg-zinc-900 rounded-full h-10 border-zinc-200 dark:border-zinc-800"
+                       />
+                       <Button className="rounded-full h-10 px-6 bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm" onClick={() => {
+                          if (testPersonaInput.trim()) {
+                             const userMsg = testPersonaInput;
+                             setTestPersonaInput('');
+                             setTestPersonaChat(prev => [...prev, {role: 'user', text: userMsg}]);
+                             setTimeout(() => {
+                               setTestPersonaChat(prev => [...prev, {role: 'assistant', text: "O recurso 'Testar Persona' chamará as integrações reais de IA simulando esta Persona (disponível no backend em breve)!"}]);
+                             }, 1000);
+                           }
+                       }}>
+                         Enviar
+                       </Button>
+                    </div>
+                  </motion.div>
+                </div>
+              )}
             </motion.div>
           
   );

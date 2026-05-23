@@ -8,7 +8,7 @@ export function BottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
   const currentPath = location.pathname.substring(1) || 'dashboard';
-  const { currentUserRole, companySettings } = useAppStore();
+  const { currentUserRole, companySettings, rolePermissions } = useAppStore();
 
   const navItems = [
     { id: 'customers', icon: Users, label: 'Clientes', role: 'customers' },
@@ -22,7 +22,8 @@ export function BottomNav() {
     <div className="md:hidden fixed bottom-6 left-6 right-6 z-50 bg-white dark:bg-[#111214] border border-zinc-200 dark:border-white/10 rounded-[32px] shadow-[0_16px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.5)] safe-area-pb">
       <div className="flex items-center justify-around w-full h-16 px-2">
         {navItems.map(item => {
-          if (!canAccess(currentUserRole, item.role as any, companySettings?.rolePermissions)) return null;
+          const perms = rolePermissions && Object.keys(rolePermissions).length > 0 ? rolePermissions : companySettings?.rolePermissions;
+          if (!canAccess(currentUserRole, item.role as any, perms)) return null;
           
           const isActive = currentPath === item.id;
           const Icon = item.icon;

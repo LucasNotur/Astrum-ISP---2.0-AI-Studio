@@ -298,6 +298,103 @@ export const decryptCpf = (encryptedCpf: string): string => {
   }
 };
 
+export const getIXCCredentials = async (tenantId: string = "default") => {
+  const keys = await getIntegrationKeys(tenantId);
+  return {
+    url: keys?.ixcUrl || "",
+    token: keys?.ixcToken ? decryptCpf(keys.ixcToken) : "",
+    integrationKey: keys?.ixcIntegrationKey ? decryptCpf(keys.ixcIntegrationKey) : "",
+  };
+};
+
+export const saveIXCCredentials = async (tenantId: string, credentials: { url: string; token: string; integrationKey: string }) => {
+  const integrationRef = tenantId === 'default' 
+    ? db.collection("settings").doc("integrations")
+    : db.collection("tenants").doc(tenantId).collection("settings").doc("integrations");
+
+  await integrationRef.set({
+    ixcUrl: credentials.url,
+    ixcToken: credentials.token ? encryptCpf(credentials.token) : "",
+    ixcIntegrationKey: credentials.integrationKey ? encryptCpf(credentials.integrationKey) : ""
+  }, { merge: true });
+};
+
+export const getVoalleCredentials = async (tenantId: string = "default") => {
+  const keys = await getIntegrationKeys(tenantId);
+  return {
+    url: keys?.voalleUrl || "",
+    clientId: keys?.voalleClientId ? decryptCpf(keys.voalleClientId) : "",
+    clientSecret: keys?.voalleClientSecret ? decryptCpf(keys.voalleClientSecret) : "",
+  };
+};
+
+export const saveVoalleCredentials = async (tenantId: string, credentials: { url: string; clientId: string; clientSecret: string }) => {
+  const integrationRef = tenantId === 'default' 
+    ? db.collection("settings").doc("integrations")
+    : db.collection("tenants").doc(tenantId).collection("settings").doc("integrations");
+
+  await integrationRef.set({
+    voalleUrl: credentials.url,
+    voalleClientId: credentials.clientId ? encryptCpf(credentials.clientId) : "",
+    voalleClientSecret: credentials.clientSecret ? encryptCpf(credentials.clientSecret) : ""
+  }, { merge: true });
+};
+
+export const getHubSoftCredentials = async (tenantId: string = "default") => {
+  const keys = await getIntegrationKeys(tenantId);
+  return {
+    url: keys?.hubsoftUrl || "",
+    token: keys?.hubsoftToken ? decryptCpf(keys.hubsoftToken) : "",
+  };
+};
+
+export const saveHubSoftCredentials = async (tenantId: string, credentials: { url: string; token: string }) => {
+  const integrationRef = tenantId === 'default' 
+    ? db.collection("settings").doc("integrations")
+    : db.collection("tenants").doc(tenantId).collection("settings").doc("integrations");
+
+  await integrationRef.set({
+    hubsoftUrl: credentials.url,
+    hubsoftToken: credentials.token ? encryptCpf(credentials.token) : ""
+  }, { merge: true });
+};
+
+export const getSGPCredentials = async (tenantId: string = "default") => {
+  const keys = await getIntegrationKeys(tenantId);
+  return {
+    url: keys?.sgpUrl || "",
+    token: keys?.sgpToken ? decryptCpf(keys.sgpToken) : "",
+  };
+};
+
+export const saveSGPCredentials = async (tenantId: string, credentials: { url: string; token: string }) => {
+  const integrationRef = tenantId === 'default' 
+    ? db.collection("settings").doc("integrations")
+    : db.collection("tenants").doc(tenantId).collection("settings").doc("integrations");
+  await integrationRef.set({
+    sgpUrl: credentials.url,
+    sgpToken: credentials.token ? encryptCpf(credentials.token) : ""
+  }, { merge: true });
+};
+
+export const getRBXCredentials = async (tenantId: string = "default") => {
+  const keys = await getIntegrationKeys(tenantId);
+  return {
+    url: keys?.rbxUrl || "",
+    token: keys?.rbxToken ? decryptCpf(keys.rbxToken) : "",
+  };
+};
+
+export const saveRBXCredentials = async (tenantId: string, credentials: { url: string; token: string }) => {
+  const integrationRef = tenantId === 'default' 
+    ? db.collection("settings").doc("integrations")
+    : db.collection("tenants").doc(tenantId).collection("settings").doc("integrations");
+  await integrationRef.set({
+    rbxUrl: credentials.url,
+    rbxToken: credentials.token ? encryptCpf(credentials.token) : ""
+  }, { merge: true });
+};
+
 export const maskCpfForLog = (cpf?: string): string => {
   if (!cpf) return "";
   const cleanCpf = cpf.replace(/\D/g, "");

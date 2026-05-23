@@ -1,9 +1,11 @@
 import { CustomerRepository, Customer } from '../interfaces';
 import { db } from '../../lib/firebase';
-import { collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, limit, addDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, limit, addDoc } from 'firebase/firestore';
+import { wrapFirestoreCollection } from '../../lib/tenantGuard';
 
 export class CustomerRepositoryFirebase implements CustomerRepository {
   async findById(id: string, tenantId: string): Promise<Customer | null> {
+    if (!tenantId) throw new Error('TENANT_REQUIRED');
     const docRef = doc(db, 'customers', id);
     const snap = await getDoc(docRef);
     if (!snap.exists()) return null;
@@ -13,10 +15,9 @@ export class CustomerRepositoryFirebase implements CustomerRepository {
   }
 
   async findByPhone(phone: string, tenantId: string): Promise<Customer | null> {
-    const q = query(
-      collection(db, 'customers'),
+    if (!tenantId) throw new Error('TENANT_REQUIRED');
+    const q = wrapFirestoreCollection(db, 'customers', tenantId).query(
       where('phone_number', '==', phone),
-      where('tenant_id', '==', tenantId),
       limit(1)
     );
     const snap = await getDocs(q);
@@ -25,11 +26,9 @@ export class CustomerRepositoryFirebase implements CustomerRepository {
   }
 
   async findByCpf(cpf: string, tenantId: string): Promise<Customer | null> {
+    if (!tenantId) throw new Error('TENANT_REQUIRED');
     const { decryptCpf } = await import('../../lib/db');
-    const q = query(
-      collection(db, 'customers'),
-      where('tenant_id', '==', tenantId)
-    );
+    const q = wrapFirestoreCollection(db, 'customers', tenantId).query();
     const snap = await getDocs(q);
     const cleanedCpf = cpf.replace(/\D/g, "");
     
@@ -48,7 +47,8 @@ export class CustomerRepositoryFirebase implements CustomerRepository {
   }
 
   async create(data: Partial<Customer>): Promise<Customer> {
-    const docRef = await addDoc(collection(db, 'customers'), data);
+    if (!data.tenant_id) throw new Error('TENANT_REQUIRED');
+    const docRef = await addDoc(wrapFirestoreCollection(db, 'customers', data.tenant_id as string).ref, data);
     return { id: docRef.id, ...data } as Customer;
   }
 

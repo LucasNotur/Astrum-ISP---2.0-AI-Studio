@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/src/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/src/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/src/components/ui/dialog";
-import { Search, Server, Sparkles, Plus, CheckCircle2, XCircle, RotateCcw, PenSquare, Trash2, Cpu } from 'lucide-react';
+import { Search, Server, Sparkles, Plus, CheckCircle2, XCircle, RotateCcw, PenSquare, Trash2, Cpu, FileUp } from 'lucide-react';
 
 export function KnowledgeBasePage({ knowledgeBase, handleGenerateAIArticle, handleSeedKB }: any) {
   const { user } = useAppStore();
@@ -31,6 +31,34 @@ export function KnowledgeBasePage({ knowledgeBase, handleGenerateAIArticle, hand
   const [isArticleModalOpen, setIsArticleModalOpen] = useState(false);
   const [editingArticle, setEditingArticle] = useState<any>(null);
   const [articleForm, setArticleForm] = useState({ title: '', category: 'geral', content: '' });
+  
+  // Drag and Drop State
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState<{name: string, size: number, progress: number, status: string, error?: string}[]>([]);
+
+  // URL Scraper State
+  const [urlToScrape, setUrlToScrape] = useState('');
+  const [isScrapingUrl, setIsScrapingUrl] = useState(false);
+
+  const handleScrapeUrl = async () => {
+    if (!currentTenant?.id || !urlToScrape) return;
+    setIsScrapingUrl(true);
+    try {
+      const res = await fetch('/api/rag/scrape-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: urlToScrape, tenantId: currentTenant.id })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      fetchKBArticles(currentTenant.id);
+      setUrlToScrape('');
+    } catch(e: any) {
+      console.error(`Erro ao importar site: ${e.message}`);
+    } finally {
+      setIsScrapingUrl(false);
+    }
+  };
 
   // Section 3: Search Test
   const [searchQuery, setSearchQuery] = useState('');
@@ -155,6 +183,88 @@ export function KnowledgeBasePage({ knowledgeBase, handleGenerateAIArticle, hand
       body: JSON.stringify({ query: searchQuery, tenantId: currentTenant.id })
     });
     setSearchResults(await res.json());
+  };
+
+  const handleReindexArticle = async (id: string) => {
+    if (!currentTenant?.id) return;
+    try {
+      const res = await fetch(`/api/knowledge/articles/${id}/reindex`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId: currentTenant.id })
+      });
+      if (res.ok) {
+        fetchKBArticles(currentTenant.id);
+      }
+    } catch(e) {
+      console.error(e);
+    }
+  };
+
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const onDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const onDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    if (!currentTenant?.id) return;
+
+    const files = Array.from(e.dataTransfer.files).filter(file => 
+      file.type === 'application/pdf' || 
+      file.type === 'text/plain' ||
+      file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+      file.name.endsWith('.pdf') || file.name.endsWith('.txt') || file.name.endsWith('.docx')
+    );
+
+    if (files.length === 0) return;
+
+    const newUploads = files.map(f => ({ name: f.name, size: f.size, progress: 0, status: 'uploading' }));
+    setUploadingFiles(prev => [...prev, ...newUploads]);
+
+    for (const file of files) {
+      try {
+        const formData = new FormData();
+        formData.append("pdf", file);
+        
+        const uploadRes = await fetch('/api/rag/upload-pdf', {
+          method: 'POST',
+          headers: { 'x-tenant-id': currentTenant.id },
+          body: formData
+        });
+
+        if (!uploadRes.ok) throw new Error('Falha ao processar arquivo');
+        const uploadData = await uploadRes.json();
+        const extractedText = uploadData.rawText || uploadData.summary || '';
+
+        setUploadingFiles(prev => prev.map(u => u.name === file.name ? { ...u, progress: 50, status: 'indexing' } : u));
+
+        const articleRes = await fetch('/api/knowledge/articles', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: file.name,
+            content: extractedText,
+            category: 'geral',
+            tenantId: currentTenant.id
+          })
+        });
+
+        if (!articleRes.ok) throw new Error('Falha ao indexar artigo');
+
+        setUploadingFiles(prev => prev.map(u => u.name === file.name ? { ...u, progress: 100, status: 'success' } : u));
+        fetchKBArticles(currentTenant.id);
+      } catch (e: any) {
+        setUploadingFiles(prev => prev.map(u => u.name === file.name ? { ...u, status: 'error', error: e.message } : u));
+      }
+    }
   };
 
   const indexedCount = kbArticles.filter(a => a.vector_indexed).length;
@@ -318,14 +428,81 @@ export function KnowledgeBasePage({ knowledgeBase, handleGenerateAIArticle, hand
         </TabsContent>
 
         <TabsContent value="knowledge" className="space-y-6 pt-4">
-          <div className="flex justify-between items-center">
-            <div className="text-sm text-zinc-500">
-              Total de artigos: <b>{kbArticles.length}</b> ({indexedCount} indexados no vetor)
+          <div className="flex justify-between items-center bg-zinc-50 border border-zinc-200 dark:bg-zinc-800/50 dark:border-zinc-700 p-4 rounded-xl gap-4">
+            <div className="flex flex-1 gap-2 items-center">
+              <Input 
+                placeholder="Exemplo: https://site-do-provedor.com.br/planos" 
+                value={urlToScrape} 
+                onChange={(e) => setUrlToScrape(e.target.value)} 
+                className="max-w-xl"
+              />
+              <Button onClick={handleScrapeUrl} disabled={isScrapingUrl || !urlToScrape} variant="secondary">
+                {isScrapingUrl ? 'Importando...' : 'Importar do Site'}
+              </Button>
             </div>
-            <Button onClick={() => { setEditingArticle(null); setArticleForm({ title: '', category: 'geral', content: '' }); setIsArticleModalOpen(true); }}>
-              <Plus size={16} className="mr-2" /> Novo Artigo
-            </Button>
+            
+            <div className="flex gap-2 items-center">
+              <div className="text-sm text-zinc-500 mr-2">
+                Total de artigos: <b>{kbArticles.length}</b> ({indexedCount} indexados no vetor)
+              </div>
+              <Button onClick={() => { setEditingArticle(null); setArticleForm({ title: '', category: 'geral', content: '' }); setIsArticleModalOpen(true); }}>
+                <Plus size={16} className="mr-2" /> Novo Artigo
+              </Button>
+            </div>
           </div>
+
+          <div
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+            className={`border-2 border-dashed rounded-xl p-8 text-center transition-all ${
+              isDragging ? 'border-purple-500 bg-purple-50' : 'border-zinc-300 hover:border-purple-400'
+            }`}
+          >
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <div className="p-4 bg-white rounded-full shadow-sm">
+                <FileUp className="w-8 h-8 text-purple-500" />
+              </div>
+              <div>
+                <p className="text-lg font-medium text-zinc-900">Arraste seus documentos para cá</p>
+                <p className="text-sm text-zinc-500 mt-1">Suporta PDF, TXT, DOCX</p>
+              </div>
+            </div>
+          </div>
+
+          {uploadingFiles.length > 0 && (
+            <div className="space-y-3">
+              {uploadingFiles.map((file, idx) => (
+                <div key={idx} className="flex items-center justify-between p-3 bg-white border border-zinc-100 rounded-lg shadow-sm">
+                  <div className="flex items-center space-x-3 w-1/3">
+                    <FileUp className="w-5 h-5 text-zinc-400" />
+                    <div className="truncate">
+                      <p className="text-sm font-medium text-zinc-900 truncate">{file.name}</p>
+                      <p className="text-xs text-zinc-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 px-4">
+                    <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-500 ${
+                          file.status === 'error' ? 'bg-red-500' : 
+                          file.status === 'success' ? 'bg-green-500' : 'bg-purple-500'
+                        }`} 
+                        style={{ width: `${file.progress}%` }} 
+                      />
+                    </div>
+                    <p className="text-xs text-zinc-500 mt-1 text-center">
+                      {file.status === 'uploading' && 'Lendo arquivo...'}
+                      {file.status === 'indexing' && 'Indexando...'}
+                      {file.status === 'success' && 'Concluído'}
+                      {file.status === 'error' && <span className="text-red-500">{file.error}</span>}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           <Card>
             <div className="overflow-x-auto">
@@ -334,6 +511,7 @@ export function KnowledgeBasePage({ knowledgeBase, handleGenerateAIArticle, hand
                   <tr>
                     <th className="px-6 py-4 font-medium">Título do Artigo</th>
                     <th className="px-6 py-4 font-medium">Categoria</th>
+                    <th className="px-6 py-4 font-medium">Criação</th>
                     <th className="px-6 py-4 font-medium">Status Vetor</th>
                     <th className="px-6 py-4 font-medium text-right">Ações</th>
                   </tr>
@@ -343,6 +521,9 @@ export function KnowledgeBasePage({ knowledgeBase, handleGenerateAIArticle, hand
                     <tr key={article.id} className="hover:bg-zinc-50/50">
                       <td className="px-6 py-4 font-medium">{article.title}</td>
                       <td className="px-6 py-4"><Badge variant="outline">{article.category || 'geral'}</Badge></td>
+                      <td className="px-6 py-4 text-zinc-500 whitespace-nowrap">
+                        {article.created_at?.toDate ? new Date(article.created_at.toDate()).toLocaleDateString('pt-BR') : 'Hoje'}
+                      </td>
                       <td className="px-6 py-4">
                         {article.vector_indexed ? (
                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none"><CheckCircle2 size={12} className="mr-1"/> Indexado</Badge>
@@ -350,20 +531,23 @@ export function KnowledgeBasePage({ knowledgeBase, handleGenerateAIArticle, hand
                            <Badge variant="secondary" className="text-zinc-500"><RotateCcw size={12} className="mr-1"/> Pendente</Badge>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <Button variant="ghost" size="sm" onClick={() => {
+                      <td className="px-6 py-4 text-right whitespace-nowrap">
+                        <Button variant="ghost" size="sm" title="Reindexar" onClick={() => handleReindexArticle(article.id)}>
+                          <RotateCcw size={16}/>
+                        </Button>
+                        <Button variant="ghost" size="sm" title="Editar" onClick={() => {
                           setEditingArticle(article);
                           setArticleForm({ title: article.title, category: article.category, content: article.content });
                           setIsArticleModalOpen(true);
                         }}><PenSquare size={16}/></Button>
-                        <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => handleDeleteArticle(article.id)}>
+                        <Button variant="ghost" size="sm" title="Excluir" className="text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => handleDeleteArticle(article.id)}>
                           <Trash2 size={16}/>
                         </Button>
                       </td>
                     </tr>
                   ))}
                   {kbArticles.length === 0 && (
-                     <tr><td colSpan={4} className="text-center py-12 text-zinc-500">Nenhum artigo encontrado.</td></tr>
+                     <tr><td colSpan={5} className="text-center py-12 text-zinc-500">Nenhum artigo encontrado.</td></tr>
                   )}
                 </tbody>
               </table>

@@ -24,17 +24,25 @@ export class GeminiAdapter implements AIProvider {
     return client;
   }
 
-  async chat(messages: Message[], config: ProviderConfig, tenantId: string, options?: { tools?: any[] }): Promise<ChatResult> {
+  async chat(messages: Message[], config: ProviderConfig, tenantId: string, options?: { tools?: any[], temperature?: number }): Promise<ChatResult> {
     const client = await this.getClient(tenantId);
     const model = config.model || "gemini-3.1-flash-lite"; 
 
     const systemInstruction = messages.find(m => m.role === 'system')?.content;
     const contents = messages
       .filter(m => m.role !== 'system')
-      .map(m => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }]
-      }));
+      .map(m => {
+         if (m.parts && m.parts.length > 0) {
+           return {
+              role: m.role === 'assistant' ? 'model' : 'user',
+              parts: m.parts 
+           }
+         }
+         return {
+           role: m.role === 'assistant' ? 'model' : 'user',
+           parts: [{ text: m.content }]
+         };
+      });
 
     const response = await client.models.generateContent({
       model,
@@ -42,7 +50,7 @@ export class GeminiAdapter implements AIProvider {
       config: {
         tools: options?.tools as any,
         systemInstruction,
-        temperature: config.temperature,
+        temperature: options?.temperature ?? config.temperature,
       }
     });
 

@@ -20,7 +20,7 @@ export class AnthropicAdapter implements AIProvider {
     return client;
   }
 
-  async chat(messages: Message[], config: ProviderConfig, tenantId: string, options?: { tools?: any[] }): Promise<ChatResult> {
+  async chat(messages: Message[], config: ProviderConfig, tenantId: string, options?: { tools?: any[], temperature?: number }): Promise<ChatResult> {
     const client = await this.getClient(tenantId);
     const system = messages.find(m => m.role === 'system')?.content;
     const coreMessages = messages.filter(m => m.role !== 'system').map(m => ({
@@ -31,7 +31,7 @@ export class AnthropicAdapter implements AIProvider {
     const response = await client.messages.create({
       model: config.model || "claude-3-haiku-20240307",
       max_tokens: config.maxTokens || 1024,
-      temperature: config.temperature ?? 0.7,
+      temperature: options?.temperature ?? config.temperature ?? 0.7,
       system,
       messages: coreMessages,
     });

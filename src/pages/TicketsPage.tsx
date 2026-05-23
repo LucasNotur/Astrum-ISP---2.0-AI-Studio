@@ -11,12 +11,46 @@ import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger }
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
 
+import { db } from '@/src/lib/firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { useTenantDate } from '@/src/hooks/useTenantDate';
+
 export function TicketsPage({ onNewTicketClick }: { onNewTicketClick: () => void }) {
-  const { tickets, customers, setSelectedTicket, setIsTicketDetailOpen } = useAppStore();
+  const { tickets, customers, setSelectedTicket, setIsTicketDetailOpen, userProfile } = useAppStore();
+  const { formatDateOnly } = useTenantDate();
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
   const [filterCustomer, setFilterCustomer] = useState('all');
+
+  const [departments, setDepartments] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    if (!userProfile?.tenantId) return;
+    const unsub = onSnapshot(collection(db, "tenants", userProfile.tenantId, "departments"), (snap) => {
+      setDepartments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return () => unsub();
+  }, [userProfile?.tenantId]);
+
+  const getSLAStatus = (ticket: any) => {
+     if (ticket.status === 'resolved') return null;
+     if (ticket.sla_breached) return 'red';
+     if (!ticket.createdAt) return 'green';
+     
+     let limitMinutes = 15;
+     if (ticket.departmentId) {
+        const dept = departments.find(d => d.id === ticket.departmentId);
+        if (dept && dept.sla_response_minutes) limitMinutes = dept.sla_response_minutes;
+     }
+
+     const created = ticket.createdAt?.toDate ? ticket.createdAt.toDate() : new Date(ticket.createdAt);
+     const elapsed = (Date.now() - created.getTime()) / 60000;
+     
+     if (elapsed > limitMinutes) return 'red';
+     if (elapsed > limitMinutes * 0.75) return 'yellow';
+     return 'green';
+  };
 
   const filteredTickets = useMemo(() => {
     return tickets.filter(t => {
@@ -140,6 +174,7 @@ export function TicketsPage({ onNewTicketClick }: { onNewTicketClick: () => void
           <div className="flex flex-col md:flex-row gap-4 md:min-w-max md:h-[calc(100vh-320px)] h-auto">
             <TicketColumn title="Novos" status="open" tickets={filteredTickets.filter(t => t.status === 'open')} customers={customers} onTicketClick={(t: any) => { setSelectedTicket(t); setIsTicketDetailOpen(true); }} />
             <TicketColumn title="Em Atendimento" status="in-progress" tickets={filteredTickets.filter(t => t.status === 'in-progress')} customers={customers} onTicketClick={(t: any) => { setSelectedTicket(t); setIsTicketDetailOpen(true); }} />
+            <TicketColumn title="Em Espera" status="snoozed" tickets={filteredTickets.filter(t => t.status === 'snoozed')} customers={customers} onTicketClick={(t: any) => { setSelectedTicket(t); setIsTicketDetailOpen(true); }} />
             <TicketColumn title="Escalados (N3)" status="escalated" tickets={filteredTickets.filter(t => t.status === 'escalated')} customers={customers} onTicketClick={(t: any) => { setSelectedTicket(t); setIsTicketDetailOpen(true); }} />
             <TicketColumn title="Resolvidos" status="resolved" tickets={filteredTickets.filter(t => t.status === 'resolved').slice(0, 50)} customers={customers} onTicketClick={(t: any) => { setSelectedTicket(t); setIsTicketDetailOpen(true); }} />
           </div>
@@ -168,9 +203,14 @@ export function TicketsPage({ onNewTicketClick }: { onNewTicketClick: () => void
                       <TableCell className="font-medium max-w-xs truncate">{t.subject}</TableCell>
                       <TableCell>{customer?.name || 'Desconhecido'}</TableCell>
                       <TableCell>
-                        <Badge variant={t.priority === 'urgent' || t.priority === 'high' ? 'destructive' : 'outline'} className="text-[10px]">
-                          {t.priority?.toUpperCase() || 'NORMAL'}
-                        </Badge>
+                        <div className="flex gap-1 items-center">
+                          <Badge variant={t.priority === 'urgent' || t.priority === 'high' ? 'destructive' : 'outline'} className="text-[10px]">
+                            {t.priority?.toUpperCase() || 'NORMAL'}
+                          </Badge>
+                          {getSLAStatus(t) && (
+                            <div className={`w-2 h-2 rounded-full ${getSLAStatus(t) === 'red' ? 'bg-red-500' : getSLAStatus(t) === 'yellow' ? 'bg-amber-400' : 'bg-green-500'}`} title="SLA Status" />
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="text-[10px]">
@@ -181,7 +221,7 @@ export function TicketsPage({ onNewTicketClick }: { onNewTicketClick: () => void
                         <span className="text-xs text-zinc-500">{t.category || 'Geral'}</span>
                       </TableCell>
                       <TableCell className="text-xs text-zinc-500">
-                        {t.createdAt?.toDate ? t.createdAt.toDate().toLocaleDateString() : 'Recente'}
+                        {t.createdAt?.toDate ? formatDateOnly(t.createdAt.toDate()) : 'Recente'}
                       </TableCell>
                     </TableRow>
                   )
@@ -202,6 +242,7 @@ export function TicketsPage({ onNewTicketClick }: { onNewTicketClick: () => void
 
 function TicketColumn({ title, status, tickets, customers, onTicketClick }: any) {
   const visibleTickets = tickets.slice(0, 20); // limiting initial paint
+  const { formatDateOnly, formatDateTime } = useTenantDate();
 
   return (
     <div className="flex flex-col w-full md:w-80 md:min-w-[320px] bg-zinc-50/50 dark:bg-zinc-900/40 rounded-xl border border-zinc-200/50 dark:border-zinc-800/50 p-3 md:h-full min-h-[min-content]">
@@ -216,7 +257,7 @@ function TicketColumn({ title, status, tickets, customers, onTicketClick }: any)
             return (
               <Card 
                 key={t.id} 
-                className="border-none shadow-[0_8px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] hover:scale-[1.02] transition-all duration-300 cursor-pointer group relative bg-white dark:bg-[#16171a] rounded-[16px] overflow-hidden ticket-shape"
+                className={`border-none shadow-[0_8px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] hover:scale-[1.02] transition-all duration-300 cursor-pointer group relative bg-white dark:bg-[#16171a] rounded-[16px] overflow-hidden ticket-shape ${t.status === 'snoozed' ? 'opacity-80 grayscale-[0.3]' : ''}`}
                 onClick={() => onTicketClick(t)}
               >
                 <div className="absolute top-0 bottom-0 left-8 border-l border-dashed border-zinc-200 dark:border-white/5" />
@@ -263,8 +304,13 @@ function TicketColumn({ title, status, tickets, customers, onTicketClick }: any)
                           </Avatar>
                         )}
                       </div>
-                      <span className="text-[10px] font-bold text-zinc-500 flex items-center gap-1 uppercase tracking-wider">
-                        <Clock size={12} /> {t.createdAt?.toDate ? t.createdAt.toDate().toLocaleDateString() : 'Hoje'}
+                      <span className={`text-[9px] font-bold flex items-center gap-1 uppercase tracking-wider ${t.status === 'snoozed' ? 'text-amber-500' : 'text-zinc-500'}`}>
+                        <Clock size={12} /> 
+                        {t.status === 'snoozed' && t.snoozed_until ? (
+                          t.snoozed_until?.toDate ? formatDateTime(t.snoozed_until.toDate()) : formatDateTime(new Date(t.snoozed_until))
+                        ) : (
+                          t.createdAt?.toDate ? formatDateOnly(t.createdAt.toDate()) : 'Hoje'
+                        )}
                       </span>
                     </div>
                   </div>

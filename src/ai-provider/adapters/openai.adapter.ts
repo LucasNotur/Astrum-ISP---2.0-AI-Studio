@@ -20,12 +20,25 @@ export class OpenAIAdapter implements AIProvider {
     return client;
   }
 
-  async chat(messages: Message[], config: ProviderConfig, tenantId: string, options?: { tools?: any[] }): Promise<ChatResult> {
+  async chat(messages: Message[], config: ProviderConfig, tenantId: string, options?: { tools?: any[], temperature?: number }): Promise<ChatResult> {
     const client = await this.getClient(tenantId);
+    const openaiMessages = messages.map(m => {
+       if (m.parts && m.parts.length > 0) {
+          const content = m.parts.map((p: any) => {
+             if (p.inlineData) {
+                return { type: "image_url", image_url: { url: `data:${p.inlineData.mimeType};base64,${p.inlineData.data}` }};
+             }
+             return { type: "text", text: p.text };
+          });
+          return { role: m.role, content };
+       }
+       return { role: m.role, content: m.content };
+    });
+
     const response = await client.chat.completions.create({
       model: config.model,
-      messages: messages as any,
-      temperature: config.temperature ?? 0.7,
+      messages: openaiMessages as any,
+      temperature: options?.temperature ?? config.temperature ?? 0.7,
       max_tokens: config.maxTokens,
       tools: options?.tools as any,
     });

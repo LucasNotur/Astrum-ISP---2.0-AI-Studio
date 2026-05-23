@@ -1,6 +1,7 @@
 import { TicketRepository, Ticket, SessionState } from '../interfaces';
 import { db } from '../../lib/firebase';
-import { collection, doc, getDoc, getDocs, updateDoc, addDoc, query, where, limit } from 'firebase/firestore';
+import { doc, getDoc, getDocs, updateDoc, addDoc, query, where, limit } from 'firebase/firestore';
+import { wrapFirestoreCollection } from '../../lib/tenantGuard';
 
 export class TicketRepositoryFirebase implements TicketRepository {
   async findById(id: string): Promise<Ticket | null> {
@@ -11,10 +12,9 @@ export class TicketRepositoryFirebase implements TicketRepository {
   }
 
   async findOpenByPhone(phone: string, tenantId: string): Promise<Ticket | null> {
-    const q = query(
-      collection(db, 'tickets'),
+    if (!tenantId) throw new Error('TENANT_REQUIRED');
+    const q = wrapFirestoreCollection(db, 'tickets', tenantId).query(
       where('phone_number', '==', phone),
-      where('tenant_id', '==', tenantId),
       where('status', 'in', ['open', 'in_progress', 'waiting']),
       limit(1)
     );
@@ -24,7 +24,8 @@ export class TicketRepositoryFirebase implements TicketRepository {
   }
 
   async create(data: Partial<Ticket>): Promise<Ticket> {
-    const docRef = await addDoc(collection(db, 'tickets'), data);
+    if (!data.tenant_id) throw new Error('TENANT_REQUIRED');
+    const docRef = await addDoc(wrapFirestoreCollection(db, 'tickets', data.tenant_id as string).ref, data);
     return { id: docRef.id, ...data } as Ticket;
   }
 

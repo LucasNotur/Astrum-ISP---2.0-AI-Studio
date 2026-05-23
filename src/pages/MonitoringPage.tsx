@@ -87,12 +87,26 @@ export function MonitoringPage() {
     }
   };
 
-  const markDlqResolved = async (id: string) => {
+  const markDlqResolved = async (id: string, action: string = 'descartado') => {
     try {
-      await updateDoc(doc(db, 'dead_letter_queue', id), { resolved: true });
-      toast.success('Job marcado como resolvido');
+      await updateDoc(doc(db, 'dead_letter_queue', id), { resolved: true, action });
+      toast.success(action === 'descartado' ? 'Job descartado' : 'Job marcado como resolvido');
     } catch (e) {
       toast.error('Erro ao atualizar job');
+    }
+  };
+
+  const retryDlqJob = async (id: string) => {
+    try {
+      const res = await fetch(`/api/dlq/${id}/retry`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success('Job reenviado para a fila');
+      } else {
+        toast.error(`Erro ao retentar: ${data.error || 'Desconhecido'}`);
+      }
+    } catch (e) {
+      toast.error('Erro ao retentar job');
     }
   };
 
@@ -193,22 +207,50 @@ export function MonitoringPage() {
                 Nenhum job falho na fila.
               </div>
             ) : (
-              <div className="space-y-3">
-                {dlqJobs.map((job) => (
-                  <div key={job.id} className="p-3 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-lg text-sm">
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="font-bold text-red-700 dark:text-red-400">{job.job_name}</span>
-                      <Button size="sm" variant="ghost" className="h-6 text-xs text-red-600" onClick={() => markDlqResolved(job.id)}>
-                        Marcar Resolvido
-                      </Button>
-                    </div>
-                    <p className="text-xs text-red-600/80 mb-1 truncate">{job.error_message}</p>
-                    <div className="flex justify-between text-[10px] text-red-500/70">
-                      <span>{job.failed_at?.toDate ? job.failed_at.toDate().toLocaleString() : ''}</span>
-                      <span>Tenant: {job.tenant_id}</span>
-                    </div>
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="text-xs text-zinc-500 bg-zinc-50 dark:bg-zinc-900 uppercase">
+                    <tr>
+                      <th className="px-4 py-3 font-medium">Job ID</th>
+                      <th className="px-4 py-3 font-medium">Tipo</th>
+                      <th className="px-4 py-3 font-medium">Erro</th>
+                      <th className="px-4 py-3 font-medium">Tentativas</th>
+                      <th className="px-4 py-3 font-medium">Falha Em</th>
+                      <th className="px-4 py-3 font-medium text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dlqJobs.map((job) => (
+                      <tr key={job.id} className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-900/50">
+                        <td className="px-4 py-3 font-mono text-xs max-w-[100px] truncate" title={job.job_id || job.id}>
+                          {job.job_id || job.id}
+                        </td>
+                        <td className="px-4 py-3 font-medium text-red-600 dark:text-red-400">
+                          {job.type || job.job_name}
+                        </td>
+                        <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400 max-w-[200px] truncate" title={job.error_message}>
+                          {job.error_message}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant="outline" className="text-xs">{job.retry_count || job.attempts || 1}</Badge>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-zinc-500 whitespace-nowrap">
+                          {job.failed_at?.toDate ? job.failed_at.toDate().toLocaleString() : ''}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => retryDlqJob(job.id)}>
+                              Retentar
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-7 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950" onClick={() => markDlqResolved(job.id, 'descartado')}>
+                              Descartar
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </CardContent>

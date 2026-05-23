@@ -31,6 +31,32 @@ export function ServiceOrdersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [whatsappSimulationLog, setWhatsappSimulationLog] = useState<any[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [activeIncidents, setActiveIncidents] = useState<any[]>([]);
+
+  const fetchIncidents = async () => {
+    try {
+      const res = await fetch('/api/incidents/active?tenantId=default');
+      const data = await res.json();
+      setActiveIncidents(data);
+    } catch(e) {
+      console.error(e);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchIncidents();
+  }, []);
+
+  const handleResolveIncident = async (id: string) => {
+    try {
+      const toastId = toast.loading("Resolvendo...");
+      await fetch(`/api/incidents/${id}/resolve`, { method: 'PUT' });
+      toast.success("Incidente resolvido", { id: toastId });
+      fetchIncidents();
+    } catch(e) {
+      toast.error("Erro ao resolver");
+    }
+  };
 
   // Forms
   const [finishData, setFinishData] = useState({ macAddress: '', cableUsed: '', signal: '' });
@@ -390,6 +416,9 @@ export function ServiceOrdersPage() {
           </TabsTrigger>
           <TabsTrigger value="history" className="gap-2 whitespace-nowrap">
             <User size={16} /> Histórico dos Técnicos
+          </TabsTrigger>
+          <TabsTrigger value="incidents" className="gap-2 whitespace-nowrap">
+            <Bot size={16} /> Incidentes
           </TabsTrigger>
         </TabsList>
 
@@ -843,6 +872,70 @@ export function ServiceOrdersPage() {
                   </div>
                 )}
              </div>
+           </div>
+        </TabsContent>
+        <TabsContent value="incidents" className="flex-1 mt-0 data-[state=active]:flex overflow-y-auto w-full">
+           <div className="flex-1 w-full bg-zinc-50 dark:bg-zinc-900/30 rounded-2xl border border-zinc-100 dark:border-zinc-800 p-4 shadow-sm md:p-6">
+              <div className="flex items-center justify-between mb-6">
+                 <div>
+                    <h2 className="text-lg font-semibold flex items-center gap-2">
+                       <Bot className="text-red-500" />
+                       Incidentes de Rede (Macro)
+                    </h2>
+                    <p className="text-sm text-zinc-500">
+                       Acompanhamento de falhas massivas em CTOs detectadas pela IA.
+                    </p>
+                 </div>
+                 <Button variant="outline" size="sm" onClick={fetchIncidents}>Atualizar</Button>
+              </div>
+
+              {activeIncidents.length === 0 ? (
+                 <div className="w-full border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-xl flex items-center justify-center bg-white/50 dark:bg-zinc-800/20 py-20">
+                    <div className="text-center">
+                       <CheckCircle2 size={48} className="mx-auto text-green-300 dark:text-green-600 mb-3" />
+                       <p className="text-zinc-500 font-medium">Nenhum incidente ativo no momento.</p>
+                    </div>
+                 </div>
+              ) : (
+                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {activeIncidents.map((incident: any) => {
+                       const createdAtDate = new Date(incident.createdAt);
+                       const diffMs = Date.now() - createdAtDate.getTime();
+                       const diffMins = Math.floor(diffMs / 60000);
+                       const hours = Math.floor(diffMins / 60);
+                       const mins = diffMins % 60;
+                       
+                       return (
+                          <Card key={incident.id} className="border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-900/10 shadow-sm relative overflow-hidden">
+                             <div className="absolute top-0 left-0 w-1 h-full bg-red-500" />
+                             <CardHeader className="p-4 pb-2">
+                                <div className="flex justify-between items-start">
+                                  <Badge variant="destructive" className="uppercase font-bold tracking-wider">
+                                     CTO-{incident.ctoId}
+                                  </Badge>
+                                  <span className="text-xs font-semibold text-zinc-500 flex items-center gap-1">
+                                     <Clock size={12} /> {hours > 0 ? `${hours}h ${mins}m` : `${mins}m`} atrás
+                                  </span>
+                                </div>
+                             </CardHeader>
+                             <CardContent className="p-4 pt-2">
+                                <div className="mb-4">
+                                   <p className="text-sm text-zinc-600 dark:text-zinc-400 font-medium">
+                                      {incident.affectedClients?.length || 0} clientes impactados.
+                                   </p>
+                                </div>
+                                <Button 
+                                   className="w-full bg-red-600 hover:bg-red-700 text-white" 
+                                   onClick={() => handleResolveIncident(incident.id)}
+                                >
+                                   Marcar como Resolvido
+                                </Button>
+                             </CardContent>
+                          </Card>
+                       );
+                    })}
+                 </div>
+              )}
            </div>
         </TabsContent>
       </Tabs>

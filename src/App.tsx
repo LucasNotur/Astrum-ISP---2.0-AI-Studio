@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { applyTheme } from "./lib/themeManager";
 import {
   Routes,
   Route,
@@ -136,6 +137,9 @@ import {
   GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
+  multiFactor,
+  getMultiFactorResolver,
+  TotpMultiFactorGenerator,
 } from "firebase/auth";
 import {
   collection,
@@ -213,9 +217,12 @@ import {
   getSmartReplies,
   generateKBArticleFromTickets,
 } from "./lib/gemini";
+import { UpgradePrompt } from "./components/UpgradePrompt";
 import { AppLayout } from "./components/layout/AppLayout";
 import { StatCard } from "./components/ui/StatCard";
 import { DashboardPage } from "./pages/DashboardPage";
+import { SuperAdminRoute } from "./components/SuperAdminRoute";
+import { SuperAdminPage } from "./pages/SuperAdminPage";
 import { CustomersPage } from "./pages/CustomersPage";
 import { TicketsPage } from "./pages/TicketsPage";
 import { ServiceOrdersPage } from "./pages/ServiceOrdersPage";
@@ -231,6 +238,7 @@ import { MonitoringPage } from "./pages/MonitoringPage";
 import { CobrAIPage } from "./pages/CobrAIPage";
 import { InventoryPage } from "./pages/InventoryPage";
 import { AIObservabilityPage } from "./pages/AIObservabilityPage";
+import TechnicianAppPage from "./pages/TechnicianAppPage";
 import {
   Bell,
   Check,
@@ -254,8 +262,25 @@ import {
 
 // --- App Component ---
 import { WhatsAppConnectionsPage } from "./pages/WhatsAppPage";
+import { MaskedSensitiveData } from "./components/MaskedSensitiveData";
+import { MfaRequirement } from "./components/MfaRequirement";
+import { MfaLoginResolver } from "./components/MfaLoginResolver";
+import { MultiFactorResolver } from "firebase/auth";
+
+import WebchatPage from "./pages/WebchatPage";
+import OperatorMobilePage from "./pages/OperatorMobilePage";
 
 export default function App() {
+  const routerLocation = useLocation();
+  if (routerLocation.pathname.startsWith('/webchat') || routerLocation.pathname.startsWith('/operador-mobile')) {
+      return (
+          <Routes>
+             <Route path="/webchat" element={<WebchatPage />} />
+             <Route path="/operador-mobile" element={<OperatorMobilePage />} />
+          </Routes>
+      );
+  }
+
   const { theme, setTheme } = useTheme();
   const setAuditLogs = useAppStore((s) => s.setAuditLogs);
   const auditLogs = useAppStore((s) => s.auditLogs);
@@ -369,10 +394,7 @@ export default function App() {
   };
 
   const configureEvolutionWebhook = async () => {
-    if (
-      !integrationKeys.evolutionUrl ||
-      !integrationKeys.evolutionApiKey
-    ) {
+    if (!integrationKeys.evolutionUrl || !integrationKeys.evolutionApiKey) {
       toast.error(
         "Preencha a URL e Global API Key primeiro para configurar o webhook.",
       );
@@ -384,18 +406,20 @@ export default function App() {
       try {
         const arr = JSON.parse(integrationKeys.whatsappInstances);
         instancesToUpdate = arr.map((a: any) => a.instanceName);
-      } catch(e) {}
+      } catch (e) {}
     }
     if (instancesToUpdate.length === 0 && integrationKeys.evolutionInstance) {
       instancesToUpdate.push(integrationKeys.evolutionInstance);
     }
-    
+
     if (instancesToUpdate.length === 0) {
       toast.error("Nenhuma conexão de WhatsApp encontrada.");
       return;
     }
 
-    let webhookUrl = integrationKeys.evolutionWebhookUrl || `${window.location.origin}/api/webhook/evolution`;
+    let webhookUrl =
+      integrationKeys.evolutionWebhookUrl ||
+      `${window.location.origin}/api/webhook/evolution`;
     if (!integrationKeys.evolutionWebhookUrl) {
       try {
         const sysRes = await fetch("/api/system/webhook-url");
@@ -481,7 +505,7 @@ export default function App() {
           }
         }
       }
-      
+
       toast.success("Webhook configurado em todas as instâncias ativas.");
     } catch (error) {
       toast.error("Erro ao configurar Webhook. Verifique a URL e Chave.");
@@ -669,6 +693,9 @@ export default function App() {
   const [isMiningDialogOpen, setIsMiningDialogOpen] = useState(false);
   const [miningResult, setMiningResult] = useState<any>(null);
   const [isPdfDialogOpen, setIsPdfDialogOpen] = useState(false);
+  const [mfaResolver, setMfaResolver] = useState<MultiFactorResolver | null>(null);
+  const [needsMfaEnrollment, setNeedsMfaEnrollment] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
   const [pdfSummary, setPdfSummary] = useState<string | null>(null);
   const [isProcessingPdf, setIsProcessingPdf] = useState(false);
   const { isTicketDetailOpen, setIsTicketDetailOpen } = useAppStore();
@@ -964,9 +991,17 @@ export default function App() {
     }
   }, []);
 
+  const rolePermissions = useAppStore((s) => s.rolePermissions);
+
   // Use canAccess from store
   const checkAccess = (tab: string) => {
-    return canAccess(currentUserRole, tab, companySettings?.rolePermissions);
+    return canAccess(
+      currentUserRole,
+      tab,
+      rolePermissions && Object.keys(rolePermissions).length > 0
+        ? rolePermissions
+        : companySettings?.rolePermissions,
+    );
   };
 
   const isAstrum = currentUserRole === "admin";
@@ -1490,11 +1525,13 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       if (u) {
+        let finalRole = "";
         // Check if user is the super admin (Astrum)
         if (
           u.email?.toLowerCase() === "lucaspferraz123@gmail.com" ||
           u.email?.toLowerCase() === "noturcursos1@gmail.com"
         ) {
+          finalRole = "admin";
           setCurrentUserRole("admin");
           // Ensure super admin exists in users collection for rules
           await setDoc(
@@ -1506,6 +1543,16 @@ export default function App() {
             },
             { merge: true },
           );
+          
+          if (Notification.permission === 'default') {
+             Notification.requestPermission().then(async (perm) => {
+                if (perm === 'granted') {
+                   const mockToken = "mock-fcm-token-" + u.uid;
+                   // Default tenant for admin might be DEFAULT_TENANT
+                   await setDoc(doc(db, "tenants", "DEFAULT_TENANT", "operators", u.uid), { fcmToken: mockToken }, { merge: true });
+                }
+             });
+          }
         } else {
           // Fetch role from team_members
           const q = query(
@@ -1524,6 +1571,7 @@ export default function App() {
               mappedRole = "support";
             else if (role === "tecnico") mappedRole = "tecnico";
 
+            finalRole = mappedRole;
             setCurrentUserRole(mappedRole as any);
             setUserProfile(memberData);
 
@@ -1537,19 +1585,93 @@ export default function App() {
               },
               { merge: true },
             );
+            
+            // Request push notification permission and generate mock FCM token if none exists (since we don't have VAPID key)
+            if (Notification.permission === 'default' && memberData.tenantId) {
+               Notification.requestPermission().then(async (perm) => {
+                  if (perm === 'granted') {
+                     // Since we don't have VAPID key, let's just save a standard mock token to indicate capability, or use a real token if we can
+                     const mockToken = "mock-fcm-token-" + u.uid;
+                     await setDoc(doc(db, "tenants", memberData.tenantId, "operators", u.uid), { fcmToken: mockToken }, { merge: true });
+                  }
+               });
+            }
+          } else if (u.email) {
+            // Check for SSO domain auto-provisioning
+            const domain = u.email.split('@')[1];
+            if (domain) {
+              const tenantsQuery = query(collection(db, "tenants"), where("sso_config.domain", "==", domain));
+              const tenantsSnap = await getDocs(tenantsQuery);
+              
+              if (!tenantsSnap.empty) {
+                 const tenantDoc = tenantsSnap.docs[0];
+                 const tenantId = tenantDoc.id;
+                 
+                 // Auto-provision as support
+                 const newMemberData = {
+                    name: u.displayName || u.email.split('@')[0],
+                    email: u.email,
+                    role: "support",
+                    status: "offline",
+                    tenantId: tenantId,
+                    createdAt: new Date().toISOString()
+                 };
+                 await setDoc(doc(collection(db, "team_members")), newMemberData);
+                 
+                 // Also create the user doc
+                 await setDoc(doc(db, "users", u.uid), {
+                    email: u.email,
+                    role: "support",
+                    name: newMemberData.name,
+                    tenantId: tenantId
+                 }, { merge: true });
+                 
+                 finalRole = "support";
+                 setCurrentUserRole("support");
+                 setUserProfile(newMemberData);
+                 toast.success(`Conta provisionada via SSO pelo domínio ${domain}`);
+              } else {
+                 toast.error("Acesso negado. Domínio não configurado ou email não listado na equipe.");
+                 auth.signOut();
+                 setCurrentUserRole("support");
+              }
+            } else {
+              toast.error("Acesso negado. Email inválido.");
+              auth.signOut();
+              setCurrentUserRole("support");
+            }
           } else {
-            toast.error(
-              "Acesso negado. Seu email não está cadastrado na equipe.",
-            );
+            toast.error("Acesso negado. Seu email não foi fornecido.");
             auth.signOut();
-            setCurrentUserRole("support"); // Default fallback before signout completes
+            setCurrentUserRole("support");
           }
+        }
+        
+        if (finalRole === 'admin' || finalRole === 'owner') {
+           const enrolledFactors = multiFactor(u).enrolledFactors;
+           if (!enrolledFactors || enrolledFactors.length === 0) {
+              setNeedsMfaEnrollment(true);
+           } else {
+              setNeedsMfaEnrollment(false);
+           }
+        } else {
+           setNeedsMfaEnrollment(false);
         }
       }
       setLoading(false);
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!userProfile?.tenantId) return;
+    const unsub = onSnapshot(doc(db, "tenants", userProfile.tenantId, "settings", "theme"), (docSnap) => {
+      if (docSnap.exists()) {
+        applyTheme(docSnap.data());
+      }
+    });
+    return () => unsub();
+  }, [userProfile?.tenantId]);
 
   useEffect(() => {
     if (selectedTicket && messages.length > 0) {
@@ -1576,48 +1698,74 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return;
+    const currentTenant = companySettings?.tenant_id || "default";
+
+    // Check if user is trying to read but has no tenant. Super admins can read everything but usually we want to fetch the correct one
+
     const unsubCustomers = getCustomers(setCustomers);
     const unsubTickets = getTickets(setTickets);
     const unsubInvoices = getInvoices(setInvoices);
-    const unsubCtos = getNetworkCTOs(setCtos);
+    const unsubCtos = getNetworkCTOs(setCtos, currentTenant);
 
-    const qKB = query(collection(db, "knowledge_base"));
+    const qKB =
+      currentTenant && currentTenant !== "default"
+        ? query(
+            collection(db, "knowledge_base"),
+            where("tenant_id", "==", currentTenant),
+          )
+        : query(collection(db, "knowledge_base"));
     const unsubKB = onSnapshot(qKB, (snapshot) => {
       setKnowledgeBase(
         snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
       );
     });
 
-    const unsubAudit = getAuditLogs(setAuditLogs);
-    const unsubInventory = getInventory(setInventory);
-    const unsubServiceOrders = getServiceOrders(setServiceOrders);
-    const unsubTechnicians = getTechnicians(setTechnicians);
-
-    const unsubTeam = onSnapshot(
-      query(collection(db, "team_members")),
-      (snapshot) => {
-        setTeamMembers(
-          snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
-        );
-      },
+    const unsubAudit = getAuditLogs(setAuditLogs, currentTenant);
+    const unsubInventory = getInventory(setInventory, currentTenant);
+    const unsubServiceOrders = getServiceOrders(
+      setServiceOrders,
+      currentTenant,
     );
+    const unsubTechnicians = getTechnicians(setTechnicians, currentTenant);
+
+    const teamQ =
+      currentTenant && currentTenant !== "default"
+        ? query(
+            collection(db, "team_members"),
+            where("tenant_id", "==", currentTenant),
+          )
+        : query(collection(db, "team_members"));
+    const unsubTeam = onSnapshot(teamQ, (snapshot) => {
+      setTeamMembers(
+        snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+      );
+    });
 
     // Fetch integration keys
     getIntegrationKeys().then((keys) => setIntegrationKeys(keys || {}));
 
     // Load System Prompts
-    getSystemPrompts(companySettings?.tenant_id || "default").then((prompts) => {
+    getSystemPrompts(currentTenant).then((prompts) => {
       if (prompts) {
         setAiPrompts((prev) => ({ ...prev, ...prompts }));
       }
     });
 
     // Notifications Listener
-    const notificationsQuery = query(
-      collection(db, "notifications"),
-      orderBy("timestamp", "desc"),
-      limit(20),
-    );
+    const notificationsQuery =
+      currentTenant && currentTenant !== "default"
+        ? query(
+            collection(db, "notifications"),
+            where("tenant_id", "==", currentTenant),
+            orderBy("timestamp", "desc"),
+            limit(20),
+          )
+        : query(
+            collection(db, "notifications"),
+            orderBy("timestamp", "desc"),
+            limit(20),
+          );
+
     const unsubNotifications = onSnapshot(notificationsQuery, (snapshot) => {
       setNotifications(
         snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
@@ -1628,8 +1776,31 @@ export default function App() {
       doc(db, "settings", "company"),
       (docSnap) => {
         if (docSnap.exists()) {
-          setCompanySettings(docSnap.data());
+          setCompanySettings((prev) => ({ ...prev, ...docSnap.data() }));
         }
+      },
+    );
+
+    const unsubRoles = onSnapshot(
+      collection(db, "role_permissions"),
+      (snapshot) => {
+        const rolesData: Record<string, any> = {};
+        snapshot.forEach((doc) => {
+          const d = doc.data();
+          if (d.role_name && d.permissions) {
+            rolesData[d.role_name] = d.permissions;
+          }
+        });
+        useAppStore.getState().setRolePermissions(rolesData);
+      },
+    );
+
+    const unsubResources = onSnapshot(
+      collection(db, "resource_permissions"),
+      (snapshot) => {
+        const perms: any[] = [];
+        snapshot.forEach((doc) => perms.push(doc.data()));
+        useAppStore.getState().setResourcePermissions(perms);
       },
     );
 
@@ -1646,8 +1817,10 @@ export default function App() {
       unsubServiceOrders();
       unsubTechnicians();
       unsubSettings();
+      unsubRoles();
+      unsubResources();
     };
-  }, [user]);
+  }, [user, companySettings?.tenant_id]);
 
   const handleSeedKB = async () => {
     setIsSeeding(true);
@@ -1740,7 +1913,10 @@ export default function App() {
   const handleSavePrompts = async () => {
     setIsSavingPrompts(true);
     try {
-      await saveSystemPrompts(aiPrompts, companySettings?.tenant_id || "default");
+      await saveSystemPrompts(
+        aiPrompts,
+        companySettings?.tenant_id || "default",
+      );
       toast.success("Núcleo IA atualizado com sucesso!");
     } catch (error) {
       toast.error("Erro ao salvar prompts.");
@@ -2060,13 +2236,21 @@ export default function App() {
     }
   }, [selectedTicket]);
 
-  const handleLogin = async () => {
+  const handleLogin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     const provider = new GoogleAuthProvider();
+    if (loginEmail) {
+      provider.setCustomParameters({ login_hint: loginEmail });
+    }
     try {
       await signInWithPopup(auth, provider);
       toast.success("Bem-vindo ao Astrum!");
-    } catch (error) {
-      toast.error("Erro ao fazer login");
+    } catch (error: any) {
+      if (error.code === 'auth/multi-factor-auth-required') {
+         setMfaResolver(getMultiFactorResolver(auth, error));
+      } else {
+         toast.error("Erro ao fazer login: " + error.message);
+      }
     }
   };
 
@@ -2241,6 +2425,7 @@ export default function App() {
         const url = await uploadAttachment(
           selectedFile.file,
           `tickets/${selectedTicket.id}`,
+          companySettings?.tenant_id || "default",
         );
         attachmentData = {
           url,
@@ -2713,6 +2898,13 @@ export default function App() {
   if (!user) {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-950 font-sans transition-colors duration-300">
+        {mfaResolver && (
+           <MfaLoginResolver 
+             resolver={mfaResolver} 
+             onResolved={() => setMfaResolver(null)} 
+             onCancel={() => setMfaResolver(null)} 
+           />
+        )}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -2729,13 +2921,29 @@ export default function App() {
               Gestão Inteligente para Provedores
             </p>
           </div>
-          <Button
-            onClick={handleLogin}
-            className="w-full py-6 text-lg"
-            size="lg"
-          >
-            Entrar com Google
-          </Button>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <Input
+                type="email"
+                placeholder="Seu e-mail de trabalho"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                className="py-6 text-lg"
+              />
+            </div>
+            <Button
+              type="submit"
+              className="w-full py-6 text-lg"
+              size="lg"
+            >
+              Continuar
+            </Button>
+            {loginEmail && (
+               <p className="text-xs text-center text-zinc-500 mt-2">
+                 Você será redirecionado para o Google.
+               </p>
+            )}
+          </form>
         </motion.div>
       </div>
     );
@@ -2746,6 +2954,8 @@ export default function App() {
       clearNotifications={clearNotifications}
       handleMarkNotificationRead={handleMarkNotificationRead}
     >
+      {needsMfaEnrollment && <MfaRequirement onEnrolled={() => setNeedsMfaEnrollment(false)} />}
+      <UpgradePrompt />
       <Toaster position="top-right" />
 
       {/* Confirmation Dialog */}
@@ -2814,16 +3024,25 @@ export default function App() {
           </motion.div>
         ) : (
           <Routes>
+            <Route
+              path="/super-admin"
+              element={
+                <SuperAdminRoute>
+                  <SuperAdminPage />
+                </SuperAdminRoute>
+              }
+            />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route
               path="/"
               element={
                 <Navigate
-                  to={currentUserRole === "tecnico" ? "/os" : "/dashboard"}
+                  to={currentUserRole === "tecnico" ? "/tecnico" : "/dashboard"}
                   replace
                 />
               }
             />
+            <Route path="/tecnico" element={<TechnicianAppPage />} />
             <Route path="/customers" element={<CustomersPage />} />
             <Route
               path="/tickets"
@@ -2922,6 +3141,7 @@ export default function App() {
                   isAddingTech={isAddingTech}
                   setIsAddingTech={setIsAddingTech}
                   handleAddTechnician={handleAddTechnician}
+                  tenantId={userProfile?.tenantId || "DEFAULT_TENANT"}
                 />
               }
             />
@@ -2975,24 +3195,11 @@ export default function App() {
               }
             />
 
-            <Route
-              path="/monitoring"
-              element={
-                <MonitoringPage />
-              }
-            />
+            <Route path="/monitoring" element={<MonitoringPage />} />
 
-            <Route
-              path="/quality-monitor"
-              element={<QualityMonitorPage />}
-            />
+            <Route path="/quality-monitor" element={<QualityMonitorPage />} />
 
-            <Route
-              path="/cobrai"
-              element={
-                <CobrAIPage />
-              }
-            />
+            <Route path="/cobrai" element={<CobrAIPage />} />
 
             <Route
               path="/observability"
@@ -3720,26 +3927,47 @@ export default function App() {
                         <p className="text-[10px] text-zinc-400 uppercase">
                           Documento (CPF/CNPJ)
                         </p>
-                        <p className="text-sm font-medium">
-                          {selectedCustomerDetails.document || "Não informado"}
-                        </p>
+                        <div className="text-sm font-medium">
+                          {selectedCustomerDetails.document ? (
+                            <MaskedSensitiveData
+                              value={selectedCustomerDetails.document}
+                              type="cpf"
+                            />
+                          ) : (
+                            "Não informado"
+                          )}
+                        </div>
                       </div>
                       <div>
                         <p className="text-[10px] text-zinc-400 uppercase">
                           E-mail
                         </p>
-                        <p className="text-sm font-medium">
-                          {selectedCustomerDetails.email}
-                        </p>
+                        <div className="text-sm font-medium">
+                          {selectedCustomerDetails.email ? (
+                            <MaskedSensitiveData
+                              value={selectedCustomerDetails.email}
+                              type="email"
+                            />
+                          ) : (
+                            "Não informado"
+                          )}
+                        </div>
                       </div>
                       <div>
                         <p className="text-[10px] text-zinc-400 uppercase">
                           Telefone
                         </p>
                         <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium">
-                            {selectedCustomerDetails.phone || "Não informado"}
-                          </p>
+                          <div className="text-sm font-medium flex-1">
+                            {selectedCustomerDetails.phone ? (
+                              <MaskedSensitiveData
+                                value={selectedCustomerDetails.phone}
+                                type="phone"
+                              />
+                            ) : (
+                              "Não informado"
+                            )}
+                          </div>
                           {selectedCustomerDetails.phone && (
                             <Button
                               variant="outline"
@@ -4937,6 +5165,39 @@ export default function App() {
                         }}
                       >
                         <CheckCircle2 size={14} /> Resolver
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start gap-2 text-amber-600 border-amber-200 hover:bg-amber-50 hover:border-amber-300 dark:border-amber-900/30 dark:hover:bg-amber-900/20"
+                        onClick={async () => {
+                          try {
+                            const res = await fetch("/api/upsell/convert", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                tenantId:
+                                  companySettings?.tenant_id || "default",
+                                customerId: selectedTicket.customerId,
+                                currentPlan:
+                                  customers.find(
+                                    (c) => c.id === selectedTicket.customerId,
+                                  )?.plan || "Unknown",
+                                suggestedPlan:
+                                  "Plano Superior (Aceito via Operador)",
+                                outcome: "converted",
+                              }),
+                            });
+                            if (!res.ok) throw new Error("Falha ao registrar");
+                            toast.success(
+                              "Upsell convertido com sucesso! Dashboard atualizado.",
+                            );
+                          } catch (err: any) {
+                            toast.error("Erro ao registrar: " + err.message);
+                          }
+                        }}
+                      >
+                        <TrendingUp size={14} /> Registrar Upsell Feito
                       </Button>
                       {isOwner && (
                         <Button

@@ -141,9 +141,13 @@ function handleFirestoreError(
 }
 
 // Customers
-export const getCustomers = (callback: (customers: any[]) => void) => {
+export const getCustomers = (callback: (customers: any[]) => void, tenantId: string = 'default') => {
+  const baseQuery = tenantId && tenantId !== 'default'
+    ? [where("tenant_id", "==", tenantId)]
+    : [];
   const q = query(
     collection(db, "customers"),
+    ...baseQuery,
     orderBy("createdAt", "desc"),
     limit(150),
   );
@@ -229,9 +233,13 @@ export const createInvoice = async (data: any) => {
   }
 };
 
-export const getTickets = (callback: (tickets: any[]) => void) => {
+export const getTickets = (callback: (tickets: any[]) => void, tenantId: string = 'default') => {
+  const baseQuery = tenantId && tenantId !== 'default'
+    ? [where("tenant_id", "==", tenantId)]
+    : [];
   const q = query(
     collection(db, "tickets"),
+    ...baseQuery,
     orderBy("createdAt", "desc"),
     limit(200),
   );
@@ -342,9 +350,10 @@ export const updateTicketStatus = async (ticketId: string, status: string) => {
     const ticketSnap = await getDoc(doc(db, "tickets", ticketId));
 
     const updateData: any = { status };
+    const tData = ticketSnap.exists() ? ticketSnap.data() : null;
+    
     if (status === "resolved") {
       updateData.resolvedAt = serverTimestamp();
-      const tData = ticketSnap.exists() ? ticketSnap.data() : null;
       if (tData && tData.customerId) {
         fetch("/api/jobs/schedule-csat", {
           method: "POST",
@@ -357,6 +366,13 @@ export const updateTicketStatus = async (ticketId: string, status: string) => {
             resolved_by: tData.human_responded ? 'human' : 'bot'
           })
         }).catch(e => console.error("Falha ao agendar CSAT:", e));
+      }
+
+      // Decrement operator active chat count
+      if (tData && tData.assignedOperatorId && tData.status !== "resolved") {
+          const tenantId = tData.tenantId || "default";
+          const opRef = doc(db, "tenants", tenantId, "operators", tData.assignedOperatorId);
+          updateDoc(opRef, { current_chat_count: increment(-1) }).catch(console.error);
       }
     }
     await updateDoc(doc(db, "tickets", ticketId), updateData);
@@ -437,9 +453,13 @@ export const sendMessage = async (
 };
 
 // Billing
-export const getInvoices = (callback: (invoices: any[]) => void) => {
+export const getInvoices = (callback: (invoices: any[]) => void, tenantId: string = 'default') => {
+  const baseQuery = tenantId && tenantId !== 'default'
+    ? [where("tenant_id", "==", tenantId)]
+    : [];
   const q = query(
     collection(db, "billing_invoices"),
+    ...baseQuery,
     orderBy("createdAt", "desc"),
     limit(300),
   );
@@ -453,8 +473,10 @@ export const getInvoices = (callback: (invoices: any[]) => void) => {
 };
 
 // Network
-export const getNetworkCTOs = (callback: (ctos: any[]) => void) => {
-  const q = collection(db, "network_ctos");
+export const getNetworkCTOs = (callback: (ctos: any[]) => void, tenantId: string = 'default') => {
+  const q = tenantId && tenantId !== 'default' 
+    ? query(collection(db, "network_ctos"), where("tenant_id", "==", tenantId))
+    : collection(db, "network_ctos");
   return onSnapshot(
     q,
     (snapshot) => {
@@ -465,11 +487,12 @@ export const getNetworkCTOs = (callback: (ctos: any[]) => void) => {
 };
 
 // Audit Logs
-export const logAudit = async (action: string, details: any) => {
+export const logAudit = async (action: string, details: any, tenantId: string = 'default') => {
   try {
     await addDoc(collection(db, "audit_logs"), {
       action,
       details,
+      tenant_id: tenantId,
       user: auth.currentUser?.email || "system",
       timestamp: serverTimestamp(),
     });
@@ -478,9 +501,13 @@ export const logAudit = async (action: string, details: any) => {
   }
 };
 
-export const getAuditLogs = (callback: (logs: any[]) => void) => {
+export const getAuditLogs = (callback: (logs: any[]) => void, tenantId: string = 'default') => {
+  const baseQuery = tenantId && tenantId !== 'default'
+    ? [where("tenant_id", "==", tenantId)]
+    : [];
   const q = query(
     collection(db, "audit_logs"),
+    ...baseQuery,
     orderBy("timestamp", "desc"),
     limit(50),
   );
@@ -531,9 +558,13 @@ export const updateTechnician = async (id: string, data: any, tenantId: string =
 };
 
 // --- Service Orders ---
-export const getServiceOrders = (callback: (orders: any[]) => void) => {
+export const getServiceOrders = (callback: (orders: any[]) => void, tenantId: string = 'default') => {
+  const baseQuery = tenantId && tenantId !== 'default'
+    ? [where("tenant_id", "==", tenantId)]
+    : [];
   const q = query(
     collection(db, "service_orders"),
+    ...baseQuery,
     orderBy("createdAt", "desc"),
   );
   return onSnapshot(
@@ -670,8 +701,10 @@ export const seedServiceOrdersAndTechnicians = async () => {
 };
 
 // Inventory
-export const getInventory = (callback: (inventory: any[]) => void) => {
-  const q = collection(db, "inventory");
+export const getInventory = (callback: (inventory: any[]) => void, tenantId: string = 'default') => {
+  const q = tenantId && tenantId !== 'default'
+    ? query(collection(db, "inventory"), where("tenant_id", "==", tenantId))
+    : collection(db, "inventory");
   return onSnapshot(
     q,
     (snapshot) => {

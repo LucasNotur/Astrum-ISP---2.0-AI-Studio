@@ -25,6 +25,15 @@ export function MapPage() {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [mapFilter, setMapFilter] = useState('all');
   const [isHeatmapVisible, setIsHeatmapVisible] = useState(false);
+  const [isOSLayerVisible, setIsOSLayerVisible] = useState(true);
+  const [activeOSPopup, setActiveOSPopup] = useState<any>(null);
+
+  const MOCK_OSS = [
+    { id: 'OS-1023', tech: 'Carlos Silva', status: 'pending', lat: -23.5510, lng: -46.6340, client: 'João da Silva', type: 'Instalação FTTH' },
+    { id: 'OS-1024', tech: 'Marcos Paulo', status: 'in_progress', lat: -23.5480, lng: -46.6310, client: 'Maria Oliveira', type: 'Reparo' },
+    { id: 'OS-1025', tech: 'Ana Júlia', status: 'completed', lat: -23.5520, lng: -46.6320, client: 'Empresa XYZ', type: 'Mudança Endereço' },
+    { id: 'OS-1026', tech: 'Pedro Souza', status: 'delayed', lat: -23.5490, lng: -46.6350, client: 'Lucia Costa', type: 'Nova Instalação' },
+  ];
       
   
   const resetMap = () => {
@@ -134,6 +143,14 @@ export function MapPage() {
               >
                 <Layers size={14} /> Heatmap
               </Button>
+              <Button 
+                variant={isOSLayerVisible ? "default" : "outline"} 
+                size="sm" 
+                className="h-8 gap-2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm"
+                onClick={() => setIsOSLayerVisible(!isOSLayerVisible)}
+              >
+                <Layers size={14} /> OSs do Dia
+              </Button>
               <Button variant="outline" size="sm" className="h-8 gap-2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm">
                 <MapIcon size={14} /> Satélite
               </Button>
@@ -143,7 +160,10 @@ export function MapPage() {
             <svg 
               className="w-full h-full relative z-10 cursor-grab active:cursor-grabbing" 
               viewBox="0 0 800 600"
-              onMouseDown={handleMouseDown}
+              onMouseDown={(e) => {
+                handleMouseDown(e);
+                setActiveOSPopup(null);
+              }}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
@@ -304,6 +324,86 @@ export function MapPage() {
                     );
                   })}
                 </TooltipProvider>
+
+                {/* OS Layer */}
+                {isOSLayerVisible && (
+                  <TooltipProvider delayDuration={0}>
+                    {MOCK_OSS.map((os) => {
+                      const x = 400 + (os.lng - (-46.6333)) * 5000;
+                      const y = 300 - (os.lat - (-23.5505)) * 5000;
+                      
+                      let colorClass = "fill-yellow-400";
+                      let strokeClass = "stroke-yellow-500";
+                      
+                      if (os.status === 'in_progress') {
+                        colorClass = "fill-blue-500";
+                        strokeClass = "stroke-blue-600";
+                      } else if (os.status === 'completed') {
+                        colorClass = "fill-green-500";
+                        strokeClass = "stroke-green-600";
+                      } else if (os.status === 'delayed') {
+                        colorClass = "fill-red-500";
+                        strokeClass = "stroke-red-600";
+                      }
+
+                      return (
+                        <UITooltip key={os.id} open={activeOSPopup === os.id} onOpenChange={(open) => {
+                          if (!open && activeOSPopup === os.id) setActiveOSPopup(null);
+                        }}>
+                          <TooltipTrigger asChild>
+                            <g 
+                              className="cursor-pointer group"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveOSPopup(activeOSPopup === os.id ? null : os.id);
+                              }}
+                            >
+                              <path 
+                                d={`M ${x},${y} m 0,-15 l 10,-15 a 12,12 0 1,0 -20,0 z`} 
+                                className={cn(
+                                  "transition-all duration-300", 
+                                  colorClass, strokeClass,
+                                  "stroke-[1.5]"
+                                )}
+                              />
+                              <circle cx={x} cy={y-22} r="4" fill="white" />
+                            </g>
+                          </TooltipTrigger>
+                          <TooltipContent className="bg-zinc-900 text-white border-zinc-800 p-3 rounded-xl shadow-xl z-50">
+                            <div className="space-y-2 min-w-[200px]">
+                              <div className="flex items-center gap-2 border-b border-zinc-800 pb-2 mb-2">
+                                <div className={cn("w-2 h-2 rounded-full", colorClass.replace('fill-', 'bg-'))} />
+                                <p className="font-bold text-sm">{os.id}</p>
+                              </div>
+                              <div className="grid grid-cols-[80px_1fr] gap-x-2 gap-y-1 text-[10px]">
+                                <span className="text-zinc-400 font-bold uppercase">Cliente</span>
+                                <span>{os.client}</span>
+                                
+                                <span className="text-zinc-400 font-bold uppercase">Técnico</span>
+                                <span>{os.tech}</span>
+                                
+                                <span className="text-zinc-400 font-bold uppercase">Tipo</span>
+                                <span>{os.type}</span>
+                                
+                                <span className="text-zinc-400 font-bold uppercase">Status</span>
+                                <span className={cn(
+                                  "uppercase font-bold",
+                                  os.status === 'pending' ? 'text-yellow-400' :
+                                  os.status === 'in_progress' ? 'text-blue-400' :
+                                  os.status === 'completed' ? 'text-green-400' : 'text-red-400'
+                                )}>
+                                  {os.status === 'pending' ? 'Pendente' : 
+                                   os.status === 'in_progress' ? 'Em Execução' :
+                                   os.status === 'completed' ? 'Concluída' : 'Atrasada'}
+                                </span>
+                              </div>
+                            </div>
+                          </TooltipContent>
+                        </UITooltip>
+                      );
+                    })}
+                  </TooltipProvider>
+                )}
               </g>
             </svg>
             
@@ -326,6 +426,28 @@ export function MapPage() {
                 <span className="dark:text-zinc-300">Lotada (100%)</span>
               </div>
             </div>
+
+            {isOSLayerVisible && (
+              <div className="absolute bottom-4 right-4 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1">Status OS</p>
+                <div className="flex items-center gap-2 text-xs">
+                  <div className="w-3 h-3 rounded-full bg-yellow-400" />
+                  <span className="dark:text-zinc-300">Pendente</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <div className="w-3 h-3 rounded-full bg-blue-500" />
+                  <span className="dark:text-zinc-300">Em Execução</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <div className="w-3 h-3 rounded-full bg-green-500" />
+                  <span className="dark:text-zinc-300">Concluída</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <div className="w-3 h-3 rounded-full bg-red-500" />
+                  <span className="dark:text-zinc-300">Atrasada</span>
+                </div>
+              </div>
+            )}
           </div>
         </Card>
 

@@ -1,9 +1,11 @@
 import { KnowledgeRepository, KnowledgeArticle } from '../interfaces';
 import { db } from '../../lib/firebase';
-import { collection, doc, getDocs, updateDoc, addDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { doc, getDocs, updateDoc, addDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { wrapFirestoreCollection } from '../../lib/tenantGuard';
 
 export class KnowledgeRepositoryFirebase implements KnowledgeRepository {
   async search(queryStr: string, tenantId: string): Promise<KnowledgeArticle[]> {
+    if (!tenantId) throw new Error('TENANT_REQUIRED');
     // Note: Full-text search or vector search implementation may vary in Firebase.
     // For now, this is a basic stub that would typically integrate with Algolia, Elastic, or vector embeddings directly.
     // This is replacing direct calls in db.ts or gemini.ts
@@ -11,16 +13,15 @@ export class KnowledgeRepositoryFirebase implements KnowledgeRepository {
   }
 
   async findAll(tenantId: string): Promise<KnowledgeArticle[]> {
-    const q = query(
-      collection(db, 'knowledge_base'),
-      where('tenant_id', '==', tenantId)
-    );
+    if (!tenantId) throw new Error('TENANT_REQUIRED');
+    const q = wrapFirestoreCollection(db, 'knowledge_base', tenantId).query();
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() } as KnowledgeArticle));
   }
 
   async create(data: Partial<KnowledgeArticle>): Promise<KnowledgeArticle> {
-    const docRef = await addDoc(collection(db, 'knowledge_base'), data);
+    if (!data.tenant_id) throw new Error('TENANT_REQUIRED');
+    const docRef = await addDoc(wrapFirestoreCollection(db, 'knowledge_base', data.tenant_id as string).ref, data);
     return { id: docRef.id, ...data } as KnowledgeArticle;
   }
 

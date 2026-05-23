@@ -14,7 +14,7 @@ import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger }
 import { auth } from '@/src/lib/firebase';
 import { signOut } from 'firebase/auth';
 
-function NavItem({ active, onClick, icon, label, collapsed, shortcut }: any) {
+function NavItem({ active, onClick, icon, label, collapsed, shortcut, badge }: any) {
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     onClick?.(e);
     // Remove focus to prevent tooltip from sticking around after click
@@ -25,22 +25,36 @@ function NavItem({ active, onClick, icon, label, collapsed, shortcut }: any) {
     <button 
       onClick={handleClick}
       className={cn(
-        "flex items-center justify-between rounded-xl py-3 text-sm font-semibold transition-all group outline-none",
+        "flex items-center justify-between rounded-xl py-3 text-sm font-semibold transition-all group outline-none relative",
         collapsed ? "w-12 h-12 justify-center px-0 mx-auto" : "w-full px-4",
         active ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[0.98]" : "text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"
       )}
     >
       <div className={cn("flex items-center gap-3", collapsed && "justify-center w-full")}>
-        <div className="shrink-0 flex items-center justify-center">{icon}</div>
+        <div className="shrink-0 flex items-center justify-center relative">
+          {icon}
+          {collapsed && badge > 0 && (
+            <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-zinc-950" />
+          )}
+        </div>
         {!collapsed && <span>{label}</span>}
       </div>
-      {!collapsed && shortcut && (
-        <span className={cn(
-          "text-[10px] px-1.5 py-0.5 rounded-md border opacity-0 group-hover:opacity-100 transition-opacity",
-          active ? "border-white/30 text-white/70" : "border-zinc-200 dark:border-zinc-800 text-zinc-400 bg-white dark:bg-zinc-900"
-        )}>
-          {shortcut}
-        </span>
+      {!collapsed && (
+        <div className="flex items-center gap-2">
+          {badge > 0 && (
+            <Badge variant="destructive" className="px-1.5 min-w-5 h-5 flex items-center justify-center text-[10px]">
+              {badge}
+            </Badge>
+          )}
+          {shortcut && (
+            <span className={cn(
+              "text-[10px] px-1.5 py-0.5 rounded-md border opacity-0 group-hover:opacity-100 transition-opacity",
+              active ? "border-white/30 text-white/70" : "border-zinc-200 dark:border-zinc-800 text-zinc-400 bg-white dark:bg-zinc-900"
+            )}>
+              {shortcut}
+            </span>
+          )}
+        </div>
       )}
     </button>
   );
@@ -66,13 +80,45 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
   const { 
     isSidebarCollapsed, setIsSidebarCollapsed, 
     currentUserRole, setCurrentUserRole, user,
-    companySettings
+    companySettings, rolePermissions
   } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
   const currentPath = location.pathname.substring(1) || 'dashboard';
 
-  const hasAccess = (tab: string) => canAccess(currentUserRole, tab, companySettings?.rolePermissions);
+  const [isSuperAdmin, setIsSuperAdmin] = React.useState(false);
+  const [dlqCount, setDlqCount] = React.useState(0);
+
+  React.useEffect(() => {
+    if (user) {
+      auth.currentUser?.getIdTokenResult()
+        .then(tokenResult => {
+          setIsSuperAdmin(!!tokenResult?.claims?.isSuperAdmin);
+        })
+        .catch(() => setIsSuperAdmin(false));
+    } else {
+      setIsSuperAdmin(false);
+    }
+  }, [user]);
+
+  React.useEffect(() => {
+    const fetchDlqCount = async () => {
+      if (!user?.tenantId) return;
+      try {
+        const res = await fetch(`/api/dlq?tenantId=${user.tenantId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setDlqCount(data.length || 0);
+        }
+      } catch (e) {}
+    };
+
+    fetchDlqCount();
+    const interval = setInterval(fetchDlqCount, 60000); // 1 minuto
+    return () => clearInterval(interval);
+  }, [user?.tenantId]);
+
+  const hasAccess = (tab: string) => canAccess(currentUserRole, tab, rolePermissions && Object.keys(rolePermissions).length > 0 ? rolePermissions : companySettings?.rolePermissions);
   const isDeveloper = user?.email?.toLowerCase() === 'lucaspferraz123@gmail.com' || user?.email?.toLowerCase() === 'noturcursos1@gmail.com';
   const handleLogout = () => signOut(auth);
 
@@ -228,7 +274,7 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
           />
         )}
 
-        {(hasAccess('settings') || hasAccess('ai-config') || hasAccess('whatsapp')) && (
+        {(hasAccess('settings') || hasAccess('ai-config') || hasAccess('whatsapp') || isSuperAdmin) && (
           <>
             {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Sistema (Dev)</div>}
             {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2"></div>}
@@ -268,6 +314,7 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
                 icon={<Activity size={24} />} 
                 label="Monitoramento" 
                 collapsed={isSidebarCollapsed}
+                badge={dlqCount}
               />
             )}
             {hasAccess('quality-monitor') && (
@@ -276,6 +323,15 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
                 onClick={() => navigate('/quality-monitor')} 
                 icon={<Activity size={24} />} 
                 label="Qualidade" 
+                collapsed={isSidebarCollapsed}
+              />
+            )}
+            {isSuperAdmin && (
+              <NavItem 
+                active={currentPath === 'super-admin'} 
+                onClick={() => navigate('/super-admin')} 
+                icon={<ShieldCheck size={24} />} 
+                label="Super Admin" 
                 collapsed={isSidebarCollapsed}
               />
             )}

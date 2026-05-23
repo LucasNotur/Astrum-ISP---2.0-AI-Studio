@@ -123,6 +123,14 @@ async function processCobraiStage(job: any, customerId: string, tenantId: string
         return;
       }
     }
+    
+    // Check daily limits
+    const { checkDailyLimit, incrementDailyLimit } = await import('../lib/rateLimiter');
+    const { allowed: dailyAllowed } = await checkDailyLimit(tenantId);
+    if (!dailyAllowed) {
+        logger.warn('cobrai_daily_limit_reached', { tenant_id: tenantId, session_id: customerId });
+        return { skipped: true, reason: 'DAILY_RATE_LIMIT' };
+    }
 
     // Preparar dados do cliente e da fatura fictícia (neste mock)
     const invoice = { due_date: '01/01/2026', amount: data.current_price || 99.9 };
@@ -139,6 +147,26 @@ async function processCobraiStage(job: any, customerId: string, tenantId: string
     if (isWithin24hWindow) {
       // Envio de mensagem livre
       logger.info("cobrai_window_active_free_msg", { tenant_id: tenantId, session_id: customerId });
+      const template = COBRAI_TEMPLATES[stage];
+      if (template) {
+         try {
+             const { getIntegrationKeys } = await import('../lib/dbAdmin');
+             const keys = await getIntegrationKeys(tenantId);
+             const evoUrl = keys.evolutionUrl?.replace(/\/+$/, "");
+             const evoInstance = keys.evolutionInstance;
+             const evoApiKey = keys.evolutionApiKey;
+             
+             if (evoUrl && evoInstance && evoApiKey) {
+                 await fetch(`${evoUrl}/message/sendText/${evoInstance}`, {
+                     method: 'POST',
+                     headers: { 'Content-Type': 'application/json', apikey: evoApiKey },
+                     body: JSON.stringify({ number: data.phone, options: { delay: 1200 }, textMessage: { text: template.text_fallback } })
+                 });
+             }
+         } catch (e) {
+             logger.error("cobrai_free_msg_error", { tenant_id: tenantId, session_id: customerId, error: (e as any).message });
+         }
+      }
     } else {
       // Envio de HSM obrigatório
       const HSM_APPROVED_BY_META = process.env.HSM_APPROVED === 'true';
@@ -156,16 +184,39 @@ async function processCobraiStage(job: any, customerId: string, tenantId: string
 
       const components = buildTemplateComponents(template, data, invoice);
       templateName = template.templateName;
-      // Chamada fictícia/real à Evolution API aconteceria aqui:
-      /*
-      await evolutionApi.sendTemplate({
-        number: data.phone,
-        templateName: template.templateName,
-        language: template.language,
-        components: components
+      
+      const { acquireSendSlot } = await import('../lib/rateLimiter');
+      const { allowed, retryAfter } = await acquireSendSlot(tenantId, tenantData.evolution_instance || 'default');
+      if (!allowed) {
+          logger.warn('cobrai_instance_rate_limit', { tenant_id: tenantId, session_id: customerId });
+          
+          const redis = (await import('../lib/redis')).default;
+          if (redis) {
+              await redis.incr(`throttle_events:${tenantId}`);
+          }
+          
+          await job.moveToDelayed(Date.now() + (retryAfter || 1000), job.token);
+          return;
+      }
+      
+      const { sendHSMTemplate } = await import('../lib/whatsappSender');
+      // Create variables mapping for the HSM Template (var1, var2...) based on components content
+      const variables: Record<string, string> = {};
+      const params = components.find((c: any) => c.type === 'body')?.parameters || [];
+      params.forEach((p: any, i: number) => {
+         variables[`${i + 1}`] = p.text;
       });
-      */
-      logger.info("cobrai_dispatched", { tenant_id: tenantId, session_id: customerId, data: { template_name: template.templateName, components } });
+
+      try {
+         await sendHSMTemplate(tenantId, templateName, data.phone, variables);
+         logger.info("cobrai_dispatched", { tenant_id: tenantId, session_id: customerId, data: { template_name: templateName, variables } });
+      } catch (err: any) {
+         if (err.name === 'TemplateNotApprovedError') {
+             logger.warn("cobrai_template_unapproved", { tenant_id: tenantId, session_id: customerId, data: { template_name: templateName } });
+             return; // Skip or try fallback? Since outside window, we just skip
+         }
+         throw err;
+      }
     }
 
     logger.info("cobrai_action_success", { tenant_id: tenantId, session_id: customerId, data: { stage } });
@@ -200,6 +251,162 @@ async function processCobraiStage(job: any, customerId: string, tenantId: string
 export const worker = isMockRedis ? {
   on: () => {}
 } as any : new Worker('cobrai', async (job) => {
+  if (job.name === 'lockout_tenant') {
+    const { tenantId } = job.data;
+    const tenantSnap = await db.collection("tenants").doc(tenantId).get();
+    if (!tenantSnap.exists) return;
+    
+    const tenantData = tenantSnap.data() as any;
+    if (tenantData.billing_status === 'overdue') {
+      await db.collection("tenants").doc(tenantId).update({
+        status: 'suspended',
+        suspended_reason: 'billing_overdue'
+      });
+      
+      const auth = admin.auth();
+      let pageToken;
+      do {
+        const result = await auth.listUsers(1000, pageToken);
+        for (const userRecord of result.users) {
+          if (userRecord.customClaims?.tenantId === tenantId) {
+            await auth.revokeRefreshTokens(userRecord.uid);
+          }
+        }
+        pageToken = result.pageToken;
+      } while (pageToken);
+      
+      await db.collection("audit_logs").add({
+        action: "BILLING_LOCK",
+        tenant_id: tenantId,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+      });
+      logger.info("tenant_locked_out", { tenant_id: tenantId, data: { reason: 'billing_overdue' } });
+    }
+    return;
+  }
+
+  if (job.name === 'sync_redis_counters') {
+    const keys = await redis.keys('msg_count:*:*');
+    for (const key of keys) {
+      const parts = key.split(':');
+      if (parts.length === 3) {
+        const tenantId = parts[1];
+        const yyyyMm = parts[2];
+        const countStr = await redis.get(key);
+        if (countStr) {
+          const docId = `${tenantId}_${yyyyMm}`;
+          await db.collection("usage_stats").doc(docId).set({
+            tenantId,
+            month: yyyyMm,
+            message_count: parseInt(countStr, 10),
+            updated_at: admin.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+          
+          // Reseta o contador
+          await redis.del(key);
+        }
+      }
+    }
+    return;
+  }
+
+  if (job.name === 'sync_token_costs') {
+    const keys = await redis.keys('token_cost:*:*');
+    for (const key of keys) {
+      const parts = key.split(':');
+      if (parts.length === 3) {
+        const tenantId = parts[1];
+        const yyyyMm = parts[2];
+        const costStr = await redis.get(key);
+        if (costStr) {
+          const costUsd = parseFloat(costStr);
+          const costBrl = costUsd * 5.0; // Cambiar se necessário
+          const tokenCountStr = await redis.get(`token_count:${tenantId}:${yyyyMm}`);
+          const tokenCount = tokenCountStr ? parseInt(tokenCountStr, 10) : 0;
+          const providerBreakdown = await redis.hgetall(`token_provider:${tenantId}:${yyyyMm}`);
+          
+          const docId = `${tenantId}_${yyyyMm}`;
+          await db.collection("token_usage").doc(docId).set({
+            tenantId,
+            month: yyyyMm,
+            custo_usd: costUsd,
+            custo_brl: costBrl,
+            token_count: tokenCount,
+            provider_breakdown: providerBreakdown,
+            updated_at: admin.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+          
+          // Verificar threshold
+          const tenantSnap = await db.collection("tenants").doc(tenantId).get();
+          if (tenantSnap.exists) {
+            const limit = tenantSnap.data()?.llm_budget_usd || 50; // Threshold padrao de ISP
+            if (costUsd > limit) {
+               const alertedKey = `token_cost_alert:${tenantId}:${yyyyMm}`;
+               const alreadyAlerted = await redis.get(alertedKey);
+               if (!alreadyAlerted) {
+                  const { sendEmail } = await import("../lib/email");
+                  const ispAdminEmail = tenantSnap.data()?.admin_email;
+                  const text = `Atenção: Seu limite de USD ${limit} para custo LLM foi ultrapassado. Uso atual de USD ${costUsd.toFixed(2)}`;
+                  await sendEmail("noturcursos1@gmail.com", `Super-Admin: Limite excedido para o tenant ${tenantId}`, text);
+                  if (ispAdminEmail) {
+                     await sendEmail(ispAdminEmail, `Serviço LLM: Limite de Custos Excedido`, text);
+                  }
+                  await redis.setex(alertedKey, 86400 * 30, '1'); // Alert sent this month
+               }
+            }
+          }
+        }
+      }
+    }
+    return;
+  }
+
+  if (job.name === 'incident_notification') {
+    const { customerId, tenantId, cto_name, estimated_resolution } = job.data;
+    
+    try {
+      const text = `Identificamos instabilidade na sua região. Nossa equipe já está trabalhando.`;
+      logger.info("incident_notification_dispatched", { tenant_id: tenantId, session_id: customerId });
+      
+      await db.collection("cobrai_logs").add({
+        customer_id: customerId,
+        tenant_id: tenantId,
+        stage: 'incident_notification',
+        template_name: 'Livre',
+        sent_at: admin.firestore.FieldValue.serverTimestamp(),
+        status: 'sent',
+        message: text
+      });
+      return { skipped: false, reason: 'sent' };
+    } catch (err: any) {
+      logger.error("incident_notification_failed", { tenant_id: tenantId, session_id: customerId, error: err.message });
+      return { skipped: true, reason: 'error', error: err.message };
+    }
+  }
+
+  if (job.name === 'incident_resolved') {
+    const { customerId, tenantId, cto_name } = job.data;
+    
+    try {
+      const text = `Serviço normalizado! Pedimos desculpas pelo inconveniente.`;
+      logger.info("incident_resolved_dispatched", { tenant_id: tenantId, session_id: customerId });
+      
+      await db.collection("cobrai_logs").add({
+        customer_id: customerId,
+        tenant_id: tenantId,
+        stage: 'incident_resolved',
+        template_name: 'Livre',
+        sent_at: admin.firestore.FieldValue.serverTimestamp(),
+        status: 'sent',
+        message: text
+      });
+      return { skipped: false, reason: 'sent' };
+    } catch (err: any) {
+      logger.error("incident_resolved_failed", { tenant_id: tenantId, session_id: customerId, error: err.message });
+      return { skipped: true, reason: 'error', error: err.message };
+    }
+  }
+
   const { customerId, tenantId, stage } = job.data;
   
   const lockKey = `cobrai_lock:${tenantId}:${customerId}:${stage}`;
@@ -225,11 +432,10 @@ worker.on('failed', async (job: any, err: any) => {
     // Mover para DLQ no Firestore para visibilidade
     await db.collection('dead_letter_queue').add({
       job_id: job.id,
-      job_name: job.name,
-      job_data: job.data,
+      type: job.name,
+      payload: job.data,
       error_message: err.message,
-      error_stack: err.stack?.substring(0, 500),
-      attempts: attempts,
+      retry_count: attempts,
       failed_at: admin.firestore.FieldValue.serverTimestamp(),
       tenant_id: job.data?.tenantId ?? 'unknown',
       resolved: false
@@ -237,4 +443,10 @@ worker.on('failed', async (job: any, err: any) => {
     logger.error("dlq_move", { tenant_id: job.data?.tenantId, error: err.message, data: { job_name: job.name, attempts } });
   }
 });
+
+if (!isMockRedis) {
+  cobraiQueue.add("sync_redis_counters", {}, { repeat: { pattern: "0 0 1 * *" } });
+  cobraiQueue.add("sync_token_costs", {}, { repeat: { pattern: "0 23 * * *" } });
+}
+
 

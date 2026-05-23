@@ -1,6 +1,7 @@
 import { initializeApp, getApps, cert, App, applicationDefault } from "firebase-admin/app";
 import { getFirestore, Firestore, Timestamp, FieldValue } from "firebase-admin/firestore";
 import { getAuth, Auth } from "firebase-admin/auth";
+import { getStorage } from "firebase-admin/storage";
 import * as adminNamespace from "firebase-admin";
 import fs from "fs";
 
@@ -69,7 +70,15 @@ const authProxy = new Proxy({} as Auth, {
   }
 });
 
-export { dbProxy as adminDb, authProxy as adminAuth };
+const storageProxy = new Proxy({} as any, {
+  get(_, prop) {
+    const storage = getStorage(ensureInitialized());
+    const value = (storage as any)[prop];
+    return typeof value === 'function' ? value.bind(storage) : value;
+  }
+});
+
+export { dbProxy as adminDb, authProxy as adminAuth, storageProxy as adminStorage };
 
 const firestoreApi = function() {
   return getFirestore(ensureInitialized(), dbIdFromConfig);

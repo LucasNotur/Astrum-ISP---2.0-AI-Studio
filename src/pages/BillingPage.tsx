@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Plus, 
@@ -7,13 +7,16 @@ import {
   AlertTriangle,
   CheckCircle2,
   Mail,
-  Download
+  Download,
+  CreditCard,
+  FileText
 } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/src/components/ui/card";
 import { Badge } from "@/src/components/ui/badge";
 import { Input } from "@/src/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/src/components/ui/tabs";
 import { 
   LineChart, 
   Line, 
@@ -31,12 +34,38 @@ import { db } from '@/src/lib/firebase';
 import { toast } from 'sonner';
 
 export function BillingPage() {
-  const { invoices, customers, setConfirmDialog } = useAppStore();
+  const { invoices, customers, setConfirmDialog, user } = useAppStore();
   const [invoiceSearch, setInvoiceSearch] = useState('');
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState('all');
   const [invoicePeriodFilter, setInvoicePeriodFilter] = useState('all');
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
-  const { setIsCreateInvoiceDialogOpen, setSelectedInvoiceDetails } = useAppStore(); // Assuming you'll add these to the store later or pass as props
+  const { setIsCreateInvoiceDialogOpen, setSelectedInvoiceDetails } = useAppStore(); 
+
+  const tenantId = user?.tenantId || 'default';
+  const [ispSubscription, setIspSubscription] = useState<any>(null);
+  const [ispInvoices, setIspInvoices] = useState<any[]>([]);
+  const [ispLoading, setIspLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchIspBilling = async () => {
+      try {
+        setIspLoading(true);
+        const [subRes, invRes] = await Promise.all([
+           fetch(`/api/billing/subscription/${tenantId}`),
+           fetch(`/api/billing/invoices/${tenantId}`)
+        ]);
+        const subData = await subRes.json();
+        const invData = await invRes.json();
+        setIspSubscription(subData.subscription);
+        setIspInvoices(invData.invoices || []);
+      } catch (error) {
+        console.error("Erro ao buscar dados de faturamento do ISP:", error);
+      } finally {
+        setIspLoading(false);
+      }
+    };
+    if (tenantId) fetchIspBilling();
+  }, [tenantId]);
 
   const simulatePayment = async (id: string) => {
      try {
@@ -173,287 +202,386 @@ export function BillingPage() {
       animate={{ opacity: 1, x: 0 }}
       className="space-y-6"
     >
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        
-        <Button className="gap-2 shrink-0 self-start md:self-auto" onClick={() => setIsCreateInvoiceDialogOpen?.(true)}>
-          <Plus size={18} /> Nova Fatura
-        </Button>
-      </header>
-
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex flex-1 items-center gap-2 max-w-md">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
-            <Input 
-              placeholder="Buscar por cliente ou ID da fatura..." 
-              className="pl-10"
-              value={invoiceSearch}
-              onChange={(e) => setInvoiceSearch(e.target.value)}
-            />
+      <Tabs defaultValue="clients" className="w-full space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <TabsList>
+            <TabsTrigger value="clients">Gestão de Cobranças (Clientes)</TabsTrigger>
+            <TabsTrigger value="subscription">Minha Assinatura</TabsTrigger>
+          </TabsList>
+          
+          <div className="flex items-center gap-2">
+            <Button className="gap-2 shrink-0 self-start md:self-auto" onClick={() => setIsCreateInvoiceDialogOpen?.(true)}>
+              <Plus size={18} /> Nova Fatura
+            </Button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <select 
-            className="h-9 rounded-md border border-zinc-200 bg-white px-3 text-sm dark:border-zinc-800 dark:bg-zinc-950"
-            value={invoiceStatusFilter}
-            onChange={(e) => setInvoiceStatusFilter(e.target.value)}
-          >
-            <option value="all">Todos os Status</option>
-            <option value="pending">Pendentes</option>
-            <option value="paid">Pagas</option>
-            <option value="overdue">Vencidas</option>
-          </select>
-          <select 
-            className="h-9 rounded-md border border-zinc-200 bg-white px-3 text-sm dark:border-zinc-800 dark:bg-zinc-950"
-            value={invoicePeriodFilter}
-            onChange={(e) => setInvoicePeriodFilter(e.target.value)}
-          >
-            <option value="all">Todo o Período</option>
-            <option value="this-month">Este Mês</option>
-            <option value="last-month">Mês Passado</option>
-          </select>
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
-        <Card className="border-none shadow-sm dark:bg-zinc-900">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Inadimplência Acumulada</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">R$ {billingMetrics.totalPendingAllTime.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-          </CardContent>
-        </Card>
-        <Card className="border-none shadow-sm dark:bg-zinc-900">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Contas a Receber (Mês Atual)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600">R$ {billingMetrics.pending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-          </CardContent>
-        </Card>
-        <Card className="border-none shadow-sm dark:bg-zinc-900">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Recebido (Mês Atual)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">R$ {billingMetrics.paid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-          </CardContent>
-        </Card>
-        <Card className="border-none shadow-sm dark:bg-zinc-900">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Inadimplência (Mês Atual)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">R$ {billingMetrics.overdue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-          </CardContent>
-        </Card>
-      </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2 border-none shadow-sm">
-          <CardHeader>
-            <CardTitle>Previsão de Receita</CardTitle>
-            <CardDescription>Comparativo entre receita realizada e projeção baseada em MRR.</CardDescription>
-          </CardHeader>
-          <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={revenueForecastData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={(val) => `R$ ${val}`} />
-                <RechartsTooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '12px' }} />
-                <Legend />
-                <Line type="monotone" dataKey="receita" name="Realizado" stroke="#22c55e" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                <Line type="monotone" dataKey="previsao" name="Projeção" stroke="#8b5cf6" strokeWidth={2} strokeDasharray="5 5" dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        <TabsContent value="subscription" className="space-y-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            <Card className="border-none shadow-sm dark:bg-zinc-900 col-span-1 md:col-span-2">
+              <CardHeader>
+                <CardTitle className="text-xl">Sua Assinatura Atual</CardTitle>
+                <CardDescription>Gerencie seu plano e método de pagamento.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {ispLoading ? (
+                   <div className="py-8 text-center text-zinc-500">Carregando dados da assinatura...</div>
+                ) : ispSubscription ? (
+                   <div className="flex items-center justify-between p-4 border rounded-lg bg-zinc-50 dark:bg-zinc-800/50">
+                     <div>
+                       <h4 className="font-semibold text-lg uppercase">Plano {ispSubscription.plan}</h4>
+                       <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                         Status: <Badge variant={ispSubscription.status === 'ACTIVE' || ispSubscription.status === 'active' ? 'default' : 'secondary'} className={ispSubscription.status === 'ACTIVE' || ispSubscription.status === 'active' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : ''}>{ispSubscription.status === 'ACTIVE' || ispSubscription.status === 'active'? 'Ativa' : 'Inativa'}</Badge>
+                       </p>
+                       <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                         Próxima cobrança: {ispSubscription.next_billing_date ? new Date(ispSubscription.next_billing_date).toLocaleDateString() : 'N/D'}
+                       </p>
+                     </div>
+                     <div className="text-right">
+                       <p className="text-2xl font-bold">R$ {(ispSubscription.amount_cents / 100).toFixed(2).replace('.', ',')}</p>
+                       <p className="text-xs text-zinc-500">/mês</p>
+                     </div>
+                   </div>
+                ) : (
+                   <div className="py-8 text-center text-zinc-500 border rounded-lg border-dashed">
+                     <p>Nenhuma assinatura ativa encontrada.</p>
+                     <Button className="mt-4" variant="outline" onClick={() => console.log('Chamar upgradeFlow ou Support')}>Escolher Plano</Button>
+                   </div>
+                )}
+                
+                <div className="pt-4 flex flex-col md:flex-row gap-3">
+                   <Button variant="secondary" className="gap-2"><CreditCard size={16} /> Atualizar Método de Pagamento</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-        <Card className="border-none shadow-sm bg-primary text-primary-foreground">
-          <CardHeader>
-            <CardTitle>Saúde Financeira</CardTitle>
-            <CardDescription className="text-primary-foreground/70">Resumo de performance de cobrança.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Eficiência de Cobrança</span>
-                <span>{Math.round((billingMetrics.paid / (billingMetrics.paid + billingMetrics.overdue || 1)) * 100)}%</span>
-              </div>
-              <div className="h-2 w-full bg-white/20 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-white transition-all duration-500" 
-                  style={{ width: `${(billingMetrics.paid / (billingMetrics.paid + billingMetrics.overdue || 1)) * 100}%` }} 
+          <Card className="border-none shadow-sm dark:bg-zinc-900">
+            <CardHeader>
+              <CardTitle>Histórico de Faturas</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+               {ispLoading ? (
+                 <div className="py-8 text-center text-zinc-500">Carregando faturas...</div>
+               ) : (
+                 <Table>
+                   <TableHeader>
+                     <TableRow>
+                       <TableHead className="pl-6">Vencimento</TableHead>
+                       <TableHead>Valor</TableHead>
+                       <TableHead>Status</TableHead>
+                       <TableHead className="text-right pr-6">Opções</TableHead>
+                     </TableRow>
+                   </TableHeader>
+                   <TableBody>
+                     {ispInvoices.length > 0 ? ispInvoices.map((inv: any) => (
+                       <TableRow key={inv.id}>
+                         <TableCell className="pl-6 font-medium">
+                           {inv.due_date ? new Date(inv.due_date).toLocaleDateString() : 'N/D'}
+                         </TableCell>
+                         <TableCell>R$ {inv.amount_cents ? (inv.amount_cents / 100).toFixed(2).replace('.', ',') : '0,00'}</TableCell>
+                         <TableCell>
+                           <Badge variant={inv.status === 'PAID' || inv.status === 'paid' ? 'default' : 'secondary'} className={inv.status === 'PAID' || inv.status === 'paid' ? 'bg-green-100 text-green-700' : ''}>
+                             {inv.status === 'PAID' || inv.status === 'paid' ? 'Paga' : 'Pendente'}
+                           </Badge>
+                         </TableCell>
+                         <TableCell className="text-right pr-6">
+                           {inv.invoice_url && (
+                             <Button variant="ghost" size="sm" className="gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => window.open(inv.invoice_url, '_blank')}>
+                               <FileText size={16}/> Ver Fatura
+                             </Button>
+                           )}
+                         </TableCell>
+                       </TableRow>
+                     )) : (
+                       <TableRow>
+                         <TableCell colSpan={4} className="text-center py-6 text-zinc-500">Nenhuma fatura encontrada.</TableCell>
+                       </TableRow>
+                     )}
+                   </TableBody>
+                 </Table>
+               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="clients" className="space-y-6 mt-0">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-1 items-center gap-2 max-w-md">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
+                <Input 
+                  placeholder="Buscar por cliente ou ID da fatura..." 
+                  className="pl-10"
+                  value={invoiceSearch}
+                  onChange={(e) => setInvoiceSearch(e.target.value)}
                 />
               </div>
             </div>
-            <div className="pt-4 border-t border-white/10 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/10 rounded-lg">
-                  <TrendingUp size={20} />
-                </div>
-                <div>
-                  <p className="text-xs opacity-70">Crescimento MRR</p>
-                  <p className="text-lg font-bold">+5.2%</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/10 rounded-lg">
-                  <AlertTriangle size={20} />
-                </div>
-                <div>
-                  <p className="text-xs opacity-70">Risco de Inadimplência</p>
-                  <p className="text-lg font-bold">Baixo</p>
-                </div>
-              </div>
+            <div className="flex items-center gap-2">
+              <select 
+                className="h-9 rounded-md border border-zinc-200 bg-white px-3 text-sm dark:border-zinc-800 dark:bg-zinc-950"
+                value={invoiceStatusFilter}
+                onChange={(e) => setInvoiceStatusFilter(e.target.value)}
+              >
+                <option value="all">Todos os Status</option>
+                <option value="pending">Pendentes</option>
+                <option value="paid">Pagas</option>
+                <option value="overdue">Vencidas</option>
+              </select>
+              <select 
+                className="h-9 rounded-md border border-zinc-200 bg-white px-3 text-sm dark:border-zinc-800 dark:bg-zinc-950"
+                value={invoicePeriodFilter}
+                onChange={(e) => setInvoicePeriodFilter(e.target.value)}
+              >
+                <option value="all">Todo o Período</option>
+                <option value="this-month">Este Mês</option>
+                <option value="last-month">Mês Passado</option>
+              </select>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+          
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
+            <Card className="border-none shadow-sm dark:bg-zinc-900">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Inadimplência Acumulada</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-blue-600">R$ {billingMetrics.totalPendingAllTime.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+              </CardContent>
+            </Card>
+            <Card className="border-none shadow-sm dark:bg-zinc-900">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Contas a Receber (Mês Atual)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-orange-600">R$ {billingMetrics.pending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+              </CardContent>
+            </Card>
+            <Card className="border-none shadow-sm dark:bg-zinc-900">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Recebido (Mês Atual)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">R$ {billingMetrics.paid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+              </CardContent>
+            </Card>
+            <Card className="border-none shadow-sm dark:bg-zinc-900">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Inadimplência (Mês Atual)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">R$ {billingMetrics.overdue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+              </CardContent>
+            </Card>
+          </div>
 
-      <Card className="border-none shadow-sm">
-        <CardContent className="p-0">
-          {selectedInvoices.length > 0 && (
-            <div className="p-4 bg-primary/5 dark:bg-primary/10 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between animate-in slide-in-from-top duration-300">
-              <div className="flex items-center gap-4">
-                <span className="text-sm font-medium">{selectedInvoices.length} faturas selecionadas</span>
-                <div className="h-4 w-px bg-zinc-200 dark:bg-zinc-700" />
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="h-8 gap-2 border-green-200 text-green-700 hover:bg-green-50" onClick={() => {
-                    setConfirmDialog?.({
-                      isOpen: true,
-                      title: 'Confirmar Pagamento em Massa',
-                      message: `Deseja marcar as ${selectedInvoices.length} faturas selecionadas como pagas?`,
-                      onConfirm: async () => {
-                        try {
-                          const promises = selectedInvoices.map(id => 
-                            updateDoc(doc(db, 'billing_invoices', id), { status: 'paid' })
-                          );
-                          await Promise.all(promises);
-                          setSelectedInvoices([]);
-                          toast.success(`${selectedInvoices.length} faturas marcadas como pagas.`);
-                        } catch (error) {
-                          toast.error("Erro ao atualizar faturas.");
-                        }
-                      }
-                    });
-                  }}>
-                    <CheckCircle2 size={14} /> Marcar como Pago
-                  </Button>
-                  <Button size="sm" variant="outline" className="h-8 gap-2 border-orange-200 text-orange-700 hover:bg-orange-50">
-                    <Mail size={14} /> Enviar Lembrete
-                  </Button>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <Card className="lg:col-span-2 border-none shadow-sm">
+              <CardHeader>
+                <CardTitle>Previsão de Receita</CardTitle>
+                <CardDescription>Comparativo entre receita realizada e projeção baseada em MRR.</CardDescription>
+              </CardHeader>
+              <CardContent className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={revenueForecastData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={(val) => `R$ ${val}`} />
+                    <RechartsTooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', borderRadius: '12px' }} />
+                    <Legend />
+                    <Line type="monotone" dataKey="receita" name="Realizado" stroke="#22c55e" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                    <Line type="monotone" dataKey="previsao" name="Projeção" stroke="#8b5cf6" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-sm bg-primary text-primary-foreground">
+              <CardHeader>
+                <CardTitle>Saúde Financeira</CardTitle>
+                <CardDescription className="text-primary-foreground/70">Resumo de performance de cobrança.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Eficiência de Cobrança</span>
+                    <span>{Math.round((billingMetrics.paid / (billingMetrics.paid + billingMetrics.overdue || 1)) * 100)}%</span>
+                  </div>
+                  <div className="h-2 w-full bg-white/20 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-white transition-all duration-500" 
+                      style={{ width: `${(billingMetrics.paid / (billingMetrics.paid + billingMetrics.overdue || 1)) * 100}%` }} 
+                    />
+                  </div>
                 </div>
-              </div>
-              <Button variant="ghost" size="sm" onClick={() => setSelectedInvoices([])}>Cancelar</Button>
-            </div>
-          )}
-          <div className="overflow-x-auto w-full">
-            <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12 pl-6">
-                  <input 
-                    type="checkbox" 
-                    className="rounded border-zinc-300 dark:border-zinc-700"
-                    checked={selectedInvoices.length === filteredInvoices.length && filteredInvoices.length > 0}
-                    onChange={(e) => {
-                      if (e.target.checked) setSelectedInvoices(filteredInvoices.map(i => i.id));
-                      else setSelectedInvoices([]);
-                    }}
-                  />
-                </TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Vencimento</TableHead>
-                <TableHead>Valor</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="pr-6 text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredInvoices.length > 0 ? filteredInvoices.map(i => {
-                const customer = customers.find(c => c.id === i.customerId);
-                return (
-                  <TableRow 
-                    key={i.id} 
-                    className={cn("group cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50", selectedInvoices.includes(i.id) && "bg-primary/5 dark:bg-primary/10")}
-                    onClick={() => setSelectedInvoiceDetails?.(i)}
-                  >
-                    <TableCell className="pl-6" onClick={(e) => e.stopPropagation()}>
+                <div className="pt-4 border-t border-white/10 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/10 rounded-lg">
+                      <TrendingUp size={20} />
+                    </div>
+                    <div>
+                      <p className="text-xs opacity-70">Crescimento MRR</p>
+                      <p className="text-lg font-bold">+5.2%</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/10 rounded-lg">
+                      <AlertTriangle size={20} />
+                    </div>
+                    <div>
+                      <p className="text-xs opacity-70">Risco de Inadimplência</p>
+                      <p className="text-lg font-bold">Baixo</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="border-none shadow-sm">
+            <CardContent className="p-0">
+              {selectedInvoices.length > 0 && (
+                <div className="p-4 bg-primary/5 dark:bg-primary/10 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between animate-in slide-in-from-top duration-300">
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm font-medium">{selectedInvoices.length} faturas selecionadas</span>
+                    <div className="h-4 w-px bg-zinc-200 dark:bg-zinc-700" />
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="h-8 gap-2 border-green-200 text-green-700 hover:bg-green-50" onClick={() => {
+                        setConfirmDialog?.({
+                          isOpen: true,
+                          title: 'Confirmar Pagamento em Massa',
+                          message: `Deseja marcar as ${selectedInvoices.length} faturas selecionadas como pagas?`,
+                          onConfirm: async () => {
+                            try {
+                              const promises = selectedInvoices.map(id => 
+                                updateDoc(doc(db, 'billing_invoices', id), { status: 'paid' })
+                              );
+                              await Promise.all(promises);
+                              setSelectedInvoices([]);
+                              toast.success(`${selectedInvoices.length} faturas marcadas como pagas.`);
+                            } catch (error) {
+                              toast.error("Erro ao atualizar faturas.");
+                            }
+                          }
+                        });
+                      }}>
+                        <CheckCircle2 size={14} /> Marcar como Pago
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-8 gap-2 border-orange-200 text-orange-700 hover:bg-orange-50">
+                        <Mail size={14} /> Enviar Lembrete
+                      </Button>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedInvoices([])}>Cancelar</Button>
+                </div>
+              )}
+              <div className="overflow-x-auto w-full">
+                <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12 pl-6">
                       <input 
                         type="checkbox" 
                         className="rounded border-zinc-300 dark:border-zinc-700"
-                        checked={selectedInvoices.includes(i.id)}
+                        checked={selectedInvoices.length === filteredInvoices.length && filteredInvoices.length > 0}
                         onChange={(e) => {
-                          if (e.target.checked) setSelectedInvoices(prev => [...prev, i.id]);
-                          else setSelectedInvoices(prev => prev.filter(id => id !== i.id));
+                          if (e.target.checked) setSelectedInvoices(filteredInvoices.map(i => i.id));
+                          else setSelectedInvoices([]);
                         }}
                       />
-                    </TableCell>
-                    <TableCell className="font-medium">{customer ? customer.name : i.customerId}</TableCell>
-                    <TableCell>{i.dueDate?.seconds ? new Date(i.dueDate.seconds * 1000).toLocaleDateString('pt-BR') : (i.dueDate || 'n/a')}</TableCell>
-                    <TableCell>R$ {i.amount?.toFixed(2)}</TableCell>
-                    <TableCell>
-                      <Badge variant={
-                        i.status === 'paid' ? 'default' : 
-                        i.status === 'overdue' ? 'destructive' : 'secondary'
-                      } className={i.status === 'paid' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50' : ''}>
-                        {i.status === 'paid' ? 'Pago' : i.status === 'overdue' ? 'Vencida' : 'Pendente'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="pr-6 text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {i.status !== 'paid' && (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="h-8 text-[10px] gap-1 border-green-200 text-green-700 hover:bg-green-50"
-                            onClick={() => {
-                              setConfirmDialog?.({
-                                isOpen: true,
-                                title: 'Confirmar Pagamento',
-                                message: `Deseja marcar a fatura de R$ ${i.amount.toFixed(2)} do cliente ${customer?.name || 'Desconhecido'} como paga manualmente?`,
-                                onConfirm: () => simulatePayment(i.id)
-                              });
-                            }}
-                          >
-                            <CheckCircle2 size={12} /> Pagar
-                          </Button>
-                        )}
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8 text-[10px] gap-1"
-                          onClick={() => console.log('Export PDF', i.id)}
-                        >
-                          <Download size={12} /> PDF
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-8 text-[10px]"
-                          onClick={() => setSelectedInvoiceDetails?.(i)}
-                        >
-                          Ver Fatura
-                        </Button>
-                      </div>
-                    </TableCell>
+                    </TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Vencimento</TableHead>
+                    <TableHead>Valor</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="pr-6 text-right">Ações</TableHead>
                   </TableRow>
-                );
-              }) : (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-10 text-zinc-500 dark:text-zinc-400">
-                    Nenhuma fatura encontrada.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-          </div>
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {filteredInvoices.length > 0 ? filteredInvoices.map(i => {
+                    const customer = customers.find(c => c.id === i.customerId);
+                    return (
+                      <TableRow 
+                        key={i.id} 
+                        className={cn("group cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50", selectedInvoices.includes(i.id) && "bg-primary/5 dark:bg-primary/10")}
+                        onClick={() => setSelectedInvoiceDetails?.(i)}
+                      >
+                        <TableCell className="pl-6" onClick={(e) => e.stopPropagation()}>
+                          <input 
+                            type="checkbox" 
+                            className="rounded border-zinc-300 dark:border-zinc-700"
+                            checked={selectedInvoices.includes(i.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) setSelectedInvoices(prev => [...prev, i.id]);
+                              else setSelectedInvoices(prev => prev.filter(id => id !== i.id));
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">{customer ? customer.name : i.customerId}</TableCell>
+                        <TableCell>{i.dueDate?.seconds ? new Date(i.dueDate.seconds * 1000).toLocaleDateString('pt-BR') : (i.dueDate || 'n/a')}</TableCell>
+                        <TableCell>R$ {i.amount?.toFixed(2)}</TableCell>
+                        <TableCell>
+                          <Badge variant={
+                            i.status === 'paid' ? 'default' : 
+                            i.status === 'overdue' ? 'destructive' : 'secondary'
+                          } className={i.status === 'paid' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50' : ''}>
+                            {i.status === 'paid' ? 'Pago' : i.status === 'overdue' ? 'Vencida' : 'Pendente'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="pr-6 text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {i.status !== 'paid' && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="h-8 text-[10px] gap-1 border-green-200 text-green-700 hover:bg-green-50"
+                                onClick={() => {
+                                  setConfirmDialog?.({
+                                    isOpen: true,
+                                    title: 'Confirmar Pagamento',
+                                    message: `Deseja marcar a fatura de R$ ${i.amount.toFixed(2)} do cliente ${customer?.name || 'Desconhecido'} como paga manualmente?`,
+                                    onConfirm: () => simulatePayment(i.id)
+                                  });
+                                }}
+                              >
+                                <CheckCircle2 size={12} /> Pagar
+                              </Button>
+                            )}
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 text-[10px] gap-1"
+                              onClick={() => console.log('Export PDF', i.id)}
+                            >
+                              <Download size={12} /> PDF
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-8 text-[10px]"
+                              onClick={() => setSelectedInvoiceDetails?.(i)}
+                            >
+                              Ver Fatura
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  }) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-10 text-zinc-500 dark:text-zinc-400">
+                        Nenhuma fatura encontrada.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </motion.div>
   );
 }

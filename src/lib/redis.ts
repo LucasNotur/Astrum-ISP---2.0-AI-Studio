@@ -85,7 +85,43 @@ const createRedisClient = () => {
           return 0;
         }
         return 1;
-      }
+      },
+      zadd: async (key: string, score: number, member: string) => {
+          let setItem = store.get(key);
+          if (!setItem || !Array.isArray(setItem.value)) {
+              setItem = { value: [] as unknown as string, expiresAt: null };
+          }
+          const arr = setItem.value as unknown as [number, string][];
+          arr.push([score, member]);
+          setItem.value = arr as unknown as string;
+          store.set(key, setItem);
+          return 1;
+      },
+      zremrangebyscore: async (key: string, min: number, max: number) => {
+          const setItem = store.get(key);
+          if (!setItem || !Array.isArray(setItem.value)) return 0;
+          let arr = setItem.value as unknown as [number, string][];
+          const initialLength = arr.length;
+          arr = arr.filter(([score]) => score < min || score > max);
+          setItem.value = arr as unknown as string;
+          store.set(key, setItem);
+          return initialLength - arr.length;
+      },
+      zcard: async (key: string) => {
+          const setItem = store.get(key);
+          if (!setItem || !Array.isArray(setItem.value)) return 0;
+          return (setItem.value as unknown as any[]).length;
+      },
+      zrangebyscore: async (key: string, min: string, max: string) => {
+          const setItem = store.get(key);
+          if (!setItem || !Array.isArray(setItem.value)) return [];
+          const arr = setItem.value as unknown as [number, string][];
+          const minNum = min === '-inf' ? -Infinity : Number(min);
+          const maxNum = max === '+inf' ? Infinity : Number(max);
+          return arr.filter(([score]) => score >= minNum && score <= maxNum).map(x => x[1]);
+      },
+      multi: () => redis,
+      exec: async () => []
     } as any;
   }
 

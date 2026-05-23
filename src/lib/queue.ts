@@ -34,11 +34,10 @@ export function setupDLQ(worker: any) {
         // Mover para DLQ no Firestore para visibilidade
         await db.collection('dead_letter_queue').add({
           job_id: job.id,
-          job_name: job.name,
-          job_data: job.data,
+          type: job.name,
+          payload: job.data,
           error_message: err.message,
-          error_stack: err.stack?.substring(0, 500),
-          attempts: attempts,
+          retry_count: attempts,
           failed_at: new Date(),
           tenant_id: job.data?.tenantId ?? 'unknown',
           resolved: false
@@ -149,12 +148,24 @@ export async function getMessagePriority(customerId: string, tenantId: string): 
   }
 }
 
+import { calculateBullMQDelay } from "./dateUtils";
+
 export async function enqueueMessage(tenantId: string, payload: any, opts?: any, jobName: string = 'process-message') {
   const priority = await getMessagePriority(payload.customerId, tenantId);
   const queue = getTenantQueue(tenantId);
-  return queue.add(jobName, payload, {
+  
+  let finalOpts = {
     jobId: payload.messageId,
     priority,
     ...(opts || {})
-  });
+  };
+
+  if (opts?.scheduledFor && opts?.timezone) {
+     const msDelay = calculateBullMQDelay(opts.scheduledFor, opts.timezone);
+     if (msDelay > 0) {
+        finalOpts.delay = msDelay;
+     }
+  }
+
+  return queue.add(jobName, payload, finalOpts);
 }

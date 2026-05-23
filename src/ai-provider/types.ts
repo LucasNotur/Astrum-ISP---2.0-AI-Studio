@@ -4,6 +4,7 @@ export type ProviderName = 'openai' | 'gemini' | 'anthropic';
 export interface Message {
   role: 'system' | 'user' | 'assistant';
   content: string;
+  parts?: any[];
 }
 
 export interface TokenUsage {
@@ -51,6 +52,6 @@ export interface TokenLog {
 
 export interface AIProvider {
   name: ProviderName;
-  chat(messages: Message[], config: ProviderConfig, tenantId: string, options?: { tools?: any[] }): Promise<ChatResult>;
+  chat(messages: Message[], config: ProviderConfig, tenantId: string, options?: { tools?: any[], temperature?: number }): Promise<ChatResult>;
   embed(texts: string[], config: ProviderConfig, tenantId: string): Promise<EmbedResult>;
 }

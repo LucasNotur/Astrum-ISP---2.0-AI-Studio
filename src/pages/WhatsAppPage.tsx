@@ -1,18 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Phone, CheckCircle2, XCircle, RefreshCw, QrCode, MessageSquare, LogOut, Loader2, Save, Plus, Trash2 } from 'lucide-react';
+import { Phone, CheckCircle2, XCircle, RefreshCw, QrCode, MessageSquare, LogOut, Loader2, Save, Plus, Trash2, Activity, ShieldAlert, Play, Info } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/src/components/ui/card";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import { Badge } from "@/src/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/src/components/ui/tabs";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/src/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/components/ui/select";
+import { Textarea } from "@/src/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/src/components/ui/tooltip";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from '@/src/components/ui/avatar';
 import { cn } from '@/src/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/src/components/ui/dialog";
 import { useAppStore } from '@/src/store/useAppStore';
 import { db } from '@/src/lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, setDoc, deleteDoc, collection } from 'firebase/firestore';
 
 export function WhatsAppConnectionsPage({
   integrationKeys,
@@ -21,12 +26,36 @@ export function WhatsAppConnectionsPage({
   configureEvolutionWebhook
 }: any) {
   const { user, companySettings } = useAppStore();
+  const [activeTab, setActiveTab] = useState('connections');
   const [connections, setConnections] = useState<any[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newConn, setNewConn] = useState({ instanceName: '', alias: '' });
   
   // Transient state for QR / Status per connection
   const [connStates, setConnStates] = useState<Record<string, { status: string, qrCode: string | null, isFetching: boolean }>>({});
+  const [healthStats, setHealthStats] = useState<Record<string, any>>({});
+
+  const fetchHealth = async (conn: any) => {
+    try {
+      const tId = companySettings?.tenant_id || user?.tenantId;
+      if (!tId) return;
+      const res = await fetch(`/api/whatsapp/health-stats?tenantId=${tId}&instanceId=${conn.instanceName}`);
+      const data = await res.json();
+      setHealthStats(prev => ({ ...prev, [conn.id]: data }));
+    } catch (e) {
+      console.error("Error fetching health", e);
+    }
+  };
+
+  useEffect(() => {
+    connections.forEach(conn => {
+       fetchHealth(conn);
+    });
+    const interval = setInterval(() => {
+       connections.forEach(conn => fetchHealth(conn));
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [connections, companySettings, user]);
 
   useEffect(() => {
     if (integrationKeys?.whatsappInstances) {
@@ -53,12 +82,27 @@ export function WhatsAppConnectionsPage({
       handleSaveKeys({ ...integrationKeys, whatsappInstances: jsonStr });
     }
     
-    const tId = companySettings?.tenant_id || user?.tenantId || 'default';
-    const instanceNames = newConnections.map(c => c.instanceName);
-    try {
-      await updateDoc(doc(db, 'tenants', tId), { evolution_instances: instanceNames });
-    } catch(e) {
-      console.warn("Could not update tenants evolution_instances", e);
+    const tId = companySettings?.tenant_id || user?.tenantId;
+    if (tId && tId !== 'default') {
+      const instanceNames = newConnections.map(c => c.instanceName);
+      try {
+        await updateDoc(doc(db, 'tenants', tId), { evolution_instances: instanceNames });
+        
+        await setDoc(doc(db, 'whatsapp_instances', tId), { tenantId: tId }, { merge: true });
+        for (const conn of newConnections) {
+          await setDoc(doc(db, 'whatsapp_instances', tId, 'instances', conn.instanceName), {
+            instance_id: conn.instanceName,
+            label: conn.alias,
+            phone_number: conn.phoneNumber || '',
+            status: connStates[conn.id]?.status || 'disconnected',
+            ai_enabled: true,
+            ai_persona_id: null,
+            department_id: null
+          }, { merge: true });
+        }
+      } catch(e) {
+        console.warn("Could not update tenants evolution_instances", e);
+      }
     }
   };
 
@@ -76,11 +120,19 @@ export function WhatsAppConnectionsPage({
     toast.success('Usuário de WhatsApp adicionado!');
   };
 
-  const handleRemoveConnection = (id: string) => {
+  const handleRemoveConnection = async (id: string, instanceName: string) => {
     if (!window.confirm("Deseja realmente remover esta conexão? A instância continuará existindo na Evolution API.")) return;
     const newArr = connections.filter(c => c.id !== id);
     setConnections(newArr);
     saveConnections(newArr);
+    const tId = companySettings?.tenant_id || user?.tenantId;
+    if (tId && tId !== 'default' && instanceName) {
+       try {
+         await deleteDoc(doc(db, 'whatsapp_instances', tId, 'instances', instanceName));
+       } catch (e) {
+         console.warn("Failed to delete instance doc", e);
+       }
+    }
   };
 
   const updateConnState = (id: string, newState: any) => {
@@ -170,137 +222,193 @@ export function WhatsAppConnectionsPage({
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6 max-w-5xl mx-auto pb-10"
     >
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-zinc-900 dark:text-white flex items-center gap-2">
-            <Phone className="text-green-500" size={28} />
-            Conexões WhatsApp
-          </h1>
-          <p className="text-zinc-500 dark:text-zinc-400 mt-1">
-            Gerencie múltiplos números de WhatsApp conectados ao sistema.
-          </p>
+      <Tabs defaultValue="connections" value={activeTab} onValueChange={setActiveTab}>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-zinc-900 dark:text-white flex items-center gap-2">
+              <Phone className="text-green-500" size={28} />
+              WhatsApp
+            </h1>
+            <p className="text-zinc-500 dark:text-zinc-400 mt-1">
+              Gerencie Conexões e Templates HSM.
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <TabsList className="bg-zinc-100 dark:bg-zinc-800/50 p-1">
+               <TabsTrigger value="connections" className="data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700">Conexões</TabsTrigger>
+               <TabsTrigger value="templates" className="data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700">Templates HSM</TabsTrigger>
+            </TabsList>
+          </div>
         </div>
-        <Button onClick={() => setIsAddOpen(true)} className="bg-indigo-600 hover:bg-indigo-700">
-          <Plus size={16} className="mr-2" /> Nova Conexão
-        </Button>
-      </div>
 
-      <div className="grid grid-cols-1 gap-6">
-        {connections.length === 0 ? (
-           <Card className="shadow-sm border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
-             <CardContent className="flex flex-col items-center justify-center p-12 text-center">
-               <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center mb-4">
-                 <Phone size={24} className="text-zinc-400" />
-               </div>
-               <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-2">Nenhuma conexão configurada</h3>
-               <p className="text-zinc-500 max-w-md mx-auto mb-6">
-                 Adicione uma conta de WhatsApp para gerar os QR Codes e vincular com a plataforma.
-               </p>
-               <Button onClick={() => setIsAddOpen(true)} variant="outline">
-                 <Plus size={16} className="mr-2" /> Adicionar Primeira Conexão
-               </Button>
-             </CardContent>
-           </Card>
-        ) : (
-          connections.map((conn) => {
-            const state = connStates[conn.id] || { status: 'disconnected', qrCode: null, isFetching: false };
-            const isConnected = state.status === 'connected';
+        <TabsContent value="connections" className="space-y-6">
+           <div className="flex justify-end">
+              <Button onClick={() => setIsAddOpen(true)} className="bg-indigo-600 hover:bg-indigo-700">
+                <Plus size={16} className="mr-2" /> Nova Conexão
+              </Button>
+           </div>
+           
+           <div className="grid grid-cols-1 gap-6">
+             {connections.length === 0 ? (
+                <Card className="shadow-sm border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+                  <CardContent className="flex flex-col items-center justify-center p-12 text-center">
+                    <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center mb-4">
+                      <Phone size={24} className="text-zinc-400" />
+                    </div>
+                    <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-2">Nenhuma conexão configurada</h3>
+                    <p className="text-zinc-500 max-w-md mx-auto mb-6">
+                      Adicione uma conta de WhatsApp para gerar os QR Codes e vincular com a plataforma.
+                    </p>
+                    <Button onClick={() => setIsAddOpen(true)} variant="outline">
+                      <Plus size={16} className="mr-2" /> Adicionar Primeira Conexão
+                    </Button>
+                  </CardContent>
+                </Card>
+             ) : (
+               connections.map((conn) => {
+                 const state = connStates[conn.id] || { status: 'disconnected', qrCode: null, isFetching: false };
+                 const isConnected = state.status === 'connected';
 
-            return (
-              <Card key={conn.id} className="shadow-sm border-zinc-200 dark:border-zinc-800 relative overflow-hidden">
-                <CardHeader className="border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 pb-4">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10 border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
-                        <AvatarFallback className="bg-green-100 text-green-700 font-bold dark:bg-green-900/30 dark:text-green-500">
-                          {conn.alias ? conn.alias[0].toUpperCase() : 'W'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <CardTitle className="text-lg">{conn.alias}</CardTitle>
-                        <CardDescription>Conta de WhatsApp associada</CardDescription>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Badge variant={isConnected ? "default" : "secondary"} className={cn(
-                        isConnected ? "bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                      )}>
-                        {isConnected ? <CheckCircle2 size={12} className="mr-1" /> : <XCircle size={12} className="mr-1" />}
-                        {isConnected ? "Conectado" : "Desconectado"}
-                      </Badge>
-                      <Button variant="ghost" size="icon" onClick={() => handleRemoveConnection(conn.id)} className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
-                        <Trash2 size={16} />
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-6">
-                  <div className="flex flex-col lg:flex-row gap-8 items-center lg:items-start justify-between">
-                    
-                    <div className="flex-1 space-y-4">
-                      {isConnected ? (
-                        <div className="flex items-center gap-4">
-                          <Button variant="outline" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 border-red-200 dark:border-red-900/30" onClick={() => disconnectInstance(conn)}>
-                            <LogOut size={14} className="mr-2" /> Desconectar
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="text-sm text-zinc-500 dark:text-zinc-400">
-                          Clique em <strong>Obter QR Code</strong> e escaneie com o app do WhatsApp para conectar.
-                        </div>
-                      )}
-                    </div>
+                 return (
+                   <Card key={conn.id} className="shadow-sm border-zinc-200 dark:border-zinc-800 relative overflow-hidden">
+                     <CardHeader className="border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 pb-4">
+                       <div className="flex justify-between items-center">
+                         <div className="flex items-center gap-3">
+                           <Avatar className="h-10 w-10 border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
+                             <AvatarFallback className="bg-green-100 text-green-700 font-bold dark:bg-green-900/30 dark:text-green-500">
+                               {conn.alias ? conn.alias[0].toUpperCase() : 'W'}
+                             </AvatarFallback>
+                           </Avatar>
+                           <div>
+                             <CardTitle className="text-lg">{conn.alias}</CardTitle>
+                             <CardDescription>Conta de WhatsApp associada</CardDescription>
+                           </div>
+                         </div>
+                         <div className="flex items-center gap-3">
+                           <Badge variant={isConnected ? "default" : "secondary"} className={cn(
+                             isConnected ? "bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                           )}>
+                             {isConnected ? <CheckCircle2 size={12} className="mr-1" /> : <XCircle size={12} className="mr-1" />}
+                             {isConnected ? "Conectado" : "Desconectado"}
+                           </Badge>
+                           <Button variant="ghost" size="icon" onClick={() => handleRemoveConnection(conn.id, conn.instanceName)} className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
+                             <Trash2 size={16} />
+                           </Button>
+                         </div>
+                       </div>
+                     </CardHeader>
+                     <CardContent className="p-6">
+                       <div className="flex flex-col lg:flex-row gap-8 items-center lg:items-start justify-between">
+                         
+                         <div className="flex-1 space-y-4 w-full">
+                           {isConnected ? (
+                             <div className="flex items-center gap-4">
+                               <Button variant="outline" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 border-red-200 dark:border-red-900/30" onClick={() => disconnectInstance(conn)}>
+                                 <LogOut size={14} className="mr-2" /> Desconectar
+                               </Button>
+                             </div>
+                           ) : (
+                             <div className="text-sm text-zinc-500 dark:text-zinc-400">
+                               Clique em <strong>Obter QR Code</strong> e escaneie com o app do WhatsApp para conectar.
+                             </div>
+                           )}
 
-                    {/* QR Code Area */}
-                    <div className="w-full lg:w-72 flex flex-col items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-900/30 rounded-2xl border border-zinc-200 dark:border-zinc-800">
-                      {isConnected ? (
-                        <div className="text-center space-y-3">
-                          <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 text-green-500 rounded-full flex items-center justify-center mx-auto mb-2">
-                            <MessageSquare size={36} />
-                          </div>
-                          <h4 className="font-bold text-zinc-800 dark:text-zinc-200">WhatsApp Conectado!</h4>
-                          <Button variant="outline" size="sm" onClick={() => fetchStatusAndQr(conn)} disabled={state.isFetching} className="w-full mt-2">
-                            <RefreshCw size={14} className={cn("mr-2", state.isFetching && "animate-spin")} /> Verificar Status
-                          </Button>
-                        </div>
-                      ) : state.qrCode ? (
-                        <div className="text-center space-y-4">
-                          <div className="bg-white p-3 rounded-2xl shadow-sm inline-block">
-                            <img 
-                              src={state.qrCode.startsWith('data:image') ? state.qrCode : `data:image/png;base64,${state.qrCode}`} 
-                              alt="WhatsApp QR Code" 
-                              className="w-48 h-48 rounded-xl"
-                            />
-                          </div>
-                          <Button variant="outline" size="sm" onClick={() => fetchStatusAndQr(conn)} disabled={state.isFetching} className="w-full">
-                            <RefreshCw size={14} className={cn("mr-2", state.isFetching && "animate-spin")} /> Atualizar QR Code
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="text-center space-y-4 py-4">
-                          <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-2">
-                            <QrCode size={28} />
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-zinc-800 dark:text-zinc-200 text-sm mb-1">Pronto para Conectar?</h4>
-                          </div>
-                          <Button onClick={() => fetchStatusAndQr(conn)} disabled={state.isFetching} className="w-full shadow-sm bg-[#25D366] hover:bg-[#1EBE5D] text-white">
-                            {state.isFetching ? (
-                              <><Loader2 size={16} className="mr-2 animate-spin" /> Conectando...</>
-                            ) : (
-                              <><QrCode size={16} className="mr-2" /> Obter QR Code</>
-                            )}
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })
-        )}
-      </div>
+                           {/* Saúde da Instância */}
+                           <div className="mt-6 border-t border-zinc-100 dark:border-zinc-800 pt-6">
+                             <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                               <Activity size={16} className="text-zinc-500" />
+                               <span>Saúde da Instância</span>
+                             </h4>
+                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                               <div className="bg-zinc-50 dark:bg-zinc-900/50 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800">
+                                 <div className="text-xs text-zinc-500 mb-1">Risco de Ban</div>
+                                 <div className="font-medium flex items-center gap-2">
+                                   {healthStats[conn.id]?.ban_signals > 0 ? (
+                                     <span className="text-red-500 flex items-center gap-1"><ShieldAlert size={14} /> {healthStats[conn.id]?.ban_signals} sinais</span>
+                                   ) : (
+                                     <span className="text-green-500">Normal</span>
+                                   )}
+                                 </div>
+                               </div>
+                               <div className="bg-zinc-50 dark:bg-zinc-900/50 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800">
+                                 <div className="text-xs text-zinc-500 mb-1">Rate Limiter</div>
+                                 <div className="font-medium">
+                                   {healthStats[conn.id]?.is_paused ? <span className="text-red-500 text-xs">Pausado (30m)</span> : <span className="text-green-500 text-xs">Liberado</span>}
+                                 </div>
+                               </div>
+                               <div className="bg-zinc-50 dark:bg-zinc-900/50 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800">
+                                 <div className="text-xs text-zinc-500 mb-1">Envios Diários</div>
+                                 <div className="font-medium">{healthStats[conn.id]?.daily_messages_today || 0} msgs</div>
+                               </div>
+                               <div className="bg-zinc-50 dark:bg-zinc-900/50 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800">
+                                 <div className="text-xs text-zinc-500 mb-1">Fila Global</div>
+                                 <div className="font-medium">{healthStats[conn.id]?.messages_in_queue || 0} msgs</div>
+                               </div>
+                             </div>
+                           </div>
+                         </div>
+
+                         {/* QR Code Area */}
+                         <div className="w-full lg:w-72 flex flex-col items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-900/30 rounded-2xl border border-zinc-200 dark:border-zinc-800">
+                           {isConnected ? (
+                             <div className="text-center space-y-3">
+                               <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 text-green-500 rounded-full flex items-center justify-center mx-auto mb-2">
+                                 <MessageSquare size={36} />
+                               </div>
+                               <h4 className="font-bold text-zinc-800 dark:text-zinc-200">WhatsApp Conectado!</h4>
+                               <Button variant="outline" size="sm" onClick={() => fetchStatusAndQr(conn)} disabled={state.isFetching} className="w-full mt-2">
+                                 <RefreshCw size={14} className={cn("mr-2", state.isFetching && "animate-spin")} /> Verificar Status
+                               </Button>
+                             </div>
+                           ) : state.qrCode ? (
+                             <div className="text-center space-y-4">
+                               <div className="bg-white p-3 rounded-2xl shadow-sm inline-block">
+                                 <img 
+                                   src={state.qrCode.startsWith('data:image') ? state.qrCode : `data:image/png;base64,${state.qrCode}`} 
+                                   alt="WhatsApp QR Code" 
+                                   className="w-48 h-48 rounded-xl"
+                                 />
+                               </div>
+                               <Button variant="outline" size="sm" onClick={() => fetchStatusAndQr(conn)} disabled={state.isFetching} className="w-full">
+                                 <RefreshCw size={14} className={cn("mr-2", state.isFetching && "animate-spin")} /> Atualizar QR Code
+                               </Button>
+                             </div>
+                           ) : (
+                             <div className="text-center space-y-4 py-4">
+                               <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                                 <QrCode size={28} />
+                               </div>
+                               <div>
+                                 <h4 className="font-bold text-zinc-800 dark:text-zinc-200 text-sm mb-1">Pronto para Conectar?</h4>
+                               </div>
+                               <Button onClick={() => fetchStatusAndQr(conn)} disabled={state.isFetching} className="w-full shadow-sm bg-[#25D366] hover:bg-[#1EBE5D] text-white">
+                                 {state.isFetching ? (
+                                   <><Loader2 size={16} className="mr-2 animate-spin" /> Conectando...</>
+                                 ) : (
+                                   <><QrCode size={16} className="mr-2" /> Obter QR Code</>
+                                 )}
+                               </Button>
+                             </div>
+                           )}
+                         </div>
+                       </div>
+                     </CardContent>
+                   </Card>
+                 );
+               })
+             )}
+           </div>
+        </TabsContent>
+
+        <TabsContent value="templates">
+          <WhatsAppTemplatesTab 
+             tenantId={companySettings?.tenant_id || user?.tenantId} 
+             connections={connections}
+             integrationKeys={integrationKeys} 
+          />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
         <DialogContent>
@@ -327,6 +435,383 @@ export function WhatsAppConnectionsPage({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </motion.div>
   );
 }
+
+function WhatsAppTemplatesTab({ tenantId, connections, integrationKeys }: any) {
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isTestOpen, setIsTestOpen] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    name: '',
+    category: 'MARKETING',
+    language: 'pt_BR',
+    header_type: 'none',
+    header_content: '',
+    body: '',
+    footer: ''
+  });
+  
+  const [testData, setTestData] = useState({
+    phone: '',
+    instanceName: connections[0]?.instanceName || '',
+    vars: {} as Record<string, string>
+  });
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [testLoading, setTestLoading] = useState(false);
+
+  useEffect(() => {
+    if (!tenantId) return;
+    fetchTemplates();
+  }, [tenantId]);
+
+  const fetchTemplates = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/hsm-templates?tenantId=${tenantId}`);
+      if (res.ok) {
+        setTemplates(await res.json());
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Erro ao buscar templates');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreate = async () => {
+    try {
+      const res = await fetch('/api/hsm-templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId, ...formData })
+      });
+      if (res.ok) {
+        toast.success("Template criado com sucesso!");
+        setIsCreateOpen(false);
+        setFormData({ name: '', category: 'MARKETING', language: 'pt_BR', header_type: 'none', header_content: '', body: '', footer: '' });
+        fetchTemplates();
+      } else {
+        const error = await res.json();
+        toast.error(`Erro: ${error.error}`);
+      }
+    } catch (e) {
+      toast.error("Erro ao criar template");
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Deseja realmente excluir este template?")) return;
+    try {
+      const res = await fetch(`/api/hsm-templates/${id}?tenantId=${tenantId}`, {
+         method: 'DELETE'
+      });
+      if (res.ok) {
+        toast.success("Excluído com sucesso");
+        fetchTemplates();
+      } else {
+        toast.error("Não foi possível excluir");
+      }
+    } catch(e) {
+      toast.error("Erro ao excluir template");
+    }
+  };
+
+  const openTest = (template: any) => {
+    setSelectedTemplate(template);
+    setIsTestOpen(true);
+    setTestData(prev => ({ 
+      ...prev, 
+      instanceName: connections[0]?.instanceName || prev.instanceName, 
+      vars: {} 
+    }));
+  };
+
+  const handleTest = async () => {
+    if (!testData.phone || !testData.instanceName) {
+       toast.error("Preencha número e conexão");
+       return;
+    }
+    setTestLoading(true);
+    try {
+      let message = selectedTemplate.body;
+      // replace variables
+      Object.keys(testData.vars).forEach(key => {
+         message = message.replace(`{{${key}}}`, testData.vars[key]);
+      });
+
+      if (selectedTemplate.header_type === 'text' && selectedTemplate.header_content) {
+         message = `*${selectedTemplate.header_content}*\n\n${message}`;
+      }
+      if (selectedTemplate.footer) {
+         message = `${message}\n\n_${selectedTemplate.footer}_`;
+      }
+      
+      const res = await fetch(`/api/evolution/proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          path: `/message/sendText/${testData.instanceName}`,
+          method: 'POST',
+          evolutionUrl: integrationKeys.evolutionUrl,
+          evolutionApiKey: integrationKeys.evolutionApiKey,
+          proxyBody: {
+            number: testData.phone,
+            options: { delay: 1200 },
+            textMessage: { text: message }
+          }
+        })
+      });
+
+      if (res.ok) {
+         toast.success("Mensagem de teste enviada com sucesso!");
+         setIsTestOpen(false);
+      } else {
+         toast.error("Falha ao enviar mensagem de teste");
+      }
+    } catch (e) {
+      toast.error("Erro ao enviar teste");
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
+  const getVarCount = (text: string) => {
+    const matches = text.match(/\{\{(\d+)\}\}/g);
+    if (!matches) return 0;
+    const unique = new Set(matches);
+    return unique.size;
+  };
+  const bodyVarCount = getVarCount(formData.body);
+
+  const getStatusBadge = (status: string) => {
+    switch(status) {
+      case 'APPROVED': return <Badge className="bg-green-100 text-green-700">Aprovado</Badge>;
+      case 'REJECTED': 
+        return (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                 <Badge className="bg-red-100 text-red-700 flex items-center gap-1 cursor-help"><XCircle size={12}/> Rejeitado</Badge>
+              </TooltipTrigger>
+              <TooltipContent>Violou as políticas de spam.</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        );
+      case 'PENDING': return <Badge className="bg-yellow-100 text-yellow-800">Pendente</Badge>;
+      default: return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  const getCategoryBadgeColor = (cat: string) => {
+     if (cat === 'MARKETING') return 'bg-purple-100 text-purple-700 hover:bg-purple-200';
+     if (cat === 'UTILITY') return 'bg-blue-100 text-blue-700 hover:bg-blue-200';
+     if (cat === 'AUTHENTICATION') return 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200';
+     return 'bg-zinc-100 text-zinc-700';
+  };
+
+  return (
+    <div className="space-y-6">
+       <div className="flex justify-between items-center bg-white dark:bg-zinc-900 p-4 rounded-lg border border-zinc-200 dark:border-zinc-800">
+         <div>
+            <h2 className="text-lg font-semibold text-zinc-900 dark:text-gray-100">Templates HSM (Mensagens Ativas)</h2>
+            <p className="text-sm text-zinc-500">Crie, teste e gerencie seus templates aprovados pela Meta para iniciação de conversas.</p>
+         </div>
+         <Button onClick={() => setIsCreateOpen(true)} className="bg-indigo-600 hover:bg-indigo-700">
+            <Plus size={16} className="mr-2" /> Novo Template
+         </Button>
+       </div>
+
+       <Card className="border border-zinc-200 dark:border-zinc-800">
+          <CardContent className="p-0 overflow-x-auto">
+             <Table>
+                <TableHeader>
+                   <TableRow>
+                     <TableHead>Nome</TableHead>
+                     <TableHead>Categoria</TableHead>
+                     <TableHead>Status</TableHead>
+                     <TableHead>Idioma</TableHead>
+                     <TableHead className="text-right">Ações</TableHead>
+                   </TableRow>
+                </TableHeader>
+                <TableBody>
+                   {loading ? (
+                     <TableRow><TableCell colSpan={5} className="text-center py-8"><Loader2 className="animate-spin mx-auto text-zinc-400" size={24} /></TableCell></TableRow>
+                   ) : templates.length === 0 ? (
+                     <TableRow><TableCell colSpan={5} className="text-center py-8 text-zinc-500">Nenhum template criado</TableCell></TableRow>
+                   ) : templates.map(t => (
+                     <TableRow key={t.id}>
+                       <TableCell className="font-medium text-zinc-900 dark:text-zinc-100">{t.name}</TableCell>
+                       <TableCell><Badge variant="secondary" className={getCategoryBadgeColor(t.category)}>{t.category}</Badge></TableCell>
+                       <TableCell>{getStatusBadge(t.status)}</TableCell>
+                       <TableCell>{t.language}</TableCell>
+                       <TableCell className="text-right space-x-2">
+                          <Button variant="outline" size="sm" onClick={() => openTest(t)}><Play size={14} className="mr-1"/> Testar</Button>
+                          {(t.status === 'PENDING' || t.status === 'REJECTED') && (
+                             <Button variant="ghost" size="sm" onClick={() => handleDelete(t.id)} className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
+                               <Trash2 size={16}/>
+                             </Button>
+                          )}
+                       </TableCell>
+                     </TableRow>
+                   ))}
+                </TableBody>
+             </Table>
+          </CardContent>
+       </Card>
+
+       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+           <DialogHeader>
+             <DialogTitle>Novo Template HSM</DialogTitle>
+             <DialogDescription>Crie um novo template de mensagem para iniciar conversas.</DialogDescription>
+           </DialogHeader>
+           
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+              <div className="space-y-4">
+                 <div className="space-y-2">
+                    <Label>Nome do Template</Label>
+                    <Input 
+                       placeholder="ex: promocao_verao_2024 (sem espaços)" 
+                       value={formData.name} onChange={e => setFormData({...formData, name: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')})}
+                    />
+                 </div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                       <Label>Categoria</Label>
+                       <Select value={formData.category} onValueChange={v => setFormData({...formData, category: v})}>
+                          <SelectTrigger><SelectValue/></SelectTrigger>
+                          <SelectContent>
+                             <SelectItem value="MARKETING">MARKETING</SelectItem>
+                             <SelectItem value="UTILITY">UTILITY</SelectItem>
+                             <SelectItem value="AUTHENTICATION">AUTHENTICATION</SelectItem>
+                          </SelectContent>
+                       </Select>
+                    </div>
+                    <div className="space-y-2">
+                       <Label>Idioma</Label>
+                       <Select value={formData.language} onValueChange={v => setFormData({...formData, language: v})}>
+                          <SelectTrigger><SelectValue/></SelectTrigger>
+                          <SelectContent>
+                             <SelectItem value="pt_BR">Português (BR)</SelectItem>
+                             <SelectItem value="en_US">Inglês (US)</SelectItem>
+                             <SelectItem value="es_ES">Espanhol</SelectItem>
+                          </SelectContent>
+                       </Select>
+                    </div>
+                 </div>
+
+                 <div className="space-y-2">
+                    <Label>Cabeçalho (Opcional)</Label>
+                    <Select value={formData.header_type} onValueChange={v => setFormData({...formData, header_type: v})}>
+                       <SelectTrigger><SelectValue/></SelectTrigger>
+                       <SelectContent>
+                          <SelectItem value="none">Nenhum</SelectItem>
+                          <SelectItem value="text">Texto</SelectItem>
+                          <SelectItem value="image">Imagem</SelectItem>
+                          <SelectItem value="video">Vídeo</SelectItem>
+                       </SelectContent>
+                    </Select>
+                    {formData.header_type === 'text' && (
+                       <Input className="mt-2" placeholder="Texto do cabeçalho" value={formData.header_content} onChange={e => setFormData({...formData, header_content: e.target.value})} />
+                    )}
+                 </div>
+
+                 <div className="space-y-2">
+                    <Label className="flex justify-between">
+                       Corpo da Mensagem
+                       <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full dark:bg-indigo-900/30 dark:text-indigo-400">{bodyVarCount} Variáveis</span>
+                    </Label>
+                    <Textarea 
+                       className="min-h-[120px]" 
+                       placeholder="Olá {{1}}, seu pedido {{2}} foi confirmado."
+                       value={formData.body} onChange={e => setFormData({...formData, body: e.target.value})}
+                    />
+                 </div>
+
+                 <div className="space-y-2">
+                    <Label>Rodapé (Opcional)</Label>
+                    <Input placeholder="Texto do rodapé" value={formData.footer} onChange={e => setFormData({...formData, footer: e.target.value})} />
+                 </div>
+              </div>
+
+              {/* Preview Area */}
+              <div className="bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl flex items-center justify-center p-4">
+                 <div className="w-full max-w-[300px] h-full rounded-3xl bg-[url('https://i.pinimg.com/originals/97/c0/07/97c00759d90d786d9b6096d274ad3e07.png')] bg-cover relative flex flex-col pt-12 pb-8 px-4 opacity-100 shadow-md border-4 border-zinc-800/10">
+                    <div className="bg-[#E7FFDB] text-zinc-800 text-sm p-3 rounded-lg rounded-tr-none shadow-sm mt-auto relative break-words">
+                       {formData.header_type === 'text' && formData.header_content && <div className="font-bold mb-2 text-base">{formData.header_content}</div>}
+                       {formData.header_type === 'image' && <div className="w-full h-24 bg-zinc-200 dark:bg-zinc-300 rounded mb-2 flex items-center justify-center text-zinc-500 font-medium">[IMAGEM]</div>}
+                       {formData.header_type === 'video' && <div className="w-full h-24 bg-zinc-200 dark:bg-zinc-300 rounded mb-2 flex items-center justify-center text-zinc-500 font-medium">[VÍDEO]</div>}
+                       <div className="whitespace-pre-wrap">{formData.body || <span className="text-zinc-400">Corpo do template</span>}</div>
+                       {formData.footer && <div className="text-[11px] text-zinc-500 mt-2 leading-none uppercase">{formData.footer}</div>}
+                    </div>
+                 </div>
+              </div>
+           </div>
+
+           <DialogFooter>
+             <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancelar</Button>
+             <Button onClick={handleCreate} disabled={!formData.name || !formData.body} className="bg-indigo-600 hover:bg-indigo-700">Submeter Template</Button>
+           </DialogFooter>
+         </DialogContent>
+       </Dialog>
+
+       <Dialog open={isTestOpen} onOpenChange={setIsTestOpen}>
+         <DialogContent>
+           <DialogHeader>
+             <DialogTitle>Testar Template: {selectedTemplate?.name}</DialogTitle>
+             <DialogDescription>
+               Preencha as variáveis e envie um teste para o seu próprio número.
+             </DialogDescription>
+           </DialogHeader>
+           <div className="space-y-4 pt-4">
+              <div className="space-y-2">
+                 <Label>Conexão de Origem (Remetente)</Label>
+                 <Select value={testData.instanceName} onValueChange={v => setTestData({...testData, instanceName: v})}>
+                    <SelectTrigger><SelectValue placeholder="Selecione um WhatsApp"/></SelectTrigger>
+                    <SelectContent>
+                       {connections?.map?.((c: any) => (
+                         <SelectItem key={c.id} value={c.instanceName}>{c.alias} {c.status === 'connected' ? '(🟢)' : '(🔴)'}</SelectItem>
+                       ))}
+                    </SelectContent>
+                 </Select>
+              </div>
+              <div className="space-y-2">
+                 <Label>Número Destino (com DDI)</Label>
+                 <Input placeholder="5511999999999" value={testData.phone} onChange={e => setTestData({...testData, phone: e.target.value.replace(/\D/g, '')})} />
+              </div>
+              
+              {selectedTemplate && getVarCount(selectedTemplate.body) > 0 && (
+                 <div className="border-t pt-4 mt-2 space-y-3">
+                    <Label className="font-semibold">Variáveis do Template</Label>
+                    {Array.from({length: getVarCount(selectedTemplate.body)}, (_, i) => i + 1).map(num => (
+                       <div key={num} className="space-y-1">
+                          <Label className="text-xs text-zinc-500">{`{{${num}}}`}</Label>
+                          <Input 
+                             placeholder={`Variável ${num}`}
+                             value={testData.vars[num] || ''}
+                             onChange={e => setTestData({...testData, vars: {...testData.vars, [num]: e.target.value}})}
+                          />
+                       </div>
+                    ))}
+                 </div>
+              )}
+           </div>
+           
+           <DialogFooter>
+             <Button variant="outline" onClick={() => setIsTestOpen(false)}>Cancelar</Button>
+             <Button onClick={handleTest} disabled={testLoading} className="bg-indigo-600 hover:bg-indigo-700">
+               {testLoading ? <><Loader2 size={16} className="animate-spin mr-2"/>Enviando...</> : 'Enviar Teste'}
+             </Button>
+           </DialogFooter>
+         </DialogContent>
+       </Dialog>
+    </div>
+  );
+}
+
