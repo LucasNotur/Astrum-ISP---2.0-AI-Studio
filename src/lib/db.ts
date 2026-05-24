@@ -841,10 +841,13 @@ export const saveSystemPrompts = async (prompts: Record<string, string>, tenantI
     await batch.commit();
 
     try {
-      const redisModule = await import("./redis");
-      const redisClient = redisModule.default;
-      if (redisClient) {
-        await redisClient.del(`prompts:${tenantId}`);
+      if (typeof window === 'undefined') {
+        const mod = "./redis";
+        const redisModule = await import(/* @vite-ignore */ mod);
+        const redisClient = redisModule.default;
+        if (redisClient && typeof redisClient.del === 'function') {
+          await redisClient.del(`prompts:${tenantId}`);
+        }
       }
     } catch(e) {}
   } catch (err) {

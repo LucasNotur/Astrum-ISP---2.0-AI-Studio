@@ -415,9 +415,34 @@ export function AIConfigPage({
                     value="ai_usage" 
                     className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
                   >Custos & Uso de Tokens</TabsTrigger>
+                  <TabsTrigger 
+                    value="sandbox" 
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >Sandbox (Testes)</TabsTrigger>
                 </TabsList>
                 
                 <div className="flex-1 w-full min-w-0 md:mt-0">
+                  <TabsContent value="sandbox">
+                     <Card>
+                       <CardHeader>
+                         <CardTitle>Sandbox Isolado</CardTitle>
+                         <CardDescription>Simule interações e teste a IA num ambiente seguro sem afetar clientes reais.</CardDescription>
+                       </CardHeader>
+                       <CardContent>
+                          <div className="flex flex-col space-y-4 h-[400px] border border-zinc-200 dark:border-zinc-800 rounded-lg bg-zinc-50 dark:bg-[#09090b] p-4">
+                              <div className="flex-1 overflow-y-auto space-y-4">
+                                  <div className="bg-white dark:bg-zinc-900 border dark:border-zinc-800 p-3 rounded-lg mr-12 text-sm text-zinc-700 dark:text-zinc-300">
+                                      Estou pronto para testar as novas configurações. O que deseja simular?
+                                  </div>
+                              </div>
+                              <div className="flex gap-2 shrink-0">
+                                  <Input placeholder="Digite sua mensagem de teste..." className="flex-1 bg-white dark:bg-zinc-900" />
+                                  <Button>Enviar</Button>
+                              </div>
+                          </div>
+                       </CardContent>
+                     </Card>
+                  </TabsContent>
                   <TabsContent value="flow">
                     <WorkflowVisualizer />
                   </TabsContent>

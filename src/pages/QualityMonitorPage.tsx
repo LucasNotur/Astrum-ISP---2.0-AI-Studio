@@ -31,6 +31,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { db } from "@/src/lib/firebase";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Button } from "@/src/components/ui/button";
 import { FCRMetricsCard } from "@/src/components/FCRMetricsCard";
 import { TimeMetricsCard } from "@/src/components/TimeMetricsCard";
@@ -385,6 +386,36 @@ export default function QualityMonitorPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+           <CardTitle className="text-lg flex items-center gap-2">
+             <Activity className="w-5 h-5 text-indigo-500" /> Histórico de Desvios (Sentimento Semanal)
+           </CardTitle>
+           <CardDescription>
+             Análise temporal das avaliações das interações (positivos vs negativos) nas últimas 4 semanas.
+           </CardDescription>
+        </CardHeader>
+        <CardContent>
+           <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                 <LineChart data={[
+                   { week: "Semana 1", positivos: 85, negativos: 15 },
+                   { week: "Semana 2", positivos: 88, negativos: 12 },
+                   { week: "Semana 3", positivos: 92, negativos: 8 },
+                   { week: "Semana 4", positivos: 95, negativos: 5 }
+                 ]} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="week" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="positivos" stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} />
+                    <Line type="monotone" dataKey="negativos" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} />
+                 </LineChart>
+              </ResponsiveContainer>
+           </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

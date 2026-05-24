@@ -9,7 +9,7 @@ import { Button } from "@/src/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
 import { Badge } from "@/src/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/src/components/ui/avatar";
-import { Search, Plus, Mail, Activity, Phone, Trash2, Link2, ShieldAlert } from 'lucide-react';
+import { Search, Plus, Mail, Activity, Phone, Trash2, Link2, ShieldAlert, TrendingUp } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/src/components/ui/tabs";
 import { db } from "@/src/lib/firebase";
 import { collection, onSnapshot, query, updateDoc, doc, orderBy, limit } from "firebase/firestore";
@@ -40,6 +40,7 @@ export function TeamPage({
   const [searchTerm, setSearchTerm] = useState('');
   const [liveOperators, setLiveOperators] = useState<any[]>([]);
   const [ranking, setRanking] = useState<any[]>([]);
+  const [metas, setMetas] = useState<any[]>([]);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -60,16 +61,21 @@ export function TeamPage({
        setRanking(monthlyScores);
     });
 
+    const metasQuery = query(collection(db, "tenants", tenantId, "metas"));
+    const unsubMetas = onSnapshot(metasQuery, (snap) => {
+       const metasData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+       setMetas(metasData.filter((m: any) => m.month === currentMonth));
+    });
+
     return () => {
       unsubOps();
       unsubScores();
+      unsubMetas();
     };
   }, [tenantId]);
 
   const handleRedistribute = async () => {
-    // Placeholder manual redistribution logic (supervisor feature)
     toast.info("Redistribuição iniciada. Analisando fila de chamados para redistribuição aos disponíveis.");
-    // Aqui você implementaria a chamada pra uma Cloud Function ou trigger local para reatribuir tickets "waiting_queue"
   };
 
   const getStatusColor = (status: string) => {
@@ -96,6 +102,9 @@ export function TeamPage({
             </TabsTrigger>
             <TabsTrigger value="ranking" className="gap-2">
               <Trophy size={16} /> Ranking (Game)
+            </TabsTrigger>
+            <TabsTrigger value="metas" className="gap-2">
+              <TrendingUp size={16} /> Metas Mensais
             </TabsTrigger>
           </TabsList>
           
@@ -367,6 +376,67 @@ export function TeamPage({
             </div>
           </CardContent>
         </Card>
+      </TabsContent>
+
+      {/* METAS OVERVIEW TAB */}
+      <TabsContent value="metas" className="space-y-6 mt-0">
+         <Card className="border-none shadow-sm bg-zinc-50/50 dark:bg-zinc-900/30">
+            <CardHeader>
+               <CardTitle className="flex items-center gap-2 text-xl font-bold">
+                  <TrendingUp className="w-5 h-5 text-indigo-500" />
+                  Metas do Mês 
+               </CardTitle>
+               <CardDescription>Acompanhe o desempenho da equipe em relação às metas</CardDescription>
+            </CardHeader>
+            <CardContent>
+               <div className="space-y-6">
+                 {liveOperators.map(op => {
+                    // Try to find goal for this operator, or fallback to default 100 resolved
+                    const userMeta = metas.find(m => m.operatorId === op.id) || { target_resolution: 100, target_nps: 9.0 };
+                    // We can reuse scores to simulate current progress or assume op has resolved_tickets count
+                    // Let's use `op.resolved_month` if it exists, or just a mock/derived value
+                    const currentResolved = op.resolved_month || 0;
+                    const progress = Math.min((currentResolved / userMeta.target_resolution) * 100, 100);
+                    return (
+                        <div key={op.id} className="p-4 bg-white dark:bg-[#16171a] rounded-xl border border-zinc-200/50 dark:border-white/5 shadow-sm space-y-3">
+                           <div className="flex items-center gap-3 justify-between">
+                             <div className="flex items-center gap-3">
+                                 <Avatar className="h-10 w-10">
+                                    <AvatarImage src={op.avatar_url} />
+                                    <AvatarFallback>{op.name?.charAt(0)}</AvatarFallback>
+                                 </Avatar>
+                                 <div>
+                                   <p className="font-semibold">{op.name}</p>
+                                   <p className="text-xs text-zinc-500">Operador</p>
+                                 </div>
+                             </div>
+                             <div className="text-right">
+                               <p className="text-sm font-medium">Realizados: {currentResolved} / <span className="text-zinc-500">{userMeta.target_resolution}</span></p>
+                             </div>
+                           </div>
+                           <div className="space-y-1">
+                              <div className="flex justify-between text-[10px] text-zinc-500 uppercase font-bold tracking-wider mb-1">
+                                <span>Progresso de Atendimentos</span>
+                                <span>{progress.toFixed(0)}%</span>
+                              </div>
+                              <div className="h-2 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                  <div className="h-full bg-indigo-500 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
+                              </div>
+                           </div>
+                           {progress >= 100 && (
+                               <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-transparent shadow-none capitalize">
+                                  Meta Batida 🎯
+                               </Badge>
+                           )}
+                        </div>
+                    );
+                 })}
+                 {liveOperators.length === 0 && (
+                   <p className="text-sm text-zinc-500 text-center py-10">Nenhum operador com metas ativas neste mês.</p>
+                 )}
+               </div>
+            </CardContent>
+         </Card>
       </TabsContent>
       </Tabs>
     </motion.div>

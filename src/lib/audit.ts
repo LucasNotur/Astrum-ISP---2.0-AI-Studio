@@ -59,20 +59,65 @@ export const logDataAccess = async (params: DataAccessLogParams) => {
   });
 };
 
-export const logSecurityEvent = async (event_type: string, payload: any) => {
-  let type: AuditEventType = 'SECURITY_VIOLATION';
-  if (event_type === 'TENANT_MISMATCH') type = 'TENANT_MISMATCH';
-  
-  await logAuditEvent({
-    event_type: type,
-    tenant_id: payload?.tenantId || payload?.tenant_id || 'UNKNOWN',
-    user_id: payload?.remoteJid || payload?.user_id,
-    ip_address: payload?.ip_origin || 'SERVER_OR_APPLET',
-    new_value: payload
-  });
-  
-  if (type === 'TENANT_MISMATCH') {
-    console.warn('ALERTA: TENANT_MISMATCH detectado e e-mail de segurança acionado.');
+import * as crypto from 'crypto';
+
+export const logSecurityEvent = async (event_type: AuditEventType | string, payload: any) => {
+  const tId = payload?.tenant_id || payload?.tenantId;
+  if (!tId) {
+    throw new Error("ValidationError: tenant_id is required");
   }
+
+  const baseLog: any = {
+    event_type: event_type as AuditEventType,
+    tenant_id: tId,
+    timestamp: FieldValue.serverTimestamp(),
+  };
+
+  const expireAt = new Date();
+  expireAt.setDate(expireAt.getDate() + 365);
+  baseLog.expires_at = Timestamp.fromDate(expireAt);
+
+  if (event_type === 'DATA_ACCESS') {
+    baseLog.user_id = payload.user_id;
+    baseLog.resource_id = payload.resource_id;
+  }
+
+  if (event_type === 'DATA_MUTATION') {
+    baseLog.old_value = payload.old_value;
+    baseLog.new_value = payload.new_value;
+  }
+
+  if (event_type === 'LGPD_FORGET_ME') {
+     if (payload.deleted_data) {
+         baseLog.hash = crypto.createHash('sha256').update(JSON.stringify(payload.deleted_data)).digest('hex');
+     }
+  }
+
+  if (event_type === 'TENANT_MISMATCH') {
+     console.warn('ALERTA: TENANT_MISMATCH detectado e e-mail de segurança acionado.');
+  }
+
+  if (payload.user_id) baseLog.user_id = payload.user_id;
+  if (payload.ip_address) baseLog.ip_address = payload.ip_address;
+  if (payload.resource_id) baseLog.resource_id = payload.resource_id;
+
+  await db.collection('audit_logs').add(baseLog);
+};
+
+export const auditMiddleware = (req: any, res: any, next: any) => {
+  const oldSend = res.send;
+  res.send = function (body: any) {
+    if (this.statusCode >= 200 && this.statusCode < 300) {
+        logSecurityEvent('DATA_MUTATION', {
+            tenant_id: req.user?.tenantId || req.body?.tenant_id || 'unknown',
+            user_id: req.user?.uid || 'unknown',
+            ip_address: req.ip || 'unknown',
+            resource_id: req.params?.id || 'unknown',
+            new_value: req.body,
+        }).catch(err => console.error(err));
+    }
+    return oldSend.call(this, body);
+  };
+  next();
 };
 

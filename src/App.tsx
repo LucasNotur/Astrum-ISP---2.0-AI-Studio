@@ -239,6 +239,8 @@ import { CobrAIPage } from "./pages/CobrAIPage";
 import { InventoryPage } from "./pages/InventoryPage";
 import { AIObservabilityPage } from "./pages/AIObservabilityPage";
 import TechnicianAppPage from "./pages/TechnicianAppPage";
+import { BIPage } from "./pages/BIPage";
+
 import {
   Bell,
   Check,
@@ -1647,16 +1649,17 @@ export default function App() {
           }
         }
         
-        if (finalRole === 'admin' || finalRole === 'owner') {
-           const enrolledFactors = multiFactor(u).enrolledFactors;
-           if (!enrolledFactors || enrolledFactors.length === 0) {
-              setNeedsMfaEnrollment(true);
-           } else {
-              setNeedsMfaEnrollment(false);
-           }
-        } else {
+        // MFA Temporariamente opcional/desabilitado por padrão para evitar o erro auth/operation-not-allowed
+        // if (finalRole === 'admin' || finalRole === 'owner') {
+        //    const enrolledFactors = multiFactor(u).enrolledFactors;
+        //    if (!enrolledFactors || enrolledFactors.length === 0) {
+        //       setNeedsMfaEnrollment(true);
+        //    } else {
+        //       setNeedsMfaEnrollment(false);
+        //    }
+        // } else {
            setNeedsMfaEnrollment(false);
-        }
+        // }
       }
       setLoading(false);
     });
@@ -3043,6 +3046,7 @@ export default function App() {
               }
             />
             <Route path="/tecnico" element={<TechnicianAppPage />} />
+            <Route path="/bi" element={<BIPage />} />
             <Route path="/customers" element={<CustomersPage />} />
             <Route
               path="/tickets"

@@ -2,9 +2,10 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { openDB } from "idb";
 import jsPDF from "jspdf";
-import { storage } from "../lib/firebase";
+import { storage, db as firestoreDb } from "../lib/firebase"; // imported firestore if needed, but not required yet
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { SignaturePad } from "../components/SignaturePad";
+import { Html5QrcodeScanner } from "html5-qrcode";
 import {
   MapPin,
   Camera,
@@ -14,6 +15,7 @@ import {
   ArrowLeft,
   PenTool,
   Upload,
+  QrCode
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -84,6 +86,37 @@ export default function TechnicianAppPage() {
   const [cameraMode, setCameraMode] = useState<"checkin" | "checkout" | null>(null);
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+
+  const [materials, setMaterials] = useState<string[]>([]);
+  const [showScanner, setShowScanner] = useState(false);
+
+  useEffect(() => {
+    if (showScanner) {
+      const scanner = new Html5QrcodeScanner(
+        "reader",
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        false
+      );
+      scanner.render(
+        (decodedText) => {
+          setMaterials((prev) => {
+             if (!prev.includes(decodedText)) {
+                toast.success(`Material adicionado: ${decodedText}`);
+                return [...prev, decodedText];
+             }
+             return prev;
+          });
+          scanner.clear();
+          setShowScanner(false);
+        },
+        (error) => {} // ignore errors while scanning
+      );
+
+      return () => {
+         scanner.clear().catch(console.error);
+      };
+    }
+  }, [showScanner]);
 
   useEffect(() => {
     // IDB load
@@ -251,7 +284,7 @@ export default function TechnicianAppPage() {
                checkout_lat: lat, 
                checkout_lng: lng, 
                checkout_photo_url: uploadedUrl,
-               photo, signatureData
+               photo, signatureData, materials
              };
              // Proceed with checkout logic that was in handleCheckOut
              await processCheckOut(actionDetails, toastId);
@@ -316,7 +349,30 @@ export default function TechnicianAppPage() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setPhoto(reader.result as string);
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          // Configurable size limit: max 1024px
+          const MAX_SIZE = 1024;
+          if (width > height && width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          } else if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+             ctx.drawImage(img, 0, 0, width, height);
+             // compress with 0.7 quality
+             setPhoto(canvas.toDataURL('image/jpeg', 0.7));
+          }
+        };
+        img.src = reader.result as string;
       };
       reader.readAsDataURL(file);
     }
@@ -464,6 +520,38 @@ export default function TechnicianAppPage() {
                              <span className={`text-sm ${item.done ? 'line-through text-zinc-400' : ''}`}>{item.text}</span>
                            </label>
                          ))}
+                      </CardContent>
+                   </Card>
+                </div>
+
+                <div>
+                   <h3 className="text-sm font-semibold text-zinc-500 tracking-wider uppercase mb-3">Baixa de Materiais (QR Code)</h3>
+                   <Card>
+                      <CardContent className="p-4 space-y-4">
+                         {materials.length > 0 && (
+                            <div className="space-y-2 mb-4">
+                               {materials.map((m, idx) => (
+                                  <div key={idx} className="flex items-center justify-between bg-zinc-100 dark:bg-zinc-800 p-2 rounded text-sm">
+                                     <span>{m}</span>
+                                     <button onClick={() => setMaterials(materials.filter((_, i) => i !== idx))} className="text-red-500 text-xs font-bold uppercase">
+                                        Remover
+                                     </button>
+                                  </div>
+                               ))}
+                            </div>
+                         )}
+                         
+                         {showScanner ? (
+                            <div className="space-y-2">
+                               <div id="reader" className="w-full bg-white text-black" />
+                               <Button variant="outline" className="w-full" onClick={() => setShowScanner(false)}>Cancelar</Button>
+                            </div>
+                         ) : (
+                            <Button variant="outline" onClick={() => setShowScanner(true)} className="w-full h-12 flex gap-2">
+                               <QrCode className="w-5 h-5 text-indigo-500" />
+                               Ler QR Code do Material
+                            </Button>
+                         )}
                       </CardContent>
                    </Card>
                 </div>

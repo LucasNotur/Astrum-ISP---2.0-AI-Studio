@@ -13,21 +13,33 @@ export function MfaRequirement({ onEnrolled }: { onEnrolled: () => void }) {
   const [totpUrl, setTotpUrl] = useState<string | null>(null);
   const [totpPin, setTotpPin] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    startEnrollment();
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        startEnrollment(user);
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
-  const startEnrollment = async () => {
+  const startEnrollment = async (user: any) => {
     try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) return;
-      const session = await multiFactor(currentUser).getSession();
+      setErrorMsg(null);
+      const session = await multiFactor(user).getSession();
       const secret = await TotpMultiFactorGenerator.generateSecret(session);
-      const url = secret.generateQrCodeUrl(currentUser.email || 'user', 'Astrum AI');
+      const url = secret.generateQrCodeUrl(user.email || 'user', 'Astrum AI');
       setTotpSecret(secret);
       setTotpUrl(url);
     } catch (e: any) {
+      console.error(e);
+      if (e.code === 'auth/operation-not-allowed') {
+        toast.error('O Firebase Identity Platform com suporte a TOTP não está ativado neste projeto.');
+        onEnrolled();
+        return;
+      }
+      setErrorMsg(e.message || 'Erro ao iniciar MFA. Verifique se o recurso está ativado (Identity Platform).');
       toast.error('Erro ao iniciar MFA: ' + e.message);
     }
   };
@@ -59,7 +71,18 @@ export function MfaRequirement({ onEnrolled }: { onEnrolled: () => void }) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 flex flex-col items-center">
-          {totpUrl ? (
+          {errorMsg ? (
+            <div className="py-6 flex flex-col items-center text-center space-y-4">
+              <div className="text-red-500 font-medium">Não foi possível carregar o MFA</div>
+              <div className="text-sm text-zinc-500">{errorMsg}</div>
+              <p className="text-xs text-zinc-400 mt-2">
+                O Firebase Identity Platform com suporte a TOTP pode não estar ativado neste projeto.
+              </p>
+              <Button onClick={onEnrolled} variant="outline" className="mt-4">
+                Ignorar por agora (Modo Dev)
+              </Button>
+            </div>
+          ) : totpUrl ? (
             <>
               <div className="bg-white p-4 rounded-xl">
                 <QRCodeSVG value={totpUrl} size={200} />

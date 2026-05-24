@@ -332,6 +332,20 @@ const tools: Tool[] = [
         },
       },
       {
+        name: "check_technician_availability",
+        description: "Consulta o calendário de técnicos via Firestore e sugere slots disponíveis ao cliente (data e/ou período).",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            date: {
+              type: SchemaType.STRING,
+              description: "Data no formato YYYY-MM-DD para consultar."
+            }
+          },
+          required: ["date"],
+        },
+      },
+      {
         name: "schedule_technical_visit",
         description:
           "Agenda uma visita técnica (Ordem de Serviço) automaticamente para o cliente.",
@@ -680,6 +694,23 @@ const openaiTools = [
           },
         },
         required: ["customerId", "contextText"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "check_technician_availability",
+      description: "Consulta o calendário de técnicos via Firestore e sugere slots disponíveis ao cliente (data e/ou período).",
+      parameters: {
+        type: "object",
+        properties: {
+          date: {
+            type: "string",
+            description: "Data no formato YYYY-MM-DD para consultar."
+          }
+        },
+        required: ["date"],
       },
     },
   },
@@ -2859,6 +2890,33 @@ Use o 'ID do Banco' sempre que uma ferramenta lhe pedir o 'customerId'. Use outr
                     message:
                       "Nenhuma informação específica encontrada na base de conhecimento. Use o bom senso.",
                   };
+          } else if (toolCall.function.name === "check_technician_availability") {
+            const dateQuery = args.date as string;
+            try {
+               const scheduleSnap = await db.collection("technician_schedules")
+                  .where("tenantId", "==", tenantId)
+                  .where("date", "==", dateQuery)
+                  .get();
+
+               if (scheduleSnap.empty) {
+                  toolResult = {
+                     available_slots: ["09:00", "11:00", "14:00", "16:00"], // Default fallbacks
+                     message: `Técnicos disponíveis livres para a data ${dateQuery} a partir de 09:00, 11:00, 14:00 e 16:00.`
+                  };
+               } else {
+                  let availableSlots: string[] = [];
+                  scheduleSnap.forEach(d => {
+                     const data = d.data();
+                     if (data.slots) availableSlots.push(...data.slots);
+                  });
+                  toolResult = {
+                     available_slots: availableSlots.length ? availableSlots : ["09:00", "11:00", "14:00", "16:00"],
+                     message: `Técnicos disponíveis na data ${dateQuery} nos horários: ` + (availableSlots.length ? availableSlots.join(', ') : "09:00, 11:00, 14:00 e 16:00")
+                  };
+               }
+            } catch (err: any) {
+                toolResult = { error: err.message };
+            }
           } else if (toolCall.function.name === "schedule_technical_visit") {
             // VERIFICAÇÃO A — OS já existente para o cliente
             const _soSnap = await db
@@ -3124,8 +3182,32 @@ Use o 'ID do Banco' sempre que uma ferramenta lhe pedir o 'customerId'. Use outr
                       });
                   }
 
+                  let weatherAlert = "";
+                  try {
+                    if (args.date) {
+                      // default coordinates for Sao Paulo if none (approx)
+                      let lat = -23.5505;
+                      let lng = -46.6333;
+                      if (cDocData && cDocData.address_lat && cDocData.address_lng) {
+                        lat = cDocData.address_lat;
+                        lng = cDocData.address_lng;
+                      }
+                      
+                      const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=precipitation_sum&timezone=America%2FSao_Paulo&start_date=${args.date}&end_date=${args.date}`);
+                      if (weatherRes.ok) {
+                         const weatherData = await weatherRes.json();
+                         const precip = weatherData.daily?.precipitation_sum?.[0] || 0;
+                         if (precip > 10) { // threshold > 10mm
+                           weatherAlert = " ALERTA DE CHUVA: Há previsão de chuva (" + precip + "mm) para esta data. Avise o cliente de forma proativa que intervenções externas podem ser atrasadas ou reagendadas devido à condição climática.";
+                         }
+                      }
+                    }
+                  } catch(e: any) {
+                      logger.error("weather_api_error", { error: e.message });
+                  }
+
                   toolResult = {
-                    message: `Ordem de Serviço (OS) gerada com sucesso sob o ID ${osId}. Avise o cliente que o agendamento foi realizado.`,
+                    message: `Ordem de Serviço (OS) gerada com sucesso sob o ID ${osId}. Avise o cliente que o agendamento foi realizado.${weatherAlert}`,
                   };
                 }
               }

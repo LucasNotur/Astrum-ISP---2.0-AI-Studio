@@ -1,5 +1,5 @@
 import express from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import swaggerJsDoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import admin, { adminDb as db } from "../lib/firebaseAdmin.ts";
@@ -13,7 +13,7 @@ const apiRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 1000,
   keyGenerator: (req) => {
-     return req.header("x-api-key") || req.ip || "unknown";
+     return req.header("x-api-key") || ipKeyGenerator(req.ip || "unknown");
   },
   message: { error: "Too many requests, please try again later." },
 });

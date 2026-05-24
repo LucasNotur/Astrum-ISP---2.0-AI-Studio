@@ -14,54 +14,11 @@ import { logSecurityEvent } from "../lib/audit";
 import { deadLetterQueue, setupDLQ } from "../lib/queue";
 import { logger } from "../lib/logger";
 
+import { checkBanSignal } from '../lib/rateLimiter.ts';
+
 const processingNumbers = new Map<string, Promise<void>>();
 
 const isMockRedis = !((redis as any).options);
-
-async function checkBanSignal(res: Response, tenantId: string, instanceId: string) {
-  if (!res) return;
-  let isBanned = false;
-  if (res.status === 403) {
-    isBanned = true;
-  } else {
-    try {
-      const clone = res.clone();
-      const bodyStr = await clone.text();
-      if (bodyStr.toLowerCase().includes('banned') || bodyStr.toLowerCase().includes('blocked')) {
-        isBanned = true;
-      }
-    } catch (e) {}
-  }
-
-  if (isBanned && redis) {
-    const key = `ban_signals:${instanceId}`;
-    const count = await redis.incr(key);
-    if (count === 1) await redis.expire(key, 3600);
-    
-    if (count >= 3) {
-      await redis.setex(`pause_jobs:${instanceId}`, 1800, 'paused');
-      
-      await db.collection('notifications').add({
-        tenantId,
-        title: 'Risco de Banimento no WhatsApp',
-        message: `A instância ${instanceId} recebeu múltiplos sinais de banimento. Envios pausados por 30 min.`,
-        type: 'warning',
-        read: false,
-        createdAt: admin.firestore.FieldValue.serverTimestamp()
-      });
-
-      await db.collection('audit_logs').add({
-        tenantId,
-        action: 'WHATSAPP_BAN_RISK',
-        details: `Instância ${instanceId} pode ter sido banida/bloqueada.`,
-        user: 'system',
-        createdAt: admin.firestore.FieldValue.serverTimestamp()
-      });
-
-      logger.warn('whatsapp_ban_risk', { tenant_id: tenantId, data: { instanceId, signals: count } });
-    }
-  }
-}
 
 async function safeEvoFetch(url: string, options: any, tenantId: string, instanceId: string) {
   if (redis) {
@@ -160,7 +117,7 @@ async function sendChunked(text: string, remoteJid: string, url: string, instanc
   return evoMsgIds;
 }
 
-const processMessageJob = async (job: any) => {
+export const processMessageJob = async (job: any) => {
     if (job.name === 'pos_instalacao') {
       const { customerId, tenantId, osId, installedPlan } = job.data;
       
@@ -584,7 +541,36 @@ const processMessageJob = async (job: any) => {
         }
       }
 
-      // Language check removed
+      // Language translate step (LibreTranslate)
+      if (processedTextMessage && processedTextMessage.length > 2 && !hasAudioObj) {
+         try {
+           const detectReq = await fetch("http://libretranslate:5000/detect", {
+               method: "POST",
+               body: JSON.stringify({ q: processedTextMessage }),
+               headers: { "Content-Type": "application/json"}
+           });
+           if (detectReq.ok) {
+               const detectData = await detectReq.json();
+               if (detectData && detectData.length > 0 && detectData[0].language !== "pt") {
+                   const trReq = await fetch("http://libretranslate:5000/translate", {
+                       method: "POST",
+                       body: JSON.stringify({ q: processedTextMessage, source: detectData[0].language, target: "pt" }),
+                       headers: { "Content-Type": "application/json"}
+                   });
+                   if (trReq.ok) {
+                       const trData = await trReq.json();
+                       if (trData && trData.translatedText) {
+                           logger.info("translation_applied", { ...logCtx, original: processedTextMessage });
+                           processedTextMessage = trData.translatedText;
+                       }
+                   }
+               }
+           }
+         } catch(e) {
+           // Fallback/Ignore if LibreTranslate is not running
+           logger.debug("libretranslate_not_available", logCtx);
+         }
+      }
 
       if (!processedTextMessage) {
         logger.info("skipped_unsupported_media", logCtx);

@@ -69,6 +69,8 @@ import { db } from "@/src/lib/firebase";
 import { uploadAttachment as uploadToStorage } from "@/src/lib/storage";
 import { CustomerHistorySidebar } from "@/src/components/CustomerHistorySidebar";
 import { MaskedSensitiveData } from "@/src/components/MaskedSensitiveData";
+import { io as socketIoClient, Socket } from "socket.io-client";
+import { KanbanBoard } from "@/src/components/KanbanBoard";
 
 export function ChatPage() {
   const {
@@ -137,6 +139,44 @@ export function ChatPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [newMessage, setNewMessage] = useState("");
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [typingStatus, setTypingStatus] = useState<string>("");
+
+  React.useEffect(() => {
+    let appUrl = window.location.origin;
+    if (appUrl.includes("5173") || appUrl.includes("localhost")) {
+      appUrl = "http://localhost:3000";
+    }
+    const newSocket = socketIoClient(appUrl);
+    setSocket(newSocket);
+
+    newSocket.on("typing_status", (data: { status: string }) => {
+       if (data.status === "composing" || data.status === "recording") {
+           setTypingStatus(data.status === "recording" ? "gravando áudio..." : "digitando...");
+       } else {
+           setTypingStatus("");
+       }
+    });
+
+    return () => {
+      newSocket.close();
+    };
+  }, []);
+
+  React.useEffect(() => {
+    const tenantId = userProfile?.tenantId;
+    if (socket && selectedTicket && tenantId) {
+      let customerPhone = customers.find(c => c.id === selectedTicket.customerId)?.phone;
+      if (customerPhone) {
+          const remoteJid = `${customerPhone}@s.whatsapp.net`;
+          socket.emit("join_chat", { tenantId, remoteJid });
+          return () => {
+              socket.emit("leave_chat", { tenantId, remoteJid });
+              setTypingStatus("");
+          };
+      }
+    }
+  }, [socket, selectedTicket?.id, userProfile?.tenantId, customers]);
 
   const [departments, setDepartments] = useState<any[]>([]);
 
@@ -514,7 +554,7 @@ export function ChatPage() {
     }
   };
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!tenantId) return;
     const crQuery = query(collection(db, "tenants", tenantId, "closing_reasons"));
     const unsubCr = onSnapshot(crQuery, (snap) => {
@@ -787,8 +827,11 @@ export function ChatPage() {
     return true;
   });
 
+  const [viewMode, setViewMode] = useState<"lista" | "pipeline">("lista");
+
   const handleInitiateCall = async (e: React.FormEvent) => {
     e.preventDefault();
+//... (no changes inside handleInitiateCall)
     if (!selectedTicket || !voipDialNumber) return;
     setIsCalling(true);
     try {
@@ -817,18 +860,42 @@ export function ChatPage() {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 10 }}
-      animate={{ opacity: 1, x: 0 }}
-      className="flex flex-col md:flex-row h-[calc(100dvh-60px)] md:h-[calc(100dvh-120px)] gap-0 md:gap-5 -m-4 md:m-0"
-    >
-      {/* Chat List */}
-      <div
-        className={cn(
-          "w-full md:w-[340px] lg:w-[360px] xl:w-[420px] bg-white dark:bg-[#09090b] md:bg-card md:border md:shadow-sm overflow-hidden shrink-0 md:rounded-[24px] flex flex-col",
-          selectedTicket ? "hidden md:flex" : "flex flex-1",
-        )}
+    <div className="flex flex-col h-[calc(100dvh-60px)] md:h-[calc(100dvh-120px)] -m-4 md:m-0 gap-4">
+      <div className="flex items-center justify-between px-4 md:px-0">
+        <h1 className="text-2xl font-bold tracking-tight">Atendimentos</h1>
+        <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-lg">
+          <button 
+            onClick={() => { setViewMode("lista"); setSelectedTicket(null); }}
+            className={cn("px-3 py-1.5 text-sm font-medium rounded-md transition-colors", viewMode === "lista" ? "bg-white dark:bg-zinc-700 shadow-sm" : "text-zinc-500 hover:text-zinc-900")}
+          >
+            Lista
+          </button>
+          <button 
+            onClick={() => { setViewMode("pipeline"); setSelectedTicket(null); }}
+            className={cn("px-3 py-1.5 text-sm font-medium rounded-md transition-colors", viewMode === "pipeline" ? "bg-white dark:bg-zinc-700 shadow-sm" : "text-zinc-500 hover:text-zinc-900")}
+          >
+            Pipeline
+          </button>
+        </div>
+      </div>
+      
+      {viewMode === "pipeline" ? (
+         <div className="flex-1 overflow-hidden">
+            <KanbanBoard tickets={visibleTickets} customers={customers} onTicketClick={setSelectedTicket} />
+         </div>
+      ) : (
+      <motion.div
+        initial={{ opacity: 0, x: 10 }}
+        animate={{ opacity: 1, x: 0 }}
+        className="flex flex-col md:flex-row flex-1 gap-0 md:gap-5"
       >
+        {/* Chat List */}
+        <div
+          className={cn(
+            "w-full md:w-[340px] lg:w-[360px] xl:w-[420px] bg-white dark:bg-[#09090b] md:bg-card md:border md:shadow-sm overflow-hidden shrink-0 md:rounded-[24px] flex flex-col",
+            selectedTicket ? "hidden md:flex" : "flex flex-1",
+          )}
+        >
         <ScrollArea className="flex-1">
           <div className="p-1 md:p-2 space-y-0.5 md:space-y-1">
             {visibleTickets
@@ -1008,7 +1075,7 @@ export function ChatPage() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col min-w-0 pr-2">
-                      <div className="text-sm md:text-base font-bold leading-tight truncate">
+                      <div className="text-sm md:text-base font-bold leading-tight truncate flex items-center gap-2">
                         {(() => {
                           const c = customers.find(
                             (c) => c.id === selectedTicket.customerId,
@@ -1028,6 +1095,11 @@ export function ChatPage() {
                               : "Desconhecido"
                             : selectedTicket.subject;
                         })()}
+                        {typingStatus && (
+                            <span className="text-xs font-normal text-indigo-500 italic animate-pulse">
+                              {typingStatus}
+                            </span>
+                        )}
                       </div>
                       <div className="text-[10px] md:text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 truncate flex items-center">
                         {(() => {
@@ -1506,6 +1578,7 @@ export function ChatPage() {
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     className="border-none shadow-none focus-visible:ring-0 bg-transparent px-2 h-10 w-full text-[15px] placeholder:text-zinc-500"
+                    spellCheck={true}
                   />
                   <Button
                     type="submit"
@@ -1748,5 +1821,7 @@ export function ChatPage() {
         </DialogContent>
       </Dialog>
     </motion.div>
+    )}
+    </div>
   );
 }

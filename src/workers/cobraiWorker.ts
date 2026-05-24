@@ -248,9 +248,7 @@ async function processCobraiStage(job: any, customerId: string, tenantId: string
 }
 
 // Worker com concurrency 1 por tenant para evitar race conditions (geralmente concurrency: 3)
-export const worker = isMockRedis ? {
-  on: () => {}
-} as any : new Worker('cobrai', async (job) => {
+export const processCobraiJob = async (job: any) => {
   if (job.name === 'lockout_tenant') {
     const { tenantId } = job.data;
     const tenantSnap = await db.collection("tenants").doc(tenantId).get();
@@ -422,7 +420,11 @@ export const worker = isMockRedis ? {
   } finally {
     await redis.del(lockKey);
   }
-}, { connection, concurrency: 3 });
+};
+
+export const worker = isMockRedis ? {
+  on: () => {}
+} as any : new Worker('cobrai', processCobraiJob, { connection, concurrency: 3 });
 
 worker.on('failed', async (job: any, err: any) => {
   if (!job) return;

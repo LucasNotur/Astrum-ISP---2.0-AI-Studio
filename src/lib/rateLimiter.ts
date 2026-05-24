@@ -1,10 +1,25 @@
 import redis from './redis.ts';
 import { getTenantPlanId } from './featureFlags.ts';
 import { PLANS } from './plans.ts';
+import { adminDb as db } from './firebaseAdmin.ts';
+import admin from './firebaseAdmin.ts';
+import { logger } from './logger.ts';
 
-export const acquireSendSlot = async (tenantId: string, instanceId: string, limitPerSecond: number = 30): Promise<{ allowed: boolean, retryAfter?: number }> => {
+export const acquireSendSlot = async (tenantId: string, instanceId: string, limitPerSecond?: number): Promise<{ allowed: boolean, retryAfter?: number }> => {
   if (!redis) {
     return { allowed: true };
+  }
+
+  let finalLimit = limitPerSecond;
+  if (!finalLimit) {
+    // try to get from tenant custom rate limit if not provided
+    const tenantSnap = await db.collection('tenants').doc(tenantId).get();
+    if (tenantSnap.exists) {
+      const tData = tenantSnap.data() as any;
+      finalLimit = tData.rate_limit || 30;
+    } else {
+      finalLimit = 30;
+    }
   }
 
   const key = `rate_limit:instance:${tenantId}:${instanceId}`;
@@ -17,7 +32,7 @@ export const acquireSendSlot = async (tenantId: string, instanceId: string, limi
   // Obter contagem atual
   const count = await redis.zcard(key);
   
-  if (count < limitPerSecond) {
+  if (count < finalLimit) {
     // Adicionar nova chamada
     await redis.zadd(key, now, `${now}-${Math.random()}`);
     // Manter a key com tempo de vida para não poluir
@@ -36,6 +51,52 @@ export const acquireSendSlot = async (tenantId: string, instanceId: string, limi
     return { allowed: false, retryAfter };
   }
 };
+
+export async function checkBanSignal(res: Response | undefined, tenantId: string, instanceId: string) {
+  if (!res) return;
+  let isBanned = false;
+  if (res.status === 403) {
+    isBanned = true;
+  } else {
+    try {
+      const clone = res.clone();
+      const bodyStr = await clone.text();
+      if (bodyStr.toLowerCase().includes('banned') || bodyStr.toLowerCase().includes('blocked')) {
+        isBanned = true;
+      }
+    } catch (e) {}
+  }
+
+  if (isBanned && redis) {
+    const key = `ban_signals:${instanceId}`;
+    const count = await redis.incr(key);
+    if (count === 1) await redis.expire(key, 3600);
+    
+    if (count >= 3) {
+      await redis.setex(`pause_jobs:${instanceId}`, 1800, 'paused');
+      
+      await db.collection('notifications').add({
+        tenantId,
+        title: 'Risco de Banimento no WhatsApp',
+        message: `A instância ${instanceId} recebeu múltiplos sinais de banimento. Envios pausados por 30 min.`,
+        type: 'warning',
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      await db.collection('audit_logs').add({
+        tenantId,
+        action: 'WHATSAPP_BAN_RISK',
+        details: `Instância ${instanceId} pode ter sido banida/bloqueada.`,
+        user: 'system',
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      logger.warn('whatsapp_ban_risk', { tenant_id: tenantId, data: { instanceId, signals: count } });
+    }
+  }
+}
+
 
 export const checkDailyLimit = async (tenantId: string): Promise<{ allowed: boolean, remaining: number }> => {
   if (!redis) {

@@ -2,7 +2,7 @@ import React from 'react';
 import { 
   Bot, ChevronLeft, ChevronRight, LayoutDashboard, Users, 
   Ticket, MessageSquare, Map, Settings, ShieldCheck, 
-  CreditCard, Briefcase, Package, LogOut, Phone, BookOpen, Activity
+  CreditCard, Briefcase, Package, LogOut, Phone, BookOpen, Activity, BarChart2
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { useAppStore, canAccess } from '@/src/store/useAppStore';
@@ -323,6 +323,15 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
                 onClick={() => navigate('/quality-monitor')} 
                 icon={<Activity size={24} />} 
                 label="Qualidade" 
+                collapsed={isSidebarCollapsed}
+              />
+            )}
+            {hasAccess('marketing') && (
+              <NavItem 
+                active={currentPath === 'bi'} 
+                onClick={() => navigate('/bi')} 
+                icon={<BarChart2 size={24} />} 
+                label="Business Intelligence" 
                 collapsed={isSidebarCollapsed}
               />
             )}

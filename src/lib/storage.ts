@@ -1,9 +1,15 @@
 import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from "firebase/storage";
 import { storage } from "./firebase";
 
-function validateTenantPath(path: string) {
+function validateTenantPath(path: string, expectedTenantId?: string) {
   if (!path.startsWith("tenants/")) {
     throw new Error(`INVALID_STORAGE_PATH: Path must start with 'tenants/'. Received: ${path}`);
+  }
+  if (expectedTenantId && !path.startsWith(`tenants/${expectedTenantId}/`)) {
+    throw new Error(`TENANT_MISMATCH`);
+  }
+  if (path.includes("..")) {
+    throw new Error(`TENANT_MISMATCH`);
   }
 }
 
@@ -15,7 +21,7 @@ export const uploadTenantFile = async (
 ): Promise<string> => {
   if (!tenantId) throw new Error("TENANT_REQUIRED");
   const fullPath = `tenants/${tenantId}/${category}/${filename}`;
-  validateTenantPath(fullPath);
+  validateTenantPath(fullPath, tenantId);
   
   const fileRef = ref(storage, fullPath);
   await uploadBytes(fileRef, fileOrBuffer as any);
@@ -24,21 +30,21 @@ export const uploadTenantFile = async (
 
 export const downloadTenantFile = async (tenantId: string, category: string, filename: string): Promise<string> => {
   const fullPath = `tenants/${tenantId}/${category}/${filename}`;
-  validateTenantPath(fullPath);
+  validateTenantPath(fullPath, tenantId);
   const fileRef = ref(storage, fullPath);
   return await getDownloadURL(fileRef);
 };
 
 export const deleteTenantFile = async (tenantId: string, category: string, filename: string): Promise<void> => {
   const fullPath = `tenants/${tenantId}/${category}/${filename}`;
-  validateTenantPath(fullPath);
+  validateTenantPath(fullPath, tenantId);
   const fileRef = ref(storage, fullPath);
   await deleteObject(fileRef);
 };
 
 export const listTenantFiles = async (tenantId: string, category: string) => {
   const fullPath = `tenants/${tenantId}/${category}`;
-  validateTenantPath(fullPath);
+  validateTenantPath(fullPath, tenantId);
   const folderRef = ref(storage, fullPath);
   const res = await listAll(folderRef);
   
@@ -65,7 +71,7 @@ export const uploadAttachment = async (file: File, pathFolder: string, tenantId?
     fullPath = `tenants/${tenantId}/${pathFolder}/${fileName}`;
   }
   
-  validateTenantPath(fullPath);
+  validateTenantPath(fullPath, tenantId);
   const fileRef = ref(storage, fullPath);
   
   await uploadBytes(fileRef, file);

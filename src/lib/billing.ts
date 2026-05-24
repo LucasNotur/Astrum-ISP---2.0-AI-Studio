@@ -57,6 +57,11 @@ export const createSubscription = async (tenantId: string, planId: string) => {
   const tenantDoc = await db.collection('tenants').doc(tenantId).get();
   if (!tenantDoc.exists) throw new Error('Tenant not found');
   
+  const subs = await getSubscriptionsByTenant(tenantId);
+  if (subs.some(s => s.status === 'ACTIVE' || s.status === 'active')) {
+      throw new Error('Tenant already has an active subscription');
+  }
+
   const tenantData = tenantDoc.data();
   let asaas_customer_id = tenantData?.asaas_customer_id;
 
@@ -178,4 +183,41 @@ export const updateBillingInvoice = async (id: string, data: Partial<BillingInvo
 export const getBillingInvoicesByTenant = async (tenantId: string) => {
   const snapshot = await db.collection('billing_invoices').where('tenant_id', '==', tenantId).get();
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+};
+
+export const asaasWebhookHandler = async (req: any, res: any) => {
+  const token = req.headers['asaas-access-token'] as string;
+  try {
+     await handleAsaasWebhook(token, req.body);
+     res.status(200).send('OK');
+  } catch (err: any) {
+     res.status(err.status || 500).json({ error: err.message });
+  }
+};
+
+export const handleAsaasWebhook = async (token: string, payload: any) => {
+  if (token !== (process.env.ASAAS_WEBHOOK_TOKEN || process.env.ASAAS_API_KEY)) {
+    const error = new Error('Unauthorized');
+    (error as any).status = 401;
+    throw error;
+  }
+
+  const { event, payment } = payload;
+  if (!payment) return;
+
+  const tenantId = payment.externalReference || payload.customer;
+  if (!tenantId) return;
+
+  if (event === 'PAYMENT_RECEIVED') {
+     await db.collection('tenants').doc(tenantId).update({
+        billing_status: 'paid',
+        status: 'active'
+     });
+  } else if (event === 'PAYMENT_OVERDUE') {
+     const { getTenantQueue } = await import('./queue.ts');
+     const systemQueue = getTenantQueue('system');
+     await systemQueue.add('lockout_tenant', { tenantId }, { delay: 3 * 24 * 60 * 60 * 1000 });
+  } else if (event === 'PAYMENT_DELETED') {
+     await cancelSubscription(tenantId);
+  }
 };
