@@ -29,6 +29,11 @@ export const sendEmail = async (to: string, subject: string, body: string, attac
   }
 };
 
+export const sendAdminEmail = async (tenantId: string, subject: string, body: string) => {
+  // Mock sending email to admin for tenant
+  console.log(`[Email] Admin email to tenant ${tenantId}. Subject: ${subject}`);
+};
+
 export const sendWelcomeEmail = async (to: string, name: string, companyName: string, loginUrl: string, verificationCode: string) => {
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eaeaea; padding: 20px; border-radius: 8px;">

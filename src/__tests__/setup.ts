@@ -36,7 +36,18 @@ vi.mock('firebase-admin/firestore', () => {
   };
 
   return {
-    getFirestore: vi.fn(() => dbMock),
+    getFirestore: vi.fn(() => ({
+      ...dbMock,
+      runTransaction: vi.fn(async (cb: any) => {
+        return cb({
+          get: vi.fn(async (q) => ({ empty: true, forEach: () => {} })),
+          update: vi.fn(),
+          set: vi.fn(),
+          delete: vi.fn()
+        });
+      })
+    })),
+    Timestamp: { now: vi.fn(() => ({ toMillis: () => Date.now() })), fromDate: vi.fn((d) => ({ toMillis: () => d.getTime() })) },
     FieldValue: {
       serverTimestamp: vi.fn(() => 'mock-timestamp'),
       delete: vi.fn(() => 'mock-delete')

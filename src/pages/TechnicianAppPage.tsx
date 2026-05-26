@@ -5,6 +5,7 @@ import jsPDF from "jspdf";
 import { storage, db as firestoreDb } from "../lib/firebase"; // imported firestore if needed, but not required yet
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { SignaturePad } from "../components/SignaturePad";
+import { processSignatureAndPdf } from "../lib/signaturePad";
 import { Html5QrcodeScanner } from "html5-qrcode";
 import {
   MapPin,
@@ -387,23 +388,12 @@ export default function TechnicianAppPage() {
     if (navigator.onLine) {
        toast.loading("Enviando contrato...", { id: "upload" });
        try {
-         const sigRef = ref(storage, `tenants/${tenantId}/signatures/${osId}.png`);
-         await uploadString(sigRef, signatureData!, "data_url");
-         
-         const doc = new jsPDF();
-         doc.setFontSize(16);
-         doc.text(`Ordem de Servico: ${osId}`, 20, 20);
-         doc.setFontSize(12);
-         doc.text(`Cliente: ${selectedOs.client}`, 20, 30);
-         doc.text(`Endereco: ${selectedOs.address}`, 20, 40);
-         doc.text(`Data: ${new Date().toLocaleString()}`, 20, 50);
-         doc.text("Assinatura do Cliente:", 20, 80);
-         doc.addImage(signatureData!, "PNG", 20, 90, 80, 40);
-         
-         const pdfDataUri = doc.output("datauristring");
-         const pdfRef = ref(storage, `tenants/${tenantId}/contracts/${osId}.pdf`);
-         await uploadString(pdfRef, pdfDataUri, "data_url");
-         
+         await processSignatureAndPdf({
+           tenantId,
+           osId,
+           selectedOs,
+           signatureData: signatureData!
+         });
          toast.success("Contrato salvo na nuvem com sucesso!", { id: "upload" });
        } catch (e: any) {
          console.error(e);

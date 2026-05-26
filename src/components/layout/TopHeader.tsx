@@ -158,6 +158,7 @@ export function TopHeader({ clearNotifications, handleMarkNotificationRead, onMe
 
         <Dialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>
           <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl border-zinc-200 dark:border-zinc-800">
+            <DialogTitle className="sr-only">Busca Global</DialogTitle>
             <div className="flex items-center px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
               <Search size={20} className="text-zinc-500 mr-3" />
               <input 

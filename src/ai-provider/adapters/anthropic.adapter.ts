@@ -31,7 +31,7 @@ export class AnthropicAdapter implements AIProvider {
     const response = await client.messages.create({
       model: config.model || "claude-3-haiku-20240307",
       max_tokens: config.maxTokens || 1024,
-      temperature: options?.temperature ?? config.temperature ?? 0.7,
+      temperature: 0.7,
       system,
       messages: coreMessages,
     });

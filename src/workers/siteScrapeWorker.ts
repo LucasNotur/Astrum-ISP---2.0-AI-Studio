@@ -11,8 +11,8 @@ export const siteScrapeQueue = isMockRedis ? null : new Queue("site-scrape", {
   connection: redis as any
 });
 
-export const siteScrapeWorker = isMockRedis ? null : new Worker("site-scrape", async (job) => {
-  if (job.name === "scrape_tenant_sites") {
+export const processSiteScrapeJob = async (job: any) => {
+  if (job.name === "scrape_tenant_sites" || job.name === "scrape_test") {
     try {
       const tenantsSnap = await db.collection("tenants").where("active", "==", true).get();
       
@@ -28,14 +28,14 @@ export const siteScrapeWorker = isMockRedis ? null : new Worker("site-scrape", a
           // 1. Fetch via cheerio
           const response = await fetch(url);
           if (!response.ok) {
-            console.error(`[Site Scrape] Failed to fetch ${url} for tenant ${tenantId}. Status: ${response.status}`);
+            console.warn(`[Site Scrape] Failed to fetch ${url} for tenant ${tenantId}. Status: ${response.status}`);
             continue;
           }
           
           const html = await response.text();
           const $ = cheerio.load(html);
           
-          // Remove scripts, styles for better comparison
+          // 4. Remove scripts, styles for better comparison
           $('script, style').remove();
           const content = $('body').text().replace(/\s+/g, ' ').trim();
           
@@ -50,22 +50,35 @@ export const siteScrapeWorker = isMockRedis ? null : new Worker("site-scrape", a
             // 3. Update hash
             await redis.set(cacheKey, hash);
             
-            // 4. Re-indexa via /api/rag/scrape-url
-            await fetch(`http://127.0.0.1:3000/api/rag/scrape-url`, {
-               method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({ tenantId, url })
-            }).catch(e => console.error(`[Site Scrape] Error re-indexing ${url}:`, e));
+            // Generate chunks and save as articles
+            const chunks = [];
+            const chunkSize = 1000;
+            for (let i = 0; i < content.length; i += chunkSize) {
+              chunks.push(content.substring(i, i + chunkSize));
+            }
             
-            // 5. Notifica admin por email
+            const batch = db.batch();
+            chunks.forEach((chunkText, idx) => {
+              const ref = db.collection("knowledge_base").doc(`${tenantId}_chunk_${idx}`);
+              batch.set(ref, {
+                tenant_id: tenantId,
+                title: `Website Content Part ${idx + 1}`,
+                content: chunkText,
+                source: url,
+                type: "website",
+                updated_at: new Date()
+              });
+            });
+            await batch.commit();
+
+            // 5. Notifica admin por email - Contem a URL e número de chunks
             const adminEmail = tenantData.email || 'admin@' + (tenantData.domain || 'localhost'); // fallback email if not configured specifically
             
-            // Get email settings from settings if they exist
             let mailOptions = {
               from: 'astrum_system@localhost',
               to: adminEmail,
               subject: 'Alerta Astrum: Website Atualizado',
-              text: `Detectamos uma alteração no conteúdo do site (${url}). O banco de conhecimento vetorial (RAG) está sendo reindexado automaticamente.`
+              text: `Detectamos uma alteração no conteúdo do site (${url}). O banco de conhecimento vetorial (RAG) está sendo reindexado automaticamente.\n\nNúmero de chunks indexados: ${chunks.length}`
             };
             
             try {
@@ -92,16 +105,7 @@ export const siteScrapeWorker = isMockRedis ? null : new Worker("site-scrape", a
                     text: mailOptions.text
                  });
               } else {
-                 console.log(`[Site Scrape] Sent mock email notification to ${adminEmail} for tenant ${tenantId}`);
-                 // Optionally record in firestore
-                 await db.collection("notifications").add({
-                    tenantId,
-                    title: "Website Reindexado",
-                    body: `Detectamos uma alteração no seu site (${url}) e o reindexamos.`,
-                    type: "system",
-                    created_at: new Date(),
-                    read: false
-                 });
+                 console.log(`[Site Scrape] Sent mock email notification to ${adminEmail} for tenant ${tenantId}. Chunks: ${chunks.length}`);
               }
             } catch (emailError) {
               console.error(`[Site Scrape] Failed to send email to ${adminEmail}:`, emailError);
@@ -118,7 +122,9 @@ export const siteScrapeWorker = isMockRedis ? null : new Worker("site-scrape", a
       console.error(`[Site Scrape] Job failed:`, e.message);
     }
   }
-}, {
+};
+
+export const siteScrapeWorker = isMockRedis ? null : new Worker("site-scrape", processSiteScrapeJob, {
   connection: redis as any
 });
 

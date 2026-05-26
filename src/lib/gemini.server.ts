@@ -98,7 +98,8 @@ async function callLLMWithRetry<T>(
         status === 503 ||
         status === 502 ||
         err?.message === "LLM_TIMEOUT" ||
-        String(err).includes("500");
+        String(err).includes("500") ||
+        String(err).includes("Rate exceeded");
       if (!isRetryable) break; // Sai do loop para tentar fallback
       const delay = Math.pow(2, attempt) * 1000 + Math.random() * 500;
       logger.warn("llm_rate_limit_hit", {
@@ -3523,6 +3524,31 @@ Use o 'ID do Banco' sempre que uma ferramenta lhe pedir o 'customerId'. Use outr
               });
               toolResult = { error: "Falha na tool." };
             }
+          } else if (toolCall.function.name === "get_plans_info") {
+            try {
+               let redisModule;
+               try { redisModule = await import("./redis"); } catch (e) {}
+               const redisClient = redisModule?.default;
+               
+               let plansFromCache = null;
+               if (redisClient) {
+                   plansFromCache = await redisClient.get(`erp_plans:${tenantId}`);
+               }
+               
+               if (plansFromCache) {
+                   toolResult = { plans: JSON.parse(plansFromCache), source: "cache" };
+               } else {
+                   const plansSnap = await db.collection("erp_plans").doc(tenantId).collection("plans").where("active", "==", true).get();
+                   const plans = plansSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+                   if (redisClient) {
+                       await redisClient.set(`erp_plans:${tenantId}`, JSON.stringify(plans), "EX", 24 * 60 * 60);
+                   }
+                   toolResult = { plans, source: "database" };
+               }
+            } catch (e) {
+               logger.error("error_get_plans_info", { error: e?.message || String(e) });
+               toolResult = { error: "Failed to read catalog plans." };
+            }
           } else if (toolCall.function.name === "get_customer_history") {
             try {
               const safeCustomerId = customerData?.id || resolvedCustomerId;
@@ -3737,6 +3763,7 @@ Use o 'ID do Banco' sempre que uma ferramenta lhe pedir o 'customerId'. Use outr
       error?.status === 429 ||
       error?.status === 503 ||
       error?.status === 502 ||
+      String(error).includes("Rate exceeded") ||
       error.message ===
         "Estou com uma instabilidade no momento. Tente novamente em instantes."
     ) {

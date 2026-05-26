@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { db } from "@/src/lib/firebase";
+import { db } from "../lib/firebase";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { ChevronRight, ChevronLeft, User, FileText, Wrench, HardDrive, Edit2, Calendar } from "lucide-react";
-import { Button } from "@/src/components/ui/button";
-import { ScrollArea } from "@/src/components/ui/scroll-area";
-import { Avatar, AvatarFallback, AvatarImage } from "@/src/components/ui/avatar";
-import { Badge } from "@/src/components/ui/badge";
-import { cn } from "@/src/lib/utils";
+import { Button } from "./ui/button";
+import { ScrollArea } from "./ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Badge } from "./ui/badge";
+import { cn } from "../lib/utils";
 
 export function CustomerHistorySidebar({ customerId, tenantId, onEditCustomer }: { customerId?: string, tenantId?: string, onEditCustomer: (c: any) => void }) {
   const [isOpen, setIsOpen] = useState(true);
@@ -23,10 +23,12 @@ export function CustomerHistorySidebar({ customerId, tenantId, onEditCustomer }:
   
   // Realtime updates
   useEffect(() => {
-    if (!customerId || !tenantId) {
-      setCustomer(null);
-      setTickets([]);
-      setServiceOrders([]);
+    if (!isOpen || !customerId || !tenantId) {
+      if (!customerId || !tenantId) {
+        setCustomer(null);
+        setTickets([]);
+        setServiceOrders([]);
+      }
       return;
     }
 
@@ -60,7 +62,7 @@ export function CustomerHistorySidebar({ customerId, tenantId, onEditCustomer }:
       unsubTickets();
       unsubOs();
     };
-  }, [customerId, tenantId]);
+  }, [customerId, tenantId, isOpen]);
 
   if (!isOpen) {
     return (
@@ -196,7 +198,7 @@ export function CustomerHistorySidebar({ customerId, tenantId, onEditCustomer }:
                 </div>
             ) : (
                 <div className="text-center py-6 text-sm text-zinc-500 bg-zinc-50 dark:bg-white/5 rounded-xl border border-dashed border-zinc-200 dark:border-white/10">
-                    Nenhum ticket encontrado.
+                    Nenhum atendimento anterior
                 </div>
             )}
           </div>

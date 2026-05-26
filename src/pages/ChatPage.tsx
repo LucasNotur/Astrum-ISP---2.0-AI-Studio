@@ -89,6 +89,8 @@ export function ChatPage() {
     setIsDetailsDialogOpen,
   } = useAppStore();
 
+  const tenantId = userProfile?.tenantId || "";
+
   const [isEditingCustomer, setIsEditingCustomer] = useState(false);
   const [editingCustomerData, setEditingCustomerData] = useState<any>({});
   const [isSavingCustomer, setIsSavingCustomer] = useState(false);
@@ -911,8 +913,15 @@ export function ChatPage() {
                 );
               })
               .map((t) => (
-                <button
+                <div
                   key={t.id}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      setSelectedTicket(t);
+                    }
+                  }}
                   onClick={() => setSelectedTicket(t)}
                   className={cn(
                     "w-full text-left p-4 md:p-3 rounded-none md:rounded-xl transition-all cursor-pointer flex gap-3 items-center hover:bg-zinc-100 dark:hover:bg-zinc-800/50 border-b md:border-none border-zinc-100 dark:border-zinc-800/50 last:border-none",
@@ -1002,7 +1011,7 @@ export function ChatPage() {
                       </div>
                     </div>
                   </div>
-                </button>
+                </div>
               ))}
             {visibleTickets.length === 0 && (
               <div className="text-center py-10 text-zinc-400 text-sm italic">
@@ -1037,8 +1046,21 @@ export function ChatPage() {
                   >
                     <ArrowLeft size={24} />
                   </div>
-                  <button
+                  <div
+                    role="button"
+                    tabIndex={0}
                     className="flex flex-row items-center gap-2 md:gap-3 text-left outline-none p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors max-w-full"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        const c = customers.find(
+                          (c) => c.id === selectedTicket.customerId,
+                        );
+                        if (c) {
+                          setSelectedCustomerDetails(c);
+                          setIsDetailsDialogOpen(true);
+                        }
+                      }
+                    }}
                     onClick={() => {
                       const c = customers.find(
                         (c) => c.id === selectedTicket.customerId,
@@ -1114,7 +1136,7 @@ export function ChatPage() {
                         })()}
                       </div>
                     </div>
-                  </button>
+                  </div>
                 </div>
               </div>
 

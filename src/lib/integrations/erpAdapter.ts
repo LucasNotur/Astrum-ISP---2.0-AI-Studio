@@ -220,6 +220,30 @@ export class IXCAdapter extends ERPAdapter {
 
     return await response.json();
   }
+
+  async getPlans(): Promise<any[]> {
+    const creds = await this.getCreds();
+    if (!creds.url || !creds.token) throw new Error("IXC credentials missing");
+    try {
+      const response = await fetch(`${creds.url}/webservice/v1/vd_contratos`, {
+        headers: {
+          'Authorization': `Basic ${Buffer.from(creds.token).toString('base64')}`,
+          'Content-Type': 'application/json',
+          'ixcsoft': 'listar'
+        }
+      });
+      if (!response.ok) throw new Error('ERP_ERROR');
+      const data = await response.json();
+      return (data.registros || []).map((p: any) => ({
+        id: String(p.id),
+        name: p.nome || p.razao || 'Plano IXC',
+        price_cents: Math.round(parseFloat(p.valor || p.vl_base || '0') * 100),
+        active: p.ativo !== 'N' && p.status !== 'I'
+      }));
+    } catch {
+      return [];
+    }
+  }
 }
 
 export class MKAuthAdapter extends ERPAdapter {
@@ -330,6 +354,29 @@ export class MKAuthAdapter extends ERPAdapter {
 
   async updateCustomerData(customerId: string, fields: any) {
     return { success: true, warning: "Not implemented in MK-Auth" };
+  }
+
+  async getPlans(): Promise<any[]> {
+    const creds = await this.getCreds();
+    if (!creds.url || !creds.token) throw new Error("MK-Auth credentials missing");
+    try {
+      const response = await fetch(`${creds.url}/api/plano`, {
+        headers: {
+          'Authorization': `Bearer ${creds.token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!response.ok) throw new Error('ERP_ERROR');
+      const data = await response.json();
+      return (data.planos || data.dados || []).map((p: any) => ({
+        id: String(p.id_plano || p.id),
+        name: p.nome || p.name || 'Plano MKAuth',
+        price_cents: Math.round(parseFloat(p.valor || p.price || '0') * 100),
+        active: p.ativo !== false && p.ativo !== 'nao' && p.ativo !== 'N'
+      }));
+    } catch {
+      return [];
+    }
   }
 }
 

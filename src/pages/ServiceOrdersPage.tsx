@@ -36,10 +36,15 @@ export function ServiceOrdersPage() {
   const fetchIncidents = async () => {
     try {
       const res = await fetch('/api/incidents/active?tenantId=default');
+      if (!res.ok) {
+        setActiveIncidents([]);
+        return;
+      }
       const data = await res.json();
-      setActiveIncidents(data);
+      setActiveIncidents(Array.isArray(data) ? data : []);
     } catch(e) {
       console.error(e);
+      setActiveIncidents([]);
     }
   };
 

@@ -3,6 +3,10 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import superAdminRouter from "./src/routes/superAdmin.ts";
 import apiV1Router from "./src/routes/api-v1.ts";
+import { cobraiRouter } from "./src/routes/cobrai.ts";
+import { queuesRouter } from "./src/routes/queues.ts";
+import { dlqRouter } from "./src/routes/dlq.ts";
+import { osRoutingRouter } from "./src/routes/osRouting.ts";
 
 async function startServer() {
   const app = express();
@@ -16,6 +20,10 @@ async function startServer() {
 
   app.use("/api/super-admin", superAdminRouter);
   app.use("/api/v1", apiV1Router);
+  app.use("/api/cobrai", cobraiRouter);
+  app.use("/api/queues", queuesRouter);
+  app.use("/api/dlq", dlqRouter);
+  app.use("/api/os", osRoutingRouter);
 
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
