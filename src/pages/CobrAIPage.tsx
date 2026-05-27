@@ -83,9 +83,12 @@ export function CobrAIPage() {
 
       // 4. Queue Stats
       const resStats = await fetch('/api/cobrai/queue-stats');
-      if (resStats.ok) {
+      const contentTypeStats = resStats.headers.get("content-type");
+      if (resStats.ok && contentTypeStats && contentTypeStats.includes("application/json")) {
         const dataStats = await resStats.json();
         setQueueStats(dataStats);
+      } else if (resStats.ok) {
+        console.warn("Queue stats returned non-JSON. Possible platform interstitial.");
       } else {
         const text = await resStats.text();
         console.error("Queue stats responded with non-ok status:", resStats.status, text);
@@ -99,9 +102,12 @@ export function CobrAIPage() {
   const fetchQueue = async () => {
     try {
       const res = await fetch('/api/cobrai/queue');
-      if (res.ok) {
+      const contentType = res.headers.get("content-type");
+      if (res.ok && contentType && contentType.includes("application/json")) {
         const data = await res.json();
         setQueueJobs(data);
+      } else if (res.ok) {
+        console.warn("Queue returned non-JSON. Possible platform interstitial.");
       } else {
         const text = await res.text();
         console.error("Queue responded with non-ok status:", res.status, text);

@@ -11,6 +11,7 @@ export interface StructuredLog {
   latency_ms?: number;
   error?: string;
   data?: Record<string, any>;
+  [key: string]: any;
 }
 
 export const logger = {
@@ -20,4 +21,6 @@ export const logger = {
     console.warn(JSON.stringify({ timestamp: new Date().toISOString(), level: 'warn', event, ...ctx })),
   error: (event: string, ctx: Partial<StructuredLog> = {}) =>
     console.error(JSON.stringify({ timestamp: new Date().toISOString(), level: 'error', event, ...ctx })),
+  debug: (event: string, ctx: Partial<StructuredLog> = {}) =>
+    console.debug(JSON.stringify({ timestamp: new Date().toISOString(), level: 'debug', event, ...ctx })),
 };

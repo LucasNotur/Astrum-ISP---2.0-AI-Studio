@@ -5,7 +5,8 @@ import { useAppStore } from "@/src/store/useAppStore";
 import { Loader2 } from "lucide-react";
 
 export function BIPage() {
-  const { tenantId } = useAppStore();
+  const { user } = useAppStore();
+  const tenantId = user?.tenantId;
   const [iframeUrl, setIframeUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 

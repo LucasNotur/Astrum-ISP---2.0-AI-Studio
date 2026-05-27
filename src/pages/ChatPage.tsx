@@ -54,6 +54,7 @@ import {
   getDocs,
   query,
   orderBy,
+  onSnapshot,
 } from "firebase/firestore";
 import {
   Dialog,
@@ -704,7 +705,7 @@ export function ChatPage() {
         integrationKeys.evolutionApiKey
       ) {
         try {
-          let payload;
+          let payload: any;
           if (attachmentData) {
             payload = {
               number: `${customerPhone}`,

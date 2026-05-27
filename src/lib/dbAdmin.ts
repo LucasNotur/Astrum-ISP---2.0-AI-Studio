@@ -5,7 +5,7 @@ import forge from "node-forge";
 import { getEmbeddingProvider } from './embeddingProvider';
 import { getVectorStore } from './vectorStore';
 
-export const getIntegrationKeys = async (tenantId: string = "default") => {
+export const getIntegrationKeys = async (tenantId: string = "default"): Promise<any> => {
   try {
     // Try tenant-specific first
     if (tenantId && tenantId !== 'default') {

@@ -39,9 +39,12 @@ export const AIObservabilityPage = () => {
         const res = await fetch('/api/super-admin/ai-circuit', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-        if (res.ok) {
+        const contentType = res.headers.get("content-type");
+        if (res.ok && contentType && contentType.includes("application/json")) {
           const data = await res.json();
           setCircuitData(data);
+        } else if (res.ok) {
+          console.warn("AI Circuit returned non-JSON. Possible platform interstitial.");
         }
       } catch (err) {
         console.error("Failed to fetch circuit info:", err);

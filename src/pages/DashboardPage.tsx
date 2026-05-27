@@ -360,7 +360,7 @@ export function DashboardPage() {
   }, [tickets, slaRiskTickets, sentimentStats]);
 
   const [dashboardSubTab, setDashboardSubTab] = useState<
-    "overview" | "performance" | "churn" | "upsell"
+    "overview" | "performance" | "ia"
   >("overview");
 
   const churnData = useMemo(() => {
@@ -492,7 +492,7 @@ export function DashboardPage() {
       "Nov",
       "Dez",
     ];
-    const last12Months = [];
+    const last12Months: any[] = [];
     for (let i = 11; i >= 0; i--) {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
@@ -667,29 +667,21 @@ export function DashboardPage() {
               onClick={() => setDashboardSubTab("overview")}
               className={`text-[11px] px-6 py-2.5 whitespace-nowrap rounded-[16px] transition-all duration-300 font-bold ${dashboardSubTab === "overview" ? "bg-amber-400 text-black shadow-lg shadow-amber-500/20" : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"}`}
             >
-              Geral
+              Visão Geral
+            </button>
+            <button
+              onClick={() => setDashboardSubTab("performance")}
+              className={`text-[11px] px-6 py-2.5 whitespace-nowrap rounded-[16px] transition-all duration-300 font-bold ${dashboardSubTab === "performance" ? "bg-amber-400 text-black shadow-lg shadow-amber-500/20" : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"}`}
+            >
+              Performance
             </button>
             {isOwner && (
-              <>
-                <button
-                  onClick={() => setDashboardSubTab("performance")}
-                  className={`text-[11px] px-6 py-2.5 whitespace-nowrap rounded-[16px] transition-all duration-300 font-bold ${dashboardSubTab === "performance" ? "bg-amber-400 text-black shadow-lg shadow-amber-500/20" : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"}`}
-                >
-                  Performance IA
-                </button>
-                <button
-                  onClick={() => setDashboardSubTab("churn")}
-                  className={`text-[11px] px-6 py-2.5 whitespace-nowrap rounded-[16px] transition-all duration-300 font-bold ${dashboardSubTab === "churn" ? "bg-amber-400 text-black shadow-lg shadow-amber-500/20" : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"}`}
-                >
-                  Churn Preditivo
-                </button>
-                <button
-                  onClick={() => setDashboardSubTab("upsell")}
-                  className={`text-[11px] px-6 py-2.5 whitespace-nowrap rounded-[16px] transition-all duration-300 font-bold ${dashboardSubTab === "upsell" ? "bg-amber-400 text-black shadow-lg shadow-amber-500/20" : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"}`}
-                >
-                  Conversões
-                </button>
-              </>
+              <button
+                onClick={() => setDashboardSubTab("ia")}
+                className={`text-[11px] px-6 py-2.5 whitespace-nowrap rounded-[16px] transition-all duration-300 font-bold ${dashboardSubTab === "ia" ? "bg-amber-400 text-black shadow-lg shadow-amber-500/20" : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"}`}
+              >
+                Inteligência Artificial & Preditivo
+              </button>
             )}
           </div>
         </div>
@@ -848,6 +840,149 @@ export function DashboardPage() {
             )}
           </div>
 
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Card className="border-none shadow-sm flex flex-col">
+              <CardHeader>
+                <CardTitle>Atividade Recente</CardTitle>
+                <CardDescription>
+                  Últimas movimentações no sistema.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[250px] pr-4">
+                  <div className="space-y-4">
+                    {auditLogs.slice(0, 10).map((log, i) => (
+                      <div key={log.id} className="flex gap-3 relative">
+                        {i !== 9 && (
+                          <div className="absolute left-[15px] top-8 bottom-0 w-px bg-zinc-100 dark:bg-zinc-800" />
+                        )}
+                        <div
+                          className={cn(
+                            "w-8 h-8 rounded-full shrink-0 flex items-center justify-center border-2 border-white dark:border-zinc-900 z-10",
+                            log.sentiment === "POSITIVO"
+                              ? "bg-green-100 text-green-600"
+                              : log.sentiment === "NEGATIVO"
+                                ? "bg-red-100 text-red-600"
+                                : "bg-zinc-100 text-zinc-600",
+                          )}
+                        >
+                          {log.sentiment === "POSITIVO" ? (
+                            <CheckCircle2 size={14} />
+                          ) : log.sentiment === "NEGATIVO" ? (
+                            <TrendingDown size={14} />
+                          ) : (
+                            <MessageSquare size={14} />
+                          )}
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium">
+                            {log.category === "FATURA"
+                              ? "Consulta Financeira"
+                              : log.category === "SUPORTE_TECNICO"
+                                ? "Suporte Técnico"
+                                : "Atendimento Geral"}
+                          </p>
+                          <p className="text-[10px] text-zinc-500 line-clamp-1">
+                            {log.ticketId
+                              ? `Ticket #${log.ticketId.slice(0, 8)}`
+                              : log.action}
+                            {log.sentiment &&
+                              ` - Sentimento ${log.sentiment.toLowerCase()}`}
+                          </p>
+                          <p className="text-[10px] text-zinc-400">
+                            {log.timestamp
+                              ? new Date(
+                                  log.timestamp.seconds * 1000,
+                                ).toLocaleTimeString()
+                              : "Agora"}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+
+            {isOwner && (
+              <Card className="border-none shadow-sm flex flex-col">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>Tickets Críticos</CardTitle>
+                    <CardDescription>
+                      Chamados urgentes que precisam de atenção imediata.
+                    </CardDescription>
+                  </div>
+                  <Badge className="bg-red-500 border-none">Urgente</Badge>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {tickets.filter(
+                      (t) => t.priority === "high" || t.priority === "urgent",
+                    ).length > 0 ? (
+                      tickets
+                        .filter(
+                          (t) =>
+                            t.priority === "high" || t.priority === "urgent",
+                        )
+                        .slice(0, 4)
+                        .map((t) => (
+                          <div
+                            key={t.id}
+                            className="relative flex items-center justify-between p-4 rounded-[16px] bg-white dark:bg-[#16171a] shadow-[0_4px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.4)] overflow-hidden ticket-shape"
+                          >
+                            <div className="absolute top-0 bottom-0 left-3 border-l border-dashed border-zinc-200 dark:border-white/5" />
+                            <div className="flex items-center gap-4 pl-2 relative z-10">
+                              <div className="w-8 shrink-0 flex items-center justify-center">
+                                <span
+                                  className={cn(
+                                    "w-1.5 h-10 rounded-full",
+                                    t.priority === "urgent"
+                                      ? "bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]"
+                                      : "bg-orange-500",
+                                  )}
+                                />
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-mono font-bold text-zinc-400 mb-0.5">
+                                  #{t.id.slice(0, 5)}
+                                </p>
+                                <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate max-w-[180px]">
+                                  {t.subject}
+                                </p>
+                                <p className="text-[10px] font-medium text-zinc-500 mt-1">
+                                  {customers.find((c) => c.id === t.customerId)
+                                    ?.name || "Cliente Desconhecido"}
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="h-8 text-xs font-bold shrink-0 z-10"
+                              onClick={() => {
+                                setSelectedTicket(t);
+                                navigate("/tickets");
+                              }}
+                            >
+                              Ver
+                            </Button>
+                          </div>
+                        ))
+                    ) : (
+                      <div className="text-center py-8 text-zinc-400 text-sm italic">
+                        Nenhum ticket crítico no momento.
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+        </>
+      ) : dashboardSubTab === "performance" ? (
+        <div className="space-y-6">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className="lg:col-span-3">
               <FCRMetricsCard />
@@ -1031,9 +1166,93 @@ export function DashboardPage() {
               </CardContent>
             </Card>
           </div>
-        </>
-      ) : dashboardSubTab === "performance" ? (
-        <div className="space-y-6">
+
+
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Card className="border-none shadow-sm flex flex-col">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle size={18} className="text-orange-500" />
+                  Risco de Quebra de SLA
+                </CardTitle>
+                <CardDescription>
+                  Tickets abertos há mais de 4 horas sem resolução.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {slaRiskTickets.length > 0 ? (
+                    slaRiskTickets.slice(0, 3).map((t) => (
+                      <div
+                        key={t.id}
+                        className="relative flex items-center justify-between p-4 rounded-[16px] bg-white dark:bg-[#16171a] shadow-[0_4px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.4)] overflow-hidden ticket-shape"
+                      >
+                        <div className="absolute top-0 bottom-0 left-3 border-l border-dashed border-zinc-200 dark:border-white/5" />
+                        <div className="flex items-center gap-4 pl-2 relative z-10 w-full">
+                          <div className="w-8 shrink-0 flex items-center justify-center">
+                            <span
+                              className={cn(
+                                "w-1.5 h-10 rounded-full",
+                                t.priority === "urgent"
+                                  ? "bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]"
+                                  : "bg-orange-500",
+                              )}
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] font-mono font-bold text-zinc-400 mb-0.5">
+                              #{t.id.slice(0, 5)}
+                            </p>
+                            <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate max-w-[150px] sm:max-w-[200px]">
+                              {t.subject}
+                            </p>
+                            <p className="text-[10px] font-bold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 w-fit px-2 py-0.5 rounded-full mt-1.5">
+                              Aberto há{" "}
+                              {Math.floor(
+                                (Date.now() - t.createdAt?.seconds * 1000) /
+                                  (1000 * 60 * 60),
+                              )}{" "}
+                              horas
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="h-8 text-xs font-bold shrink-0 shadow-sm"
+                            onClick={() => {
+                              setSelectedTicket(t);
+                              setIsTicketDetailOpen(true);
+                            }}
+                          >
+                            Priorizar
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8">
+                      <CheckCircle2
+                        size={32}
+                        className="mx-auto text-green-500 mb-2"
+                      />
+                      <p className="text-sm text-zinc-500">
+                        Nenhum ticket em risco crítico.
+                      </p>
+                    </div>
+                  )}
+                  {slaRiskTickets.length > 3 && (
+                    <p className="text-[10px] text-center text-zinc-400">
+                      +{slaRiskTickets.length - 3} outros tickets em risco
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      ) : dashboardSubTab === "ia" ? (
+        <>
+          <div className="space-y-6">
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <Card className="border-none shadow-sm flex flex-col justify-between">
               <CardHeader>
@@ -1208,230 +1427,6 @@ export function DashboardPage() {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <Card className="border-none shadow-sm flex flex-col">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle size={18} className="text-orange-500" />
-                  Risco de Quebra de SLA
-                </CardTitle>
-                <CardDescription>
-                  Tickets abertos há mais de 4 horas sem resolução.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {slaRiskTickets.length > 0 ? (
-                    slaRiskTickets.slice(0, 3).map((t) => (
-                      <div
-                        key={t.id}
-                        className="relative flex items-center justify-between p-4 rounded-[16px] bg-white dark:bg-[#16171a] shadow-[0_4px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.4)] overflow-hidden ticket-shape"
-                      >
-                        <div className="absolute top-0 bottom-0 left-3 border-l border-dashed border-zinc-200 dark:border-white/5" />
-                        <div className="flex items-center gap-4 pl-2 relative z-10 w-full">
-                          <div className="w-8 shrink-0 flex items-center justify-center">
-                            <span
-                              className={cn(
-                                "w-1.5 h-10 rounded-full",
-                                t.priority === "urgent"
-                                  ? "bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]"
-                                  : "bg-orange-500",
-                              )}
-                            />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[10px] font-mono font-bold text-zinc-400 mb-0.5">
-                              #{t.id.slice(0, 5)}
-                            </p>
-                            <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate max-w-[150px] sm:max-w-[200px]">
-                              {t.subject}
-                            </p>
-                            <p className="text-[10px] font-bold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 w-fit px-2 py-0.5 rounded-full mt-1.5">
-                              Aberto há{" "}
-                              {Math.floor(
-                                (Date.now() - t.createdAt?.seconds * 1000) /
-                                  (1000 * 60 * 60),
-                              )}{" "}
-                              horas
-                            </p>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            className="h-8 text-xs font-bold shrink-0 shadow-sm"
-                            onClick={() => {
-                              setSelectedTicket(t);
-                              setIsTicketDetailOpen(true);
-                            }}
-                          >
-                            Priorizar
-                          </Button>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8">
-                      <CheckCircle2
-                        size={32}
-                        className="mx-auto text-green-500 mb-2"
-                      />
-                      <p className="text-sm text-zinc-500">
-                        Nenhum ticket em risco crítico.
-                      </p>
-                    </div>
-                  )}
-                  {slaRiskTickets.length > 3 && (
-                    <p className="text-[10px] text-center text-zinc-400">
-                      +{slaRiskTickets.length - 3} outros tickets em risco
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-sm flex flex-col">
-              <CardHeader>
-                <CardTitle>Atividade Recente</CardTitle>
-                <CardDescription>
-                  Últimas movimentações no sistema.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[250px] pr-4">
-                  <div className="space-y-4">
-                    {auditLogs.slice(0, 10).map((log, i) => (
-                      <div key={log.id} className="flex gap-3 relative">
-                        {i !== 9 && (
-                          <div className="absolute left-[15px] top-8 bottom-0 w-px bg-zinc-100 dark:bg-zinc-800" />
-                        )}
-                        <div
-                          className={cn(
-                            "w-8 h-8 rounded-full shrink-0 flex items-center justify-center border-2 border-white dark:border-zinc-900 z-10",
-                            log.sentiment === "POSITIVO"
-                              ? "bg-green-100 text-green-600"
-                              : log.sentiment === "NEGATIVO"
-                                ? "bg-red-100 text-red-600"
-                                : "bg-zinc-100 text-zinc-600",
-                          )}
-                        >
-                          {log.sentiment === "POSITIVO" ? (
-                            <CheckCircle2 size={14} />
-                          ) : log.sentiment === "NEGATIVO" ? (
-                            <TrendingDown size={14} />
-                          ) : (
-                            <MessageSquare size={14} />
-                          )}
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-xs font-medium">
-                            {log.category === "FATURA"
-                              ? "Consulta Financeira"
-                              : log.category === "SUPORTE_TECNICO"
-                                ? "Suporte Técnico"
-                                : "Atendimento Geral"}
-                          </p>
-                          <p className="text-[10px] text-zinc-500 line-clamp-1">
-                            {log.ticketId
-                              ? `Ticket #${log.ticketId.slice(0, 8)}`
-                              : log.action}
-                            {log.sentiment &&
-                              ` - Sentimento ${log.sentiment.toLowerCase()}`}
-                          </p>
-                          <p className="text-[10px] text-zinc-400">
-                            {log.timestamp
-                              ? new Date(
-                                  log.timestamp.seconds * 1000,
-                                ).toLocaleTimeString()
-                              : "Agora"}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </div>
-
-          {isOwner && (
-            <div className="grid grid-cols-1">
-              <Card className="border-none shadow-sm flex flex-col">
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle>Tickets Críticos</CardTitle>
-                    <CardDescription>
-                      Chamados urgentes que precisam de atenção imediata.
-                    </CardDescription>
-                  </div>
-                  <Badge className="bg-red-500 border-none">Urgente</Badge>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {tickets.filter(
-                      (t) => t.priority === "high" || t.priority === "urgent",
-                    ).length > 0 ? (
-                      tickets
-                        .filter(
-                          (t) =>
-                            t.priority === "high" || t.priority === "urgent",
-                        )
-                        .slice(0, 4)
-                        .map((t) => (
-                          <div
-                            key={t.id}
-                            className="relative flex items-center justify-between p-4 rounded-[16px] bg-white dark:bg-[#16171a] shadow-[0_4px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.4)] overflow-hidden ticket-shape"
-                          >
-                            <div className="absolute top-0 bottom-0 left-3 border-l border-dashed border-zinc-200 dark:border-white/5" />
-                            <div className="flex items-center gap-4 pl-2 relative z-10">
-                              <div className="w-8 shrink-0 flex items-center justify-center">
-                                <span
-                                  className={cn(
-                                    "w-1.5 h-10 rounded-full",
-                                    t.priority === "urgent"
-                                      ? "bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]"
-                                      : "bg-orange-500",
-                                  )}
-                                />
-                              </div>
-                              <div>
-                                <p className="text-[10px] font-mono font-bold text-zinc-400 mb-0.5">
-                                  #{t.id.slice(0, 5)}
-                                </p>
-                                <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate max-w-[180px]">
-                                  {t.subject}
-                                </p>
-                                <p className="text-[10px] font-medium text-zinc-500 mt-1">
-                                  {customers.find((c) => c.id === t.customerId)
-                                    ?.name || "Cliente Desconhecido"}
-                                </p>
-                              </div>
-                            </div>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="h-8 text-xs font-bold shrink-0 z-10"
-                              onClick={() => {
-                                setSelectedTicket(t);
-                                navigate("/tickets");
-                              }}
-                            >
-                              Ver
-                            </Button>
-                          </div>
-                        ))
-                    ) : (
-                      <div className="text-center py-8 text-zinc-400 text-sm italic">
-                        Nenhum ticket crítico no momento.
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </div>
-      ) : dashboardSubTab === "churn" ? (
-        <div className="space-y-6">
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             <StatCard
               loading={loading}
@@ -1541,7 +1536,7 @@ export function DashboardPage() {
                         </TableCell>
                         <TableCell>
                           <ul className="text-[10px] space-y-1 text-zinc-500">
-                            {customer.reasons.slice(0, 2).map((r, i) => (
+                            {customer.reasons.slice(0, 2).map((r: any, i: number) => (
                               <li key={i} className="flex items-center gap-1">
                                 <span className="w-1 h-1 bg-zinc-400 rounded-full" />{" "}
                                 {r}
@@ -1590,8 +1585,8 @@ export function DashboardPage() {
             </CardContent>
           </Card>
         </div>
-      ) : dashboardSubTab === "upsell" ? (
-        <div className="space-y-6">
+
+        <div className="space-y-6 pt-6 border-t border-zinc-200 dark:border-zinc-800">
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             <StatCard
               loading={loading}
@@ -1705,6 +1700,7 @@ export function DashboardPage() {
             </CardContent>
           </Card>
         </div>
+        </>
       ) : null}
     </motion.div>
   );

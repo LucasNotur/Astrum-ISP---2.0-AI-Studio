@@ -740,7 +740,7 @@ export const deleteInventoryItem = async (id: string) => {
 };
 
 // Settings & Integrations
-export const getIntegrationKeys = async () => {
+export const getIntegrationKeys = async (): Promise<any> => {
   try {
     const { safeFirestoreGet } = await import("./dbSafe");
     const { data: snapshot, degraded } = await safeFirestoreGet(

@@ -162,7 +162,7 @@ superAdminRouter.get("/metrics", verifySuperAdmin, async (req: express.Request, 
       previousMRR > 0 ? ((currentMRR - previousMRR) / previousMRR) * 100 : 0;
 
     // Historical MRR (last 12 months)
-    const mrrHistory = [];
+    const mrrHistory: any[] = [];
     const historySnap = await db
       .collection("saas_metrics")
       .orderBy("date", "desc")

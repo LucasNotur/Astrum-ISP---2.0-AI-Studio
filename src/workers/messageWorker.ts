@@ -601,7 +601,7 @@ export const processMessageJob = async (job: any) => {
       let customerId: string;
       let callerContext = "";
 
-      let cDoc = custSnap.docs.find((d) => {
+      let cDoc = custSnap.docs.find((d: any) => {
         const p = (d.data().phone || "").replace(/\D/g, "");
         const ig = d.data().instagram_igsid;
         const fb = d.data().facebook_psid;
@@ -1280,7 +1280,7 @@ export const processMessageJob = async (job: any) => {
             }
           }
         }
-      } catch (ruleErr) {
+      } catch (ruleErr: any) {
         logger.error("error_evaluating_escalation_rules", { ...logCtx, error: ruleErr?.message });
       }
       // ------------------------------------

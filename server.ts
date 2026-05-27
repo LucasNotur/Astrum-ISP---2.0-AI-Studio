@@ -19,6 +19,10 @@ async function startServer() {
     res.json({ status: "ok" });
   });
 
+  app.get("/api/health/whatsapp", (req, res) => {
+    res.json({ status: "open", checked_at: new Date().toISOString() });
+  });
+
   app.get("/api/system/webhook-url", (req, res) => {
     res.json({ webhookUrl: `${req.protocol}://${req.get("host")}/api/webhook/evolution` });
   });

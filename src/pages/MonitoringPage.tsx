@@ -57,9 +57,12 @@ export function MonitoringPage() {
     setIsCheckingWa(true);
     try {
       const res = await fetch('/api/health/whatsapp');
-      if (res.ok) {
+      const contentType = res.headers.get("content-type");
+      if (res.ok && contentType && contentType.includes("application/json")) {
         const data = await res.json();
         setWaHealth(data);
+      } else if (res.ok) {
+        console.warn("WA Health returned non-JSON. Possible platform interstitial.");
       } else {
         console.error("WA Health non-ok response");
       }
@@ -74,9 +77,12 @@ export function MonitoringPage() {
     setIsFetchingStats(true);
     try {
       const res = await fetch('/api/queues/stats');
-      if (res.ok) {
+      const contentType = res.headers.get("content-type");
+      if (res.ok && contentType && contentType.includes("application/json")) {
         const data = await res.json();
         setQueueStats(data);
+      } else if (res.ok) {
+        console.warn("Queue stats returned non-JSON. Possible platform interstitial.");
       } else {
         console.error("Queue stats non-ok response");
       }
@@ -99,11 +105,19 @@ export function MonitoringPage() {
   const retryDlqJob = async (id: string) => {
     try {
       const res = await fetch(`/api/dlq/${id}/retry`, { method: 'POST' });
-      const data = await res.json();
-      if (res.ok) {
+      const contentType = res.headers.get("content-type");
+      if (res.ok && contentType && contentType.includes("application/json")) {
+        const data = await res.json();
         toast.success('Job reenviado para a fila');
+      } else if (res.ok) {
+        toast.success('Job reenviado (resposta não-JSON)');
       } else {
-        toast.error(`Erro ao retentar: ${data.error || 'Desconhecido'}`);
+        let errorMsg = 'Desconhecido';
+        if (contentType && contentType.includes("application/json")) {
+           const data = await res.json();
+           errorMsg = data.error || errorMsg;
+        }
+        toast.error(`Erro ao retentar: ${errorMsg}`);
       }
     } catch (e) {
       toast.error('Erro ao retentar job');

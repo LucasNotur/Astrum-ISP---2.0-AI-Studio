@@ -38,7 +38,7 @@ export const gamificationWorker = isMockRedis ? null : new Worker("gamification"
                  .where("created_at", ">=", startOfMonth)
                  .get();
 
-           const tickets = ticketsSnap.docs.map(t => ({ id: t.id, ...t.data() }));
+           const tickets: any[] = ticketsSnap.docs.map(t => ({ id: t.id, ...t.data() }));
 
            const batch = db.batch();
 

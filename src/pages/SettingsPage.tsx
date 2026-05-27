@@ -17,10 +17,11 @@ import { Switch } from "@/src/components/ui/switch";
 import { Save, Bug, Database, BellRing, LogOut, Copy, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { db, auth } from '@/src/lib/firebase';
-import { collection, query, getDocs, orderBy, limit, doc, setDoc, deleteDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { collection, query, getDocs, orderBy, limit, doc, setDoc, deleteDoc, updateDoc, onSnapshot, addDoc } from 'firebase/firestore';
 import { signOut, multiFactor, TotpMultiFactorGenerator, TotpSecret } from 'firebase/auth';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAppStore } from '../store/useAppStore';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 
 
 const AVAILABLE_MENUS = [
@@ -1250,7 +1251,7 @@ export function SettingsPage(props: any) {
                   </div>
               )}
 
-              {['mkauth', 'radiusnet', 'asaas'].includes(selectedIntegrationMenu) && (
+              {['mkauth', 'radiusnet', 'asaas'].includes(selectedIntegrationMenu as string) && (
                  <div className="space-y-4">
                     <p className="text-zinc-500">
                        A integração selecionada ({selectedIntegrationMenu}) está em fase de implantação para testes.
@@ -1573,7 +1574,7 @@ export function SettingsPage(props: any) {
                       </div>
                       <Button onClick={() => {
                         setEditingDeptId('new');
-                        setDeptForm({ name: '', sla_response_minutes: 15, sla_resolution_hours: 24, required_skills: [], color: '#3b82f6' });
+                        setDeptForm({ name: '', sla_response_minutes: 15, sla_resolution_hours: 24, required_skills: [], color: '#3b82f6', routing_mode: 'manual' });
                       }} className="gap-2">
                         <Plus size={16} /> Novo Departamento
                       </Button>
