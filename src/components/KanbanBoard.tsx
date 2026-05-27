@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { updateDoc, doc } from "firebase/firestore";
 import { db } from "@/src/lib/firebase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/src/components/ui/avatar";
