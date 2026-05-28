@@ -20,8 +20,17 @@ import { createCustomer, updateCustomer as updateCustomerDb } from '@/src/lib/db
 import { cn } from "@/src/lib/utils";
 
 export function CustomersPage() {
-  const { customers, setCustomers, tickets, invoices, auditLogs, currentUserRole, setSelectedCustomerDetails, setIsDetailsDialogOpen, setConfirmDialog } = useAppStore();
+  const { customers, setCustomers, tickets, invoices, auditLogs, currentUserRole, setSelectedCustomerDetails, setIsDetailsDialogOpen, setConfirmDialog, integrationKeys, companySettings, user } = useAppStore();
   const isOwner = currentUserRole === 'owner' || currentUserRole === 'admin';
+
+  const tenantId = companySettings?.tenant_id || user?.tenantId || 'default';
+
+  const connections = useMemo(() => {
+    if (integrationKeys?.whatsappInstances) {
+       try { return JSON.parse(integrationKeys.whatsappInstances); } catch(e) { return []; }
+    }
+    return [];
+  }, [integrationKeys]);
 
   const [customerSearchInput, setCustomerSearchInput] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
@@ -56,6 +65,87 @@ export function CustomersPage() {
   
   const [newTagInput, setNewTagInput] = useState('');
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  const [isNotificarOpen, setIsNotificarOpen] = useState(false);
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [templateVars, setTemplateVars] = useState<Record<string, string>>({});
+  const [selectedConn, setSelectedConn] = useState<string>('');
+  const [isSending, setIsSending] = useState(false);
+
+  React.useEffect(() => {
+    if (isNotificarOpen && tenantId) {
+       fetch(`/api/hsm-templates?tenantId=${tenantId}`)
+         .then(res => res.json())
+         .then(data => {
+            if (Array.isArray(data)) setTemplates(data);
+         })
+         .catch(e => console.error("Error fetching templates", e));
+       
+       if (connections.length > 0) {
+         setSelectedConn(connections[0].instanceName);
+       }
+    }
+  }, [isNotificarOpen, tenantId, connections]);
+
+  const handleSendHSM = async () => {
+    if (!selectedTemplateId || !selectedConn) {
+      toast.error('Selecione uma conexão e um template.');
+      return;
+    }
+    const template = templates.find(t => t.id === selectedTemplateId);
+    if (!template) return;
+
+    setIsSending(true);
+    let successCount = 0;
+    
+    // We send sequence of messages (simulated or real if Evolution config exists)
+    for (const custId of selectedCustomers) {
+      const cust = customers.find(c => c.id === custId);
+      if (!cust || !cust.phone) continue;
+      
+      let message = template.body;
+      
+      // Basic translation: if template has {{1}}, it might be user defined.
+      // For now, let's just replace with the vars the user set.
+      Object.keys(templateVars).forEach(key => {
+         message = message.replace(`{{${key}}}`, templateVars[key]);
+      });
+      // also auto context
+      message = message.replace('{{nome}}', cust.name);
+
+      if (template.header_type === 'text' && template.header_content) {
+         message = `*${template.header_content}*\n\n${message}`;
+      }
+      if (template.footer) {
+         message = `${message}\n\n_${template.footer}_`;
+      }
+
+      try {
+        const res = await fetch('/api/evolution/proxy', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({
+             path: `/message/sendText/${selectedConn}`,
+             method: 'POST',
+             evolutionUrl: integrationKeys.evolutionUrl,
+             evolutionApiKey: integrationKeys.evolutionApiKey,
+             proxyBody: {
+               number: cust.phone.replace(/\\D/g, ''),
+               options: { delay: 1200 },
+               textMessage: { text: message }
+             }
+           })
+        });
+        if (res.ok) successCount++;
+      } catch (e) {}
+    }
+    
+    setIsSending(false);
+    setIsNotificarOpen(false);
+    setSelectedCustomers([]);
+    toast.success(`Notificação enviada para ${successCount} de ${selectedCustomers.length} clientes!`);
+  };
 
   const filteredCustomers = useMemo(() => {
     return customers.filter(c => {
@@ -288,12 +378,9 @@ export function CustomersPage() {
                             variant="ghost" 
                             size="sm" 
                             className="h-7 text-[10px] gap-1"
-                            onClick={() => {
-                              toast.success(`Notificação enviada para ${selectedCustomers.length} clientes!`);
-                              setSelectedCustomers([]);
-                            }}
+                            onClick={() => setIsNotificarOpen(true)}
                           >
-                            <Bell size={12} /> Notificar
+                            <Bell size={12} /> Notificar ({selectedCustomers.length})
                           </Button>
                           <Button 
                             variant="ghost" 
@@ -1066,6 +1153,100 @@ export function CustomersPage() {
                 <Button type="submit">Cadastrar Cliente</Button>
               </DialogFooter>
             </form>
+          </DialogContent>
+        </Dialog>
+        <Dialog open={isNotificarOpen} onOpenChange={setIsNotificarOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+             <DialogHeader>
+               <DialogTitle>Disparo de Notificação (Templates HSM)</DialogTitle>
+               <DialogDescription>
+                 Envie mensagens padronizadas e aprovadas pela Meta para iniciar ou reengajar conversas com os clientes selecionados.
+               </DialogDescription>
+             </DialogHeader>
+
+             <div className="space-y-4 py-4">
+                 <div className="space-y-2">
+                    <Label>Conexão WhatsApp (Origem)</Label>
+                    <select 
+                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                       value={selectedConn}
+                       onChange={(e) => setSelectedConn(e.target.value)}
+                    >
+                       {connections?.map((c: any) => (
+                           <option key={c.id} value={c.instanceName}>{c.alias}</option>
+                       ))}
+                    </select>
+                 </div>
+
+                 <div className="space-y-2">
+                    <Label>Template de Mensagem</Label>
+                    <select 
+                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                       value={selectedTemplateId}
+                       onChange={(e) => {
+                          setSelectedTemplateId(e.target.value);
+                          setTemplateVars({});
+                       }}
+                    >
+                       <option value="">Selecione um template aprovado</option>
+                       {templates?.map((t: any) => (
+                           <option key={t.id} value={t.id}>{t.name} (Meta Aprovado)</option>
+                       ))}
+                    </select>
+                 </div>
+
+                 {selectedTemplateId && templates.find(t => t.id === selectedTemplateId) && (() => {
+                    const t = templates.find(temp => temp.id === selectedTemplateId);
+                    const varMatches = t.body.match(/\{\{(\d+)\}\}/g);
+                    const varCount = varMatches ? new Set(varMatches).size : 0;
+                    
+                    return (
+                      <div className="p-4 bg-zinc-50 dark:bg-zinc-900 rounded-md border border-zinc-200 dark:border-zinc-800 space-y-3">
+                         <Label className="text-zinc-500 font-semibold text-xs uppercase">Pré-visualização da Mensagem</Label>
+                         <p className="text-sm whitespace-pre-wrap text-zinc-700 dark:text-zinc-300">
+                           {(() => {
+                              let msg = t.body;
+                              Object.keys(templateVars).forEach(k => {
+                                msg = msg.replace(`{{${k}}}`, `*[${templateVars[k]}]*`);
+                              });
+                              return msg;
+                           })()}
+                         </p>
+
+                         {varCount > 0 && (
+                            <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-800 space-y-3">
+                               <Label className="text-xs font-semibold text-zinc-500 uppercase">Variáveis do Template</Label>
+                               {Array.from(new Set(varMatches)).map((vMsg: any) => {
+                                  const num = vMsg.replace(/\D/g, '');
+                                  return (
+                                     <div key={num} className="flex flex-col gap-1.5">
+                                        <Label className="text-xs text-zinc-600">Variável {vMsg}</Label>
+                                        <Input 
+                                           placeholder="Valor que o cliente verá"
+                                           value={templateVars[num] || ''}
+                                           onChange={e => setTemplateVars({...templateVars, [num]: e.target.value})}
+                                        />
+                                     </div>
+                                  );
+                               })}
+                            </div>
+                         )}
+                      </div>
+                    );
+                 })()}
+
+                 <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 rounded text-xs">
+                   O disparo será enviado para <strong>{selectedCustomers.length} clientes selecionados</strong>. 
+                   Lembre-se que disparos ativos podem ter custo por conversa na sua conta Meta.
+                 </div>
+             </div>
+             
+             <DialogFooter>
+                <Button variant="outline" onClick={() => setIsNotificarOpen(false)}>Cancelar</Button>
+                <Button onClick={handleSendHSM} disabled={isSending}>
+                   {isSending ? 'Enviando...' : `Disparar para ${selectedCustomers.length}`}
+                </Button>
+             </DialogFooter>
           </DialogContent>
         </Dialog>
     </>

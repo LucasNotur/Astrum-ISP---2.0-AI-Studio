@@ -25,22 +25,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 
 
 const AVAILABLE_MENUS = [
-  { id: 'dashboard', label: 'Dashboard', group: 'Geral' },
+  { id: 'dashboard', label: 'Dashboard', group: 'Operação Diária' },
   { id: 'customers', label: 'Clientes', group: 'Atendimento' },
-  { id: 'tickets', label: 'Tickets', group: 'Atendimento' },
+  { id: 'tickets', label: 'Tickets (Suporte)', group: 'Atendimento' },
   { id: 'chat', label: 'Chat', group: 'Atendimento' },
-  { id: 'billing', label: 'Financeiro', group: 'Gestão' },
-  { id: 'cobrai', label: 'CobrAI', group: 'Gestão' },
-  { id: 'os', label: 'CRM Técnico / OS', group: 'Gestão' },
-  { id: 'inventory', label: 'Estoque', group: 'Gestão' },
-  { id: 'map', label: 'Mapa de Cobertura', group: 'Gestão' },
-  { id: 'team', label: 'Equipe', group: 'Gestão' },
-  { id: 'whatsapp', label: 'Conexões WhatsApp', group: 'Sistema (Dev)' },
-  { id: 'ai-config', label: 'Núcleo IA', group: 'Sistema (Dev)' },
-  { id: 'observability', label: 'Observabilidade IA', group: 'Sistema (Dev)' },
-  { id: 'monitoring', label: 'Monitoramento', group: 'Sistema (Dev)' },
-  { id: 'quality-monitor', label: 'Qualidade', group: 'Sistema (Dev)' },
-  { id: 'settings', label: 'Configurações', group: 'Sistema (Dev)' }
+  { id: 'os', label: 'CRM Técnico / OS', group: 'Atendimento' },
+  { id: 'billing', label: 'Financeiro', group: 'Infra & Gestão' },
+  { id: 'inventory', label: 'Estoque', group: 'Infra & Gestão' },
+  { id: 'map', label: 'Mapa de Cobertura', group: 'Infra & Gestão' },
+  { id: 'team', label: 'Equipe', group: 'Infra & Gestão' },
+  { id: 'ai-config', label: 'Núcleo IA', group: 'Inteligência & Automação' },
+  { id: 'cobrai', label: 'CobrAI', group: 'Inteligência & Automação' },
+  { id: 'kb', label: 'Base de Conhecimento', group: 'Inteligência & Automação' },
+  { id: 'bi', label: 'Business Intelligence', group: 'Relatórios e Monitoria' },
+  { id: 'quality-monitor', label: 'Monitor de Qualidade', group: 'Relatórios e Monitoria' },
+  { id: 'observability', label: 'Logs e Auditoria IA', group: 'Relatórios e Monitoria' },
+  { id: 'monitoring', label: 'Monitoramento (Falhas)', group: 'Relatórios e Monitoria' },
+  { id: 'whatsapp', label: 'Conexões WhatsApp', group: 'Configurações Globais' },
+  { id: 'settings', label: 'Configurações Gerais', group: 'Configurações Globais' }
 ];
 
 const ROLES = [
@@ -51,10 +53,10 @@ const ROLES = [
 ];
 
 const DEFAULT_PERMISSIONS = {
-  admin: ['dashboard', 'customers', 'tickets', 'os', 'chat', 'map', 'kb', 'billing', 'team', 'ai-config', 'whatsapp', 'settings', 'inventory', 'observability', 'monitoring', 'cobrai', 'quality-monitor'],
-  owner: ['dashboard', 'customers', 'tickets', 'chat', 'billing', 'team', 'os', 'ai-config', 'settings', 'whatsapp', 'inventory', 'map', 'observability', 'monitoring', 'cobrai', 'quality-monitor'],
-  support: ['dashboard', 'customers', 'tickets', 'chat', 'ai-config'],
-  tecnico: ['os']
+  admin: ['dashboard', 'customers', 'tickets', 'chat', 'os', 'billing', 'inventory', 'map', 'team', 'ai-config', 'cobrai', 'kb', 'bi', 'quality-monitor', 'observability', 'monitoring', 'whatsapp', 'settings'],
+  owner: ['dashboard', 'customers', 'tickets', 'chat', 'os', 'billing', 'inventory', 'map', 'team', 'ai-config', 'cobrai', 'kb', 'bi', 'quality-monitor', 'observability', 'monitoring', 'whatsapp', 'settings'],
+  support: ['dashboard', 'customers', 'tickets', 'chat', 'kb'],
+  tecnico: ['dashboard', 'os', 'kb', 'map']
 };
 
 export function SettingsPage(props: any) {
@@ -979,21 +981,24 @@ export function SettingsPage(props: any) {
   const renderMarketplace = () => {
     const integrations = [
       { id: 'ixc', name: 'IXC Provedor', category: 'ERP', desc: 'Sincronização de clientes e financeiro.', status: ixcCredentials.url ? 'Conectado' : 'Disponível', logo: '🌐' },
-      { id: 'mkauth', name: 'MK-Auth', category: 'ERP', desc: 'Integração completa com MK-Auth.', status: 'Disponível', logo: '☁️' },
+      { id: 'mkauth', name: 'MK-Auth', category: 'ERP', desc: 'Integração completa com MK-Auth.', status: integrationKeys.mkAuthUrl ? 'Conectado' : 'Disponível', logo: '☁️' },
       { id: 'voalle', name: 'Voalle', category: 'ERP', desc: 'Gestão de assinantes e contratos.', status: voalleCredentials.url ? 'Conectado' : 'Disponível', logo: '📦' },
-      { id: 'radiusnet', name: 'RadiusNet', category: 'ERP', desc: 'Gestão para provedores de internet.', status: 'Disponível', logo: '📡' },
+      { id: 'radiusnet', name: 'RadiusNet', category: 'ERP', desc: 'Gestão para provedores de internet.', status: integrationKeys.radiusNetUrl ? 'Conectado' : 'Disponível', logo: '📡' },
       { id: 'hubsoft', name: 'HubSoft', category: 'ERP', desc: 'Integração com ERP HubSoft.', status: hubsoftCredentials.url ? 'Conectado' : 'Disponível', logo: '🔌' },
       { id: 'sgp', name: 'SGP', category: 'ERP', desc: 'Integração de billing SGP.', status: sgpCredentials.url ? 'Conectado' : 'Disponível', logo: '🏢' },
       { id: 'rbx', name: 'RBX', category: 'ERP', desc: 'Integração com Softwares RBX.', status: rbxCredentials.url ? 'Conectado' : 'Disponível', logo: '🔗' },
-      { id: 'asaas', name: 'Asaas', category: 'Pagamentos', desc: 'Geração de boletos e Pix Asaas.', status: 'Disponível', logo: '💸' },
-      { id: 'gerencianet', name: 'Gerencianet', category: 'Pagamentos', desc: 'Emissão de cobranças (Efí).', status: 'Requer upgrade', logo: '💳' },
-      { id: 'openai', name: 'OpenAI', category: 'IA', desc: 'Modelos GPT-4 e processamento de linguagem.', status: 'Disponível', logo: '🧠' },
-      { id: 'gemini', name: 'Google Gemini', category: 'IA', desc: 'Integração nativa com IA Gemini.', status: 'Conectado', logo: '✨' },
-      { id: 'anthropic', name: 'Anthropic Claude', category: 'IA', desc: 'Integração com Claude 3.', status: 'Requer upgrade', logo: '🤖' },
+      { id: 'rdstation', name: 'RD Station', category: 'CRM', desc: 'Integração do funil de vendas com RD Station CRM.', status: integrationKeys.rdStationToken ? 'Conectado' : 'Disponível', logo: '🎯' },
+      { id: 'pipedrive', name: 'Pipedrive', category: 'CRM', desc: 'Sincronização do funil de Vendas Pipedrive.', status: integrationKeys.pipedriveToken ? 'Conectado' : 'Disponível', logo: '📈' },
+      { id: 'hubspotcrm', name: 'HubSpot', category: 'CRM', desc: 'Integração de funil e pipeline HubSpot CRM.', status: integrationKeys.hubspotToken ? 'Conectado' : 'Disponível', logo: '🧡' },
+      { id: 'asaas', name: 'Asaas', category: 'Pagamentos', desc: 'Geração de boletos e Pix Asaas.', status: integrationKeys.asaasToken ? 'Conectado' : 'Disponível', logo: '💸' },
+      { id: 'gerencianet', name: 'Gerencianet', category: 'Pagamentos', desc: 'Emissão de cobranças (Efí).', status: integrationKeys.gerencianetClientId ? 'Conectado' : 'Disponível', logo: '💳' },
+      { id: 'openai', name: 'OpenAI', category: 'IA', desc: 'Modelos GPT-4 e processamento de linguagem.', status: integrationKeys.openaiApiKey ? 'Conectado' : 'Disponível', logo: '🧠' },
+      { id: 'gemini', name: 'Google Gemini', category: 'IA', desc: 'Integração nativa com IA Gemini.', status: integrationKeys.geminiApiKey ? 'Conectado' : 'Disponível', logo: '✨' },
+      { id: 'anthropic', name: 'Anthropic Claude', category: 'IA', desc: 'Integração com Claude 3.', status: integrationKeys.anthropicApiKey ? 'Conectado' : 'Disponível', logo: '🤖' },
       { id: 'qdrant', name: 'Qdrant (Vector DB)', category: 'IA', desc: 'Banco de dados vetorial para Retrieval.', status: vectorConfig?.url ? 'Conectado' : 'Disponível', logo: '📊' },
       { id: 'evolution', name: 'Evolution API', category: 'Comunicação', desc: 'Gateway para comunicação WhatsApp.', status: integrationKeys.evolutionUrl ? 'Conectado' : 'Disponível', logo: '💬' },
-      { id: 'instagram', name: 'Instagram', category: 'Comunicação', desc: 'Integração com Instagram Direct.', status: 'Requer upgrade', logo: '📸' },
-      { id: 'facebook', name: 'Facebook', category: 'Comunicação', desc: 'Integração com Messenger.', status: 'Requer upgrade', logo: '👍' }
+      { id: 'instagram', name: 'Instagram', category: 'Comunicação', desc: 'Integração com Instagram Direct.', status: integrationKeys.instagramToken ? 'Conectado' : 'Disponível', logo: '📸' },
+      { id: 'facebook', name: 'Facebook', category: 'Comunicação', desc: 'Integração com Messenger.', status: integrationKeys.facebookToken ? 'Conectado' : 'Disponível', logo: '👍' }
     ];
 
     const getStatusBadge = (status: string) => {
@@ -1069,6 +1074,46 @@ export function SettingsPage(props: any) {
               </DialogHeader>
 
               {/* Render specific forms here */}
+              {selectedIntegrationMenu === 'mkauth' && (
+                  <div className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label>MK-Auth URL</Label>
+                        <Input 
+                           placeholder="https://sua-url-mkauth.com.br" 
+                           value={integrationKeys.mkAuthUrl || ''}
+                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, mkAuthUrl: e.target.value }))}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>Client ID (API)</Label>
+                        <Input 
+                           type="password" 
+                           placeholder="Insira o Client ID..." 
+                           value={integrationKeys.mkAuthClientId || ''}
+                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, mkAuthClientId: e.target.value }))}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>Client Secret (API)</Label>
+                        <Input 
+                           type="password" 
+                           placeholder="Insira o Client Secret..." 
+                           value={integrationKeys.mkAuthClientSecret || ''}
+                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, mkAuthClientSecret: e.target.value }))}
+                        />
+                      </div>
+                      <div className="pt-4 flex gap-2">
+                        <Button onClick={async () => {
+                           setIsSavingKeys(true);
+                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           toast.success('Configurações MK-Auth salvas com sucesso!');
+                           setIsSavingKeys(false);
+                           setSelectedIntegrationMenu(null);
+                        }} className="bg-indigo-600 hover:bg-indigo-700">Salvar MK-Auth</Button>
+                      </div>
+                  </div>
+              )}
+
               {selectedIntegrationMenu === 'ixc' && (
                   <div className="space-y-4">
                       <div className="grid gap-2">
@@ -1218,6 +1263,81 @@ export function SettingsPage(props: any) {
                   </div>
               )}
 
+              {selectedIntegrationMenu === 'rdstation' && (
+                  <div className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label>RD Station Access Token</Label>
+                        <Input 
+                           type="password" 
+                           placeholder="Cole o Access Token do RD Station CRM..." 
+                           value={integrationKeys.rdStationToken || ''}
+                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, rdStationToken: e.target.value }))}
+                        />
+                      </div>
+                      <div className="pt-4 flex gap-2">
+                        <Button onClick={async () => {
+                           setIsSavingKeys(true);
+                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           toast.success('Configurações RD Station salvas!');
+                           setIsSavingKeys(false);
+                           setSelectedIntegrationMenu(null);
+                        }} className="bg-indigo-600 hover:bg-indigo-700">
+                           Salvar RD Station
+                        </Button>
+                      </div>
+                  </div>
+              )}
+
+              {selectedIntegrationMenu === 'pipedrive' && (
+                  <div className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label>Pipedrive API Token</Label>
+                        <Input 
+                           type="password" 
+                           placeholder="Cole o API Token de Integração do Pipedrive..." 
+                           value={integrationKeys.pipedriveToken || ''}
+                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, pipedriveToken: e.target.value }))}
+                        />
+                      </div>
+                      <div className="pt-4 flex gap-2">
+                        <Button onClick={async () => {
+                           setIsSavingKeys(true);
+                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           toast.success('Configurações Pipedrive salvas!');
+                           setIsSavingKeys(false);
+                           setSelectedIntegrationMenu(null);
+                        }} className="bg-indigo-600 hover:bg-indigo-700">
+                           Salvar Pipedrive
+                        </Button>
+                      </div>
+                  </div>
+              )}
+
+              {selectedIntegrationMenu === 'hubspotcrm' && (
+                  <div className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label>HubSpot Private App Token</Label>
+                        <Input 
+                           type="password" 
+                           placeholder="Cole token de acesso do App Privado..." 
+                           value={integrationKeys.hubspotToken || ''}
+                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, hubspotToken: e.target.value }))}
+                        />
+                      </div>
+                      <div className="pt-4 flex gap-2">
+                        <Button onClick={async () => {
+                           setIsSavingKeys(true);
+                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           toast.success('Configurações HubSpot salvas!');
+                           setIsSavingKeys(false);
+                           setSelectedIntegrationMenu(null);
+                        }} className="bg-indigo-600 hover:bg-indigo-700">
+                           Salvar HubSpot
+                        </Button>
+                      </div>
+                  </div>
+              )}
+
               {selectedIntegrationMenu === 'evolution' && (
                   <div className="space-y-4">
                       <div className="grid gap-2">
@@ -1251,13 +1371,236 @@ export function SettingsPage(props: any) {
                   </div>
               )}
 
-              {['mkauth', 'radiusnet', 'asaas'].includes(selectedIntegrationMenu as string) && (
-                 <div className="space-y-4">
-                    <p className="text-zinc-500">
-                       A integração selecionada ({selectedIntegrationMenu}) está em fase de implantação para testes.
-                       Em breve o formulário completo de chaves será liberado.
-                    </p>
-                 </div>
+              {selectedIntegrationMenu === 'radiusnet' && (
+                  <div className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label>RadiusNet URL</Label>
+                        <Input 
+                           placeholder="https://sua-url.radius.net.br" 
+                           value={integrationKeys.radiusNetUrl || ''}
+                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, radiusNetUrl: e.target.value }))}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>API Token</Label>
+                        <Input 
+                           type="password" 
+                           placeholder="Token do RadiusNet..." 
+                           value={integrationKeys.radiusNetToken || ''}
+                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, radiusNetToken: e.target.value }))}
+                        />
+                      </div>
+                      <div className="pt-4 flex gap-2">
+                        <Button onClick={async () => {
+                           setIsSavingKeys(true);
+                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           toast.success('Configurações salvas!');
+                           setIsSavingKeys(false);
+                           setSelectedIntegrationMenu(null);
+                        }} className="bg-indigo-600 hover:bg-indigo-700">Salvar RadiusNet</Button>
+                      </div>
+                  </div>
+              )}
+
+              {selectedIntegrationMenu === 'asaas' && (
+                  <div className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label>Asaas API Key</Label>
+                        <Input 
+                           type="password" 
+                           placeholder="Chave de API do Asaas..." 
+                           value={integrationKeys.asaasToken || ''}
+                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, asaasToken: e.target.value }))}
+                        />
+                      </div>
+                      <div className="pt-4 flex gap-2">
+                        <Button onClick={async () => {
+                           setIsSavingKeys(true);
+                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           toast.success('Configurações salvas!');
+                           setIsSavingKeys(false);
+                           setSelectedIntegrationMenu(null);
+                        }} className="bg-indigo-600 hover:bg-indigo-700">Salvar Asaas</Button>
+                      </div>
+                  </div>
+              )}
+
+              {selectedIntegrationMenu === 'gerencianet' && (
+                  <div className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label>Client ID (Efí)</Label>
+                        <Input 
+                           type="password" 
+                           placeholder="Client ID..." 
+                           value={integrationKeys.gerencianetClientId || ''}
+                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, gerencianetClientId: e.target.value }))}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>Client Secret (Efí)</Label>
+                        <Input 
+                           type="password" 
+                           placeholder="Client Secret..." 
+                           value={integrationKeys.gerencianetClientSecret || ''}
+                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, gerencianetClientSecret: e.target.value }))}
+                        />
+                      </div>
+                      <div className="pt-4 flex gap-2">
+                        <Button onClick={async () => {
+                           setIsSavingKeys(true);
+                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           toast.success('Configurações salvas!');
+                           setIsSavingKeys(false);
+                           setSelectedIntegrationMenu(null);
+                        }} className="bg-indigo-600 hover:bg-indigo-700">Salvar Gerencianet</Button>
+                      </div>
+                  </div>
+              )}
+
+              {selectedIntegrationMenu === 'openai' && (
+                  <div className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label>OpenAI API Key</Label>
+                        <Input 
+                           type="password" 
+                           placeholder="sk-..." 
+                           value={integrationKeys.openaiApiKey || ''}
+                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, openaiApiKey: e.target.value }))}
+                        />
+                      </div>
+                      <div className="pt-4 flex gap-2">
+                        <Button onClick={async () => {
+                           setIsSavingKeys(true);
+                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           toast.success('Configurações salvas!');
+                           setIsSavingKeys(false);
+                           setSelectedIntegrationMenu(null);
+                        }} className="bg-indigo-600 hover:bg-indigo-700">Salvar OpenAI</Button>
+                      </div>
+                  </div>
+              )}
+
+              {selectedIntegrationMenu === 'gemini' && (
+                  <div className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label>Google Gemini API Key</Label>
+                        <Input 
+                           type="password" 
+                           placeholder="AIzaSy..." 
+                           value={integrationKeys.geminiApiKey || ''}
+                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, geminiApiKey: e.target.value }))}
+                        />
+                      </div>
+                      <div className="pt-4 flex gap-2">
+                        <Button onClick={async () => {
+                           setIsSavingKeys(true);
+                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           toast.success('Configurações salvas!');
+                           setIsSavingKeys(false);
+                           setSelectedIntegrationMenu(null);
+                        }} className="bg-indigo-600 hover:bg-indigo-700">Salvar Gemini</Button>
+                      </div>
+                  </div>
+              )}
+
+              {selectedIntegrationMenu === 'anthropic' && (
+                  <div className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label>Anthropic API Key</Label>
+                        <Input 
+                           type="password" 
+                           placeholder="sk-ant-..." 
+                           value={integrationKeys.anthropicApiKey || ''}
+                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, anthropicApiKey: e.target.value }))}
+                        />
+                      </div>
+                      <div className="pt-4 flex gap-2">
+                        <Button onClick={async () => {
+                           setIsSavingKeys(true);
+                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           toast.success('Configurações salvas!');
+                           setIsSavingKeys(false);
+                           setSelectedIntegrationMenu(null);
+                        }} className="bg-indigo-600 hover:bg-indigo-700">Salvar Anthropic</Button>
+                      </div>
+                  </div>
+              )}
+
+              {selectedIntegrationMenu === 'qdrant' && (
+                  <div className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label>Qdrant URL</Label>
+                        <Input 
+                           placeholder="https://sua-instancia.qdrant.tech" 
+                           value={integrationKeys.qdrantUrl || ''}
+                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, qdrantUrl: e.target.value }))}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>Qdrant API Key</Label>
+                        <Input 
+                           type="password" 
+                           placeholder="Sua API Key do Qdrant..." 
+                           value={integrationKeys.qdrantApiKey || ''}
+                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, qdrantApiKey: e.target.value }))}
+                        />
+                      </div>
+                      <div className="pt-4 flex gap-2">
+                        <Button onClick={async () => {
+                           setIsSavingKeys(true);
+                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           toast.success('Configurações salvas!');
+                           setIsSavingKeys(false);
+                           setSelectedIntegrationMenu(null);
+                        }} className="bg-indigo-600 hover:bg-indigo-700">Salvar Qdrant</Button>
+                      </div>
+                  </div>
+              )}
+
+              {selectedIntegrationMenu === 'instagram' && (
+                  <div className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label>Instagram Access Token</Label>
+                        <Input 
+                           type="password" 
+                           placeholder="Token de acesso longo do Instagram..." 
+                           value={integrationKeys.instagramToken || ''}
+                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, instagramToken: e.target.value }))}
+                        />
+                      </div>
+                      <div className="pt-4 flex gap-2">
+                        <Button onClick={async () => {
+                           setIsSavingKeys(true);
+                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           toast.success('Configurações salvas!');
+                           setIsSavingKeys(false);
+                           setSelectedIntegrationMenu(null);
+                        }} className="bg-indigo-600 hover:bg-indigo-700">Salvar Instagram</Button>
+                      </div>
+                  </div>
+              )}
+
+              {selectedIntegrationMenu === 'facebook' && (
+                  <div className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label>Facebook Page Token</Label>
+                        <Input 
+                           type="password" 
+                           placeholder="Token de acesso da Página do Facebook..." 
+                           value={integrationKeys.facebookToken || ''}
+                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, facebookToken: e.target.value }))}
+                        />
+                      </div>
+                      <div className="pt-4 flex gap-2">
+                        <Button onClick={async () => {
+                           setIsSavingKeys(true);
+                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           toast.success('Configurações salvas!');
+                           setIsSavingKeys(false);
+                           setSelectedIntegrationMenu(null);
+                        }} className="bg-indigo-600 hover:bg-indigo-700">Salvar Facebook</Button>
+                      </div>
+                  </div>
               )}
            </DialogContent>
         </Dialog>

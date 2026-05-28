@@ -138,45 +138,6 @@ export function CobrAIPage() {
     setIsRefreshing(false);
   };
 
-  // Funções de Update global
-  const toggleEnabled = async (checked: boolean) => {
-    try {
-      await updateDoc(doc(db, 'tenants', tenantId), { cobrai_enabled: checked });
-      toast.success(checked ? "CobrAI ativado" : "CobrAI pausado");
-    } catch (e) {
-      toast.error('Erro ao atualizar status');
-    }
-  };
-
-  const updateGlobalLimiter = async (limitHourly: number) => {
-    try {
-      await updateDoc(doc(db, 'tenants', tenantId), { cobrai_hourly_limit: limitHourly });
-      toast.success("Limite atualizado");
-    } catch (e) {
-      toast.error('Erro ao atualizar limite');
-    }
-  };
-
-  const updateWindow = async (start: number, end: number) => {
-    try {
-      await updateDoc(doc(db, 'tenants', tenantId), { cobrai_window: { start, end } });
-      toast.success("Janela de disparo atualizada");
-    } catch (e) {
-      toast.error('Erro ao atualizar janela');
-    }
-  };
-
-  const toggleStage = async (stage: string, checked: boolean) => {
-    try {
-      await updateDoc(doc(db, 'tenants', tenantId), { 
-        [`cobrai_stages.${stage}.active`]: checked 
-      });
-      toast.success(`Etapa ${stage} ${checked ? 'ativada' : 'desativada'}`);
-    } catch (e) {
-      toast.error('Erro ao atualizar etapa');
-    }
-  };
-
   const pauseCustomer = async (customerId: string) => {
     try {
       const isPaused = tenantData.cobrai_paused_customers?.includes(customerId);
@@ -264,65 +225,13 @@ export function CobrAIPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* CONTROLE GLOBAL */}
-        <Card className="md:col-span-1 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg">Controle Global</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-100 dark:border-zinc-800">
-              <div className="space-y-0.5">
-                <Label className="text-base font-semibold">CobrAI Ativo</Label>
-                <p className="text-xs text-zinc-500">Mestre de disparo</p>
-              </div>
-              <Switch 
-                checked={tenantData.cobrai_enabled || false}
-                onCheckedChange={toggleEnabled}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Limite de envios por hora</Label>
-              <div className="flex items-center gap-2">
-                <Input 
-                  type="number" 
-                  value={tenantData.cobrai_hourly_limit ?? 30} 
-                  onChange={(e) => updateGlobalLimiter(Number(e.target.value))}
-                />
-              </div>
-              <p className="text-xs text-zinc-500">Ajuda a evitar bloqueios do WhatsApp.</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Janela de disparo (Horas)</Label>
-              <div className="flex items-center gap-2">
-                <Input 
-                  type="number" 
-                  min={0} max={23}
-                  value={tenantData.cobrai_window?.start ?? 8} 
-                  onChange={(e) => updateWindow(Number(e.target.value), tenantData.cobrai_window?.end ?? 20)}
-                />
-                <span className="text-sm">às</span>
-                <Input 
-                  type="number" 
-                  min={0} max={23}
-                  value={tenantData.cobrai_window?.end ?? 20} 
-                  onChange={(e) => updateWindow(tenantData.cobrai_window?.start ?? 8, Number(e.target.value))}
-                />
-              </div>
-              <p className="text-xs text-zinc-500">Disparos fora desse horário serão ignorados (ou pausados).</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* TABS (Fila / Histórico / Config) */}
-        <Card className="md:col-span-2 shadow-sm border-none bg-transparent">
+      <div className="grid grid-cols-1 gap-6">
+        {/* TABS (Fila / Histórico) */}
+        <Card className="shadow-sm border-none bg-transparent">
           <Tabs defaultValue="queue" className="w-full">
             <TabsList className="bg-white/50 dark:bg-zinc-950/50 backdrop-blur-md border border-zinc-200 dark:border-zinc-800/80 p-1 mb-4">
               <TabsTrigger value="queue">Fila Atual ({queueJobs.length})</TabsTrigger>
               <TabsTrigger value="history">Histórico Log</TabsTrigger>
-              <TabsTrigger value="config">Configurar Etapas</TabsTrigger>
             </TabsList>
 
             <TabsContent value="queue" className="mt-0">
@@ -448,39 +357,6 @@ export function CobrAIPage() {
                   </div>
                 </CardContent>
               </Card>
-            </TabsContent>
-
-            <TabsContent value="config" className="mt-0 space-y-4">
-              {Object.keys(COBRAI_TEMPLATES).map((stage) => {
-                const template = COBRAI_TEMPLATES[stage];
-                const isActive = tenantData.cobrai_stages?.[stage]?.active !== false; // default true if undefined
-                const delayStr = "24h"; // mock display
-                
-                return (
-                  <Card key={stage} className={isActive ? 'border-zinc-200 dark:border-zinc-800' : 'opacity-60 border-dashed'}>
-                    <div className="flex items-start justify-between p-4">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-bold text-base">{stage}</h4>
-                          <Badge variant="outline" className="text-[10px] uppercase font-mono bg-zinc-50 dark:bg-zinc-900">
-                            {template.templateName}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-zinc-500 max-w-lg mb-3">
-                          Template Info: "{template.components.find(c => c.type === 'BODY')?.text?.substring(0, 80)}..."
-                        </p>
-                        <div className="flex items-center gap-4 text-xs text-zinc-500">
-                          <span className="flex items-center gap-1"><Clock size={12}/> Retry Delay: {delayStr}</span>
-                        </div>
-                      </div>
-                      <Switch 
-                        checked={isActive}
-                        onCheckedChange={(c) => toggleStage(stage, c)}
-                      />
-                    </div>
-                  </Card>
-                );
-              })}
             </TabsContent>
 
           </Tabs>

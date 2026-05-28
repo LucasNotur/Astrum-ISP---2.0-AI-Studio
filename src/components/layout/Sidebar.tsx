@@ -2,7 +2,7 @@ import React from 'react';
 import { 
   Bot, ChevronLeft, ChevronRight, LayoutDashboard, Users, 
   Ticket, MessageSquare, Map, Settings, ShieldCheck, 
-  CreditCard, Briefcase, Package, LogOut, Phone, BookOpen, Activity, BarChart2
+  CreditCard, Briefcase, Package, LogOut, Phone, BookOpen, Activity, BarChart2, Sparkles
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { useAppStore, canAccess } from '@/src/store/useAppStore';
@@ -89,6 +89,7 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
   const [isSuperAdmin, setIsSuperAdmin] = React.useState(false);
   const [dlqCount, setDlqCount] = React.useState(0);
 
+
   React.useEffect(() => {
     if (user) {
       auth.currentUser?.getIdTokenResult()
@@ -170,7 +171,7 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
           />
         )}
         
-        {(hasAccess('customers') || hasAccess('tickets') || hasAccess('chat')) && (
+        {(hasAccess('customers') || hasAccess('tickets') || hasAccess('chat') || hasAccess('os')) && (
           <>
             {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Atendimento</div>}
             {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2"></div>}
@@ -207,10 +208,19 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
             shortcut="Alt+4"
           />
         )}
-        
-        {(hasAccess('billing') || hasAccess('inventory') || hasAccess('map') || hasAccess('team') || hasAccess('os')) && (
+        {hasAccess('os') && (
+          <NavItem 
+            active={currentPath === 'os'} 
+            onClick={() => navigate('/os')} 
+            icon={<Briefcase size={24} />} 
+            label="CRM Técnico / OS" 
+            collapsed={isSidebarCollapsed}
+            shortcut="Alt+O"
+          />
+        )}
+        {(hasAccess('billing') || hasAccess('inventory') || hasAccess('map') || hasAccess('team')) && (
           <>
-            {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Gestão (Provedor)</div>}
+            {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Infra & Gestão</div>}
             {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2"></div>}
           </>
         )}
@@ -223,25 +233,6 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
             label="Financeiro" 
             collapsed={isSidebarCollapsed}
             shortcut="Alt+6"
-          />
-        )}
-        {hasAccess('cobrai') && (
-          <NavItem 
-            active={currentPath === 'cobrai'} 
-            onClick={() => navigate('/cobrai')} 
-            icon={<Bot size={24} />} 
-            label="CobrAI" 
-            collapsed={isSidebarCollapsed}
-          />
-        )}
-        {hasAccess('os') && (
-          <NavItem 
-            active={currentPath === 'os'} 
-            onClick={() => navigate('/os')} 
-            icon={<Briefcase size={24} />} 
-            label="CRM Técnico / OS" 
-            collapsed={isSidebarCollapsed}
-            shortcut="Alt+O"
           />
         )}
         {hasAccess('inventory') && (
@@ -273,10 +264,84 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
             shortcut="Alt+7"
           />
         )}
-
-        {(hasAccess('settings') || hasAccess('ai-config') || hasAccess('whatsapp') || isSuperAdmin) && (
+        {(hasAccess('ai-config') || hasAccess('cobrai') || hasAccess('kb')) && (
           <>
-            {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Sistema (Dev)</div>}
+            {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Inteligência & Automação</div>}
+            {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2"></div>}
+            
+            {hasAccess('ai-config') && (
+              <NavItem 
+                active={currentPath === 'ai-config'} 
+                onClick={() => navigate('/ai-config')} 
+                icon={<Sparkles size={24} />} 
+                label="Núcleo IA" 
+                collapsed={isSidebarCollapsed}
+                shortcut="Alt+8"
+              />
+            )}
+            {hasAccess('cobrai') && (
+              <NavItem 
+                active={currentPath === 'cobrai'} 
+                onClick={() => navigate('/cobrai')} 
+                icon={<Bot size={24} />} 
+                label="CobrAI" 
+                collapsed={isSidebarCollapsed}
+              />
+            )}
+            {hasAccess('kb') && (
+              <NavItem 
+                active={currentPath === 'kb'} 
+                onClick={() => navigate('/kb')} 
+                icon={<BookOpen size={24} />} 
+                label="Base de Conhecimento" 
+                collapsed={isSidebarCollapsed}
+              />
+            )}
+          </>
+        )}
+
+        {(hasAccess('bi') || hasAccess('quality-monitor') || hasAccess('observability') || hasAccess('monitoring')) && (
+          <>
+            {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Relatórios e Monitoria</div>}
+            {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2"></div>}
+            
+            {(hasAccess('bi') || hasAccess('quality-monitor')) && (
+               <div className="space-y-1">
+                 {!isSidebarCollapsed && <div className="px-4 py-2 text-[11px] font-semibold text-zinc-500">Inteligência</div>}
+                 {hasAccess('bi') && (
+                    <NavItem 
+                      active={currentPath === 'bi'} 
+                      onClick={() => navigate('/bi')} 
+                      icon={<BarChart2 size={isSidebarCollapsed?24:18} />} 
+                      label="Business Intelligence" 
+                      collapsed={isSidebarCollapsed}
+                    />
+                  )}
+                  {hasAccess('quality-monitor') && (
+                    <NavItem 
+                      active={currentPath === 'quality-monitor'} 
+                      onClick={() => navigate('/quality-monitor')} 
+                      icon={<ShieldCheck size={isSidebarCollapsed?24:18} />} 
+                      label="Monitor de Qualidade" 
+                      collapsed={isSidebarCollapsed}
+                    />
+                  )}
+               </div>
+            )}
+
+            {(hasAccess('observability') || hasAccess('monitoring')) && (
+                <div className="space-y-1 mt-2">
+                  {!isSidebarCollapsed && <div className="px-4 py-2 text-[11px] font-semibold text-zinc-500">Painel de Controle IA</div>}
+                  {hasAccess('observability') && <NavItem active={currentPath === 'observability'} onClick={() => navigate('/observability')} icon={<Activity size={isSidebarCollapsed?24:18} />} label="Logs e Auditoria IA" collapsed={isSidebarCollapsed} />}
+                  {hasAccess('monitoring') && <NavItem active={currentPath === 'monitoring'} onClick={() => navigate('/monitoring')} icon={<Activity size={isSidebarCollapsed?24:18} />} label="Monitoramento (Falhas)" collapsed={isSidebarCollapsed} badge={dlqCount} />}
+                </div>
+            )}
+          </>
+        )}
+
+        {(hasAccess('settings') || hasAccess('whatsapp') || isSuperAdmin) && (
+          <>
+            {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Configurações Globais</div>}
             {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2"></div>}
             
             {hasAccess('whatsapp') && (
@@ -288,51 +353,14 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
                 collapsed={isSidebarCollapsed}
               />
             )}
-            {hasAccess('ai-config') && (
+            {hasAccess('settings') && (
               <NavItem 
-                active={currentPath === 'ai-config'} 
-                onClick={() => navigate('/ai-config')} 
-                icon={<Bot size={24} />} 
-                label="Núcleo IA" 
+                active={currentPath === 'settings'} 
+                onClick={() => navigate('/settings')} 
+                icon={<Settings size={24} />} 
+                label="Configurações Gerais" 
                 collapsed={isSidebarCollapsed}
-                shortcut="Alt+8"
-              />
-            )}
-            {hasAccess('observability') && (
-              <NavItem 
-                active={currentPath === 'observability'} 
-                onClick={() => navigate('/observability')} 
-                icon={<Activity size={24} />} 
-                label="Observabilidade IA" 
-                collapsed={isSidebarCollapsed}
-              />
-            )}
-            {hasAccess('monitoring') && (
-              <NavItem 
-                active={currentPath === 'monitoring'} 
-                onClick={() => navigate('/monitoring')} 
-                icon={<Activity size={24} />} 
-                label="Monitoramento" 
-                collapsed={isSidebarCollapsed}
-                badge={dlqCount}
-              />
-            )}
-            {hasAccess('quality-monitor') && (
-              <NavItem 
-                active={currentPath === 'quality-monitor'} 
-                onClick={() => navigate('/quality-monitor')} 
-                icon={<Activity size={24} />} 
-                label="Qualidade" 
-                collapsed={isSidebarCollapsed}
-              />
-            )}
-            {hasAccess('marketing') && (
-              <NavItem 
-                active={currentPath === 'bi'} 
-                onClick={() => navigate('/bi')} 
-                icon={<BarChart2 size={24} />} 
-                label="Business Intelligence" 
-                collapsed={isSidebarCollapsed}
+                shortcut="Alt+9"
               />
             )}
             {isSuperAdmin && (
@@ -342,16 +370,6 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
                 icon={<ShieldCheck size={24} />} 
                 label="Super Admin" 
                 collapsed={isSidebarCollapsed}
-              />
-            )}
-            {hasAccess('settings') && (
-              <NavItem 
-                active={currentPath === 'settings'} 
-                onClick={() => navigate('/settings')} 
-                icon={<Settings size={24} />} 
-                label="Configurações" 
-                collapsed={isSidebarCollapsed}
-                shortcut="Alt+9"
               />
             )}
           </>

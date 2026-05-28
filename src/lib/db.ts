@@ -434,7 +434,7 @@ export const sendMessage = async (
   attachment?: { url: string; type: string; base64?: string },
 ) => {
   try {
-    await addDoc(collection(db, `tickets/${ticketId}/messages`), {
+    const docRef = await addDoc(collection(db, `tickets/${ticketId}/messages`), {
       ticketId,
       senderId: auth.currentUser?.uid || "anonymous",
       senderType,
@@ -443,12 +443,14 @@ export const sendMessage = async (
       attachment: attachment || null,
       createdAt: serverTimestamp(),
     });
+    return docRef;
   } catch (err) {
     handleFirestoreError(
       err,
       OperationType.CREATE,
       `tickets/${ticketId}/messages`,
     );
+    return null;
   }
 };
 
@@ -749,7 +751,11 @@ export const getIntegrationKeys = async (): Promise<any> => {
       'integration_keys'
     );
     if (snapshot.exists()) {
-      return snapshot.data();
+      const data = snapshot.data();
+      if (data && data.evolutionUrl && data.evolutionUrl.includes("trycloudflare")) {
+         data.evolutionUrl = "";
+      }
+      return data;
     }
     return {};
   } catch (err: any) {

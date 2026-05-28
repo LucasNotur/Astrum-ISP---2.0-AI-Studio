@@ -277,7 +277,7 @@ export const processMessageJob = async (job: any) => {
       return;
     }
 
-    let { remoteJid, textMessage, messageData, payload, bufferKey, tenantId, isAudio, audioUrl, ticketId, traceId, messageId, enriched_instance_id, enriched_instance_data } = job.data;
+    let { remoteJid, textMessage, messageData, payload, bufferKey, tenantId, isAudio, audioUrl, isImage, isDocument, base64Media, mediaMimeType, ticketId, traceId, messageId, enriched_instance_id, enriched_instance_data } = job.data;
     const workerStartTime = Date.now();
 
     const logCtx = {
@@ -321,9 +321,10 @@ export const processMessageJob = async (job: any) => {
 
     await incrementShardedCounter('messages_today', tenantId);
     
-    if (isAudio && audioUrl) {
+    if (isAudio && (audioUrl || base64Media)) {
       const { downloadAndTranscribeAudio } = await import("../lib/transcription.ts");
-      const result = await downloadAndTranscribeAudio(audioUrl, tenantId);
+      const audioToTranscribe = audioUrl || base64Media;
+      const result = await downloadAndTranscribeAudio(audioToTranscribe, tenantId);
       if (result && result.text) {
         textMessage = `[Mensagem de voz transcrita]: ${result.text}`;
         logger.info('whisper_transcribed', { ...logCtx, data: { partial: result.text.substring(0, 100) } });
@@ -418,30 +419,49 @@ export const processMessageJob = async (job: any) => {
       let processedTextMessage = textMessage;
 
       let imageAnalysis = "";
-      if (imageMessageObj && !isInstagramEvent && !isFacebookEvent && !isWebchatEvent) {
+      if ((imageMessageObj || isImage || isDocument) && !isInstagramEvent && !isFacebookEvent && !isWebchatEvent) {
           try {
-             logger.info('image_message_detected', logCtx);
-             const base64Res = await safeEvoFetch(`${evoUrl}/chat/getBase64FromMediaMessage/${evoInstance}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", apikey: evoApiKey },
-                body: JSON.stringify({ message: imageMessageObj })
-             }, tenantId, evoInstance);
+             logger.info('media_message_detected', logCtx);
+             let finalBase64 = base64Media;
+             let finalMimeType = mediaMimeType || imageMessageObj?.imageMessage?.mimetype || imageMessageObj?.documentMessage?.mimetype || 'image/jpeg';
              
-             const base64Data = await base64Res.json();
-             if (base64Data && base64Data.base64) {
+             if (!finalBase64 && (imageMessageObj || messageData?.documentMessage)) {
+               const mediaObj = imageMessageObj || messageData;
+               const base64Res = await safeEvoFetch(`${evoUrl}/chat/getBase64FromMediaMessage/${evoInstance}`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", apikey: evoApiKey },
+                  body: JSON.stringify({ message: mediaObj.message || mediaObj })
+               }, tenantId, evoInstance);
+               
+               const base64Data = await base64Res.json();
+               if (base64Data && base64Data.base64) {
+                   finalBase64 = base64Data.base64;
+               }
+             }
+
+             if (finalBase64) {
                  const { aiProvider } = await import("../ai-provider/ai-provider.setup");
+                 let promptStr = isDocument ? 'Analise este documento.' : 'Analise esta imagem.';
+                 let systemStr = isDocument 
+                   ? 'Você é um assistente de suporte especializado atuando na recepção de documentos. Extraia informações relevantes, como nome, valores, vencimentos, CPFs ou códigos de erro exibidos neste documento. Seja conciso e objetivo.'
+                   : 'Você é técnico de telecom. Analise este equipamento: tipo, LEDs (verde/vermelho/apagado), luzes PON/LOS, problemas visíveis. Seja objetivo e conciso. Retorne apenas a análise.';
+                   
                  const analysisRes = await aiProvider.chat("fallback", [
-                     { role: 'system', content: 'Você é técnico de telecom. Analise este equipamento: tipo, LEDs (verde/vermelho/apagado), luzes PON/LOS, problemas visíveis. Seja objetivo e conciso. Retorne apenas a análise.' },
-                     { role: 'user', content: 'Analise esta imagem.', parts: [{ inlineData: { mimeType: imageMessageObj.imageMessage.mimetype || 'image/jpeg', data: base64Data.base64 } }] }
+                     { role: 'system', content: systemStr },
+                     { role: 'user', content: promptStr, parts: [{ inlineData: { mimeType: finalMimeType, data: finalBase64 } }] }
                  ], tenantId);
                  
                  if (analysisRes && analysisRes.content) {
-                     imageAnalysis = `[Análise Automática da Imagem Enviada]: ${analysisRes.content}`;
+                     imageAnalysis = isDocument 
+                       ? `[Análise Automática do Documento]: ${analysisRes.content}`
+                       : `[Análise Automática da Imagem Enviada]: ${analysisRes.content}`;
                      processedTextMessage = processedTextMessage ? `${processedTextMessage}\n\n${imageAnalysis}` : imageAnalysis;
+                 } else {
+                     processedTextMessage = processedTextMessage ? `${processedTextMessage}\n[Mídia Recebida: ${finalMimeType}]` : `[Mídia Recebida: ${finalMimeType}]`;
                  }
              }
           } catch(e: any) {
-              logger.error("error_processing_image", { ...logCtx, error: e?.message });
+             logger.error('media_analysis_failed', { ...logCtx, error: e?.message });
           }
       }
 

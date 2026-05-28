@@ -9,6 +9,11 @@ router.all("/proxy", async (req, res) => {
     return res.status(400).json({ error: "Missing evolutionUrl, evolutionApiKey or path" });
   }
 
+  if (evolutionUrl.includes("trycloudflare.com")) {
+    console.warn("Ignoring dead trycloudflare Evolution URL:", evolutionUrl);
+    return res.status(503).json({ error: "Evolution API not configured or using dead tunnel." });
+  }
+
   // Sanitize the base URL (remove trailing slash) and path (ensure leading slash)
   const baseUrl = evolutionUrl.replace(/\/$/, "");
   const endpointPath = path.startsWith("/") ? path : `/${path}`;

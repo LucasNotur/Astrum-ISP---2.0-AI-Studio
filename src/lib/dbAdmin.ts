@@ -10,13 +10,23 @@ export const getIntegrationKeys = async (tenantId: string = "default"): Promise<
     // Try tenant-specific first
     if (tenantId && tenantId !== 'default') {
       const tenantDoc = await db.collection("tenants").doc(tenantId).collection("settings").doc("integrations").get();
-      if (tenantDoc.exists) return tenantDoc.data();
+      if (tenantDoc.exists) {
+        const data = tenantDoc.data();
+        if (data && data.evolutionUrl && data.evolutionUrl.includes("trycloudflare")) {
+           data.evolutionUrl = "";
+        }
+        return data;
+      }
     }
     
     // Fallback to global
     const doc = await db.collection("settings").doc("integrations").get();
     if (doc.exists) {
-      return doc.data();
+      const data = doc.data();
+      if (data && data.evolutionUrl && data.evolutionUrl.includes("trycloudflare")) {
+         data.evolutionUrl = "";
+      }
+      return data;
     }
     return {};
   } catch (err: any) {

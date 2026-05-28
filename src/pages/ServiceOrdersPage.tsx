@@ -416,6 +416,9 @@ export function ServiceOrdersPage() {
           <TabsTrigger value="board" className="gap-2 whitespace-nowrap">
             <Briefcase size={16} /> Quadro Geral (CRM)
           </TabsTrigger>
+          <TabsTrigger value="scheduler" className="gap-2 whitespace-nowrap">
+            <Calendar size={16} /> Painel de Despacho (Matriz)
+          </TabsTrigger>
           <TabsTrigger value="calendar" className="gap-2 whitespace-nowrap">
             <Calendar size={16} /> Minha Agenda (Técnicos)
           </TabsTrigger>
@@ -596,6 +599,121 @@ export function ServiceOrdersPage() {
             </div>
           ))}
         </div>
+        </TabsContent>
+
+        {/* -- SCHEDULER MATRIX VIEW CONTENT -- */}
+        <TabsContent value="scheduler" className="flex-1 overflow-hidden mt-0 flex flex-col h-full pb-10">
+          <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 shrink-0">
+             <div>
+                <h3 className="text-2xl font-bold text-zinc-900 dark:text-white">Painel de Despacho Operacional</h3>
+                <p className="text-zinc-500 text-sm">Visualização em matriz de técnicos e faixas de horário.</p>
+             </div>
+             
+             {/* Date Selector Mini */}
+             <div className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-lg mt-2 md:mt-0">
+                <Button variant="ghost" size="sm" className="h-8" onClick={() => {
+                   const d = new Date(selectedDate);
+                   d.setDate(d.getDate() - 1);
+                   setSelectedDate(d.toISOString().split('T')[0]);
+                }}>&lt;</Button>
+                <div className="text-sm font-bold w-24 text-center">{new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</div>
+                <Button variant="ghost" size="sm" className="h-8" onClick={() => {
+                   const d = new Date(selectedDate);
+                   d.setDate(d.getDate() + 1);
+                   setSelectedDate(d.toISOString().split('T')[0]);
+                }}>&gt;</Button>
+
+                <Button variant="outline" size="sm" className="ml-2 h-8 text-xs border-dashed" onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}>
+                   Hoje
+                </Button>
+             </div>
+          </div>
+
+          <div className="flex-1 bg-white dark:bg-[#16171a] border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm flex flex-col h-full relative">
+            <ScrollArea className="flex-1 relative">
+               <div className="min-w-max pb-10">
+                 {/* Header Row (Technicians) */}
+                 <div className="flex border-b border-zinc-200 dark:border-zinc-800 sticky top-0 bg-zinc-50 dark:bg-[#1c1d21] z-20 shadow-sm">
+                    <div className="w-20 shrink-0 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#1c1d21] p-3 flex flex-col justify-end text-[10px] font-bold text-zinc-400 text-right uppercase">
+                       Horário
+                    </div>
+                    {technicians.filter(t => t.active !== false).map(tech => (
+                       <div key={tech.id} className="w-64 shrink-0 border-r border-zinc-200 dark:border-zinc-800 p-3 flex flex-col gap-1 items-center justify-center">
+                          <div className="w-8 h-8 bg-zinc-200 dark:bg-zinc-800 rounded-full flex items-center justify-center text-zinc-600 dark:text-zinc-400 mb-1">
+                            <User size={14} />
+                          </div>
+                          <span className="font-bold text-xs truncate max-w-full">{tech.name}</span>
+                          <span className={`text-[9px] font-semibold tracking-wide uppercase px-1.5 py-0.5 rounded-full ${tech.status === 'available' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'}`}>
+                            {tech.status === 'available' ? 'Online' : 'Offline'}
+                          </span>
+                       </div>
+                    ))}
+                 </div>
+
+                 {/* Matrix Body */}
+                 <div className="relative">
+                    {['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map(hour => (
+                       <div key={hour} className="flex border-b border-zinc-100 dark:border-zinc-800/50 group relative">
+                          <div className="w-20 shrink-0 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#1c1d21] p-2 text-xs font-bold text-zinc-400 text-right flex items-center justify-end sticky left-0 z-10 transition-colors group-hover:bg-zinc-100 dark:group-hover:bg-zinc-800">
+                             {hour}
+                          </div>
+                          
+                          {technicians.filter(t => t.active !== false).map(tech => {
+                             // Find OS for this technician at this specific hour block (matching HH: prefix)
+                             const hourPrefix = hour.split(':')[0];
+                             const cellOrders = serviceOrders.filter(os => 
+                                os.assignedTo === tech.name && 
+                                os.scheduledDate === selectedDate && 
+                                os.scheduledTime?.startsWith(hourPrefix) &&
+                                os.status !== 'cancelada'
+                             );
+
+                             return (
+                               <div key={`${tech.id}-${hour}`} className="w-64 shrink-0 border-r border-zinc-100 dark:border-zinc-800/50 p-2 min-h-[90px] hover:bg-black/5 dark:hover:bg-white/5 transition-colors relative cursor-pointer" onClick={() => { setScheduleData(prev => ({...prev, date: selectedDate, time: hour, techId: tech.id})); setIsScheduleDialogOpen(true); }}>
+                                  <div className="flex flex-col gap-2">
+                                     {cellOrders.length === 0 && (
+                                       <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                                          <div className="bg-blue-500 text-white text-[10px] font-bold px-2 py-1 rounded-md flex items-center gap-1 shadow-sm"><Plus size={12}/> AGENDAR</div>
+                                       </div>
+                                     )}
+                                     {cellOrders.map(os => (
+                                        <div key={os.id} onClick={(e) => { e.stopPropagation(); setSelectedCalendarOS(os); }} className={`relative z-10 rounded-lg border shadow-sm p-2 text-left cursor-pointer transition-transform hover:scale-[1.02] ${
+                                           os.status === 'concluida' ? 'bg-green-50 border-green-200 dark:bg-green-900/10 dark:border-green-800/50' : 
+                                           os.status === 'em_andamento' ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/10 dark:border-blue-800/50' : 
+                                           os.status === 'em_deslocamento' ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/10 dark:border-indigo-800/50' : 
+                                           'bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-800/50'
+                                        }`}>
+                                           <div className={`text-[9px] font-bold uppercase mb-1 ${
+                                              os.status === 'concluida' ? 'text-green-700 dark:text-green-400' : 
+                                              os.status === 'em_andamento' ? 'text-blue-700 dark:text-blue-400' : 
+                                              os.status === 'em_deslocamento' ? 'text-indigo-700 dark:text-indigo-400' : 
+                                              'text-amber-700 dark:text-amber-400'
+                                           }`}>
+                                             {os.scheduledTime} • {os.status.replace('_', ' ')}
+                                           </div>
+                                           <div className="text-[11px] font-bold text-zinc-900 dark:text-zinc-100 truncate">{os.customerName}</div>
+                                           <div className="text-[10px] text-zinc-500 truncate flex items-center gap-0.5 mt-0.5"><MapPin size={9}/> {os.address}</div>
+                                        </div>
+                                     ))}
+                                  </div>
+                               </div>
+                             );
+                          })}
+                       </div>
+                    ))}
+                 </div>
+               </div>
+            </ScrollArea>
+            
+            {/* Legend Footer */}
+            <div className="bg-zinc-50 dark:bg-zinc-900/50 border-t border-zinc-200 dark:border-zinc-800 p-2 flex items-center gap-4 px-4 overflow-x-auto text-[10px] shrink-0 font-medium">
+               <span className="text-zinc-500 font-bold uppercase tracking-wide mr-2">Legenda:</span>
+               <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-amber-400"></div> Pendente</div>
+               <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-indigo-500"></div> Deslocamento</div>
+               <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-blue-500"></div> Em Andamento</div>
+               <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-green-500"></div> Concluída</div>
+            </div>
+          </div>
         </TabsContent>
 
         {/* -- CALENDAR VIEW CONTENT -- */}

@@ -447,8 +447,8 @@ export default function App() {
                 enabled: true,
                 url: webhookUrl,
                 byEvents: false,
-                base64: false,
-                events: ["MESSAGES_UPSERT", "SEND_MESSAGE"],
+                base64: true,
+                events: ["MESSAGES_UPSERT", "SEND_MESSAGE", "CONNECTION_UPDATE"],
               },
             },
           },
@@ -458,7 +458,7 @@ export default function App() {
               enabled: true,
               url: webhookUrl,
               webhookByEvents: false,
-              events: ["MESSAGES_UPSERT", "SEND_MESSAGE"],
+              events: ["MESSAGES_UPSERT", "SEND_MESSAGE", "CONNECTION_UPDATE"],
             },
           },
           {
@@ -467,8 +467,8 @@ export default function App() {
               enabled: true,
               url: webhookUrl,
               webhook_by_events: false,
-              webhook_base64: false,
-              events: ["MESSAGES_UPSERT", "SEND_MESSAGE"],
+              webhook_base64: true,
+              events: ["MESSAGES_UPSERT", "SEND_MESSAGE", "CONNECTION_UPDATE"],
             },
           },
           {
@@ -2111,10 +2111,22 @@ export default function App() {
     if (!newTeamMember.name || !newTeamMember.email) return;
 
     try {
-      await addDoc(collection(db, "team_members"), {
+      const activeTenant = userProfile?.tenantId || "DEFAULT_TENANT";
+      const docRef = await addDoc(collection(db, "team_members"), {
         ...newTeamMember,
         createdAt: serverTimestamp(),
+        tenantId: activeTenant,
       });
+      if (newTeamMember.role === "Atendente" || newTeamMember.role === "support") {
+        await setDoc(doc(db, "tenants", activeTenant, "operators", docRef.id), {
+          name: newTeamMember.name,
+          email: newTeamMember.email,
+          status: "online",
+          skills: ["SAC_GERAL"],
+          max_concurrent_chats: 5,
+          current_chat_count: 0
+        });
+      }
       setIsTeamMemberDialogOpen(false);
       setNewTeamMember({ name: "", email: "", role: "Atendente" });
       toast.success("Membro da equipe adicionado!");
@@ -2208,21 +2220,44 @@ export default function App() {
     if (!selectedTeamMember) return;
 
     try {
+      const activeTenant = userProfile?.tenantId || "DEFAULT_TENANT";
       if (selectedTeamMember.id) {
         await updateDoc(doc(db, "team_members", selectedTeamMember.id), {
           name: selectedTeamMember.name,
           email: selectedTeamMember.email,
           role: selectedTeamMember.role,
           status: selectedTeamMember.status,
+          tenantId: activeTenant
         });
+        if (selectedTeamMember.role === "support") {
+          await setDoc(doc(db, "tenants", activeTenant, "operators", selectedTeamMember.id), {
+            name: selectedTeamMember.name,
+            email: selectedTeamMember.email,
+            status: selectedTeamMember.status === "active" ? "online" : "offline",
+            skills: selectedTeamMember.skills || ["SAC_GERAL"],
+            max_concurrent_chats: selectedTeamMember.max_concurrent_chats || 5,
+            current_chat_count: 0
+          }, { merge: true });
+        }
         toast.success("Colaborador atualizado com sucesso!");
       } else {
-        await addDoc(collection(db, "team_members"), {
+        const docRef = await addDoc(collection(db, "team_members"), {
           name: selectedTeamMember.name,
           email: selectedTeamMember.email,
           role: selectedTeamMember.role,
           status: selectedTeamMember.status,
+          tenantId: activeTenant
         });
+        if (selectedTeamMember.role === "support") {
+          await setDoc(doc(db, "tenants", activeTenant, "operators", docRef.id), {
+            name: selectedTeamMember.name,
+            email: selectedTeamMember.email,
+            status: selectedTeamMember.status === "active" ? "online" : "offline",
+            skills: ["SAC_GERAL"],
+            max_concurrent_chats: 5,
+            current_chat_count: 0
+          });
+        }
         toast.success("Colaborador adicionado com sucesso!");
       }
       setIsTeamMemberDialogOpen(false);
@@ -2446,7 +2481,7 @@ export default function App() {
     setSelectedFile(null);
 
     // Add human message to DB
-    await sendMessage(
+    const msgRefId = await sendMessage(
       selectedTicket.id,
       text,
       "human",
@@ -2454,9 +2489,62 @@ export default function App() {
       attachmentData,
     );
 
+    // Enviar mensagem real para o cliente se integração existir
+    const customer = customers.find(c => c.id === selectedTicket.customerId);
+    const customerPhone = customer?.phone || selectedTicket.customerId?.replace("@s.whatsapp.net", "");
+    if (customerPhone && integrationKeys.evolutionUrl && integrationKeys.evolutionApiKey && integrationKeys.evolutionInstance) {
+      try {
+        let payload: any;
+        if (attachmentData) {
+            payload = {
+              number: `${customerPhone}`,
+              options: { delay: 1200, presence: "composing" },
+              mediaMessage: {
+                mediatype: attachmentData.type.startsWith("image/") ? "image" : "document",
+                fileName: attachmentData.name || "anexo",
+                media: attachmentData.url,
+              },
+            };
+            if (text) payload.mediaMessage.caption = text;
+        } else {
+            payload = {
+              number: `${customerPhone}`,
+              options: { delay: 1200, presence: "composing" },
+              textMessage: { text: text },
+            };
+        }
+
+        const evoResponse = await fetch(`/api/evolution/proxy`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              path: attachmentData
+                ? `/message/sendMedia/${integrationKeys.evolutionInstance}`
+                : `/message/sendText/${integrationKeys.evolutionInstance}`,
+              method: "POST",
+              evolutionUrl: integrationKeys.evolutionUrl,
+              evolutionApiKey: integrationKeys.evolutionApiKey,
+              body: payload,
+            }),
+        });
+        const resData = await evoResponse.json();
+        if (!evoResponse.ok) {
+           console.error("Erro Evolution envio:", resData);
+           toast.error("Erro ao enviar mensagem pelo WhatsApp.");
+        } else if (msgRefId && (resData?.key?.id || resData?.message?.key?.id)) {
+           const evoId = resData?.key?.id || resData?.message?.key?.id;
+           await updateDoc(msgRefId, { evoMsgIds: [evoId] });
+        }
+      } catch (err) {
+         console.error("Falha requisição Evolution:", err);
+      }
+    }
+
     // If a human agent replies, we should assume they took over the ticket.
     // Disable AI for this ticket so it doesn't interfere.
     if (selectedTicket.aiEnabled !== false) {
+      // Mark ticket as answered by human
+      await updateDoc(doc(db, "tickets", selectedTicket.id), { human_responded: true });
       await toggleTicketAI(selectedTicket.id, false);
       await sendMessage(
         selectedTicket.id,
@@ -4969,6 +5057,15 @@ export default function App() {
                     </DialogDescription>
                   </div>
                   <div className="flex items-center gap-2">
+                    {selectedTicket.aiEnabled !== false ? (
+                        <Badge variant="outline" className="border-purple-200 text-purple-700 bg-purple-50 flex gap-1">
+                           <Bot size={12} /> IA Ativa
+                        </Badge>
+                    ) : (
+                        <Badge variant="secondary" className="flex gap-1">
+                           <User size={12} /> {selectedTicket.assignedOperatorName || 'Humano'}
+                        </Badge>
+                    )}
                     <Badge
                       variant={
                         selectedTicket.priority === "high" ||

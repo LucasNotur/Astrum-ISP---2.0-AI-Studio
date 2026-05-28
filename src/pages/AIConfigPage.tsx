@@ -10,7 +10,7 @@ import { Badge } from "@/src/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
-import { Bot, Sparkles, Plus, Edit2, Trash2, Download, Database, Upload, Eye, EyeOff, ShieldAlert, Lock, Info, ExternalLink } from 'lucide-react';
+import { Bot, Sparkles, Plus, Edit2, Trash2, Download, Database, Upload, Eye, EyeOff, ShieldAlert, Lock, Info, ExternalLink, Clock } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/src/components/ui/tooltip";
 import { Switch } from "@/src/components/ui/switch";
@@ -20,6 +20,7 @@ import { cn } from '@/src/lib/utils';
 import { jsPDF } from 'jspdf';
 import { toast } from 'sonner';
 import autoTable from 'jspdf-autotable';
+import { COBRAI_TEMPLATES } from '@/src/lib/cobraiTemplates';
 
 const toolsCatalog = [
   { id: "check_billing_status", name: "Consultar Faturas", desc: "Permite à IA verificar e enviar faturas, status de pagamento e linha digitável.", required_plan: "basic", requires_erp_integration: true, risk_level: "low" },
@@ -101,6 +102,7 @@ export function AIConfigPage({
   const [transcriptionConfig, setTranscriptionConfig] = useState({ enabled: true, provider: 'whisper', apiKey: '' });
   const [reindexStatus, setReindexStatus] = useState<{status: string, indexed: number, total: number} | null>(null);
   const [indexedCount, setIndexedCount] = useState(0);
+  const [tenantData, setTenantData] = useState<any>({});
 
   const [personas, setPersonas] = useState<any[]>([]);
   const [loadingPersonas, setLoadingPersonas] = useState(false);
@@ -212,6 +214,7 @@ export function AIConfigPage({
       const unsub = onSnapshot(doc(db, 'tenants', tenantId), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
+          setTenantData(data);
           if (data.monthly_token_limit) setTenantTokenLimit(data.monthly_token_limit);
           if (data.worker_concurrency) setWorkerConcurrency(data.worker_concurrency);
           if (data.plan) setTenantPlan(data.plan);
@@ -220,6 +223,48 @@ export function AIConfigPage({
     };
     loadConfig();
   }, []);
+
+  const toggleCobraiEnabled = async (checked: boolean) => {
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      await updateDoc(doc(db, 'tenants', tenantId), { cobrai_enabled: checked });
+      toast.success(checked ? "CobrAI ativado" : "CobrAI pausado");
+    } catch (e) {
+      toast.error('Erro ao atualizar status');
+    }
+  };
+
+  const updateCobraiLimiter = async (limitHourly: number) => {
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      await updateDoc(doc(db, 'tenants', tenantId), { cobrai_hourly_limit: limitHourly });
+      toast.success("Limite atualizado");
+    } catch (e) {
+      toast.error('Erro ao atualizar limite');
+    }
+  };
+
+  const updateCobraiWindow = async (start: number, end: number) => {
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      await updateDoc(doc(db, 'tenants', tenantId), { cobrai_window: { start, end } });
+      toast.success("Janela de disparo atualizada");
+    } catch (e) {
+      toast.error('Erro ao atualizar janela');
+    }
+  };
+
+  const toggleCobraiStage = async (stage: string, checked: boolean) => {
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      await updateDoc(doc(db, 'tenants', tenantId), { 
+        [`cobrai_stages.${stage}.active`]: checked 
+      });
+      toast.success(`Etapa ${stage} ${checked ? 'ativada' : 'desativada'}`);
+    } catch (e) {
+      toast.error('Erro ao atualizar etapa');
+    }
+  };
 
   const testVectorStore = async () => {
     setVectorTestResult(null);
@@ -374,11 +419,15 @@ export function AIConfigPage({
                   <TabsTrigger 
                     value="models" 
                     className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
-                  >Chaves de API</TabsTrigger>
+                  >Motores e Prompts</TabsTrigger>
                   <TabsTrigger 
                     value="orchestrator" 
                     className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
                   >Orquestrador</TabsTrigger>
+                  <TabsTrigger 
+                    value="cobrai" 
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >CobrAI</TabsTrigger>
                   <TabsTrigger 
                     value="support" 
                     className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
@@ -395,10 +444,6 @@ export function AIConfigPage({
                     value="sales" 
                     className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
                   >Vendas</TabsTrigger>
-                  <TabsTrigger 
-                    value="kb" 
-                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
-                  >Base de Conhecimento</TabsTrigger>
                   <TabsTrigger 
                     value="audit" 
                     className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
@@ -442,6 +487,95 @@ export function AIConfigPage({
                           </div>
                        </CardContent>
                      </Card>
+                  </TabsContent>
+
+                  <TabsContent value="cobrai">
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <Card className="shadow-sm">
+                          <CardHeader>
+                            <CardTitle className="text-lg">Configurações Gerais (CobrAI)</CardTitle>
+                            <CardDescription>Ative e defina limites para o motor de cobrança automática.</CardDescription>
+                          </CardHeader>
+                          <CardContent className="space-y-6">
+                            <div className="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-100 dark:border-zinc-800">
+                              <div className="space-y-0.5">
+                                <Label className="text-base font-semibold">CobrAI Ativo</Label>
+                                <p className="text-xs text-zinc-500">Mestre de disparo</p>
+                              </div>
+                              <Switch 
+                                checked={tenantData.cobrai_enabled || false}
+                                onCheckedChange={toggleCobraiEnabled}
+                              />
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Limite de envios por hora</Label>
+                              <div className="flex items-center gap-2">
+                                <Input 
+                                  type="number" 
+                                  value={tenantData.cobrai_hourly_limit ?? 30} 
+                                  onChange={(e) => updateCobraiLimiter(Number(e.target.value))}
+                                />
+                              </div>
+                              <p className="text-xs text-zinc-500">Ajuda a evitar bloqueios do WhatsApp.</p>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Janela de disparo (Horas)</Label>
+                              <div className="flex items-center gap-2">
+                                <Input 
+                                  type="number" 
+                                  min={0} max={23}
+                                  value={tenantData.cobrai_window?.start ?? 8} 
+                                  onChange={(e) => updateCobraiWindow(Number(e.target.value), tenantData.cobrai_window?.end ?? 20)}
+                                />
+                                <span className="text-sm">às</span>
+                                <Input 
+                                  type="number" 
+                                  min={0} max={23}
+                                  value={tenantData.cobrai_window?.end ?? 20} 
+                                  onChange={(e) => updateCobraiWindow(tenantData.cobrai_window?.start ?? 8, Number(e.target.value))}
+                                />
+                              </div>
+                              <p className="text-xs text-zinc-500">Disparos fora desse horário serão ignorados (ou pausados).</p>
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        <div className="space-y-4">
+                          <h3 className="font-semibold text-lg">Habilitar Etapas (Régua)</h3>
+                          {Object.keys(COBRAI_TEMPLATES).map((stage) => {
+                            const template = COBRAI_TEMPLATES[stage];
+                            const isActive = tenantData.cobrai_stages?.[stage]?.active !== false; // default true if undefined
+                            const delayStr = "24h"; // mock display
+                            
+                            return (
+                              <Card key={stage} className={isActive ? 'border-zinc-200 dark:border-zinc-800' : 'opacity-60 border-dashed'}>
+                                <div className="flex items-start justify-between p-4">
+                                  <div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <h4 className="font-bold text-base">{stage}</h4>
+                                      <Badge variant="outline" className="text-[10px] uppercase font-mono bg-zinc-50 dark:bg-zinc-900">
+                                        {template.templateName}
+                                      </Badge>
+                                    </div>
+                                    <p className="text-xs text-zinc-500 max-w-lg mb-3">
+                                      Template Info: "{template.components.find((c: any) => c.type === 'body')?.parameters?.[0]?.key}..."
+                                    </p>
+                                    <div className="flex items-center gap-4 text-xs text-zinc-500">
+                                      <span className="flex items-center gap-1"><Clock size={12}/> Retry Delay: {delayStr}</span>
+                                    </div>
+                                  </div>
+                                  <Switch 
+                                    checked={isActive}
+                                    onCheckedChange={(c) => toggleCobraiStage(stage, c)}
+                                  />
+                                </div>
+                              </Card>
+                            );
+                          })}
+                        </div>
+                     </div>
                   </TabsContent>
                   <TabsContent value="flow">
                     <WorkflowVisualizer />
@@ -569,141 +703,8 @@ export function AIConfigPage({
                     </Card>
                     </div>
                   </TabsContent>
-                  <TabsContent value="kb">
-                    <Card className="border-none shadow-sm">
-                      <CardHeader className="flex flex-row items-center justify-between">
-                        <div>
-                          <CardTitle>Base de Conhecimento (RAG)</CardTitle>
-                          <CardDescription>Artigos que a IA consulta para responder dúvidas técnicas e gerais.</CardDescription>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => { setEditingKB(null); setNewKB({ title: '', content: '', category: 'Geral', tags: [] }); setIsKBDialogOpen(true); }}
-                            className="gap-2"
-                          >
-                            <Plus size={16} /> Novo Artigo
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => setIsPdfDialogOpen(true)}
-                            className="gap-2 text-blue-600 border-blue-200 dark:border-blue-900/50"
-                          >
-                            <Upload size={16} /> Importar PDF
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => setIsMiningDialogOpen(true)}
-                            className="gap-2 text-purple-600 border-purple-200 dark:border-purple-900/50"
-                          >
-                            <Sparkles size={16} /> Mineração de Logs
-                          </Button>
-                          {isDeveloper && (
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={handleSeedKB}
-                              disabled={isSeeding}
-                              className="gap-2"
-                            >
-                              <Database size={16} /> {isSeeding ? "Populando..." : "Popular Testes"}
-                            </Button>
-                          )}
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {knowledgeBase.length > 0 ? knowledgeBase.map(article => (
-                            <div key={article.id} className="p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors group relative">
-                              <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingKB(article); setNewKB(article); setIsKBDialogOpen(true); }}>
-                                  <Edit2 size={12} />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-600" onClick={() => handleDeleteKB(article.id)}>
-                                  <Trash2 size={12} />
-                                </Button>
-                              </div>
-                              <div className="flex items-center justify-between mb-2 pr-16">
-                                <h4 className="font-bold text-sm">{article.title}</h4>
-                                <Badge variant="secondary" className="text-[10px]">{article.category}</Badge>
-                              </div>
-                              <p className="text-xs text-zinc-600 dark:text-zinc-400 line-clamp-2 mb-3">{article.content}</p>
-                              <div className="flex flex-wrap gap-1">
-                                {article.tags?.map((tag: string) => (
-                                  <span key={tag} className="text-[9px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-2 py-0.5 rounded-full text-zinc-500 dark:text-zinc-400">
-                                    #{tag}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )) : (
-                            <div className="col-span-full text-center py-20 text-zinc-400 italic border-2 border-dashed rounded-2xl">
-                              Base de conhecimento vazia. Clique em "Novo Artigo" para começar.
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
 
                   <TabsContent value="models" className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 mb-6 bg-zinc-50 dark:bg-zinc-800/50">
-                              <div className="grid gap-2 border-r pr-4 border-zinc-200 dark:border-zinc-700 last:border-0 last:pr-0">
-                                <Label className="text-emerald-600 font-semibold flex items-center gap-2 text-sm"><Bot size={16}/> OpenAI</Label>
-                                <PasswordInput 
-                                  placeholder="sk-proj-..." 
-                                  className="h-8 text-xs"
-                                  value={integrationKeys.openaiGlobal || ''}
-                                  onChange={(e: any) => setIntegrationKeys((prev: any) => ({ 
-                                    ...prev, 
-                                    openaiGlobal: e.target.value, 
-                                    openaiChat: prev.openaiChat || e.target.value, 
-                                    openaiOrchestrator: prev.openaiOrchestrator || e.target.value 
-                                  }))}
-                                />
-                              </div>
-                              <div className="grid gap-2 border-r pr-4 border-zinc-200 dark:border-zinc-700 last:border-0 last:pr-0">
-                                <Label className="text-purple-600 font-semibold flex items-center gap-2 text-sm"><Bot size={16}/> Gemini</Label>
-                                <PasswordInput 
-                                  placeholder="AIzaSy..." 
-                                  className="h-8 text-xs"
-                                  value={integrationKeys.geminiGlobal || ''}
-                                  onChange={(e: any) => setIntegrationKeys((prev: any) => ({ 
-                                    ...prev, 
-                                    geminiGlobal: e.target.value, 
-                                    geminiSummary: prev.geminiSummary || e.target.value, 
-                                    geminiSmartReply: prev.geminiSmartReply || e.target.value, 
-                                    geminiKb: prev.geminiKb || e.target.value 
-                                  }))}
-                                />
-                              </div>
-                              <div className="grid gap-2 border-r pr-4 border-zinc-200 dark:border-zinc-700 last:border-0 last:pr-0">
-                                <Label className="text-orange-600 font-semibold flex items-center gap-2 text-sm"><Bot size={16}/> Anthropic</Label>
-                                <PasswordInput 
-                                  placeholder="sk-ant-..." 
-                                  className="h-8 text-xs"
-                                  value={integrationKeys.anthropicGlobal || ''}
-                                  onChange={(e: any) => setIntegrationKeys((prev: any) => ({ ...prev, anthropicGlobal: e.target.value }))}
-                                />
-                              </div>
-                              <div className="grid gap-2 items-start cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700/50 p-2 -m-2 rounded transition-colors" onClick={() => setExpandVectorStore(!expandVectorStore)}>
-                                <div>
-                                  <Label className="text-blue-600 font-semibold flex items-center gap-2 text-sm cursor-pointer"><Database size={16}/> Banco Vetorial</Label>
-                                  <p className="text-[10px] text-zinc-500 mt-1">Qdrant · Pinecone · Weaviate</p>
-                                </div>
-                                <div className="mt-1">
-                                  {vectorTestResult?.success ? (
-                                    <Badge className="bg-emerald-100 text-emerald-700 border-none hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400">Conectado</Badge>
-                                  ) : (
-                                    <Badge variant="outline" className="text-zinc-500">Não conectado</Badge>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 mb-6">
                               <div className="grid gap-2">
                                 <Label className="font-semibold flex items-center gap-2">Limite Mensal de Tokens</Label>
@@ -813,6 +814,43 @@ export function AIConfigPage({
                                       </div>
                                     )}
                                   </div>
+
+                                  <details className="mt-3 group border border-zinc-200 dark:border-zinc-800 rounded">
+                                    <summary className="text-[11px] font-medium text-zinc-500 px-3 py-2 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50 uppercase tracking-wider flex items-center justify-between">
+                                      Configurações Avançadas de Geração
+                                      <span className="group-open:rotate-180 transition-transform">▼</span>
+                                    </summary>
+                                    <div className="p-3 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/30 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      <div>
+                                        <Label className="text-[10px] text-zinc-500 block mb-1">Temperatura (Criatividade): <strong>{integrationKeys[`${feature.id}Temperature`] || "0.7"}</strong></Label>
+                                        <input 
+                                          type="range" min="0" max="2" step="0.1" 
+                                          className="w-full h-1 bg-zinc-200 rounded-lg appearance-none cursor-pointer"
+                                          value={integrationKeys[`${feature.id}Temperature`] || "0.7"}
+                                          onChange={(e) => setIntegrationKeys((prev: any) => ({ ...prev, [`${feature.id}Temperature`]: e.target.value }))}
+                                        />
+                                        <div className="flex justify-between text-[9px] text-zinc-400 mt-1"><span>Exato (0)</span><span>Criativo (2)</span></div>
+                                      </div>
+                                      <div>
+                                        <Label className="text-[10px] text-zinc-500 block mb-1">Max Output Tokens</Label>
+                                        <Input 
+                                          type="number" className="h-6 text-xs bg-white dark:bg-zinc-950" 
+                                          placeholder="Ex: 1024"
+                                          value={integrationKeys[`${feature.id}MaxTokens`] || ''}
+                                          onChange={(e) => setIntegrationKeys((prev: any) => ({ ...prev, [`${feature.id}MaxTokens`]: e.target.value }))}
+                                        />
+                                      </div>
+                                      <div className="md:col-span-2">
+                                        <Label className="text-[10px] text-zinc-500 block mb-1">Instrução de Sistema Customizada (System Prompt Override)</Label>
+                                        <textarea
+                                          className="w-full min-h-[60px] text-xs p-2 border rounded-md bg-white dark:bg-zinc-950 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                          placeholder="Sobrescreve a instrução padrão de sistema. Se vazio, usará a prompt nativa do astrum."
+                                          value={integrationKeys[`${feature.id}SystemPrompt`] || ''}
+                                          onChange={(e) => setIntegrationKeys((prev: any) => ({ ...prev, [`${feature.id}SystemPrompt`]: e.target.value }))}
+                                        />
+                                      </div>
+                                    </div>
+                                  </details>
                                 </div>
                               );
                             })}

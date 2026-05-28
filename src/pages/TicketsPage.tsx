@@ -297,14 +297,19 @@ function TicketColumn({ title, status, tickets, customers, onTicketClick }: any)
                     </div>
                     
                     <div className="flex items-center justify-between mt-auto pt-3 border-t border-dashed border-zinc-200 dark:border-white/10">
-                      <div className="flex -space-x-1.5 opacity-80">
-                        {t.aiHandled && (
-                          <Avatar className="h-6 w-6 border-2 border-white dark:border-[#16171a]">
-                            <AvatarFallback className="text-[8px] bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400"><Bot size={12} /></AvatarFallback>
-                          </Avatar>
+                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                        {t.aiEnabled !== false ? (
+                          <div className="flex items-center gap-1 text-[9px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-1.5 py-0.5 rounded">
+                            <Bot size={10} /> IA Ativa
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 text-[9px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded min-w-0 max-w-full">
+                            <User size={10} className="shrink-0" />
+                            <span className="truncate">{t.assignedOperatorName || 'Humano'}</span>
+                          </div>
                         )}
                       </div>
-                      <span className={`text-[9px] font-bold flex items-center gap-1 uppercase tracking-wider ${t.status === 'snoozed' ? 'text-amber-500' : 'text-zinc-500'}`}>
+                      <span className={`text-[9px] font-bold flex items-center gap-1 uppercase tracking-wider shrink-0 ml-2 ${t.status === 'snoozed' ? 'text-amber-500' : 'text-zinc-500'}`}>
                         <Clock size={12} /> 
                         {t.status === 'snoozed' && t.snoozed_until ? (
                           t.snoozed_until?.toDate ? formatDateTime(t.snoozed_until.toDate()) : formatDateTime(new Date(t.snoozed_until))
