@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { applyTheme } from "./lib/themeManager";
 import {
   Routes,
@@ -271,6 +272,8 @@ import { MultiFactorResolver } from "firebase/auth";
 
 import WebchatPage from "./pages/WebchatPage";
 import OperatorMobilePage from "./pages/OperatorMobilePage";
+
+const queryClient = new QueryClient();
 
 export default function App() {
   const routerLocation = useLocation();
@@ -3041,6 +3044,7 @@ export default function App() {
   }
 
   return (
+    <QueryClientProvider client={queryClient}>
     <AppLayout
       clearNotifications={clearNotifications}
       handleMarkNotificationRead={handleMarkNotificationRead}
@@ -6212,5 +6216,6 @@ export default function App() {
         </DialogContent>
       </Dialog>
     </AppLayout>
+    </QueryClientProvider>
   );
 }

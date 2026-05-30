@@ -33,8 +33,11 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/src/lib/firebase';
 import { toast } from 'sonner';
 
+import { RequireProvedorAdmin } from '../components/RequireProvedorAdmin';
+
 export function BillingPage() {
-  const { invoices, customers, setConfirmDialog, user } = useAppStore();
+  const { invoices, customers, setConfirmDialog, user, currentUserRole } = useAppStore();
+  const isProvedorAdmin = currentUserRole === 'admin' || currentUserRole === 'owner';
   const [invoiceSearch, setInvoiceSearch] = useState('');
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState('all');
   const [invoicePeriodFilter, setInvoicePeriodFilter] = useState('all');
@@ -64,8 +67,8 @@ export function BillingPage() {
         setIspLoading(false);
       }
     };
-    if (tenantId) fetchIspBilling();
-  }, [tenantId]);
+    if (tenantId && isProvedorAdmin) fetchIspBilling();
+  }, [tenantId, isProvedorAdmin]);
 
   const simulatePayment = async (id: string) => {
      try {
@@ -206,7 +209,7 @@ export function BillingPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <TabsList>
             <TabsTrigger value="clients">Gestão de Cobranças (Clientes)</TabsTrigger>
-            <TabsTrigger value="subscription">Minha Assinatura</TabsTrigger>
+            {isProvedorAdmin && <TabsTrigger value="subscription">Minha Assinatura</TabsTrigger>}
           </TabsList>
           
           <div className="flex items-center gap-2">
@@ -217,6 +220,7 @@ export function BillingPage() {
         </div>
 
         <TabsContent value="subscription" className="space-y-6">
+          <RequireProvedorAdmin>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             <Card className="border-none shadow-sm dark:bg-zinc-900 col-span-1 md:col-span-2">
               <CardHeader>
@@ -303,6 +307,7 @@ export function BillingPage() {
                )}
             </CardContent>
           </Card>
+          </RequireProvedorAdmin>
         </TabsContent>
 
         <TabsContent value="clients" className="space-y-6 mt-0">

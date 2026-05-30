@@ -22,7 +22,13 @@ import { signOut, multiFactor, TotpMultiFactorGenerator, TotpSecret } from 'fire
 import { QRCodeSVG } from 'qrcode.react';
 import { useAppStore } from '../store/useAppStore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-
+import SubscriptionUsageWidget from '../../apps/frontend/src/modules/tenant/subscriptions/SubscriptionUsageWidget';
+import PlanCreatorDashboard from '../../apps/frontend/src/modules/admin/plans/PlanCreatorDashboard';
+import DarkPricingSettings from '../../apps/frontend/src/modules/admin/pricing/DarkPricingSettings';
+import MyPlanDashboard from '../../apps/frontend/src/modules/tenant/subscriptions/MyPlanDashboard';
+import BillingEnterpriseDashboard from '../../apps/frontend/src/modules/admin/billing/BillingEnterpriseDashboard';
+import CustomerBillingPortal from '../../apps/frontend/src/modules/tenant/billing/CustomerBillingPortal';
+import { RequireProvedorAdmin } from '../components/RequireProvedorAdmin';
 
 const AVAILABLE_MENUS = [
   { id: 'dashboard', label: 'Dashboard', group: 'Operação Diária' },
@@ -103,8 +109,10 @@ export function SettingsPage(props: any) {
   } = props;
 
   const navigate = useNavigate();
-  const { user, rolePermissions } = useAppStore();
+  const { user, rolePermissions, currentUserRole } = useAppStore();
   const tenantId = user?.tenantId || 'DEFAULT_TENANT';
+  
+  const canAccessBilling = currentUserRole === 'admin' || currentUserRole === 'owner';
 
   const [editingRolePermissions, setEditingRolePermissions] = useState<Record<string, Record<string, any>>>({});
 
@@ -1585,7 +1593,7 @@ export function SettingsPage(props: any) {
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="bg-zinc-100 dark:bg-zinc-800 p-1">
                   <TabsTrigger value="general">Geral</TabsTrigger>
-                  <TabsTrigger value="billing">Assinatura / Faturamento</TabsTrigger>
+                  {canAccessBilling && <TabsTrigger value="billing">Assinatura / Faturamento</TabsTrigger>}
                   {isAstrum && <TabsTrigger value="integrations">Integrações (APIs)</TabsTrigger>}
                   <TabsTrigger value="team">Equipe</TabsTrigger>
                   <TabsTrigger value="departments">Departamentos</TabsTrigger>
@@ -1599,8 +1607,9 @@ export function SettingsPage(props: any) {
                 </TabsList>
                 
                 <TabsContent value="billing" className="mt-6">
-                  <div className="grid grid-cols-1 gap-6 max-w-4xl">
-                    <Card className="border-none shadow-sm dark:bg-zinc-900">
+                  <RequireProvedorAdmin>
+                    <div className="grid grid-cols-1 gap-6 max-w-4xl">
+                      <Card className="border-none shadow-sm dark:bg-zinc-900">
                       <CardHeader>
                         <CardTitle className="text-xl">Sua Assinatura Atual</CardTitle>
                         <CardDescription>Gerencie seu plano e método de pagamento da plataforma.</CardDescription>
@@ -1639,7 +1648,22 @@ export function SettingsPage(props: any) {
                         </div>
                       </CardContent>
                     </Card>
+
+                    {/* Portal de Faturamento do Cliente B2B (ISP) */}
+                    <div className="mt-8 border-t pt-8 border-gray-200" />
+                    <CustomerBillingPortal />
+                    
+                    {isDeveloper && (
+                      <div className="mt-8">
+                        <PlanCreatorDashboard />
+                        <div className="mt-8 border-t pt-8 border-gray-200" />
+                        <DarkPricingSettings />
+                        <div className="mt-8 border-t pt-8 border-gray-200" />
+                        <BillingEnterpriseDashboard />
+                      </div>
+                    )}
                   </div>
+                  </RequireProvedorAdmin>
                 </TabsContent>
 
                 <TabsContent value="general" className="mt-6">

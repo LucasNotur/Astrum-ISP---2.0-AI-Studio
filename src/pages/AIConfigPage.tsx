@@ -429,6 +429,42 @@ export function AIConfigPage({
                     className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
                   >CobrAI</TabsTrigger>
                   <TabsTrigger 
+                    value="complexity" 
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >Classificador Complexidade</TabsTrigger>
+                  <TabsTrigger 
+                    value="triage" 
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >Triagem de Segurança</TabsTrigger>
+                  <TabsTrigger 
+                    value="negotiator" 
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >Agente de Cobrança</TabsTrigger>
+                  <TabsTrigger 
+                    value="qa" 
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >Avaliador de Qualidade (QA)</TabsTrigger>
+                  <TabsTrigger 
+                    value="retention" 
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >Analista de Retenção</TabsTrigger>
+                  <TabsTrigger 
+                    value="expert" 
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >Especialista Técnico</TabsTrigger>
+                  <TabsTrigger 
+                    value="consolidator" 
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >Consolidador de Memória</TabsTrigger>
+                  <TabsTrigger 
+                    value="routing" 
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >Roteamento (State Machine)</TabsTrigger>
+                  <TabsTrigger 
+                    value="extractor" 
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >Extrator de Dados</TabsTrigger>
+                  <TabsTrigger 
                     value="support" 
                     className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
                   >Suporte</TabsTrigger>
@@ -1085,6 +1121,339 @@ export function AIConfigPage({
                     </div>
                   </TabsContent>
                   
+                  <TabsContent value="complexity">
+                    <Card className="border-none shadow-sm">
+                      <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                          <CardTitle>Classificador de Complexidade</CardTitle>
+                          <CardDescription>Agente responsável por analisar e classificar mensagens de suporte em níveis (LOW, MEDIUM, HIGH) para economia de tokens.</CardDescription>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => { setTestAgentCategory('COMPLEXITY_CLASSIFIER'); setTestAgentResponse(null); setTestAgentMessage(''); setIsTestAgentOpen(true); }}>
+                          <Bot size={16} className="mr-2" /> Testar Agente
+                        </Button>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <textarea 
+                          className="w-full h-48 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-mono bg-zinc-50 dark:bg-zinc-900/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          value={aiPrompts.COMPLEXITY_CLASSIFIER || ''}
+                          onChange={(e) => setAiPrompts(prev => ({ ...prev, COMPLEXITY_CLASSIFIER: e.target.value }))}
+                        />
+                        {validationErrors.COMPLEXITY_CLASSIFIER?.length > 0 && (
+                          <div className="p-3 rounded bg-red-50 text-red-600 text-xs border border-red-200 space-y-1">
+                            <strong>Erros de Validação:</strong>
+                            <ul className="list-disc pl-4">
+                              {validationErrors.COMPLEXITY_CLASSIFIER.map((err, i) => <li key={i}>{err}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {testResponses.COMPLEXITY_CLASSIFIER && (
+                          <div className="p-3 rounded bg-green-50 text-green-700 text-xs border border-green-200">
+                            <strong>Teste Sandbox:</strong> {testResponses.COMPLEXITY_CLASSIFIER}
+                          </div>
+                        )}
+                        <Button className="w-full" onClick={() => validateAndSave('COMPLEXITY_CLASSIFIER', aiPrompts.COMPLEXITY_CLASSIFIER)} disabled={isValidating['COMPLEXITY_CLASSIFIER'] || isSavingPrompts}>
+                          {isValidating['COMPLEXITY_CLASSIFIER'] || isSavingPrompts ? "Validando e Salvando..." : "Salvar Configuração"}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="triage">
+                    <Card className="border-none shadow-sm">
+                      <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                          <CardTitle>Triagem de Segurança e PII</CardTitle>
+                          <CardDescription>Agente responsável por analisar e mascarar dados sensíveis (PII) e tentativas de jailbreak.</CardDescription>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => { setTestAgentCategory('SECURITY_TRIAGE'); setTestAgentResponse(null); setTestAgentMessage(''); setIsTestAgentOpen(true); }}>
+                          <Bot size={16} className="mr-2" /> Testar Agente
+                        </Button>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <textarea 
+                          className="w-full h-48 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-mono bg-zinc-50 dark:bg-zinc-900/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          value={aiPrompts.SECURITY_TRIAGE || ''}
+                          onChange={(e) => setAiPrompts(prev => ({ ...prev, SECURITY_TRIAGE: e.target.value }))}
+                        />
+                        {validationErrors.SECURITY_TRIAGE?.length > 0 && (
+                          <div className="p-3 rounded bg-red-50 text-red-600 text-xs border border-red-200 space-y-1">
+                            <strong>Erros de Validação:</strong>
+                            <ul className="list-disc pl-4">
+                              {validationErrors.SECURITY_TRIAGE.map((err, i) => <li key={i}>{err}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {testResponses.SECURITY_TRIAGE && (
+                          <div className="p-3 rounded bg-green-50 text-green-700 text-xs border border-green-200">
+                            <strong>Teste Sandbox:</strong> {testResponses.SECURITY_TRIAGE}
+                          </div>
+                        )}
+                        <Button className="w-full" onClick={() => validateAndSave('SECURITY_TRIAGE', aiPrompts.SECURITY_TRIAGE)} disabled={isValidating['SECURITY_TRIAGE'] || isSavingPrompts}>
+                          {isValidating['SECURITY_TRIAGE'] || isSavingPrompts ? "Validando e Salvando..." : "Salvar Configuração"}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="negotiator">
+                    <Card className="border-none shadow-sm">
+                      <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                          <CardTitle>Agente de Cobrança</CardTitle>
+                          <CardDescription>Responsável por negociar dívidas e tratar de pendências financeiras via chat.</CardDescription>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => { setTestAgentCategory('BILLING_NEGOTIATOR'); setTestAgentResponse(null); setTestAgentMessage(''); setIsTestAgentOpen(true); }}>
+                          <Bot size={16} className="mr-2" /> Testar Agente
+                        </Button>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <textarea 
+                          className="w-full h-48 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-mono bg-zinc-50 dark:bg-zinc-900/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          value={aiPrompts.BILLING_NEGOTIATOR || ''}
+                          onChange={(e) => setAiPrompts(prev => ({ ...prev, BILLING_NEGOTIATOR: e.target.value }))}
+                        />
+                        {validationErrors.BILLING_NEGOTIATOR?.length > 0 && (
+                          <div className="p-3 rounded bg-red-50 text-red-600 text-xs border border-red-200 space-y-1">
+                            <strong>Erros de Validação:</strong>
+                            <ul className="list-disc pl-4">
+                              {validationErrors.BILLING_NEGOTIATOR.map((err, i) => <li key={i}>{err}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {testResponses.BILLING_NEGOTIATOR && (
+                          <div className="p-3 rounded bg-green-50 text-green-700 text-xs border border-green-200">
+                            <strong>Teste Sandbox:</strong> {testResponses.BILLING_NEGOTIATOR}
+                          </div>
+                        )}
+                        <Button className="w-full" onClick={() => validateAndSave('BILLING_NEGOTIATOR', aiPrompts.BILLING_NEGOTIATOR)} disabled={isValidating['BILLING_NEGOTIATOR'] || isSavingPrompts}>
+                          {isValidating['BILLING_NEGOTIATOR'] || isSavingPrompts ? "Validando e Salvando..." : "Salvar Configuração"}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="qa">
+                    <Card className="border-none shadow-sm">
+                      <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                          <CardTitle>Avaliador de Qualidade (QA)</CardTitle>
+                          <CardDescription>Avalia a qualidade das respostas do AstroChat seguindo critérios para suportes em ISPs.</CardDescription>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => { setTestAgentCategory('QA_EVALUATOR'); setTestAgentResponse(null); setTestAgentMessage(''); setIsTestAgentOpen(true); }}>
+                          <Bot size={16} className="mr-2" /> Testar Agente
+                        </Button>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <textarea 
+                          className="w-full h-48 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-mono bg-zinc-50 dark:bg-zinc-900/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          value={aiPrompts.QA_EVALUATOR || ''}
+                          onChange={(e) => setAiPrompts(prev => ({ ...prev, QA_EVALUATOR: e.target.value }))}
+                        />
+                        {validationErrors.QA_EVALUATOR?.length > 0 && (
+                          <div className="p-3 rounded bg-red-50 text-red-600 text-xs border border-red-200 space-y-1">
+                            <strong>Erros de Validação:</strong>
+                            <ul className="list-disc pl-4">
+                              {validationErrors.QA_EVALUATOR.map((err, i) => <li key={i}>{err}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {testResponses.QA_EVALUATOR && (
+                          <div className="p-3 rounded bg-green-50 text-green-700 text-xs border border-green-200">
+                            <strong>Teste Sandbox:</strong> {testResponses.QA_EVALUATOR}
+                          </div>
+                        )}
+                        <Button className="w-full" onClick={() => validateAndSave('QA_EVALUATOR', aiPrompts.QA_EVALUATOR)} disabled={isValidating['QA_EVALUATOR'] || isSavingPrompts}>
+                          {isValidating['QA_EVALUATOR'] || isSavingPrompts ? "Validando e Salvando..." : "Salvar Configuração"}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="retention">
+                    <Card className="border-none shadow-sm">
+                      <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                          <CardTitle>Analista de Retenção</CardTitle>
+                          <CardDescription>Analisa os dados do cliente e calcula o risco de cancelamento (churn).</CardDescription>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => { setTestAgentCategory('RETENTION_ANALYST'); setTestAgentResponse(null); setTestAgentMessage(''); setIsTestAgentOpen(true); }}>
+                          <Bot size={16} className="mr-2" /> Testar Agente
+                        </Button>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <textarea 
+                          className="w-full h-48 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-mono bg-zinc-50 dark:bg-zinc-900/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          value={aiPrompts.RETENTION_ANALYST || ''}
+                          onChange={(e) => setAiPrompts(prev => ({ ...prev, RETENTION_ANALYST: e.target.value }))}
+                        />
+                        {validationErrors.RETENTION_ANALYST?.length > 0 && (
+                          <div className="p-3 rounded bg-red-50 text-red-600 text-xs border border-red-200 space-y-1">
+                            <strong>Erros de Validação:</strong>
+                            <ul className="list-disc pl-4">
+                              {validationErrors.RETENTION_ANALYST.map((err, i) => <li key={i}>{err}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {testResponses.RETENTION_ANALYST && (
+                          <div className="p-3 rounded bg-green-50 text-green-700 text-xs border border-green-200">
+                            <strong>Teste Sandbox:</strong> {testResponses.RETENTION_ANALYST}
+                          </div>
+                        )}
+                        <Button className="w-full" onClick={() => validateAndSave('RETENTION_ANALYST', aiPrompts.RETENTION_ANALYST)} disabled={isValidating['RETENTION_ANALYST'] || isSavingPrompts}>
+                          {isValidating['RETENTION_ANALYST'] || isSavingPrompts ? "Validando e Salvando..." : "Salvar Configuração"}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="expert">
+                    <Card className="border-none shadow-sm">
+                      <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                          <CardTitle>Especialista Técnico</CardTitle>
+                          <CardDescription>Agente responsável por analisar e guiar os clientes em passos para tentar resolver o problema com o roteador/internet.</CardDescription>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => { setTestAgentCategory('TECHNICAL_EXPERT'); setTestAgentResponse(null); setTestAgentMessage(''); setIsTestAgentOpen(true); }}>
+                          <Bot size={16} className="mr-2" /> Testar Agente
+                        </Button>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <textarea 
+                          className="w-full h-48 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-mono bg-zinc-50 dark:bg-zinc-900/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          value={aiPrompts.TECHNICAL_EXPERT || ''}
+                          onChange={(e) => setAiPrompts(prev => ({ ...prev, TECHNICAL_EXPERT: e.target.value }))}
+                        />
+                        {validationErrors.TECHNICAL_EXPERT?.length > 0 && (
+                          <div className="p-3 rounded bg-red-50 text-red-600 text-xs border border-red-200 space-y-1">
+                            <strong>Erros de Validação:</strong>
+                            <ul className="list-disc pl-4">
+                              {validationErrors.TECHNICAL_EXPERT.map((err, i) => <li key={i}>{err}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {testResponses.TECHNICAL_EXPERT && (
+                          <div className="p-3 rounded bg-green-50 text-green-700 text-xs border border-green-200">
+                            <strong>Teste Sandbox:</strong> {testResponses.TECHNICAL_EXPERT}
+                          </div>
+                        )}
+                        <Button className="w-full" onClick={() => validateAndSave('TECHNICAL_EXPERT', aiPrompts.TECHNICAL_EXPERT)} disabled={isValidating['TECHNICAL_EXPERT'] || isSavingPrompts}>
+                          {isValidating['TECHNICAL_EXPERT'] || isSavingPrompts ? "Validando e Salvando..." : "Salvar Configuração"}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="consolidator">
+                    <Card className="border-none shadow-sm">
+                      <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                          <CardTitle>Consolidador de Memória</CardTitle>
+                          <CardDescription>Agente responsável por resumir e estruturar a conversa para a memória de longo prazo do cliente.</CardDescription>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => { setTestAgentCategory('MEMORY_CONSOLIDATOR'); setTestAgentResponse(null); setTestAgentMessage(''); setIsTestAgentOpen(true); }}>
+                          <Bot size={16} className="mr-2" /> Testar Agente
+                        </Button>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <textarea 
+                          className="w-full h-48 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-mono bg-zinc-50 dark:bg-zinc-900/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          value={aiPrompts.MEMORY_CONSOLIDATOR || ''}
+                          onChange={(e) => setAiPrompts(prev => ({ ...prev, MEMORY_CONSOLIDATOR: e.target.value }))}
+                        />
+                        {validationErrors.MEMORY_CONSOLIDATOR?.length > 0 && (
+                          <div className="p-3 rounded bg-red-50 text-red-600 text-xs border border-red-200 space-y-1">
+                            <strong>Erros de Validação:</strong>
+                            <ul className="list-disc pl-4">
+                              {validationErrors.MEMORY_CONSOLIDATOR.map((err, i) => <li key={i}>{err}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {testResponses.MEMORY_CONSOLIDATOR && (
+                          <div className="p-3 rounded bg-green-50 text-green-700 text-xs border border-green-200">
+                            <strong>Teste Sandbox:</strong> {testResponses.MEMORY_CONSOLIDATOR}
+                          </div>
+                        )}
+                        <Button className="w-full" onClick={() => validateAndSave('MEMORY_CONSOLIDATOR', aiPrompts.MEMORY_CONSOLIDATOR)} disabled={isValidating['MEMORY_CONSOLIDATOR'] || isSavingPrompts}>
+                          {isValidating['MEMORY_CONSOLIDATOR'] || isSavingPrompts ? "Validando e Salvando..." : "Salvar Configuração"}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="routing">
+                    <Card className="border-none shadow-sm">
+                      <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                          <CardTitle>Roteamento (State Machine)</CardTitle>
+                          <CardDescription>Nó de roteamento que classifica a intenção do cliente e direciona para o agente adequado.</CardDescription>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => { setTestAgentCategory('ROUTING_NODE'); setTestAgentResponse(null); setTestAgentMessage(''); setIsTestAgentOpen(true); }}>
+                          <Bot size={16} className="mr-2" /> Testar Agente
+                        </Button>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <textarea 
+                          className="w-full h-48 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-mono bg-zinc-50 dark:bg-zinc-900/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          value={aiPrompts.ROUTING_NODE || ''}
+                          onChange={(e) => setAiPrompts(prev => ({ ...prev, ROUTING_NODE: e.target.value }))}
+                        />
+                        {validationErrors.ROUTING_NODE?.length > 0 && (
+                          <div className="p-3 rounded bg-red-50 text-red-600 text-xs border border-red-200 space-y-1">
+                            <strong>Erros de Validação:</strong>
+                            <ul className="list-disc pl-4">
+                              {validationErrors.ROUTING_NODE.map((err, i) => <li key={i}>{err}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {testResponses.ROUTING_NODE && (
+                          <div className="p-3 rounded bg-green-50 text-green-700 text-xs border border-green-200">
+                            <strong>Teste Sandbox:</strong> {testResponses.ROUTING_NODE}
+                          </div>
+                        )}
+                        <Button className="w-full" onClick={() => validateAndSave('ROUTING_NODE', aiPrompts.ROUTING_NODE)} disabled={isValidating['ROUTING_NODE'] || isSavingPrompts}>
+                          {isValidating['ROUTING_NODE'] || isSavingPrompts ? "Validando e Salvando..." : "Salvar Configuração"}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="extractor">
+                    <Card className="border-none shadow-sm">
+                      <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                          <CardTitle>Extrator de Dados Estruturados</CardTitle>
+                          <CardDescription>Agente responsável por analisar e extrair as informações do cliente retornando JSON estruturado para o Astrum.</CardDescription>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => { setTestAgentCategory('DATA_EXTRACTOR'); setTestAgentResponse(null); setTestAgentMessage(''); setIsTestAgentOpen(true); }}>
+                          <Bot size={16} className="mr-2" /> Testar Agente
+                        </Button>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <textarea 
+                          className="w-full h-48 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm font-mono bg-zinc-50 dark:bg-zinc-900/50 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          value={aiPrompts.DATA_EXTRACTOR || ''}
+                          onChange={(e) => setAiPrompts(prev => ({ ...prev, DATA_EXTRACTOR: e.target.value }))}
+                        />
+                        {validationErrors.DATA_EXTRACTOR?.length > 0 && (
+                          <div className="p-3 rounded bg-red-50 text-red-600 text-xs border border-red-200 space-y-1">
+                            <strong>Erros de Validação:</strong>
+                            <ul className="list-disc pl-4">
+                              {validationErrors.DATA_EXTRACTOR.map((err, i) => <li key={i}>{err}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {testResponses.DATA_EXTRACTOR && (
+                          <div className="p-3 rounded bg-green-50 text-green-700 text-xs border border-green-200">
+                            <strong>Teste Sandbox:</strong> {testResponses.DATA_EXTRACTOR}
+                          </div>
+                        )}
+                        <Button className="w-full" onClick={() => validateAndSave('DATA_EXTRACTOR', aiPrompts.DATA_EXTRACTOR)} disabled={isValidating['DATA_EXTRACTOR'] || isSavingPrompts}>
+                          {isValidating['DATA_EXTRACTOR'] || isSavingPrompts ? "Validando e Salvando..." : "Salvar Configuração"}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
                   <TabsContent value="support">
                     <Card className="border-none shadow-sm">
                       <CardHeader className="flex flex-row items-center justify-between">
