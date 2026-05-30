@@ -298,9 +298,6 @@ export function SettingsPage(props: any) {
 
   const [departments, setDepartments] = useState<any[]>([]);
   const [editingDeptId, setEditingDeptId] = useState<string | null>(null);
-  const [forms, setForms] = useState<any[]>([]);
-  const [editingFormId, setEditingFormId] = useState<string | null>(null);
-  const [formBuilderData, setFormBuilderData] = useState({ name: '', fields: [] as { id: string, label: string, type: string, required: boolean, options?: string }[] });
 
   const [deptForm, setDeptForm] = useState({ name: '', sla_response_minutes: 15, sla_resolution_hours: 24, required_skills: [] as string[], color: '#3b82f6', routing_mode: 'load_balanced' });
 
@@ -341,10 +338,7 @@ export function SettingsPage(props: any) {
     const unsub = onSnapshot(collection(db, "tenants", tenantId, "departments"), (snap) => {
       setDepartments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-    const unsubForms = onSnapshot(collection(db, "tenants", tenantId, "forms"), (snap) => {
-      setForms(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-    return () => { unsub(); unsubForms(); };
+    return () => { unsub(); };
   }, [tenantId]);
 
   useEffect(() => {
@@ -945,36 +939,6 @@ export function SettingsPage(props: any) {
       toast.error("Erro ao remover departamento: " + e.message);
     }
   };
-
-  const handleSaveForm = async () => {
-     if (!formBuilderData.name.trim()) return toast.error("Nome do formulário é obrigatório");
-     try {
-       if (editingFormId) {
-          await updateDoc(doc(db, "tenants", tenantId, "forms", editingFormId), { ...formBuilderData, updatedAt: new Date() });
-          toast.success("Formulário atualizado");
-       } else {
-          await addDoc(collection(db, "tenants", tenantId, "forms"), { ...formBuilderData, createdAt: new Date() });
-          toast.success("Formulário criado");
-       }
-       setFormBuilderData({ name: '', fields: [] });
-       setEditingFormId(null);
-     } catch (e: any) {
-       toast.error("Erro ao salvar formulário");
-     }
-  };
-
-  const handleDeleteForm = async (id: string) => {
-     if (!confirm("Tem certeza?")) return;
-     try {
-       await deleteDoc(doc(db, "tenants", tenantId, "forms", id));
-       toast.success("Removido com sucesso");
-     } catch (e: any) {
-       toast.error("Erro ao remover");
-     }
-  };
-
-
-
 
   const [selectedIntegrationMenu, setSelectedIntegrationMenu] = useState<string | null>(null);
 
@@ -1621,18 +1585,63 @@ export function SettingsPage(props: any) {
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="bg-zinc-100 dark:bg-zinc-800 p-1">
                   <TabsTrigger value="general">Geral</TabsTrigger>
+                  <TabsTrigger value="billing">Assinatura / Faturamento</TabsTrigger>
                   {isAstrum && <TabsTrigger value="integrations">Integrações (APIs)</TabsTrigger>}
                   <TabsTrigger value="team">Equipe</TabsTrigger>
                   <TabsTrigger value="departments">Departamentos</TabsTrigger>
-                  <TabsTrigger value="forms">Formulários</TabsTrigger>
                   <TabsTrigger value="holidays">Feriados</TabsTrigger>
                   <TabsTrigger value="theme">Personalização (Tema)</TabsTrigger>
                   <TabsTrigger value="security">Segurança (MFA)</TabsTrigger>
                   <TabsTrigger value="sso">SSO (Google)</TabsTrigger>
                   <TabsTrigger value="custom_domain">Domínio Customizado</TabsTrigger>
                   {isAstrum && <TabsTrigger value="permissions">Perfis e Permissões</TabsTrigger>}
+                  <TabsTrigger value="advanced">Avançado / Developer</TabsTrigger>
                 </TabsList>
                 
+                <TabsContent value="billing" className="mt-6">
+                  <div className="grid grid-cols-1 gap-6 max-w-4xl">
+                    <Card className="border-none shadow-sm dark:bg-zinc-900">
+                      <CardHeader>
+                        <CardTitle className="text-xl">Sua Assinatura Atual</CardTitle>
+                        <CardDescription>Gerencie seu plano e método de pagamento da plataforma.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        <div className="flex items-center justify-between p-4 border rounded-lg bg-zinc-50 dark:bg-zinc-800/50 flex-col sm:flex-row gap-4">
+                          <div>
+                            <h4 className="font-semibold text-lg uppercase">Plano Pro</h4>
+                            <div className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 flex items-center gap-2">
+                              Status: <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 font-normal">Ativa</Badge>
+                            </div>
+                            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                              Próxima renovação: 15/11/2026
+                            </p>
+                          </div>
+                          <div className="text-left sm:text-right w-full sm:w-auto border-t sm:border-t-0 pt-4 sm:pt-0">
+                            <p className="text-2xl font-bold">R$ 299,00</p>
+                            <p className="text-xs text-zinc-500">/mês</p>
+                          </div>
+                        </div>
+                        
+                        <div className="pt-4 border-t dark:border-zinc-800">
+                           <h4 className="font-medium text-sm mb-4">Método de Pagamento</h4>
+                           <div className="flex items-center justify-between p-4 border rounded-lg">
+                              <div className="flex items-center gap-4">
+                                <div className="w-12 h-8 bg-zinc-200 dark:bg-zinc-700 rounded flex items-center justify-center shrink-0">
+                                   <CreditCard size={20} className="text-zinc-500" />
+                                </div>
+                                <div>
+                                   <p className="text-sm font-medium">Cartão de Crédito</p>
+                                   <p className="text-xs text-zinc-500">**** **** **** 1234</p>
+                                </div>
+                              </div>
+                              <Button variant="outline" size="sm">Atualizar</Button>
+                           </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </TabsContent>
+
                 <TabsContent value="general" className="mt-6">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <Card className="md:col-span-2 border-none shadow-sm">
@@ -1673,131 +1682,20 @@ export function SettingsPage(props: any) {
                             />
                           </div>
                         </div>
-                        {isAstrum && (
-                          <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 space-y-4">
-                            <p className="text-xs font-bold text-zinc-500 uppercase">Ferramentas de Desenvolvedor</p>
-                            <div className="flex flex-wrap gap-2">
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="gap-2"
-                                onClick={handleSeedSystem}
-                                disabled={isSeeding}
-                              >
-                                <Database size={14} /> Popular Clientes
-                              </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="gap-2"
-                                onClick={seedTicketsAndLogs}
-                                disabled={isSeeding || customers.length === 0}
-                              >
-                                <Ticket size={14} /> Popular Tickets/Logs
-                              </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="gap-2"
-                                onClick={handleSeedKB}
-                                disabled={isSeeding}
-                              >
-                                <Book size={14} /> Popular Base Conhecimento
-                              </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="gap-2 bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100 hover:text-purple-700 dark:bg-purple-900/20 dark:border-purple-800 dark:text-purple-400 dark:hover:bg-purple-900/40"
-                                onClick={handleSeedPopularAstrum}
-                                disabled={isSeeding}
-                              >
-                                <Database size={14} /> Popular Astrum
-                              </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="gap-2 border-red-500/20 text-red-500 hover:bg-red-500/10 hover:text-red-600"
-                                onClick={handleWipeSystem}
-                                disabled={isSeeding}
-                              >
-                                <Trash2 size={14} /> Apagar Sistema Todo
-                              </Button>
-                            </div>
-                          </div>
-                        )}
                         <div className="pt-4 flex flex-col sm:flex-row gap-3">
                           <Button className="w-full sm:w-auto" onClick={saveCompanySettings}>
                             Salvar Alterações
                           </Button>
-                          <Button variant="destructive" className="w-full sm:w-auto flex md:hidden items-center justify-center gap-2" onClick={() => signOut(auth)}>
-                            <LogOut className="w-4 h-4" />
-                            Sair do Sistema
-                          </Button>
                         </div>
                       </CardContent>
                     </Card>
 
-                    <Card className="border-none shadow-sm">
-                      <CardHeader>
-                        <CardTitle>Identidade Visual</CardTitle>
-                        <CardDescription>Logo e cores da marca.</CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-6">
-                        <div className="flex flex-col items-center gap-4">
-                          <input 
-                            type="file" 
-                            accept="image/*" 
-                            ref={fileInputRef} 
-                            onChange={handleLogoUpload} 
-                            className="hidden" 
-                          />
-                          <div 
-                            className="w-32 h-32 rounded-xl border-2 border-dashed border-zinc-200 dark:border-zinc-800 flex items-center justify-center overflow-hidden relative group cursor-pointer"
-                            onClick={() => fileInputRef.current?.click()}
-                          >
-                            <img 
-                              src={companySettings.logoUrl} 
-                              alt="Logo" 
-                              className="w-full h-full object-cover"
-                              referrerPolicy="no-referrer"
-                            />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <span className="text-white text-xs font-bold">Alterar</span>
-                            </div>
-                          </div>
-                          <p className="text-xs text-zinc-500 text-center">Recomendado: 512x512px (PNG ou SVG)</p>
-                        </div>
-                        
-                        <div className="space-y-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Globe size={16} className="text-zinc-400" />
-                              <span className="text-sm">Fuso Horário</span>
-                            </div>
-                            <select
-                              value={companySettings.timezone}
-                              onChange={(e) => setCompanySettings({ ...companySettings, timezone: e.target.value })}
-                              className="text-xs font-medium border rounded p-1"
-                            >
-                              <option value="America/Sao_Paulo">America/Sao_Paulo</option>
-                              <option value="America/Manaus">America/Manaus</option>
-                              <option value="America/Bogota">America/Bogota</option>
-                              <option value="America/New_York">America/New_York</option>
-                              <option value="UTC">UTC</option>
-                            </select>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Clock size={16} className="text-zinc-400" />
-                              <span className="text-sm">Formato de Data</span>
-                            </div>
-                            <span className="text-xs font-medium">DD/MM/YYYY</span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                  </div>
+                </TabsContent>
 
-                    <Card className="md:col-span-3 border-zinc-200 dark:border-zinc-800 shadow-sm">
+                <TabsContent value="advanced" className="mt-6">
+                  <div className="grid grid-cols-1 gap-6">
+                    <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
                       <CardHeader className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 rounded-t-xl">
                         <CardTitle className="flex items-center gap-2">
                           <Database size={18} className="text-purple-600" /> 
@@ -1887,6 +1785,66 @@ export function SettingsPage(props: any) {
                         </div>
                       </CardContent>
                     </Card>
+
+                    {isAstrum && (
+                      <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
+                        <CardHeader className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 rounded-t-xl">
+                          <CardTitle className="uppercase text-xs text-zinc-500">Ferramentas de Desenvolvedor</CardTitle>
+                          <CardDescription>
+                            Ações perigosas para popular ou redefinir a base de dados em ambiente de teste.
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-6">
+                          <div className="flex flex-wrap gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="gap-2"
+                              onClick={handleSeedSystem}
+                              disabled={isSeeding}
+                            >
+                              <Database size={14} /> Popular Clientes
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="gap-2"
+                              onClick={seedTicketsAndLogs}
+                              disabled={isSeeding || customers.length === 0}
+                            >
+                              <Ticket size={14} /> Popular Tickets/Logs
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="gap-2"
+                              onClick={handleSeedKB}
+                              disabled={isSeeding}
+                            >
+                              <Book size={14} /> Popular Base Conhecimento
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="gap-2 bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100 hover:text-purple-700 dark:bg-purple-900/20 dark:border-purple-800 dark:text-purple-400 dark:hover:bg-purple-900/40"
+                              onClick={handleSeedPopularAstrum}
+                              disabled={isSeeding}
+                            >
+                              <Database size={14} /> Popular Astrum
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="gap-2 border-red-500/20 text-red-500 hover:bg-red-500/10 hover:text-red-600"
+                              onClick={handleWipeSystem}
+                              disabled={isSeeding}
+                            >
+                              <Trash2 size={14} /> Apagar Sistema Todo
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
                   </div>
                 </TabsContent>
 
@@ -1923,8 +1881,12 @@ export function SettingsPage(props: any) {
                       </Button>
                     </CardHeader>
                     <CardContent>
-                      {editingDeptId && (
-                        <div className="p-4 border rounded-xl mb-6 bg-zinc-50 dark:bg-zinc-900/50 space-y-4">
+                      <Dialog open={editingDeptId !== null} onOpenChange={(val) => !val && setEditingDeptId(null)}>
+                        <DialogContent className="max-w-2xl">
+                          <DialogHeader>
+                            <DialogTitle>{editingDeptId === 'new' ? 'Novo Departamento' : 'Editar Departamento'}</DialogTitle>
+                            <DialogDescription>Configure os detalhes do departamento.</DialogDescription>
+                          </DialogHeader>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                               <Label>Nome do Departamento</Label>
@@ -1970,8 +1932,8 @@ export function SettingsPage(props: any) {
                             <Button variant="outline" onClick={() => setEditingDeptId(null)}>Cancelar</Button>
                             <Button onClick={handleSaveDepartment}>Salvar Departamento</Button>
                           </div>
-                        </div>
-                      )}
+                        </DialogContent>
+                      </Dialog>
 
                       <div className="rounded-md border overflow-hidden">
                         <table className="w-full text-sm text-left">
@@ -2282,107 +2244,6 @@ export function SettingsPage(props: any) {
                   </Card>
                 </TabsContent>
 
-                <TabsContent value="forms" className="mt-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <Card className="col-span-1 border-none shadow-sm">
-                      <CardHeader>
-                        <CardTitle>Formulários</CardTitle>
-                        <CardDescription>Crie formulários para coleta de dados durante os chats.</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <Button className="w-full mb-4" onClick={() => { setEditingFormId(null); setFormBuilderData({ name: '', fields: [] }); }}>
-                           + Novo Formulário
-                        </Button>
-                        <div className="space-y-2">
-                           {forms.map(f => (
-                             <div key={f.id} className="p-3 border rounded-lg flex justify-between items-center bg-white dark:bg-zinc-950 dark:border-zinc-800">
-                               <div className="font-medium text-sm">{f.name} <span className="text-xs text-zinc-500">({f.fields?.length || 0} campos)</span></div>
-                               <div className="flex gap-2">
-                                  <Button size="sm" variant="ghost" onClick={() => { setEditingFormId(f.id); setFormBuilderData(f); }}>Ed</Button>
-                                  <Button size="sm" variant="ghost" className="text-red-500" onClick={() => handleDeleteForm(f.id)}>Ex</Button>
-                               </div>
-                             </div>
-                           ))}
-                           {forms.length === 0 && <p className="text-xs text-center text-zinc-500 p-4">Nenhum formulário criado</p>}
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <Card className="md:col-span-2 border-none shadow-sm">
-                      <CardHeader>
-                        <CardTitle>{editingFormId ? 'Editar Formulário' : 'Novo Formulário'}</CardTitle>
-                        <CardDescription>Configure os campos</CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div>
-                          <Label>Nome do Formulário</Label>
-                          <Input value={formBuilderData.name} onChange={e => setFormBuilderData({...formBuilderData, name: e.target.value})} placeholder="Ex: Coleta de Leads" />
-                        </div>
-                        <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800">
-                           <div className="flex justify-between items-center mb-4">
-                             <Label>Campos</Label>
-                             <Button size="sm" variant="outline" onClick={() => setFormBuilderData({
-                               ...formBuilderData,
-                               fields: [...formBuilderData.fields, { id: Date.now().toString(), label: '', type: 'text', required: false }]
-                             })}>+ Adicionar Campo</Button>
-                           </div>
-                           <div className="space-y-3">
-                             {formBuilderData.fields.map((field, idx) => (
-                                <div key={field.id} className="grid grid-cols-12 gap-2 mt-2 items-center bg-zinc-50 dark:bg-zinc-900/50 p-2 rounded border border-zinc-200 dark:border-zinc-800">
-                                   <div className="col-span-5">
-                                      <Input placeholder="Nome do campo" value={field.label} onChange={(e) => {
-                                         const newFields = [...formBuilderData.fields];
-                                         newFields[idx].label = e.target.value;
-                                         setFormBuilderData({...formBuilderData, fields: newFields});
-                                      }} />
-                                   </div>
-                                   <div className="col-span-3">
-                                      <select className="w-full text-sm border-zinc-200 dark:border-zinc-800 rounded bg-white dark:bg-zinc-950 p-2" value={field.type} onChange={(e) => {
-                                         const newFields = [...formBuilderData.fields];
-                                         newFields[idx].type = e.target.value;
-                                         setFormBuilderData({...formBuilderData, fields: newFields});
-                                      }}>
-                                         <option value="text">Texto</option>
-                                         <option value="number">Número</option>
-                                         <option value="email">Email</option>
-                                         <option value="options">Opções</option>
-                                      </select>
-                                   </div>
-                                   <div className="col-span-3 flex items-center gap-2 text-sm justify-center">
-                                      <input type="checkbox" checked={field.required} onChange={(e) => {
-                                         const newFields = [...formBuilderData.fields];
-                                         newFields[idx].required = e.target.checked;
-                                         setFormBuilderData({...formBuilderData, fields: newFields});
-                                      }} /> <span>Obrigatório</span>
-                                   </div>
-                                   <div className="col-span-1 flex justify-end">
-                                      <Button variant="ghost" size="sm" className="text-red-500 h-8 w-8 p-0" onClick={() => {
-                                         const newFields = formBuilderData.fields.filter(f => f.id !== field.id);
-                                         setFormBuilderData({...formBuilderData, fields: newFields});
-                                      }}>x</Button>
-                                   </div>
-                                   {field.type === 'options' && (
-                                       <div className="col-span-12 mt-2 text-xs text-zinc-500">
-                                          <Input placeholder="Opções separadas por vírgula" value={field.options || ''} onChange={(e) => {
-                                              const newFields = [...formBuilderData.fields];
-                                              newFields[idx].options = e.target.value;
-                                              setFormBuilderData({...formBuilderData, fields: newFields});
-                                          }} className="h-8 text-xs" />
-                                       </div>
-                                   )}
-                                </div>
-                             ))}
-                             {formBuilderData.fields.length === 0 && <p className="text-xs text-zinc-500 text-center py-2">Nenhum campo adicionado. Adicione um campo para começar.</p>}
-                           </div>
-                        </div>
-                        <div className="flex justify-end mt-4">
-                           <Button onClick={handleSaveForm}>Salvar Formulário</Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </TabsContent>
-
                 <TabsContent value="holidays" className="mt-6">
                   <Card className="border-none shadow-sm h-full">
                     <CardHeader className="border-b dark:border-zinc-800 pb-4">
@@ -2453,125 +2314,185 @@ export function SettingsPage(props: any) {
                 </TabsContent>
 
                 <TabsContent value="theme" className="mt-6">
-                  <Card className="border-none shadow-sm h-full">
-                    <CardHeader className="border-b dark:border-zinc-800 pb-4">
-                      <CardTitle className="text-xl">Personalização Rápida (White-label)</CardTitle>
-                      <CardDescription>Estilize o sistema com as cores e logo do seu provedor.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label>Cor Primária</Label>
-                            <div className="flex items-center gap-2 mt-2">
-                              <input 
-                                type="color" 
-                                value={themeConfig.primary_color} 
-                                onChange={(e) => {
-                                   setThemeConfig({...themeConfig, primary_color: e.target.value});
-                                   document.documentElement.style.setProperty('--primary-color', e.target.value);
-                                }} 
-                                className="w-10 h-10 p-0 border-0 rounded cursor-pointer"
-                              />
-                              <Input 
-                                value={themeConfig.primary_color} 
-                                onChange={(e) => {
-                                   setThemeConfig({...themeConfig, primary_color: e.target.value});
-                                   document.documentElement.style.setProperty('--primary-color', e.target.value);
-                                }} 
-                                className="w-24"
-                              />
-                            </div>
-                          </div>
-                          <div>
-                            <Label>Cor Secundária</Label>
-                            <div className="flex items-center gap-2 mt-2">
-                              <input 
-                                type="color" 
-                                value={themeConfig.secondary_color} 
-                                onChange={(e) => {
-                                   setThemeConfig({...themeConfig, secondary_color: e.target.value});
-                                   document.documentElement.style.setProperty('--secondary-color', e.target.value);
-                                }}
-                                className="w-10 h-10 p-0 border-0 rounded cursor-pointer"
-                              />
-                              <Input 
-                                value={themeConfig.secondary_color} 
-                                onChange={(e) => {
-                                   setThemeConfig({...themeConfig, secondary_color: e.target.value});
-                                   document.documentElement.style.setProperty('--secondary-color', e.target.value);
-                                }}
-                                className="w-24"
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div>
-                          <Label>Família de Fonte</Label>
-                          <Input 
-                            value={themeConfig.font_family} 
-                            onChange={(e) => {
-                               setThemeConfig({...themeConfig, font_family: e.target.value});
-                               document.documentElement.style.setProperty('--font-family', e.target.value);
-                            }} 
-                            placeholder="Ex: Inter, sans-serif" 
-                            className="mt-2"
-                          />
-                        </div>
-
-                        <div>
-                          <Label>URL da Logo (opcional)</Label>
-                          <Input 
-                            value={themeConfig.logo_url} 
-                            onChange={(e) => setThemeConfig({...themeConfig, logo_url: e.target.value})} 
-                            placeholder="https://..." 
-                            className="mt-2"
-                          />
-                        </div>
-
-                        <div>
-                          <Label>URL do Fundo do Login (opcional)</Label>
-                          <Input 
-                            value={themeConfig.login_background_url} 
-                            onChange={(e) => setThemeConfig({...themeConfig, login_background_url: e.target.value})} 
-                            placeholder="https://..." 
-                            className="mt-2"
-                          />
-                        </div>
-
-                        <Button onClick={saveThemeConfig}>
-                          {isSavingTheme ? "Salvando..." : "Salvar Tema"}
-                        </Button>
-                      </div>
-
-                      <div className="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden p-6 relative" style={{ fontFamily: themeConfig.font_family }}>
-                        <div className="absolute inset-0 bg-white dark:bg-zinc-950 -z-10" />
-                        <h3 className="font-semibold mb-4 text-lg text-zinc-900 dark:text-zinc-100">Live Preview</h3>
+                  <div className="grid grid-cols-1 gap-6">
+                    <Card className="border-none shadow-sm h-full">
+                      <CardHeader className="border-b dark:border-zinc-800 pb-4">
+                        <CardTitle className="text-xl">Personalização da Identidade Visual</CardTitle>
+                        <CardDescription>Estilize o sistema com as cores e logo do seu provedor.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div className="space-y-4">
-                           <div className="w-full h-32 rounded-lg bg-cover bg-center" style={{ backgroundImage: `url(${themeConfig.login_background_url || 'https://picsum.photos/seed/bg/400/200'})` }}>
-                              <div className="w-full h-full bg-black/40 flex items-center justify-center rounded-lg">
-                                 {themeConfig.logo_url ? (
-                                    <img src={themeConfig.logo_url} className="h-12 drop-shadow-md" alt="Logo preview" />
-                                 ) : (
-                                    <span className="text-white font-bold text-xl drop-shadow-md">Seu App</span>
-                                 )}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label>Cor Primária</Label>
+                              <div className="flex items-center gap-2 mt-2">
+                                <input 
+                                  type="color" 
+                                  value={themeConfig.primary_color} 
+                                  onChange={(e) => {
+                                     setThemeConfig({...themeConfig, primary_color: e.target.value});
+                                     document.documentElement.style.setProperty('--primary-color', e.target.value);
+                                  }} 
+                                  className="w-10 h-10 p-0 border-0 rounded cursor-pointer"
+                                />
+                                <Input 
+                                  value={themeConfig.primary_color} 
+                                  onChange={(e) => {
+                                     setThemeConfig({...themeConfig, primary_color: e.target.value});
+                                     document.documentElement.style.setProperty('--primary-color', e.target.value);
+                                  }} 
+                                  className="w-24"
+                                />
                               </div>
-                           </div>
-                           
-                           <div className="flex gap-2">
-                              <Button style={{ backgroundColor: themeConfig.primary_color, color: 'white' }}>Ação Primária</Button>
-                              <Button variant="outline" style={{ borderColor: themeConfig.secondary_color, color: themeConfig.secondary_color }}>Ação Secundária</Button>
-                           </div>
-                           
-                           <div className="p-4 rounded border-l-4" style={{ backgroundColor: themeConfig.primary_color + '10', borderColor: themeConfig.primary_color }}>
-                              <p className="text-sm font-medium" style={{ color: themeConfig.primary_color }}>Alerta do Sistema Importante</p>
-                              <p className="text-xs text-zinc-500 mt-1">Este componente assume a cor primária.</p>
-                           </div>
+                            </div>
+                            <div>
+                              <Label>Cor Secundária</Label>
+                              <div className="flex items-center gap-2 mt-2">
+                                <input 
+                                  type="color" 
+                                  value={themeConfig.secondary_color} 
+                                  onChange={(e) => {
+                                     setThemeConfig({...themeConfig, secondary_color: e.target.value});
+                                     document.documentElement.style.setProperty('--secondary-color', e.target.value);
+                                  }}
+                                  className="w-10 h-10 p-0 border-0 rounded cursor-pointer"
+                                />
+                                <Input 
+                                  value={themeConfig.secondary_color} 
+                                  onChange={(e) => {
+                                     setThemeConfig({...themeConfig, secondary_color: e.target.value});
+                                     document.documentElement.style.setProperty('--secondary-color', e.target.value);
+                                  }}
+                                  className="w-24"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div>
+                            <Label>Família de Fonte</Label>
+                            <Input 
+                              value={themeConfig.font_family} 
+                              onChange={(e) => {
+                                 setThemeConfig({...themeConfig, font_family: e.target.value});
+                                 document.documentElement.style.setProperty('--font-family', e.target.value);
+                              }} 
+                              placeholder="Ex: Inter, sans-serif" 
+                              className="mt-2"
+                            />
+                          </div>
+
+                          <div>
+                            <Label>Logomarca (Upload)</Label>
+                            <div className="flex flex-col gap-4 mt-2">
+                              <input 
+                                type="file" 
+                                accept="image/*" 
+                                ref={fileInputRef} 
+                                onChange={handleLogoUpload} 
+                                className="hidden" 
+                              />
+                              <div 
+                                className="w-24 h-24 rounded-xl border-2 border-dashed border-zinc-200 dark:border-zinc-800 flex items-center justify-center overflow-hidden relative group cursor-pointer"
+                                onClick={() => fileInputRef.current?.click()}
+                              >
+                                <img 
+                                  src={companySettings.logoUrl || themeConfig.logo_url} 
+                                  alt="Logo" 
+                                  className="w-full h-full object-cover"
+                                  referrerPolicy="no-referrer"
+                                />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                  <span className="text-white text-[10px] uppercase font-bold text-center p-1">Alterar</span>
+                                </div>
+                              </div>
+                              <p className="text-xs text-zinc-500">Recomendado: 512x512px (PNG ou SVG). Aplicada após salvar na aba Geral também.</p>
+                            </div>
+                          </div>
+
+                          <div>
+                            <Label>URL do Fundo do Login (opcional)</Label>
+                            <Input 
+                              value={themeConfig.login_background_url} 
+                              onChange={(e) => setThemeConfig({...themeConfig, login_background_url: e.target.value})} 
+                              placeholder="https://..." 
+                              className="mt-2"
+                            />
+                          </div>
+
+                          <Button onClick={saveThemeConfig}>
+                            {isSavingTheme ? "Salvando..." : "Salvar Tema"}
+                          </Button>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+
+                        <div className="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden p-6 relative" style={{ fontFamily: themeConfig.font_family }}>
+                          <div className="absolute inset-0 bg-white dark:bg-zinc-950 -z-10" />
+                          <h3 className="font-semibold mb-4 text-lg text-zinc-900 dark:text-zinc-100">Live Preview</h3>
+                          <div className="space-y-4">
+                             <div className="w-full h-32 rounded-lg bg-cover bg-center" style={{ backgroundImage: `url(${themeConfig.login_background_url || 'https://picsum.photos/seed/bg/400/200'})` }}>
+                                <div className="w-full h-full bg-black/40 flex items-center justify-center rounded-lg">
+                                   {(themeConfig.logo_url || companySettings.logoUrl) ? (
+                                      <img src={companySettings.logoUrl || themeConfig.logo_url} className="h-12 drop-shadow-md" alt="Logo preview" />
+                                   ) : (
+                                      <span className="text-white font-bold text-xl drop-shadow-md">Seu App</span>
+                                   )}
+                                </div>
+                             </div>
+                             
+                             <div className="flex gap-2">
+                                <Button style={{ backgroundColor: themeConfig.primary_color, color: 'white' }}>Ação Primária</Button>
+                                <Button variant="outline" style={{ borderColor: themeConfig.secondary_color, color: themeConfig.secondary_color }}>Ação Secundária</Button>
+                             </div>
+                             
+                             <div className="p-4 rounded border-l-4" style={{ backgroundColor: themeConfig.primary_color + '10', borderColor: themeConfig.primary_color }}>
+                                <p className="text-sm font-medium" style={{ color: themeConfig.primary_color }}>Alerta do Sistema Importante</p>
+                                <p className="text-xs text-zinc-500 mt-1">Este componente assume a cor primária.</p>
+                             </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className="border-none shadow-sm h-full">
+                      <CardHeader className="border-b dark:border-zinc-800 pb-4">
+                        <CardTitle className="text-xl">Opções Regionais</CardTitle>
+                        <CardDescription>Configurações de fuso horário e máscara de data.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="pt-6">
+                        <div className="max-w-md space-y-4">
+                          <div className="space-y-2">
+                            <Label className="flex items-center gap-2">
+                              <Globe size={16} className="text-zinc-400" /> Fuso Horário
+                            </Label>
+                            <select
+                              value={companySettings.timezone}
+                              onChange={(e) => setCompanySettings({ ...companySettings, timezone: e.target.value })}
+                              className="w-full text-sm border p-2 rounded-md bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800"
+                            >
+                              <option value="America/Sao_Paulo">America/Sao_Paulo</option>
+                              <option value="America/Manaus">America/Manaus</option>
+                              <option value="America/Bogota">America/Bogota</option>
+                              <option value="America/New_York">America/New_York</option>
+                              <option value="UTC">UTC</option>
+                            </select>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label className="flex items-center gap-2">
+                              <Clock size={16} className="text-zinc-400" /> Formato de Data (Padrão)
+                            </Label>
+                            <Input value="DD/MM/YYYY" disabled className="bg-zinc-100 dark:bg-zinc-900 text-zinc-500" />
+                          </div>
+                          
+                          <div className="pt-4">
+                            <Button className="w-full sm:w-auto" onClick={saveCompanySettings}>
+                              Salvar Alterações Regionais
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
                 </TabsContent>
 
               </Tabs>

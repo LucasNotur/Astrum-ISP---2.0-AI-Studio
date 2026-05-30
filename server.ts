@@ -10,6 +10,7 @@ import { osRoutingRouter } from "./src/routes/osRouting.ts";
 import { evolutionRouter } from "./src/routes/evolution.ts";
 import { facebookWebhookRouter } from "./src/routes/facebookWebhook.ts";
 import { evolutionWebhookRouter } from "./src/routes/evolutionWebhook.ts";
+import { jobsRouter } from "./src/routes/jobs.ts";
 
 async function startServer() {
   const app = express();
@@ -36,6 +37,7 @@ async function startServer() {
   app.use("/api/dlq", dlqRouter);
   app.use("/api/os", osRoutingRouter);
   app.use("/api/evolution", evolutionRouter);
+  app.use("/api/jobs", jobsRouter);
   app.use("/api/webhook/facebook", facebookWebhookRouter);
   app.use("/api/webhook/evolution", evolutionWebhookRouter);
 

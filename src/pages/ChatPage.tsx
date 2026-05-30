@@ -20,12 +20,15 @@ import {
   MoreVertical,
   Clock,
   Phone,
+  Trash2,
+  Settings,
 } from "lucide-react";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import {
   Card,
   CardHeader,
+  CardContent,
   CardTitle,
   CardDescription,
 } from "@/src/components/ui/card";
@@ -51,6 +54,7 @@ import {
   serverTimestamp,
   doc,
   updateDoc,
+  deleteDoc,
   getDocs,
   query,
   orderBy,
@@ -231,6 +235,36 @@ export function ChatPage() {
   const [closingReason, setClosingReason] = useState("");
   const [closingReasonsList, setClosingReasonsList] = useState<any[]>([]);
   const [tenantForms, setTenantForms] = useState<any[]>([]);
+  const [editingFormId, setEditingFormId] = useState<string | null>(null);
+  const [formBuilderData, setFormBuilderData] = useState({ name: '', fields: [] as { id: string, label: string, type: string, required: boolean, options?: string }[] });
+
+  const handleSaveForm = async () => {
+     if (!tenantId) return;
+     if (!formBuilderData.name.trim()) return toast.error("Nome do formulário é obrigatório");
+     try {
+       if (editingFormId && editingFormId !== 'new') {
+          await updateDoc(doc(db, "tenants", tenantId, "forms", editingFormId), { ...formBuilderData, updatedAt: new Date() });
+          toast.success("Formulário atualizado");
+       } else {
+          await addDoc(collection(db, "tenants", tenantId, "forms"), { ...formBuilderData, createdAt: new Date() });
+          toast.success("Formulário criado");
+       }
+       setFormBuilderData({ name: '', fields: [] });
+       setEditingFormId(null);
+     } catch (e: any) {
+       toast.error("Erro ao salvar formulário");
+     }
+  };
+
+  const handleDeleteForm = async (id: string) => {
+     if (!tenantId || !confirm("Tem certeza?")) return;
+     try {
+       await deleteDoc(doc(db, "tenants", tenantId, "forms", id));
+       toast.success("Removido com sucesso");
+     } catch (e: any) {
+       toast.error("Erro ao remover");
+     }
+  };
 
   const [snoozeForm, setSnoozeForm] = useState({
     date: "",
@@ -875,14 +909,142 @@ export function ChatPage() {
           </button>
           <button 
             onClick={() => { setViewMode("pipeline"); setSelectedTicket(null); }}
-            className={cn("px-3 py-1.5 text-sm font-medium rounded-md transition-colors", viewMode === "pipeline" ? "bg-white dark:bg-zinc-700 shadow-sm" : "text-zinc-500 hover:text-zinc-900")}
+            className={cn("px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-2", viewMode === "pipeline" ? "bg-white dark:bg-zinc-700 shadow-sm" : "text-zinc-500 hover:text-zinc-900")}
           >
             Pipeline
+          </button>
+          <button 
+            onClick={() => { setViewMode("config"); setSelectedTicket(null); }}
+            className={cn("px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center gap-2", viewMode === "config" ? "bg-white dark:bg-zinc-700 shadow-sm" : "text-zinc-500 hover:text-zinc-900")}
+          >
+            <Settings size={14} /> Configurações
           </button>
         </div>
       </div>
       
-      {viewMode === "pipeline" ? (
+      {viewMode === "config" ? (
+         <div className="flex-1 overflow-y-auto px-4 md:px-0">
+            <Card className="border-none shadow-sm max-w-5xl mx-auto">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Formulários de Atendimento</CardTitle>
+                  <CardDescription>Crie formulários para coleta de dados durante os chats.</CardDescription>
+                </div>
+                <Button onClick={() => { setEditingFormId('new'); setFormBuilderData({ name: '', fields: [] }); }} className="gap-2">
+                   <Plus size={16} /> Novo Formulário
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <Dialog open={editingFormId !== null} onOpenChange={(val) => !val && setEditingFormId(null)}>
+                  <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>{editingFormId === 'new' ? 'Novo Formulário' : 'Editar Formulário'}</DialogTitle>
+                      <DialogDescription>Configure os campos</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label>Nome do Formulário</Label>
+                        <Input value={formBuilderData.name} onChange={e => setFormBuilderData({...formBuilderData, name: e.target.value})} placeholder="Ex: Coleta de Leads" />
+                      </div>
+                      <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                         <div className="flex justify-between items-center mb-4">
+                           <Label>Campos</Label>
+                           <Button size="sm" variant="outline" onClick={() => setFormBuilderData({
+                             ...formBuilderData,
+                             fields: [...formBuilderData.fields, { id: Date.now().toString(), label: '', type: 'text', required: false }]
+                           })}>+ Adicionar Campo</Button>
+                         </div>
+                         <div className="space-y-3">
+                           {formBuilderData.fields.map((field, idx) => (
+                              <div key={field.id} className="grid grid-cols-12 gap-2 mt-2 items-center bg-zinc-50 dark:bg-zinc-900/50 p-2 rounded border border-zinc-200 dark:border-zinc-800">
+                                 <div className="col-span-5">
+                                    <Input placeholder="Nome do campo" value={field.label} onChange={(e) => {
+                                       const newFields = [...formBuilderData.fields];
+                                       newFields[idx].label = e.target.value;
+                                       setFormBuilderData({...formBuilderData, fields: newFields});
+                                    }} />
+                                 </div>
+                                 <div className="col-span-3">
+                                    <select className="w-full text-sm border-zinc-200 dark:border-zinc-800 rounded bg-white dark:bg-zinc-950 p-2" value={field.type} onChange={(e) => {
+                                       const newFields = [...formBuilderData.fields];
+                                       newFields[idx].type = e.target.value;
+                                       setFormBuilderData({...formBuilderData, fields: newFields});
+                                    }}>
+                                       <option value="text">Texto</option>
+                                       <option value="number">Número</option>
+                                       <option value="email">Email</option>
+                                       <option value="options">Opções</option>
+                                    </select>
+                                 </div>
+                                 <div className="col-span-3 flex items-center gap-2 text-sm justify-center">
+                                    <input type="checkbox" checked={field.required} onChange={(e) => {
+                                       const newFields = [...formBuilderData.fields];
+                                       newFields[idx].required = e.target.checked;
+                                       setFormBuilderData({...formBuilderData, fields: newFields});
+                                    }} /> <span>Obrigatório</span>
+                                 </div>
+                                 <div className="col-span-1 flex justify-end">
+                                    <Button variant="ghost" size="sm" className="text-red-500 h-8 w-8 p-0" onClick={() => {
+                                       const newFields = formBuilderData.fields.filter(f => f.id !== field.id);
+                                       setFormBuilderData({...formBuilderData, fields: newFields});
+                                    }}>x</Button>
+                                 </div>
+                                 {field.type === 'options' && (
+                                     <div className="col-span-12 mt-2 text-xs text-zinc-500">
+                                        <Input placeholder="Opções separadas por vírgula" value={field.options || ''} onChange={(e) => {
+                                            const newFields = [...formBuilderData.fields];
+                                            newFields[idx].options = e.target.value;
+                                            setFormBuilderData({...formBuilderData, fields: newFields});
+                                        }} className="h-8 text-xs" />
+                                     </div>
+                                 )}
+                              </div>
+                           ))}
+                           {formBuilderData.fields.length === 0 && <p className="text-xs text-zinc-500 text-center py-2">Nenhum campo adicionado. Adicione um campo para começar.</p>}
+                         </div>
+                      </div>
+                      <div className="flex justify-end gap-2 mt-4">
+                         <Button variant="outline" onClick={() => setEditingFormId(null)}>Cancelar</Button>
+                         <Button onClick={handleSaveForm}>Salvar Formulário</Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
+                <div className="rounded-md border overflow-hidden mt-6">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-zinc-50 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400">
+                       <tr>
+                         <th className="px-4 py-3 font-medium">Nome do Formulário</th>
+                         <th className="px-4 py-3 font-medium">Campos</th>
+                         <th className="px-4 py-3 font-medium text-right">Ações</th>
+                       </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                       {tenantForms.map(f => (
+                          <tr key={f.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50">
+                             <td className="px-4 py-3 font-medium">{f.name}</td>
+                             <td className="px-4 py-3">{f.fields?.length || 0} campos</td>
+                             <td className="px-4 py-3 text-right space-x-2">
+                                <Button variant="ghost" size="sm" onClick={() => { setEditingFormId(f.id); setFormBuilderData(f); }}>Editar</Button>
+                                <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeleteForm(f.id)}>
+                                  <Trash2 size={16} />
+                                </Button>
+                             </td>
+                          </tr>
+                       ))}
+                       {tenantForms.length === 0 && (
+                         <tr>
+                           <td colSpan={3} className="px-4 py-8 text-center text-zinc-500">Nenhum formulário criado.</td>
+                         </tr>
+                       )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+         </div>
+      ) : viewMode === "pipeline" ? (
          <div className="flex-1 overflow-hidden">
             <KanbanBoard tickets={visibleTickets} customers={customers} onTicketClick={setSelectedTicket} />
          </div>

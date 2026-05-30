@@ -18,8 +18,8 @@
 - [ ] 10. Automação Evolution API
 - [ ] 11. White Label Nativo
 - [ ] 12. Configuração Organizacional Hierarquizada
-- [ ] 13. Plataforma de Billing Nativa
-- [ ] 14. Billing via Pix Direto pro SaaS
+- [x] 13. Plataforma de Billing Nativa
+- [x] 14. Billing via Pix Direto pro SaaS
 - [ ] 15. Gestão Role e Mapeamento LDAP
 
 ## B. Gestão Comercial (Modelo de Planos) (16-30)
