@@ -23,6 +23,19 @@ facebookWebhookRouter.get('/', (req: Request, res: Response) => {
 });
 
 facebookWebhookRouter.post('/', async (req: Request, res: Response) => {
+    try {
+        const { validateWebhookSignature } = await import('../../apps/api/src/infrastructure/security/hmac.service.ts');
+        const signature = req.headers['x-hub-signature-256'] as string ?? '';
+        const rawBody = JSON.stringify(req.body);
+        const isValid = validateWebhookSignature(rawBody, signature, 'facebook');
+
+        if (!isValid) {
+            res.status(401).json({ error: 'Assinatura inválida' });
+            return;
+        }
+    } catch (e) {
+        console.error('HMAC loading error', e);
+    }
     const body = req.body;
 
     if (body.object === 'page') {

@@ -1,0 +1,35 @@
+src/__tests__/lib/supabase.test.ts:describe('supabase lib', () => {
+src/lib/supabase.ts:import { createClient } from '@supabase/supabase-js';
+src/lib/supabase.ts:let supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.URL_SUPABASE;
+src/lib/supabase.ts:const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+src/lib/supabase.ts:if (!supabaseUrl || !supabaseAnonKey) {
+src/lib/supabase.ts:supabaseUrl = supabaseUrl.replace('/rest/v1/', '').replace(/\/$/, '');
+src/lib/supabase.ts:export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+src/lib/supabase.ts:export default supabase;
+src/lib/queue.ts:        const { supabaseAdmin } = await import("./supabaseAdmin");
+src/lib/queue.ts:        const { error } = await supabaseAdmin.from('dead_letter_queue').insert({
+src/lib/queue.ts:    const { supabaseAdmin } = await import("./supabaseAdmin");
+src/lib/queue.ts:    const { data: tenants } = await supabaseAdmin
+src/lib/queue.ts:    const { supabaseAdmin } = await import("./supabaseAdmin");
+src/lib/queue.ts:    const { data: customer } = await supabaseAdmin
+src/lib/supabaseAdmin.ts:import { createClient } from '@supabase/supabase-js';
+src/lib/supabaseAdmin.ts:let supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.URL_SUPABASE;
+src/lib/supabaseAdmin.ts:if (!supabaseUrl || !serviceRoleKey) {
+src/lib/supabaseAdmin.ts:supabaseUrl = supabaseUrl.replace('/rest/v1/', '').replace(/\/$/, '');
+src/lib/supabaseAdmin.ts:export const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+src/lib/DEPRECATED.md:- `src/lib/firebase.ts` → substituído por `src/lib/supabase.ts`
+src/lib/DEPRECATED.md:- `src/lib/firebaseAdmin.ts` → substituído por `src/lib/supabaseAdmin.ts`
+src/repositories/index.ts:import { CustomerRepositorySupabase } from './supabase/CustomerRepositorySupabase';
+src/repositories/index.ts:import { TicketRepositorySupabase } from './supabase/TicketRepositorySupabase';
+src/repositories/index.ts:import { ServiceOrderRepositorySupabase } from './supabase/ServiceOrderRepositorySupabase';
+src/repositories/index.ts:import { KnowledgeRepositorySupabase } from './supabase/KnowledgeRepositorySupabase';
+src/repositories/index.ts:import { TenantRepositorySupabase } from './supabase/TenantRepositorySupabase';
+src/repositories/index.ts:  if (DB_PROVIDER === 'supabase') return new CustomerRepositorySupabase();
+src/repositories/index.ts:  if (DB_PROVIDER === 'supabase') return new TicketRepositorySupabase();
+src/repositories/index.ts:  if (DB_PROVIDER === 'supabase') return new ServiceOrderRepositorySupabase();
+src/repositories/index.ts:  if (DB_PROVIDER === 'supabase') return new KnowledgeRepositorySupabase();
+src/repositories/index.ts:  if (DB_PROVIDER === 'supabase') return new TenantRepositorySupabase();
+src/test-supabase.ts:import { supabase } from './lib/supabase';
+src/test-supabase.ts:import { supabaseAdmin } from './lib/supabaseAdmin';
+src/test-supabase.ts:  const { error } = await supabase.from('_test_connection').select('*').limit(1);
+src/test-supabase.ts:  const { data, error: adminError } = await supabaseAdmin.from('idempotency_keys').select('*').limit(1);

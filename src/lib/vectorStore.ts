@@ -91,10 +91,10 @@ function createStoreFromConfig(config: any): VectorStore {
 
 function createStoreFromEnv(): VectorStore {
   const config = {
-    provider: process.env.VECTOR_STORE_PROVIDER ?? 'qdrant',
-    url: process.env.VECTOR_STORE_URL,
-    apiKey: process.env.VECTOR_STORE_API_KEY,
-    collection: process.env.VECTOR_STORE_COLLECTION ?? 'astrum_knowledge'
+    provider: (typeof process !== 'undefined' && process.env ? process.env.VECTOR_STORE_PROVIDER : undefined) ?? 'qdrant',
+    url: typeof process !== 'undefined' && process.env ? process.env.VECTOR_STORE_URL : undefined,
+    apiKey: typeof process !== 'undefined' && process.env ? process.env.VECTOR_STORE_API_KEY : undefined,
+    collection: (typeof process !== 'undefined' && process.env ? process.env.VECTOR_STORE_COLLECTION : undefined) ?? 'astrum_knowledge'
   };
   return createStoreFromConfig(config);
 }

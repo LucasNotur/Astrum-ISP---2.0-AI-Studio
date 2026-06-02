@@ -6,6 +6,15 @@ export const evolutionWebhookRouter = express.Router();
 
 evolutionWebhookRouter.post("/", async (req, res) => {
   try {
+    const { validateWebhookSignature } = await import('../../apps/api/src/infrastructure/security/hmac.service.ts');
+    const signature = (req.headers['x-hub-signature-256'] || req.headers['x-evolution-signature']) as string ?? '';
+    const rawBody = JSON.stringify(req.body);
+    const isValid = validateWebhookSignature(rawBody, signature, 'evolution');
+
+    if (!isValid) {
+      return res.status(401).json({ error: 'Assinatura inválida' });
+    }
+
     const payload = req.body;
     
     // Look for tenant by Evolution instance name.

@@ -6,6 +6,7 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 import path from 'path';
 
 export default defineConfig({
+  root: '.',
   plugins: [react(), tailwindcss(), tsconfigPaths()],
   resolve: {
     alias: [
@@ -15,6 +16,10 @@ export default defineConfig({
   build: {
     outDir: 'dist/client',
     emptyOutDir: true
+  },
+  define: {
+    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(process.env.VITE_SUPABASE_URL || process.env.URL_SUPABASE || process.env.SUPABASE_URL || ''),
+    'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KE || '')
   },
   test: {
     environment: 'jsdom',

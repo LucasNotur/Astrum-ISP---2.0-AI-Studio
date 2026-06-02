@@ -1,4 +1,5 @@
 import { adminDb as db } from "./firebaseAdmin";
+import { memoize } from "../../packages/shared/src/utils/memoize";
 
 export async function calculateMRR(date: Date = new Date()) {
   let mrr = 0;
@@ -73,43 +74,46 @@ export async function calculateChurnRate(monthDate: Date = new Date()) {
   }
 }
 
-export async function calculateLTV(tenantId?: string) {
-  try {
-    const churnRate = await calculateChurnRate();
-    const safeChurnRate = churnRate === 0 ? 0.05 : churnRate; // Assumes 5% base churn if none yet
+export const calculateLTV = memoize(
+  async (tenantId?: string) => {
+    try {
+      const churnRate = await calculateChurnRate();
+      const safeChurnRate = churnRate === 0 ? 0.05 : churnRate; // Assumes 5% base churn if none yet
 
-    let averageMrr = 0;
+      let averageMrr = 0;
 
-    if (tenantId) {
-      const doc = await db.collection("tenants").doc(tenantId).get();
-      if (doc.exists) {
-        const data = doc.data()!;
-        if (data.subscription?.monthly_price) {
-          averageMrr = Number(data.subscription.monthly_price);
-        } else if (data.plan === "enterprise") {
-          averageMrr = 1500;
-        } else if (data.plan === "pro") {
-          averageMrr = 500;
-        } else if (data.plan === "starter") {
-          averageMrr = 200;
+      if (tenantId) {
+        const doc = await db.collection("tenants").doc(tenantId).get();
+        if (doc.exists) {
+          const data = doc.data()!;
+          if (data.subscription?.monthly_price) {
+            averageMrr = Number(data.subscription.monthly_price);
+          } else if (data.plan === "enterprise") {
+            averageMrr = 1500;
+          } else if (data.plan === "pro") {
+            averageMrr = 500;
+          } else if (data.plan === "starter") {
+            averageMrr = 200;
+          }
         }
+      } else {
+        const mrr = await calculateMRR();
+        const tenantsSnap = await db
+          .collection("tenants")
+          .where("status", "==", "active")
+          .get();
+        const activeCount = tenantsSnap.size;
+        averageMrr = activeCount > 0 ? mrr / activeCount : 0;
       }
-    } else {
-      const mrr = await calculateMRR();
-      const tenantsSnap = await db
-        .collection("tenants")
-        .where("status", "==", "active")
-        .get();
-      const activeCount = tenantsSnap.size;
-      averageMrr = activeCount > 0 ? mrr / activeCount : 0;
-    }
 
-    return averageMrr * (1 / safeChurnRate);
-  } catch (e) {
-    console.error("Error calculating LTV", e);
-    return 0;
-  }
-}
+      return averageMrr * (1 / safeChurnRate);
+    } catch (e) {
+      console.error("Error calculating LTV", e);
+      return 0;
+    }
+  },
+  (tenantId) => `calculateLTV:${tenantId || 'global'}:${new Date().toISOString().slice(0, 7)}`
+);
 
 export async function snapshotSaasMetrics() {
   try {

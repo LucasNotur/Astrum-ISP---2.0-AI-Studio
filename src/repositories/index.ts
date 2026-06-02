@@ -10,7 +10,9 @@ import { ServiceOrderRepositorySupabase } from './supabase/ServiceOrderRepositor
 import { KnowledgeRepositorySupabase } from './supabase/KnowledgeRepositorySupabase';
 import { TenantRepositorySupabase } from './supabase/TenantRepositorySupabase';
 
-const DB_PROVIDER = process.env.DB_PROVIDER ?? 'firebase';
+const DB_PROVIDER = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_DB_PROVIDER) ||
+  (typeof process !== 'undefined' && process.env && process.env.DB_PROVIDER) ||
+  'supabase';
 
 export function getCustomerRepository(): CustomerRepository {
   if (DB_PROVIDER === 'supabase') return new CustomerRepositorySupabase();

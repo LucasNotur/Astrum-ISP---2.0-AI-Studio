@@ -449,7 +449,7 @@ export function KnowledgeBasePage({ knowledgeBase, handleGenerateAIArticle, hand
                   <div className="flex justify-between items-center text-sm text-zinc-500">
                      <span>Resultados mais relevantes ({searchResults.results?.length}):</span>
                      <div className="flex gap-4">
-                       <span>Score mínimo: {process.env.VECTOR_MIN_SCORE || '0.7'}</span>
+                       <span>Score mínimo: {typeof import.meta !== 'undefined' ? (import.meta as any).env?.VITE_VECTOR_MIN_SCORE || '0.7' : '0.7'}</span>
                        <span>Tempo: {searchResults.latency_ms}ms</span>
                      </div>
                   </div>

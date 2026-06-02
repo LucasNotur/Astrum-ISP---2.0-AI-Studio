@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import superAdminRouter from "./src/routes/superAdmin.ts";
 import apiV1Router from "./src/routes/api-v1.ts";
@@ -12,14 +13,32 @@ import { facebookWebhookRouter } from "./src/routes/facebookWebhook.ts";
 import { evolutionWebhookRouter } from "./src/routes/evolutionWebhook.ts";
 import { jobsRouter } from "./src/routes/jobs.ts";
 
+import { getLLMStatus } from "./apps/api/src/adapters/ai/llm.adapter.ts";
+import { startFastifyServer } from "./apps/api/src/server.ts";
+
+process.on("uncaughtException", err => console.error("UNCAUGHT EXCEPTION", err));
+process.on("unhandledRejection", err => console.error("UNHANDLED REJECTION", err));
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // Lança o servidor Fastify em background
+  startFastifyServer().catch(console.error);
+
   app.use(express.json());
 
+  app.get("/api/test", (req, res) => res.send("TEST SUCCESS"));
+
   app.get("/api/health", (req, res) => {
-    res.json({ status: "ok" });
+    res.json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      services: {
+        openai_circuit: getLLMStatus().openai,
+        llm_router: getLLMStatus().router,
+      }
+    });
   });
 
   app.get("/api/health/whatsapp", (req, res) => {
@@ -46,19 +65,45 @@ async function startServer() {
     res.status(404).json({ error: "API route not found" });
   });
 
+  const distPath = path.join(process.cwd(), 'dist/client');
+  app.use(express.static(distPath));
+  app.use('/app/applet', express.static(distPath + '/app/applet'));
+  
+  let vite: any;
   if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
+    vite = await createViteServer({
       server: { middlewareMode: true },
-      appType: "spa",
+      appType: "custom",
     });
     app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist/client');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
   }
+
+  app.use('*', async (req, res, next) => {
+    try {
+      if (vite) {
+         let template = fs.readFileSync(path.resolve('index.html'), 'utf-8');
+         template = await vite.transformIndexHtml(req.originalUrl, template);
+         return res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+      }
+      
+      const distIndex = path.join(process.cwd(), 'dist/client/index.html');
+      const distAppletIndex = path.join(process.cwd(), 'dist/client/app/applet/index.html');
+      const rootIndex = path.join(process.cwd(), 'index.html');
+      
+      let finalIndex = '';
+      if (fs.existsSync(distIndex)) finalIndex = distIndex;
+      else if (fs.existsSync(distAppletIndex)) finalIndex = distAppletIndex;
+      else if (fs.existsSync(rootIndex)) finalIndex = rootIndex;
+      else {
+         return res.status(404).send("No index.html found anywhere.");
+      }
+      res.sendFile(finalIndex);
+    } catch(e) {
+      if (vite) vite.ssrFixStacktrace(e);
+      console.error(e);
+      res.status(500).send("Error");
+    }
+  });
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);

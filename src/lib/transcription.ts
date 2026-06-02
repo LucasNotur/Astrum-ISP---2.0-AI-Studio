@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { adminDb } from './firebaseAdmin';
 
 export async function transcribeAudio(audioUrl: string, apiKey?: string): Promise<string | null> {
-  const currentApiKey = apiKey || process.env.OPENAI_API_KEY || '';
+  const currentApiKey = apiKey || (typeof process !== 'undefined' && process.env ? process.env.OPENAI_API_KEY : '') || '';
   const openai = new OpenAI({ apiKey: currentApiKey, dangerouslyAllowBrowser: true });
 
   try {
@@ -49,7 +49,7 @@ export async function downloadAndTranscribeAudio(audioUrl: string, tenantId: str
   const fallbackMessage = "[Cliente enviou um áudio. A transcrição falhou ou está desativada. Por favor, envie em texto.]"; 
   
   try {
-    let apiKey = process.env.OPENAI_API_KEY;
+    let apiKey = typeof process !== 'undefined' && process.env ? process.env.OPENAI_API_KEY : '';
     let provider = 'whisper';
     let enabled = true;
     

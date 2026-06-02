@@ -1,0 +1,40 @@
+name: Segurança — Auditoria de Dependências
+
+on:
+  schedule:
+    - cron: '0 8 * * 1'  # Toda segunda-feira às 8h
+  push:
+    branches: [main]
+    paths: ['**/package*.json']
+
+jobs:
+  audit:
+    name: 🔒 Auditoria de Segurança
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Auditoria npm (vulnerabilidades)
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Verificar dependências desatualizadas críticas
+        run: npx npm-check-updates --errorLevel 2 --target minor
+        continue-on-error: true
+
+      - name: Verificar secrets vazados no código
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --only-verified

@@ -1,0 +1,172 @@
+name: CI — Testes e Build
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ─── Job 1: Testes Unitários ────────────────────────
+  unit-tests:
+    name: 🧪 Testes Unitários
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Verificar tipos TypeScript
+        run: npm run typecheck --workspace=apps/api
+
+      - name: Lint
+        run: npm run lint --workspace=apps/api --if-present
+
+      - name: Testes unitários
+        run: npm run test:unit
+        env:
+          NODE_ENV: test
+          REDIS_URL: redis://localhost:6379
+          SUPABASE_URL: ${{ secrets.SUPABASE_TEST_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_TEST_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_TEST_SERVICE_ROLE }}
+          JWT_SECRET: test-jwt-secret-mínimo-32-caracteres-aqui
+          JWT_REFRESH_SECRET: test-refresh-secret-mínimo-32-chars-aqui
+
+      - name: Upload cobertura
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+
+  # ─── Job 2: Build de Produção ───────────────────────
+  build:
+    name: 🔨 Build de Produção
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build --workspace=apps/web
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+
+      - name: Build backend (TypeScript → JavaScript)
+        run: npm run build --workspace=apps/api
+
+      - name: Verificar bundle size frontend
+        run: |
+          BUNDLE_SIZE=$(du -sk apps/web/dist | cut -f1)
+          echo "Bundle size: ${BUNDLE_SIZE}KB"
+          if [ $BUNDLE_SIZE -gt 2048 ]; then
+            echo "⚠️ Bundle maior que 2MB: ${BUNDLE_SIZE}KB"
+          fi
+
+      - name: Upload artefato do build
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ github.sha }}
+          path: |
+            apps/web/dist
+            apps/api/dist
+          retention-days: 3
+
+  # ─── Job 3: Testes E2E ──────────────────────────────
+  e2e-tests:
+    name: 🎭 Testes E2E (Playwright)
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 30
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Instalar Playwright browsers
+        run: cd apps/web && npx playwright install --with-deps chromium
+
+      - name: Iniciar backend em background
+        run: |
+          cd apps/api && node dist/server.js &
+          sleep 5
+          curl -f http://localhost:3001/api/v2/health || exit 1
+        env:
+          NODE_ENV: test
+          PORT: 3001
+          REDIS_URL: redis://localhost:6379
+          SUPABASE_URL: ${{ secrets.SUPABASE_TEST_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_TEST_SERVICE_ROLE }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET_TEST }}
+          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET_TEST }}
+
+      - name: Iniciar frontend em background
+        run: |
+          cd apps/web && npx serve dist -p 5173 &
+          sleep 3
+        env:
+          VITE_API_URL: http://localhost:3001
+
+      - name: Executar testes E2E
+        run: cd apps/web && npx playwright test
+        env:
+          CI: true
+          E2E_BASE_URL: http://localhost:5173
+          E2E_API_URL: http://localhost:3001
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+
+      - name: Upload relatório Playwright
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: apps/web/playwright-report/
+          retention-days: 7

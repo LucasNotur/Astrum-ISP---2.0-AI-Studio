@@ -1,0 +1,35 @@
+# Dependências
+node_modules
+**/node_modules
+
+# Build outputs
+dist
+**/dist
+build
+**/build
+
+# Dev
+.env
+.env.local
+**/.env.local
+
+# Testes
+**/*.test.ts
+**/*.spec.ts
+e2e/
+playwright-report/
+
+# IDE e OS
+.vscode/
+.idea/
+.DS_Store
+*.log
+
+# Projeto
+.astrum-progress/
+.git/
+*.md
+!README.md
+
+# DuckDB dados locais
+.data/

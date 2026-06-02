@@ -1,0 +1,13 @@
+# Donos de código por área
+# Estes usuários são automaticamente adicionados como revisores
+
+# Infraestrutura (CI/CD, Docker, migrations)
+.github/                    @seu-usuario
+packages/db/                @seu-usuario
+
+# Backend Core
+apps/api/src/infrastructure/ @seu-usuario
+apps/api/src/domain/         @seu-usuario
+
+# Frontend
+apps/web/src/               @seu-usuario

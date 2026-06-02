@@ -30,19 +30,22 @@ export function setupDLQ(worker: any) {
     const maxAttempts = job.opts?.attempts ?? 3;
     if (attempts >= maxAttempts) {
       try {
-        const { adminDb: db } = await import("./firebaseAdmin");
-        // Mover para DLQ no Firestore para visibilidade
-        await db.collection('dead_letter_queue').add({
+        const { supabaseAdmin } = await import("./supabaseAdmin");
+        const { error } = await supabaseAdmin.from('dead_letter_queue').insert({
           job_id: job.id,
-          type: job.name,
+          job_name: job.name,
+          queue_name: job.queueName ?? 'unknown',
           payload: job.data,
           error_message: err.message,
           retry_count: attempts,
-          failed_at: new Date(),
-          tenant_id: job.data?.tenantId ?? 'unknown',
-          resolved: false
+          tenant_id: job.data?.tenantId ?? null,
         });
-        console.error(`[DLQ] Job ${job.name} moved to DLQ after ${attempts} attempts:`, err.message);
+
+        if (error) {
+          console.error('[DLQ] Erro ao salvar no Supabase:', error.message);
+        } else {
+          console.error(`[DLQ] Job ${job.name} movido para DLQ após ${attempts} tentativas.`);
+        }
       } catch (e: any) {
         console.error("Erro ao inserir no DLQ do firestore:", e.message);
       }
@@ -90,10 +93,13 @@ export async function getAggregateJobCounts(...types: any[]): Promise<Record<str
   if (isMockRedis) return result;
 
   try {
-    const { adminDb: db } = await import("./firebaseAdmin");
-    const tenantsSnap = await db.collection('tenants').where('active', '==', true).get();
+    const { supabaseAdmin } = await import("./supabaseAdmin");
+    const { data: tenants } = await supabaseAdmin
+      .from('tenants')
+      .select('id')
+      .eq('active', true);
     
-    for (const tenant of tenantsSnap.docs) {
+    for (const tenant of tenants ?? []) {
       const queue = getTenantQueue(tenant.id);
       const counts = await queue.getJobCounts(...types);
       for (const type of types) {
@@ -124,10 +130,15 @@ export async function getMessagePriority(customerId: string, tenantId: string): 
   }
 
   try {
-    const { adminDb: db } = await import("./firebaseAdmin");
+    const { supabaseAdmin } = await import("./supabaseAdmin");
     
-    const customerDoc = await db.collection('customers').doc(customerId).get();
-    const planId = customerDoc.data()?.plan_id;
+    const { data: customer } = await supabaseAdmin
+      .from('customers')
+      .select('plan_id')
+      .eq('id', customerId)
+      .single();
+
+    const planId = customer?.plan_id;
 
     // Quanto menor o número, maior a prioridade no BullMQ
     const priorityMap: Record<string, number> = {

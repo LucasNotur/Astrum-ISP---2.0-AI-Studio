@@ -1,0 +1,79 @@
+name: Deploy — Produção
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - '.astrum-progress/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Ambiente de deploy'
+        required: true
+        default: 'production'
+        type: choice
+        options: [production, staging]
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false  # nunca cancelar deploy em andamento
+
+jobs:
+  deploy:
+    name: 🚀 Deploy ${{ github.event.inputs.environment || 'production' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: ${{ github.event.inputs.environment || 'production' }}
+      url: ${{ secrets.PRODUCTION_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artefato do build
+        uses: actions/download-artifact@v4
+        with:
+          name: build-${{ github.sha }}
+
+      - name: Deploy Backend (Railway)
+        if: ${{ secrets.RAILWAY_TOKEN != '' }}
+        run: |
+          npm install -g @railway/cli
+          railway up --service astrum-api
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Deploy Frontend (Vercel)
+        if: ${{ secrets.VERCEL_TOKEN != '' }}
+        run: |
+          npm install -g vercel
+          vercel --prod --token=${{ secrets.VERCEL_TOKEN }} apps/web/dist
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Notificar Sentry de novo release
+        if: ${{ secrets.SENTRY_AUTH_TOKEN != '' }}
+        run: |
+          npm install -g @sentry/cli
+          sentry-cli releases new "${{ github.sha }}"
+          sentry-cli releases set-commits "${{ github.sha }}" --auto
+          sentry-cli releases finalize "${{ github.sha }}"
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: astrum-isp
+          SENTRY_PROJECT: astrum-api
+
+      - name: Health check pós-deploy
+        run: |
+          sleep 10
+          curl -f ${{ secrets.PRODUCTION_URL }}/api/v2/health || exit 1
+          echo "✅ Health check passou"
+
+      - name: Notificar sucesso
+        if: success()
+        run: |
+          echo "🚀 Deploy de produção concluído!"
+          echo "Commit: ${{ github.sha }}"
+          echo "URL: ${{ secrets.PRODUCTION_URL }}"

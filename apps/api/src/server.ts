@@ -1,0 +1,271 @@
+import Fastify from 'fastify';
+import cors from '@fastify/cors';
+import jwt from '@fastify/jwt';
+import multipart from '@fastify/multipart';
+import helmet from '@fastify/helmet';
+import compress from '@fastify/compress';
+import etag from '@fastify/etag';
+import { validateEnv } from './infrastructure/config/env.validator';
+import { initSentry } from './infrastructure/observability/sentry.service';
+import sentryPlugin from './infrastructure/observability/sentry-fastify.plugin';
+
+export async function buildServer() {
+  initSentry(); // DEVE ser chamado antes de qualquer outro código
+  validateEnv();
+  
+  const app = Fastify({
+    logger: { level: process.env.LOG_LEVEL ?? 'info' },
+  });
+
+  // Registrar plugin Sentry antes dos outros plugins
+  await app.register(sentryPlugin);
+
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        connectSrc: ["'self'"],
+      },
+    },
+  });
+
+  await app.register(compress, { global: true, threshold: 1024 });
+  await app.register(etag);
+
+  await app.register(cors, {
+    origin: process.env.ALLOWED_ORIGINS?.split(',') ?? ['http://localhost:5173'],
+    credentials: true,
+  });
+
+  await app.register(jwt, {
+    secret: process.env.JWT_SECRET ?? 'dev-secret-change-in-production',
+    sign: { expiresIn: '15m' },
+  });
+
+  await app.register(multipart, {
+    limits: { fileSize: 50 * 1024 * 1024 },
+  });
+
+  app.decorate('authenticate', async function (request: any, reply: any) {
+    try {
+      await request.jwtVerify();
+    } catch (err) {
+      reply.send(err);
+    }
+  });
+
+  const idempotencyPlugin = await import('./infrastructure/idempotency/idempotency.middleware');
+  await app.register(idempotencyPlugin.default);
+
+  const rateLimitPlugin = await import('./infrastructure/rate-limit/rate-limit.plugin');
+  await app.register(rateLimitPlugin.default);
+
+  const webhookHmacPlugin = await import('./infrastructure/security/webhook-hmac.plugin');
+  await app.register(webhookHmacPlugin.default);
+
+  const { authRoutes } = await import('./domain/auth/auth.routes');
+  await app.register(authRoutes);
+
+  const { loginRoute } = await import('./domain/auth/login.route');
+  await app.register(loginRoute);
+
+  const { registerRoute } = await import('./domain/auth/register.route');
+  await app.register(registerRoute);
+
+  const { onboardingRoutes } = await import('./domain/onboarding/onboarding.routes');
+  await app.register(onboardingRoutes);
+
+  const { requirePermission } = await import('./infrastructure/auth/rbac.middleware');
+
+  const { ticketRoutes } = await import('./domain/atendimento/tickets.routes');
+  await app.register(ticketRoutes);
+
+  const { documentRoutes } = await import('./domain/ia/documents.routes');
+  await app.register(documentRoutes);
+
+  const { analyticsRoutes } = await import('./domain/ia/analytics.routes');
+  await app.register(analyticsRoutes);
+
+  const { ragRoutes } = await import('./domain/ia/rag.routes');
+  await app.register(ragRoutes);
+
+  const { chatStreamRoutes } = await import('./domain/ia/chat-stream.routes');
+  await app.register(chatStreamRoutes);
+
+  const { etlRoutes } = await import('./domain/ia/etl.routes');
+  await app.register(etlRoutes);
+
+  const websocketRoutes = await import('./domain/realtime/websocket.routes');
+  await app.register(websocketRoutes.default);
+
+  // Health check com status dos serviços
+  app.get('/api/v2/health', async () => {
+    const { getLLMStatus } = await import('./adapters/ai/llm.adapter');
+    const { getRedisStatus } = await import('./infrastructure/cache/redis.client');
+    const { getCollectionStats } = await import('./adapters/vector/qdrant.adapter');
+
+    const qdrantStatus = await getCollectionStats('health-check')
+      .then(s => s.exists ? 'connected' : 'no-collections')
+      .catch(() => 'unavailable');
+
+    return {
+      status: 'ok',
+      version: '2.0.0',
+      timestamp: new Date().toISOString(),
+      worker: {
+        pid: process.pid,
+        uptime: Math.floor(process.uptime()),
+      },
+      services: {
+        redis: getRedisStatus(),
+        openai_circuit: getLLMStatus().openai,
+        llm_router: getLLMStatus().router,
+        qdrant: qdrantStatus,
+        sentry: process.env.SENTRY_DSN ? 'configured' : 'not_configured',
+        langsmith: process.env.LANGCHAIN_API_KEY ? 'configured' : 'not_configured',
+      },
+    };
+  });
+
+  app.get('/api/v2/status', async () => ({
+    version: '2.0.0',
+    architecture: 'fastify-ddd-hexagonal',
+    sprint: 0,
+  }));
+
+  // Error handler
+  app.setErrorHandler((error, _req, reply) => {
+    const status = error.statusCode ?? 500;
+    if (status >= 500) app.log.error({ err: error }, 'Erro interno');
+    return reply.status(status).send({
+      code: error.code ?? 'INTERNAL_ERROR',
+      message: status === 500 ? 'Erro interno. Nossa equipe foi notificada.' : error.message,
+    });
+  });
+
+  // Not found handler
+  app.setNotFoundHandler((_req, reply) => {
+    reply.status(404).send({ code: 'NOT_FOUND', message: 'Rota não encontrada.' });
+  });
+
+  return app;
+}
+
+async function scheduleBatchJobs() {
+  const { Queue } = await import('bullmq');
+  const { getRedisClient } = await import('./infrastructure/cache/redis.client');
+
+  const queue = new Queue('ai-batch', { connection: getRedisClient() });
+
+  await queue.add('run_churn_analysis',
+    { tenantId: 'all' },
+    {
+      repeat: { pattern: '0 2 * * *' },
+      jobId: 'scheduled_churn_analysis',
+      priority: 1,
+    }
+  );
+
+  await queue.add('run_ticket_classification',
+    { tenantId: 'all' },
+    {
+      repeat: { pattern: '0 3 * * *' },
+      jobId: 'scheduled_ticket_classification',
+      priority: 1,
+    }
+  );
+
+  await queue.add('poll_batch_results',
+    {},
+    {
+      repeat: { every: 5 * 60 * 1000 },
+      jobId: 'batch_results_poller',
+      priority: 3,
+    }
+  );
+}
+
+export async function startFastifyServer() {
+  const app = await buildServer();
+  const port = parseInt(process.env.FASTIFY_PORT ?? '3001');
+
+  try {
+    const listenConfig: any = { port, host: '0.0.0.0' };
+    await app.listen(listenConfig);
+    app.log.info(`[FASTIFY] Servidor v2 rodando em http://localhost:${port}`);
+    
+    // Iniciar listeners de Realtime
+    const { initBusinessListeners } = await import('./infrastructure/realtime/business-listeners');
+    initBusinessListeners();
+
+    // Agendar ETL a cada 15 minutos
+    const { aiProcessingQueue } = await import('../../packages/queue/src/queues');
+    await aiProcessingQueue.add(
+      'etl:scheduled',
+      { trigger: 'scheduled' },
+      {
+        repeat: { every: 15 * 60 * 1000 }, // 15 minutos
+        jobId: 'etl:recurring',             // ID fixo evita duplicatas
+      }
+    );
+    app.log.info('ETL: job recorrente agendado (a cada 15min)');
+
+    // Inicializar DuckDB Analytics Schema
+    const { initAnalyticsSchema } = await import('./infrastructure/analytics/analytics.schema');
+    await initAnalyticsSchema();
+
+    // Iniciar poller do Outbox
+    const { startOutboxPoller } = await import('../../packages/queue/src/workers/outbox.worker');
+    await startOutboxPoller();
+
+    // Agendar Batch Jobs
+    await scheduleBatchJobs();
+  } catch (err: any) {
+    app.log.error('Erro ao iniciar Fastify, ignorando para não derrubar Express', err);
+    // process.exit(1);
+  }
+
+  // Graceful Shutdown
+  const shutdown = async (signal: string) => {
+    app.log.info(`[FASTIFY] ${signal} recebido. Encerrando...`);
+    
+    // 1. Parar de aceitar novas requests
+    await app.close();
+    
+    // 2. Fechar Realtime Channels
+    try {
+      const { closeAllChannels } = await import('./infrastructure/realtime/realtime.service');
+      await closeAllChannels();
+    } catch(e) {}
+    
+    // Fechar DuckDB
+    try {
+      const { closeDuckDB } = await import('./infrastructure/analytics/duckdb.service');
+      await closeDuckDB();
+    } catch(e) {}
+    
+    // 3. Fechar filas BullMQ (aguardar jobs em andamento)
+    try {
+      const { closeAllQueues } = await import('../../packages/queue/src/queues');
+      await closeAllQueues();
+      app.log.info('[FASTIFY] Filas BullMQ encerradas.');
+    } catch(e) { /* ignore se não buildado */ }
+    
+    // 3. Fechar Redis
+    try {
+      const { closeRedis } = await import('./infrastructure/cache/redis.client');
+      await closeRedis();
+    } catch(e) {}
+    
+    app.log.info('[FASTIFY] Shutdown gracioso concluído.');
+    process.exit(0);
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+
+  return app;
+}

@@ -1,0 +1,26 @@
+# Usar com: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+version: '3.8'
+
+services:
+  # Em dev: apenas Redis e Qdrant em containers
+  # API e Web rodam local com hot-reload
+  api:
+    build:
+      target: deps  # apenas instalar deps, não buildar
+    command: npm run dev --workspace=apps/api
+    volumes:
+      - ./apps/api/src:/app/apps/api/src  # hot-reload
+      - ./packages:/app/packages
+    environment:
+      NODE_ENV: development
+
+  web:
+    build:
+      target: builder
+    command: npm run dev --workspace=apps/web
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./apps/web/src:/app/apps/web/src
+    environment:
+      VITE_API_URL: http://localhost:3001
