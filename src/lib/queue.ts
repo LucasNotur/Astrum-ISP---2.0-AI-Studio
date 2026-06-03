@@ -72,7 +72,7 @@ export function getTenantQueue(tenantId: string): Queue {
   }
 
   if (!tenantQueues.has(tenantId)) {
-    const queue = new Queue(`messages:${tenantId}`, {
+    const queue = new Queue(`messages-${tenantId}`, {
       connection: redis as any,
       defaultJobOptions: {
         attempts: 3,

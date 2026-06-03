@@ -28,9 +28,9 @@ describe('BullMQ Queues', () => {
     expect(allQueues).toHaveLength(5);
   });
 
-  it('filas têm nomes com prefixo astrum:', () => {
+  it('filas têm nomes com prefixo astrum-', () => {
     allQueues.forEach(q => {
-      expect(q.name).toMatch(/^astrum:/);
+      expect(q.name).toMatch(/^astrum-/);
     });
   });
 

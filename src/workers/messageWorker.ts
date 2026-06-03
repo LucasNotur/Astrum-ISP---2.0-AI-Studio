@@ -1589,7 +1589,7 @@ async function startWorkers() {
       const tenantId = tenant.id;
       const concurrency = tenant.data()?.worker_concurrency ?? 3;
 
-      const worker = new Worker(`messages:${tenantId}`, processMessageJob, {
+      const worker = new Worker(`messages-${tenantId}`, processMessageJob, {
         connection: redis as any,
         concurrency
       });

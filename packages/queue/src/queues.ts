@@ -13,14 +13,27 @@ const DEFAULT_JOB_OPTIONS = {
   removeOnFail: false,
 };
 
+const isMockRedis = !((connection as any).options);
+
+const createQueue = (name: string, opts: any) => {
+  if (isMockRedis) return {
+    add: async () => ({ id: 'mock' }),
+    close: async () => {},
+    name
+  } as any;
+  const q = new Queue(name, opts);
+  q.on('error', (err) => console.error(`[BullMQ Error in ${name}]`, err));
+  return q;
+};
+
 // Fila de mensagens WhatsApp/AstroChat
-export const messageQueue = new Queue('astrum:messages', {
+export const messageQueue = createQueue('astrum-messages', {
   connection: connection as any,
   defaultJobOptions: { ...DEFAULT_JOB_OPTIONS, attempts: 5 },
 });
 
 // Fila de cobrança CobrAI
-export const cobrancaQueue = new Queue('astrum:cobranca', {
+export const cobrancaQueue = createQueue('astrum-cobranca', {
   connection: connection as any,
   defaultJobOptions: {
     ...DEFAULT_JOB_OPTIONS,
@@ -29,19 +42,19 @@ export const cobrancaQueue = new Queue('astrum:cobranca', {
 });
 
 // Fila de notificações (email, push)
-export const notificationsQueue = new Queue('astrum:notifications', {
+export const notificationsQueue = createQueue('astrum-notifications', {
   connection: connection as any,
   defaultJobOptions: DEFAULT_JOB_OPTIONS,
 });
 
 // Fila de processamento de IA (embeddings, análise)
-export const aiProcessingQueue = new Queue('astrum:ai-processing', {
+export const aiProcessingQueue = createQueue('astrum-ai-processing', {
   connection: connection as any,
   defaultJobOptions: { ...DEFAULT_JOB_OPTIONS, attempts: 2 },
 });
 
 // Fila de suspensão de sinal (alta prioridade)
-export const suspensionQueue = new Queue('astrum:suspension', {
+export const suspensionQueue = createQueue('astrum-suspension', {
   connection: connection as any,
   defaultJobOptions: {
     ...DEFAULT_JOB_OPTIONS,

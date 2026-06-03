@@ -115,7 +115,9 @@ export class OutboxService {
     const priority = EVENT_PRIORITY_MAP[event.event_type] ?? 5;
 
     try {
-      const queue = new Queue(queueName, { connection: getRedisClient() });
+      const { queues } = await import('./priority-queues');
+      const queue = (queues as any)[queueName];
+      if (!queue) throw new Error(`Queue ${queueName} not found`);
 
       await queue.add(event.event_type, {
         ...event.payload,

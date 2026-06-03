@@ -155,10 +155,9 @@ export async function buildServer() {
 }
 
 async function scheduleBatchJobs() {
-  const { Queue } = await import('bullmq');
-  const { getRedisClient } = await import('./infrastructure/cache/redis.client');
+  const { queues } = await import('./infrastructure/queue/priority-queues');
 
-  const queue = new Queue('ai-batch', { connection: getRedisClient() });
+  const queue = queues['ai-batch'];
 
   await queue.add('run_churn_analysis',
     { tenantId: 'all' },
@@ -224,7 +223,7 @@ export async function startFastifyServer() {
     // Agendar Batch Jobs
     await scheduleBatchJobs();
   } catch (err: any) {
-    app.log.error('Erro ao iniciar Fastify, ignorando para não derrubar Express', err);
+    app.log.error({ err }, 'Erro ao iniciar Fastify, ignorando para não derrubar Express');
     // process.exit(1);
   }
 
