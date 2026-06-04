@@ -161,7 +161,7 @@ Escreva como se fosse um documento técnico real do manual de suporte.`,
       temperature: 0.3,
     });
 
-    return response.choices[0].message.content ?? query;
+    return response.choices[0]?.message?.content ?? query;
   }
 
   /**
@@ -184,7 +184,11 @@ Escreva como se fosse um documento técnico real do manual de suporte.`,
       model: this.embeddingModel,
       input: text.slice(0, 8000), // limite de tokens
     });
-    return response.data[0].embedding;
+    const embedding = response.data[0]?.embedding;
+    if (!embedding) {
+      throw new Error('Fallback embedding failed');
+    }
+    return embedding;
   }
 
   /**

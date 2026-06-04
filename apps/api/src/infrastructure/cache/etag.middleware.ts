@@ -4,7 +4,7 @@ import { createHash } from 'crypto';
 
 const etagPlugin: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('onSend', async (request, reply, payload) => {
-    const url = request.url.split('?')[0];
+    const url = (request.url || '').split('?')[0];
     const isTargetRoute = url.startsWith('/api/documents/') || 
                           url.startsWith('/api/manuals/') || 
                           url.startsWith('/api/assets/');

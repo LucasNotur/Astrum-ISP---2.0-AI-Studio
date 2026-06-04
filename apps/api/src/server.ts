@@ -137,7 +137,7 @@ export async function buildServer() {
   }));
 
   // Error handler
-  app.setErrorHandler((error, _req, reply) => {
+  app.setErrorHandler((error: any, _req, reply) => {
     const status = error.statusCode ?? 500;
     if (status >= 500) app.log.error({ err: error }, 'Erro interno');
     return reply.status(status).send({
@@ -201,6 +201,7 @@ export async function startFastifyServer() {
     initBusinessListeners();
 
     // Agendar ETL a cada 15 minutos
+    // @ts-ignore
     const { aiProcessingQueue } = await import('../../packages/queue/src/queues');
     await aiProcessingQueue.add(
       'etl:scheduled',
@@ -217,6 +218,7 @@ export async function startFastifyServer() {
     await initAnalyticsSchema();
 
     // Iniciar poller do Outbox
+    // @ts-ignore
     const { startOutboxPoller } = await import('../../packages/queue/src/workers/outbox.worker');
     await startOutboxPoller();
 
@@ -248,6 +250,7 @@ export async function startFastifyServer() {
     
     // 3. Fechar filas BullMQ (aguardar jobs em andamento)
     try {
+      // @ts-ignore
       const { closeAllQueues } = await import('../../packages/queue/src/queues');
       await closeAllQueues();
       app.log.info('[FASTIFY] Filas BullMQ encerradas.');

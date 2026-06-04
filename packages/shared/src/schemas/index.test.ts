@@ -17,7 +17,7 @@ describe('Zod Schemas', () => {
     it('rejeita título muito curto', () => {
       const result = createTicketSchema.safeParse({ title: 'ok' });
       expect(result.success).toBe(false);
-      expect(result.error?.issues[0].path[0]).toBe('title');
+      expect(result.error!.issues[0]!.path[0]).toBe('title');
     });
 
     it('usa prioridade padrão medium', () => {

@@ -7,7 +7,13 @@ const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABA
 
 export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder_service_role_key';
+export const SUPABASE_URL = supabaseUrl;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || 'placeholder_service_role_key';
+
+if (supabaseServiceRoleKey === 'placeholder_service_role_key') {
+  console.warn('⚠️ AVISO: SUPABASE_SERVICE_ROLE_KEY não configurado! Realtime e operations que requerem Admin falharão.');
+}
+
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 export default supabaseClient;

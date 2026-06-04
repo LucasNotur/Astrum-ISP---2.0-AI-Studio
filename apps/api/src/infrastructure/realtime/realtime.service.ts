@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '../database/supabase.client';
+import { supabaseAdmin, SUPABASE_URL } from '../database/supabase.client';
 import { infraLogger } from '../logging/logger';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -29,13 +29,13 @@ const activeChannels = new Map<string, RealtimeChannel>();
  */
 export function watchTable<T = Record<string, unknown>>(
   config: TableChangeHandler<T>
-): RealtimeChannel {
-  const channelName = `${config.table}:${config.event}:${config.filter ?? 'all'}`;
-
-  // Evitar canais duplicados
-  if (activeChannels.has(channelName)) {
-    return activeChannels.get(channelName)!;
+): RealtimeChannel | null {
+  if (SUPABASE_URL === 'https://placeholder.supabase.co') {
+    infraLogger.warn({ table: config.table }, 'Realtime: Supabase URL is placeholder, skipping channel creation.');
+    return null;
   }
+
+  const channelName = `realtime_${config.table}_${config.event}_${config.filter ?? 'all'}_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
   const channel = supabaseAdmin
     .channel(channelName)
@@ -59,11 +59,14 @@ export function watchTable<T = Record<string, unknown>>(
         }
       }
     )
-    .subscribe((status) => {
+    .subscribe((status, err) => {
       if (status === 'SUBSCRIBED') {
-        infraLogger.info({ channelName }, 'Realtime: canal ativo');
+        infraLogger.info({ channelName, table: config.table }, 'Realtime: canal ativo');
       } else if (status === 'CHANNEL_ERROR') {
-        infraLogger.error({ channelName }, 'Realtime: erro no canal');
+        infraLogger.error(
+          { channelName, table: config.table, err },
+          'Realtime: erro no canal. VERIFIQUE SE AS TABELAS FORAM ADICIONADAS À PUBLICAÇÃO "supabase_realtime" no banco de dados! (Ex: ALTER PUBLICATION supabase_realtime ADD TABLE nome_tabela;)'
+        );
       }
     });
 

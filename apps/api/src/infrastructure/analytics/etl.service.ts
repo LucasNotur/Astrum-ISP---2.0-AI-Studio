@@ -36,7 +36,7 @@ async function getLastSync(tableName: string): Promise<Date> {
       tableName
     );
 
-    if (result.length > 0) {
+    if (result.length > 0 && result[0]) {
       return new Date(result[0].last_sync as string);
     }
 

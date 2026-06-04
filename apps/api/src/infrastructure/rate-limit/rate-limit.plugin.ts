@@ -4,13 +4,12 @@ import { checkRateLimit, getRouteGroup } from './token-bucket.service';
 
 const rateLimitPlugin: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('preHandler', async (request: FastifyRequest, reply) => {
-    const path = request.url.split('?')[0];
-
+    const path = (request.url || '').split('?')[0];
     if (!path.startsWith('/api/')) return;
     if (path === '/api/health') return;
 
     const tenantId = (request as any).user?.tenantId ?? request.ips?.[request.ips.length - 1] ?? request.ip;
-    const routeGroup = getRouteGroup(request.url);
+    const routeGroup = getRouteGroup(request.url || '');
 
     const result = await checkRateLimit(tenantId, routeGroup);
 
