@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuthStore } from '../store/auth.store';
+import { apiClient } from '../lib/api-client';
 
 export default function Login() {
-  const { login } = useAuth();
+  const loginAction = useAuthStore(state => state.login);
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,7 +17,20 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await login(email, password);
+      const { data } = await apiClient.post('/api/v2/auth/login', { email, password });
+      
+      const payload = JSON.parse(atob(data.accessToken.split('.')[1]));
+      
+      loginAction({
+        id: payload.userId,
+        name: payload.name || '',
+        email: email,
+        tenantId: payload.tenantId,
+        tenantName: payload.tenantName || '',
+        role: payload.role,
+        plan: payload.plan || 'starter'
+      }, data.accessToken, data.refreshToken);
+
       navigate('/dashboard');
     } catch (err: any) {
       setError(

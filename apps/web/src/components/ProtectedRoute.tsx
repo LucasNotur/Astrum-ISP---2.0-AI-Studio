@@ -1,5 +1,5 @@
 import { Navigate, Outlet } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuthStore } from '../store/auth.store';
 
 interface ProtectedRouteProps {
   requiredRole?: 'super_admin' | 'admin' | 'operator' | 'viewer';
@@ -8,7 +8,9 @@ interface ProtectedRouteProps {
 const ROLE_HIERARCHY = ['viewer', 'operator', 'admin', 'super_admin'];
 
 export default function ProtectedRoute({ requiredRole }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  const isLoading = useAuthStore(state => state.isLoading);
+  const user = useAuthStore(state => state.user);
 
   if (isLoading) {
     return (

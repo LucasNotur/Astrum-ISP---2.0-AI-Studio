@@ -5,6 +5,7 @@ import { sendWhatsAppResponse } from '../../../apps/api/src/adapters/whatsapp/me
 import { supabaseAdmin } from '../../../apps/api/src/infrastructure/database/supabase.client';
 import { cobrancaLogger } from '../../../apps/api/src/infrastructure/logging/logger';
 import { addSentryToWorker } from '../../../apps/api/src/infrastructure/observability/sentry-worker.helper';
+import { svixEvents } from '../../../apps/api/src/adapters/webhooks/svix.service';
 
 export interface CobraiJobData {
   tenantId: string;
@@ -32,6 +33,10 @@ async function executeCobraiAction(job: Job<CobraiJobData>): Promise<void> {
           .eq('id', customerId)
           .eq('tenant_id', tenantId);
     }
+    
+    await svixEvents.invoicePaid(tenantId, {
+      invoiceId, customerId, amountCents, paidAt: new Date().toISOString(),
+    });
     
     const { wsPublisher } = await import('../../../apps/api/src/domain/realtime/websocket.routes');
     await wsPublisher.paymentReceived(tenantId, invoiceId, amountCents ?? 0);

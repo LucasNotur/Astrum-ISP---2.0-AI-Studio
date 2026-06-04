@@ -1,0 +1,18 @@
+# wrangler.toml — Cloudflare Workers config
+name = "astrum-jwt-edge"
+main = "workers/jwt-edge.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+BACKEND_URL = "https://astrum-api.railway.app"
+
+# Secrets (configurar via CLI):
+# npx wrangler secret put JWT_SECRET
+
+[[routes]]
+pattern = "api.astrum-isp.com/api/v2/*"
+zone_name = "astrum-isp.com"
+
+[build]
+command = "npx tsc workers/jwt-edge.ts --outDir dist/workers --target ES2022 --module ES2022"
