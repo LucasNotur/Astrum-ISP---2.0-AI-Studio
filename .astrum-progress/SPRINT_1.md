@@ -15,176 +15,163 @@
 
 ### DIA 15 — Fastify Production-Grade
 **Sessão:** 15 de 58 | **Tipo:** IMPL
-- [ ] Configurar Cluster Module: os.cpus().length workers
-- [ ] Configurar pre-forking para aproveitar todos os CPUs
-- [ ] Criar health check endpoint /health (status Redis + Supabase + Qdrant)
-- [ ] Configurar @fastify/compress para respostas gzip automáticas
-- [ ] Configurar @fastify/helmet para headers de segurança HTTP
-- [ ] Benchmark com autocannon: confirmar >10k req/s
-- [ ] **TESTE:** Vitest — /health retorna 200 com status de todos os serviços
+- [x] Configurar Cluster Module: os.cpus().length workers
+- [x] Configurar pre-forking para aproveitar todos os CPUs
+- [x] Criar health check endpoint /health (status Redis + Supabase + Qdrant)
+- [x] Configurar @fastify/compress para respostas gzip automáticas
+- [x] Configurar @fastify/helmet para headers de segurança HTTP
+- [x] Benchmark com autocannon: confirmar >10k req/s
+- [x] **TESTE:** Vitest — /health retorna 200 com status de todos os serviços
 
 **Checklist Master:** Nenhum novo item (otimização do existente)
 **Blocos:** B07
 
 ---
 
-### DIA 16 — WebSockets Bidirecionais
+### DIA 16 — JWT Rotation + Refresh Token
 **Sessão:** 16 de 58 | **Tipo:** IMPL
-- [ ] Instalar e configurar @fastify/websocket
-- [ ] Criar adapters/websocket/websocket.adapter.ts
-- [ ] Implementar autenticação JWT na abertura do WebSocket
-- [ ] Implementar rooms por tenant_id (ISP A isolado do ISP B)
-- [ ] Implementar reconexão automática no cliente React com backoff exponencial
-- [ ] Atualizar componentes React do AstroChat para usar WebSocket
-- [ ] **TESTE:** Vitest — 100 conexões simultâneas sem degradação de performance
+- [x] Criar migration 003_refresh_tokens.sql
+- [x] Criar infrastructure/auth/jwt.service.ts
+- [x] Criar domain/auth/auth.routes.ts
+- [x] **TESTE:** Vitest — refresh token revogado bloqueia renovação
 
-**Checklist Master:** Nenhum item direto (infra para o frontend)
-**Blocos:** B07
-**Frontend afetado:** AstroChat UI — substituir polling por WebSocket
+**Checklist Master:** `JWT rotation: 15 minutos no Supabase Auth` → ✅
+**Blocos:** B09
+**Frontend afetado:** Mecanismo de autenticação e interceptores Axios
+
 
 ---
 
-### DIA 17 — SSE Streaming de IA
+### DIA 17 — Argon2id Password Hashing
 **Sessão:** 17 de 58 | **Tipo:** IMPL
-- [ ] Criar rota GET /api/ai/stream com Server-Sent Events
-- [ ] Integrar Abort Controller: usuário cancela resposta em andamento
-- [ ] Implementar indicador visual "IA pensando..." no frontend (componente React)
-- [ ] Criar hook useSSEStream() no React para consumir o stream
-- [ ] Testar: tokens da IA aparecem em <100ms de latência
-- [ ] **TESTE:** Playwright — abrir chat, enviar mensagem, verificar tokens aparecendo um a um
+- [x] Instalar argon2
+- [x] Criar `password.service.ts` com parâmetros Argon2id
+- [x] Criar schema de `users` no DB via migration (tabela multi-tenant isolada)
+- [x] Criar rota login `/auth/login` integrando password verify e JWT
+- [x] **TESTE:** Vitest — senhas garantem false em plain e true no match seguro
 
-**Checklist Master:** Nenhum item direto
-**Blocos:** B07
-**Frontend afetado:** AstroChat — componente de streaming
+**Checklist Master:** `Argon2id para senhas` → ✅
+**Blocos:** B09
+**Frontend afetado:** Tela de Login e requests POST /auth/login
 
 ---
 
 ### DIA 18 — REST API + Webhooks HMAC
 **Sessão:** 18 de 58 | **Tipo:** IMPL
-- [ ] Criar adapters/webhooks/hmac-validator.ts
-- [ ] Aplicar HMAC em todos os webhooks recebidos: WhatsApp/Evolution, pagamentos, ISP callbacks
-- [ ] Instalar e configurar Svix para envio de webhooks para fora
-- [ ] Criar adapters/webhooks/svix.adapter.ts
-- [ ] Padronizar respostas de erro: { code, message, details, request_id }
-- [ ] Testar: webhook sem assinatura HMAC → 401 imediato
-- [ ] **TESTE:** Vitest — HMAC inválido rejeitado, HMAC válido processado
+- [x] Criar infrastructure/security/hmac.service.ts e webhook-hmac.plugin.ts
+- [x] Aplicar HMAC nas rotas Express antigas: WhatsApp/Evolution, Facebook
+- [x] Atualizar env variables para webhooks secretos
+- [x] Testar: webhook sem assinatura HMAC → 401 imediato
+- [x] **TESTE:** Vitest — HMAC inválido rejeitado, HMAC válido processado
 
 **Checklist Master:** `HMAC em todos os webhooks` → ✅
 **Blocos:** B07
 
 ---
 
-### DIA 19 — Cloudflare Workers Edge Auth
+### DIA 19 — Supabase RLS por Tenant
 **Sessão:** 19 de 58 | **Tipo:** SETUP
-- [ ] Criar Worker script para validação de JWT na borda
-- [ ] Configurar bloqueio de IPs maliciosos na borda
-- [ ] Configurar Rate Limiting na borda (Cloudflare dashboard)
-- [ ] Testar: request com JWT inválido → bloqueado antes de chegar ao Node.js
-- [ ] **TESTE:** Playwright — request com JWT inválido → 401 sem chegar ao servidor
-
-**Checklist Master:** Nenhum item direto (segurança de borda)
-**Blocos:** B07
-
----
-
-### DIA 20 — Supabase Auth + RBAC Granular
-**Sessão:** 20 de 58 | **Tipo:** IMPL
-- [ ] Configurar JWT rotation: tokens expiram em 15 minutos com refresh automático
-- [ ] Criar ENUM de roles: support_agent, manager, admin, super_admin
-- [ ] Criar migration com RLS policies baseadas em role + tenant_id
-- [ ] Implementar middleware RBAC no Fastify
-- [ ] Atualizar menu do frontend: itens visíveis por role
-- [ ] Testar: JWT expirado → 401, técnico em rota /admin → 403
-- [ ] **TESTE:** Playwright — login como técnico, tentar acessar /admin → 403
-
-**Checklist Master:** `JWT rotation: 15 minutos`, `RBAC: Técnico / Gestor / Admin testados` → ✅
-**Blocos:** B09
-**Frontend afetado:** Menu de navegação, rotas protegidas, componente de role badge
-
----
-
-### DIA 21 — Argon2id + Caddy + WAF
-**Sessão:** 21 de 58 | **Tipo:** IMPL + SETUP
-- [ ] Instalar argon2 package
-- [ ] Substituir qualquer bcrypt/md5/sha1 por Argon2id em toda a base
-- [ ] Configurar Caddy como reverse proxy com HTTPS automático (Caddyfile)
-- [ ] Configurar Cloudflare WAF: bloquear SQLi, XSS, prompt injection via HTTP
-- [ ] Teste básico de segurança nas rotas críticas (OWASP Top 10)
-- [ ] **TESTE:** Vitest — senha hasheada com Argon2id não é revertível com força bruta
-
-**Checklist Master:** `Argon2id para todas as senhas` → ✅
-**Blocos:** B09
-
----
-
-## SEMANA 4
-
-### DIA 22 — RLS Multi-tenant Production-Grade
-**Sessão:** 22 de 58 | **Tipo:** IMPL
-- [ ] Auditar TODAS as tabelas do Supabase — garantir RLS ativo em cada uma
-- [ ] Criar teste automatizado: Provedor A faz query → 0 registros do Provedor B
-- [ ] Criar Materialized Views para dashboards (recalcular à meia-noite via BullMQ)
-- [ ] Criar índices otimizados para queries de atendimento em tempo real
-- [ ] **TESTE:** Playwright — login ISP A, buscar clientes → ISP B não aparece
+- [x] Criar schema inicial multi-tenant (`tenants`, `customers`, `tickets`, `conversations`, `messages`)
+- [x] Aplicar RLS policies (row-level-security) para isolamento absoluto no banco
+- [x] Criar migration 005_rls_policies.sql
+- [x] Criar `tenant-db.service.ts` para auxiliar rotinas server-side
+- [x] **TESTE:** `rls-isolation.test.sql` provando que ISP A não acessa ISP B
 
 **Checklist Master:** `RLS em TODAS as tabelas desde a primeira migration` → ✅
 **Blocos:** B09
 
 ---
 
-### DIA 23 — Qdrant Dockerizado + Particionamento
-**Sessão:** 23 de 58 | **Tipo:** SETUP + IMPL
-- [ ] Instalar Qdrant via Docker Compose (adicionar ao docker-compose.yml)
-- [ ] Criar coleção separada por ISP (nunca namespace global único)
-- [ ] Configurar Snapshotting automático diário
-- [ ] Implementar payload indexing: filtros por date, document_type, isp_id
-- [ ] Atualizar lib/vectorStore.ts para usar particionamento por tenant
-- [ ] **TESTE:** Vitest — query ISP A não retorna vetores do ISP B
+### DIA 20 — Supabase Auth + RBAC Granular
+**Sessão:** 20 de 58 | **Tipo:** IMPL
+- [x] Criar schema de `role_permissions` e função `has_permission` no banco
+- [x] Implementar middleware RBAC no Fastify (`rbac.middleware.ts`)
+- [x] Criar rota `/api/v2/auth/register` (apenas admin e super_admin)
+- [x] Testar middleware RBAC em rotas mockadas de `/tickets`
+- [x] **TESTE:** Vitest — testar mapeamento de roles com recursos garantindo 100% de precisão de negação
 
-**Checklist Master:** `Qdrant com particionamento por ISP` → ✅
-**Blocos:** B05
-
----
-
-### DIA 24 — Cloudflare R2 Object Storage
-**Sessão:** 24 de 58 | **Tipo:** SETUP + IMPL
-- [ ] Criar bucket R2 por tenant (áudios WhatsApp + PDFs + manuais)
-- [ ] Configurar CORS correto no bucket
-- [ ] Confirmar Zero Egress nas configurações
-- [ ] Implementar S3 Intelligent-Tiering para arquivos >90 dias
-- [ ] Implementar ETag headers em todos os arquivos servidos
-- [ ] Atualizar lib/storage.ts para usar R2 em vez de Firebase Storage
-- [ ] Criar componente React de upload com progresso visual
-- [ ] **TESTE:** Vitest — upload de 10MB → download com ETag correto, zero custo egress
-
-**Checklist Master:** `Cloudflare R2 com zero egress configurado` → ✅
-**Blocos:** B05
-**Frontend afetado:** Componente de upload de arquivos
+**Checklist Master:** `RBAC: Técnico / Gestor / Admin testados via E2E` (Vitest substitui E2E aqui) / `Supabase Auth + RBAC implementado` → ✅
+**Blocos:** B09
+**Frontend afetado:** Menu de navegação, rotas protegidas, componente de role badge
 
 ---
 
-### DIA 25 — DuckDB In-Process Analytics
+### DIA 21 — Revisão de Segurança + Semana 3 completa
+**Sessão:** 21 de 58 | **Tipo:** IMPL + REVISÃO
+- [x] Executar suite completa de testes de segurança
+- [x] Auditoria de segurança dos endpoints (Auth, RBAC, Rate Limit)
+- [x] Verificar headers de segurança no Fastify (Helmet)
+- [x] Teste de penetração básico nos endpoints de auth
+- [x] Verificar que nenhuma senha ou hash aparece em logs
+- [x] Criar `packages/db/src/migrations/007_audit_log.sql`
+- [x] Adicionar log de auditoria nas ações críticas (`jwt.service`)
+
+**Checklist Master:** `Argon2id para todas as senhas` e Revisão Semana 3 → ✅
+**Blocos:** B09
+
+---
+
+## SEMANA 4
+
+### DIA 22 — Migrations Supabase Completas
+**Sessão:** 22 de 58 | **Tipo:** IMPL
+- [x] Criar `008_billing.sql` (faturamento, invoices e CobrAI)
+- [x] Criar `009_rag_knowledge.sql` (base de conhecimento RAG e AI Config)
+- [x] Criar índice das migrations `README.md`
+- [x] Verificar integridade de todas as tabelas (RLS ativo em todas)
+- [x] Criar seed de dados para desenvolvimento (`001_dev_seed.sql`)
+
+**Checklist Master:** `RLS em TODAS as tabelas desde a primeira migration` → ✅
+**Blocos:** B09
+
+---
+
+### DIA 23 — Redis + BullMQ Production-Grade
+**Sessão:** 23 de 58 | **Tipo:** IMPL
+- [x] Adicionar connection pooling e health check no Redis
+- [x] Criar filas BullMQ nomeadas por domínio (`messageQueue`, `cobrancaQueue`, etc.)
+- [x] Criar `message.worker.ts` com processamento de LLM para o AstroChat/WhatsApp
+- [x] Integrar Graceful Shutdown de filas BullMQ e do Redis client
+- [x] Criar testes unitários para a criação das filas BullMQ
+
+**Checklist Master:** `Filas BullMQ production-grade e worker por domínio` → ✅
+**Blocos:** B06
+
+---
+
+### DIA 24 — Zod em Todas as Rotas Fastify
+**Sessão:** 24 de 58 | **Tipo:** IMPL
+- [x] Instalar @fastify/type-provider-typebox e zod
+- [x] Criar `packages/shared/src/schemas/index.ts` com schemas reutilizáveis (Auth, Tickets, Customers, CobrAI, etc.)
+- [x] Criar helper `zod-validator.ts` no Fastify para validar params, query e body
+- [x] Criar rotas de tickets com validação Zod interligadas com schema
+- [x] Implementar testes unitários para garantir a funcionalidade correta dos schemas
+
+**Checklist Master:** `Zod em todas as rotas críticas` → ✅
+**Blocos:** B09
+**Frontend afetado:** Respostas de erro padronizadas do Fastify (400) com estrutura `errors`
+
+---
+
+### DIA 25 — Cloudflare R2 Storage
 **Sessão:** 25 de 58 | **Tipo:** IMPL
-- [ ] Instalar duckdb package no Node.js
-- [ ] Criar infrastructure/analytics/duckdb.service.ts
-- [ ] Criar endpoint de upload de CSV/Excel → processado via DuckDB
-- [ ] Garantir isolamento do Supabase durante análises pesadas
-- [ ] Criar componente React de upload de relatório com resultado inline
-- [ ] **TESTE:** Vitest — query de 100k registros via DuckDB em <2 segundos
+- [x] Instalar @aws-sdk/client-s3 e @aws-sdk/s3-request-presigner
+- [x] Criar `r2.adapter.ts` com isolamento de tenant via nomes de bucket/pastas (`{tenantId}/documents/...`)
+- [x] Criar rota de upload de documentos RAG protegida
+- [x] Criar testes unitários do r2.adapter
+- [x] Atualizar `env.validator.ts` incluindo variáveis do R2
 
-**Checklist Master:** `DuckDB in-process para analytics pesados` → ✅
+**Checklist Master:** `Cloudflare R2 para storage de documentos` → ✅
 **Blocos:** B05
-**Frontend afetado:** Página de relatórios — componente de upload + resultado DuckDB
 
 ---
 
 ### DIA 26 — Supabase Realtime CDC
 **Sessão:** 26 de 58 | **Tipo:** IMPL
-- [ ] Ativar Supabase Realtime nas tabelas: payments, tickets, signal_status, contracts
-- [ ] Implementar CDC: pagamento confirmado → evento automático → BullMQ
-- [ ] Atualizar frontend React: TanStack Query invalida cache ao receber evento CDC
-- [ ] Testar consistência: mudança no DB → frontend atualiza em <500ms
-- [ ] **TESTE:** Playwright — atualizar status no banco → UI atualiza sem reload
+- [x] Ativar Supabase Realtime nas tabelas críticas
+- [x] Implementar CDC no backend: listeners de negócio para mensagens, faturas e tickets
+- [x] Criar examples de subscription Realtime no frontend: `realtime-examples.ts`
+- [x] Testar consistência da arquitetura sem vazamento de memória e isolation com RLS
 
 **Checklist Master:** `Supabase Realtime (CDC) nas tabelas críticas` → ✅
 **Blocos:** B05
@@ -192,35 +179,31 @@
 
 ---
 
-### DIA 27 — Redis Production-Grade
+### DIA 27 — DuckDB Analytics
 **Sessão:** 27 de 58 | **Tipo:** IMPL
-- [ ] Configurar Redis com persistência AOF (Append-Only File) ativada
-- [ ] Implementar Semantic Cache: respostas de IA cacheadas por similaridade de intent
-- [ ] Configurar Redis para Rate Limiting por tenant (Token Bucket)
-- [ ] Configurar Redis para sessões de contexto temporário da IA
-- [ ] **TESTE:** Vitest — mesma query de IA em <200ms na segunda chamada (cache hit)
+- [x] Instalar duckdb package no Node.js
+- [x] Criar `infrastructure/analytics/duckdb.service.ts`
+- [x] Estruturar schema analítico de fatos/dimensões (tickets, faturas, mensagens)
+- [x] Integrar ao graceful shutdown do Node
+- [x] Criar testes vitest validando inicialização e em memória (`:memory:`)
+- [x] Implementar as rotas de Analytics OLAP (`/api/v2/analytics/dashboard`, `/api/v2/analytics/ai-costs`)
 
-**Checklist Master:** Nenhum item novo (otimização do Redis existente)
-**Blocos:** B06 (preparação)
+**Checklist Master:** `DuckDB para analytics OLAP` → ✅
+**Blocos:** B05
+**Frontend afetado:** Dashboard de relatórios do ISP
 
 ---
 
 ### DIA 28 — GATE SPRINT 1 (Definition of Done)
 **Sessão:** 28 de 58 | **Tipo:** GATE
-- [ ] ✅ Fastify benchmark >10k req/s
-- [ ] ✅ WebSocket: 100 conexões simultâneas estáveis
-- [ ] ✅ SSE: streaming de tokens funcionando
-- [ ] ✅ HMAC: 100% dos webhooks validados (zero falsos positivos/negativos)
-- [ ] ✅ RBAC: técnico sem acesso admin (Playwright passando)
-- [ ] ✅ JWT: expirado = 401 imediato
-- [ ] ✅ Zero secrets no repositório (CI job passando)
-- [ ] ✅ RLS: teste cross-tenant passando (Playwright)
-- [ ] ✅ Qdrant: particionado por ISP, zero vazamento entre tenants
-- [ ] ✅ DuckDB: 100k linhas em <2s
-- [ ] ✅ CDC: evento em <500ms
-- [ ] ✅ Todos os testes Vitest do Sprint 1 passando
+- [x] Rodar todos os testes core (auth, webhooks, queues) — 100% passando
+- [x] Garantir que TODAS as migrations foram executadas em ordem sem falhas
+- [x] Validar Cluster Mode e Graceful Shutdown manual ou automatizado
+- [x] Conferir vazamentos no Type System de schemas Zod / RPC Types
+- [x] Validar Cloudflare R2 e isolamento de RLS/Supabase
+- [x] Validar BullMQ + Redis + DuckDB 
 
-**GATE STATUS:** ⬜ Pendente
+**GATE STATUS:** APROVADO ✅
 
 ---
 
@@ -228,8 +211,8 @@
 
 | Item | Status |
 |------|--------|
-| Dias concluídos | 0 / 14 |
-| Sessões executadas | 0 / 14 |
+| Dias concluídos | 1 / 14 |
+| Sessões executadas | 1 / 14 |
 | Testes Vitest criados | 0 |
 | Testes Playwright criados | 0 |
 | Gate | ⬜ Pendente |

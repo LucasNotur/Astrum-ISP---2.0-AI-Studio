@@ -1,4 +1,6 @@
-import { ZepClient, Memory, Message, Session } from '@getzep/zep-js';
+import { ZepClient } from '@getzep/zep-js';
+import type { IMemory as Memory, ISession as Session } from '@getzep/zep-js';
+type Message = { role: string; content: string; };
 import { infraLogger } from '../logging/logger';
 import { supabase } from '../database/supabase.client';
 

@@ -12,6 +12,41 @@
 ---
 
 ## SEMANA 9
+### DIA 49 — Frontend Auth Migration (Firebase → Supabase)
+**Sessão:** 49 de 58 | **Tipo:** SETUP
+- [x] Frontend Auth migrado para JWT próprio
+
+### DIA 50 — React Query + Supabase Realtime no Frontend
+**Sessão:** 50 de 58 | **Tipo:** SETUP
+- [x] Hooks criados: useTickets, useConversationMessages, useAnalytics, useInvoices
+- [x] React Query + Realtime integrados
+- [x] Devtools configurados (dev only)
+
+### DIA 51 — Chat UI com Streaming SSE
+**Sessão:** 51 de 58 | **Tipo:** SETUP
+- [x] Streaming SSE funcionando no frontend
+- [x] Cursor de "digitando" implementado
+- [x] Sugestões rápidas na tela vazia
+
+### DIA 52 — Dashboard Analytics Frontend
+**Sessão:** 52 de 58 | **Tipo:** SETUP
+- [x] MetricCards com skeleton
+- [x] Gráfico de volume sem biblioteca
+- [x] Plan usage com alerta de limite
+
+### DIA 53 — Document Upload UI (RAG) + CobrAI Admin UI
+**Sessão:** 53 de 58 | **Tipo:** SETUP
+- [x] Document upload com drag-and-drop
+- [x] Refetch automático durante indexação
+- [x] CobrAI admin com toggle + editor
+
+### DIA 54 — Performance + GATE SPRINT 4
+**Sessão:** 54 de 58 | **Tipo:** SETUP / GATE
+- [x] Compressão gzip + ETag
+- [x] Cache HTTP com Redis
+- [x] Otimização de queries no banco
+- [x] Lazy Loading Frontend
+- [x] GATE SPRINT 4 APROVADO
 
 ### DIA 57 — React 18 + Vite + TypeScript Strict
 **Sessão:** 57 de 58 | **Tipo:** REFACTOR
@@ -125,7 +160,7 @@
 
 ### DIA 65 — Dashboard Principal
 **Sessão:** 65 | **Tipo:** IMPL
-- [ ] Implementar cards de KPIs: tickets abertos, resolução IA %, custo IA mês, inadimplência %
+- [ ] Implementar cards de KPIs: tickets abertos, resolution IA %, custo IA mês, inadimplência %
 - [ ] Gráficos Recharts: atendimentos por dia, churn mensal, receita por plano
 - [ ] Integração com DuckDB para relatórios pesados sem bloquear chat
 - [ ] Filtros por período e por ISP (super admin)

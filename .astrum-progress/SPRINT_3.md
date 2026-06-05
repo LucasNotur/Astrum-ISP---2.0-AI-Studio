@@ -13,77 +13,96 @@
 
 ## SEMANA 7
 
-### DIA 43 — LangGraph: Fluxo de Suporte Técnico
+### DIA 41 — CobrAI Rules Engine
+**Sessão:** 41 de 58 | **Tipo:** IMPL
+- [x] Criar apps/api/src/domain/cobranca/cobrai-rules.service.ts
+- [x] Criar testes unitários para o Rules Engine
+- [x] Criar migration para regras padrão
+- [x] **TESTE:** 6/6 passando
+
+**Checklist Master:** `CobrAI Rules Engine` → ✅
+**Blocos:** B04
+
+---
+
+### DIA 42 — CobrAI Worker + Scheduler
+**Sessão:** 42 de 58 | **Tipo:** IMPL
+- [x] Criar apps/api/src/domain/cobranca/cobrai.scheduler.ts
+- [x] Criar packages/queue/src/workers/cobrai.worker.ts
+- [x] Integrar Scheduler e cancelamento no listener de Realtime
+- [x] **TESTE:** 2/2 passando
+
+**Checklist Master:** `CobrAI Scheduler + Worker` → ✅
+**Blocos:** B04
+
+---
+
+### DIA 43 — LangSmith Tracing
 **Sessão:** 43 de 58 | **Tipo:** IMPL
-- [ ] Instalar @langchain/langgraph
-- [ ] Criar packages/ai/src/agents/support-flow.graph.ts
-- [ ] Implementar nós: classifyIssue → searchKnowledgeBase → generateSolution → escalate
-- [ ] Regra: NENHUM agente avança sem validar o nó anterior
-- [ ] Integrar com Qdrant (busca RAG) e Supabase (dados do cliente)
-- [ ] Atualizar messageWorker.ts para usar o LangGraph em vez de lógica direta
-- [ ] Criar visualizador de nó ativo no AstroChat (qual etapa o agente está)
-- [ ] **TESTE:** Vitest — 100 execuções → nunca pula nó de validação
+- [x] Instalar dependência langsmith
+- [x] Criar apps/api/src/infrastructure/observability/langsmith.service.ts
+- [x] Integrar LangSmith no RAG Query Engine
+- [x] Criar rota de feedback do operador
+- [x] Atualizar .env.example
+- [x] **TESTE:** 4/4 passando
 
-**Checklist Master:** Nenhum item direto (arquitetura de agentes)
-**Blocos:** B04
-**Frontend afetado:** AstroChat — indicador de etapa do agente
+**Checklist Master:** `LangSmith tracing sempre ativo (staging + prod)` → ✅
+**Blocos:** B11
+
 
 ---
 
-### DIA 44 — LangGraph: Fluxo CobrAI
+### DIA 44 — Sentry Error Monitoring
 **Sessão:** 44 de 58 | **Tipo:** IMPL
-- [ ] Criar packages/ai/src/agents/cobrai-flow.graph.ts
-- [ ] Implementar nós: sendWarning → negotiatePayment → suspendSignal → reactivateSignal
-- [ ] Integrar com BullMQ: cada etapa é job com delay configurável por ISP
-- [ ] Cancelamento de job se cliente pagar antes do próximo disparo
-- [ ] Atualizar cobraiWorker.ts para usar o novo LangGraph
-- [ ] Criar timeline visual da régua de cobrança no frontend
-- [ ] **TESTE:** Vitest — fluxo completo de 5 etapas sem falha, com crash recovery
+- [x] Instalar @sentry/node @sentry/profiling-node
+- [x] Criar apps/api/src/infrastructure/observability/sentry.service.ts
+- [x] Criar plugin Fastify para Sentry com error handler
+- [x] Integrar Sentry nos workers BullMQ
+- [x] Rota de health check exibe status do Sentry
+- [x] **TESTE:** 4/4 passando
 
-**Checklist Master:** Nenhum item direto
-**Blocos:** B04
-**Frontend afetado:** Módulo CobrAI — timeline da régua
+**Checklist Master:** `Sentry em staging E produção com source maps` → ✅
+**Blocos:** B11
 
 ---
 
-### DIA 45 — LangGraph: Onboarding + Agentic RAG
+### DIA 45 — ETL Supabase → DuckDB
 **Sessão:** 45 de 58 | **Tipo:** IMPL
-- [ ] Criar packages/ai/src/agents/onboarding-flow.graph.ts
-- [ ] Implementar: Boas-vindas → Coleta de dados → Ativação → Configuração
-- [ ] Implementar Agentic RAG: agente decide Supabase (dados) vs Qdrant (manuais)
-- [ ] Log de cada decisão de roteamento RAG para otimização futura
-- [ ] **TESTE:** Vitest — agente escolhe fonte correta em >90% dos cenários de teste
+- [x] Criar apps/api/src/infrastructure/analytics/etl.service.ts
+- [x] Criar packages/queue/src/workers/etl.worker.ts
+- [x] Agendar execução recorrente a cada 15min
+- [x] Criar endpoint manual em etl.routes.ts
+- [x] **TESTE:** 2/2 passando
 
-**Checklist Master:** Nenhum item direto
-**Blocos:** B04
+**Checklist Master:** `ETL Supabase → DuckDB incremental` → ✅
+**Blocos:** B12
 
 ---
 
-### DIA 46 — BullMQ Durable Workflows + HMAC nos Agentes
+### DIA 46 — Tenant Onboarding Flow
 **Sessão:** 46 de 58 | **Tipo:** IMPL
-- [ ] Implementar: "Vou pagar amanhã" → job com delay de 24h no BullMQ
-- [ ] Implementar: "Ligue em 3 dias" → delay de 72h com cancelamento se pagar antes
-- [ ] Validar HMAC em todos os webhooks que ativam agentes (pagamento, WhatsApp)
-- [ ] Log de cada webhook recebido, validado e processado
-- [ ] **TESTE:** Vitest — servidor reinicia durante delay de 24h → job executa no horário correto
+- [x] Criar apps/api/src/domain/onboarding/onboarding.service.ts
+- [x] Criar apps/api/src/domain/onboarding/onboarding.routes.ts
+- [x] Criar apps/api/src/domain/onboarding/onboarding.service.test.ts
+- [x] Registrar rota no servidor
+- [x] **TESTE:** 3/3 passando
 
-**Checklist Master:** Nenhum item direto
+**Checklist Master:** `Tenant Onboarding automatizado (6 etapas)` → ✅
 **Blocos:** B04
 
 ---
 
-### DIA 47 — Docker Multi-stage + GitHub Container Registry
-**Sessão:** 47 de 58 | **Tipo:** SETUP
-- [ ] Criar Dockerfile multi-stage para apps/api (imagem final <100MB)
-- [ ] Criar Dockerfile multi-stage para apps/web
-- [ ] Configurar GitHub Container Registry como registry privado
-- [ ] Configurar health checks no container
-- [ ] Criar docker-compose.yml para desenvolvimento local completo
-- [ ] Garantir: nenhuma chave ou secret na imagem Docker
-- [ ] **TESTE:** docker build → imagem <100MB, zero secrets incluídos
+### DIA 47 — Multi-Tenant SaaS Billing + Revisão Final
+**Sessão:** 47 de 58 | **Tipo:** IMPL
+- [x] Criar apps/api/src/domain/onboarding/plan-limits.service.ts
+- [x] Aplicar limite de plano nas rotas críticas
+- [x] Criar testes unitários para limites de plano
+- [x] Criar rota de informações do plano
+- [x] Executar suite completa do Sprint 3
+- [x] **TESTE:** 26/26 passando
 
-**Checklist Master:** `Dockerfile multi-stage testado localmente` → ✅
-**Blocos:** B10
+**Checklist Master:** `Multi-Tenant Billing com limites por plano` → ✅
+**Blocos:** B04
 
 ---
 

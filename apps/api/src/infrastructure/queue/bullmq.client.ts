@@ -1,5 +1,5 @@
 import { Queue } from "bullmq";
-import redis from "../cache/redis.client.ts";
+import redis from "../cache/redis.client";
 import EventEmitter from "events";
 import { infraLogger } from '../logging/logger';
 

@@ -1,7 +1,7 @@
 import { AgentState } from './agent.state';
 import { vercelAIService } from '../../infrastructure/ai/vercel-ai.service';
-import { guardrailsService } from '../../infrastructure/ai/guardrails.service';
-import { hybridSearchService } from '../../infrastructure/rag/hybrid-search.service';
+import { guardrailsPipeline } from '../../infrastructure/guardrails/guardrails.pipeline';
+import { HybridSearchService } from '../../infrastructure/rag/hybrid-search.service';
 import { memoryComposerService } from '../../infrastructure/memory/memory-composer.service';
 import { ToolsExecutor } from '../../infrastructure/ai/tools.executor';
 import { supabase } from '../../infrastructure/database/supabase.client';
