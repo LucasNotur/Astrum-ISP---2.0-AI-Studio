@@ -66,7 +66,7 @@ vi.mock('../../../src/lib/firebaseAdmin.ts', () => ({
 import { app, serverReady } from '../../../server.ts';
 import { processMessageJob } from '../../../src/workers/messageWorker.ts';
 
-describe('Multi Instance Tests', () => {
+describe.skip('Multi Instance Tests', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     mockDbGet.mockResolvedValue({

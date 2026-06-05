@@ -24,7 +24,7 @@ vi.mock('../../lib/queue', () => ({
   }
 }));
 
-vi.mock('../../apps/api/src/infrastructure/security/hmac.service.ts', () => ({
+vi.mock('../../../apps/api/src/infrastructure/security/hmac.service', () => ({
   validateWebhookSignature: vi.fn().mockReturnValue(true)
 }));
 

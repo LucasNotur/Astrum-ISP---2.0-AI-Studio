@@ -1,9 +1,9 @@
 import { Queue } from "bullmq";
-import redis from "../cache/redis.client";
+import redis from "../cache/redis.client.ts";
 import EventEmitter from "events";
 import { infraLogger } from '../logging/logger';
 
-const isMockRedis = !((redis as any).options);
+const isMockRedis = process.env.NODE_ENV === 'test' || !((redis as any).options);
 export const mockQueueEmitter = new EventEmitter();
 
 export const messageQueue = isMockRedis ? {
@@ -87,11 +87,9 @@ export async function getAggregateJobCounts(...types: any[]): Promise<Record<str
   }
 
   try {
-    const globalCounts = await (messageQueue as any).getJobCounts(...types);
-    if (globalCounts) {
-      for (const type of types) {
-        result[type] = (result[type] ?? 0) + ((globalCounts[type] as number) || 0);
-      }
+    const globalCounts = await messageQueue.getJobCounts(...types);
+    for (const type of types) {
+      result[type] += (globalCounts[type] as number) || 0;
     }
   } catch (e) {}
 

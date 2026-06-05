@@ -12,7 +12,7 @@ export async function ticketRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [
       requirePermission('tickets', 'read'),
-      validateQuery(paginationSchema as any),
+      validateQuery(paginationSchema),
     ],
   }, async (request) => {
     const { tenantId } = (request as any).user;
@@ -32,7 +32,7 @@ export async function ticketRoutes(fastify: FastifyInstance) {
     preHandler: [
       requirePermission('tickets', 'write'),
       requirePlanCapacity('messages'), // verifica limite de mensagens antes de processar
-      validateBody(createTicketSchema as any),
+      validateBody(createTicketSchema),
     ],
   }, async (request, reply) => {
     const { tenantId } = (request as any).user;
@@ -51,8 +51,8 @@ export async function ticketRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [
       requirePermission('tickets', 'write'),
-      validateParams(z.object({ id: uuidSchema as any }) as any),
-      validateBody(updateTicketSchema as any),
+      validateParams(z.object({ id: uuidSchema })),
+      validateBody(updateTicketSchema),
     ],
   }, async (request, reply) => {
     const { tenantId } = (request as any).user;

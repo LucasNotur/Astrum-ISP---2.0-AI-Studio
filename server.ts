@@ -19,8 +19,11 @@ import { startFastifyServer } from "./apps/api/src/server.ts";
 process.on("uncaughtException", err => console.error("UNCAUGHT EXCEPTION", err));
 process.on("unhandledRejection", err => console.error("UNHANDLED REJECTION", err));
 
+export const app = express();
+let serverReadyResolver: () => void;
+export const serverReady = new Promise<void>(resolve => { serverReadyResolver = resolve; });
+
 async function startServer() {
-  const app = express();
   const PORT = 3000;
 
   // Lança o servidor Fastify em background
@@ -105,9 +108,13 @@ async function startServer() {
     }
   });
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  serverReadyResolver();
+
+  if (process.env.NODE_ENV !== "test") {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }
 }
 
 startServer();

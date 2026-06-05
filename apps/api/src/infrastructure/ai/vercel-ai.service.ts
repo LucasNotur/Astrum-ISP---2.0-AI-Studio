@@ -128,7 +128,7 @@ export class VercelAIService {
     tenantId: string,
   ): Promise<CustomerIntent> {
     const { object } = await generateObject({
-      model: this.model as any,
+      model: this.model,
       schema: CustomerIntentSchema,
       system: this._buildSystemPrompt('classification'),
       messages: [
@@ -157,7 +157,7 @@ export class VercelAIService {
     tenantId: string,
   ): Promise<NetworkDiagnostic> {
     const { object } = await generateObject({
-      model: this.heavyModel as any, // GPT-4o para diagnósticos técnicos
+      model: this.heavyModel, // GPT-4o para diagnósticos técnicos
       schema: NetworkDiagnosticSchema,
       system: this._buildSystemPrompt('technical_diagnostic'),
       messages: [
@@ -184,7 +184,7 @@ export class VercelAIService {
     tenantId: string,
   ): Promise<TicketReport> {
     const { object } = await generateObject({
-      model: this.model as any,
+      model: this.model,
       schema: TicketReportSchema,
       system: this._buildSystemPrompt('ticket_report'),
       messages: [
@@ -213,7 +213,7 @@ export class VercelAIService {
     onToolCall?: (toolName: string, args: unknown) => Promise<unknown>,
   ) {
     const result = streamText({
-      model: this.heavyModel as any,
+      model: this.heavyModel,
       system: `${this._buildSystemPrompt('chat')}\n\n${systemContext}`,
       messages,
       tools: agentTools as any,

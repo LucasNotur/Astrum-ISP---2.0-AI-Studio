@@ -3,8 +3,10 @@ import { Worker, Job, Queue } from 'bullmq';
 // Conexão redis mockada para não quebrar ambiente de dev caso redis não exista
 const connection = { host: process.env.REDIS_HOST || 'localhost', port: 6379 };
 
+const isTest = process.env.NODE_ENV === 'test';
+
 // Fila de retentativas
-export const invoiceRetriesQueue = new Queue('invoice_retries', { connection });
+export const invoiceRetriesQueue = isTest ? { add: async () => {} } as any : new Queue('invoice_retries', { connection });
 
 interface DunningJobData {
   invoiceId: string;
@@ -16,7 +18,7 @@ interface DunningJobData {
  * Worker de Dunning Management para cobranças falhas.
  * Segue cronograma de retentativa: d+1, d+3, d+5
  */
-export const dunningWorker = new Worker<DunningJobData>(
+export const dunningWorker = isTest ? { on: () => {} } as any : new Worker<DunningJobData>(
   'invoice_retries',
   async (job: Job) => {
     const { invoiceId, attemptCounter, tenantId } = job.data;

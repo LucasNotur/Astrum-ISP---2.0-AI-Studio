@@ -3,7 +3,7 @@ import redis from "../lib/redis";
 import { adminDb as db } from "../lib/firebaseAdmin";
 import { getERPAdapter } from "../lib/integrations/erpAdapter";
 
-const isMockRedis = !(redis as any).options;
+const isMockRedis = process.env.NODE_ENV === \'test\' || !((redis as any).options);
 
 export const erpSyncQueue = isMockRedis
   ? ({

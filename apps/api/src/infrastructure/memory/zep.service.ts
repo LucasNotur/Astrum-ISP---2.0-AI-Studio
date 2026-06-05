@@ -1,7 +1,4 @@
-import { ZepClient } from '@getzep/zep-js';
-type Memory = any;
-type Message = any;
-type Session = any;
+import { ZepClient, Memory, Message, Session } from '@getzep/zep-js';
 import { infraLogger } from '../logging/logger';
 import { supabase } from '../database/supabase.client';
 
@@ -57,8 +54,8 @@ export class ZepMemoryService {
     if (this.enabled) {
       this.client = new ZepClient({
         apiUrl: process.env.ZEP_API_URL!,
-        apiKey: process.env.ZEP_API_KEY || '',
-      } as any);
+        apiKey: process.env.ZEP_API_KEY,
+      });
       infraLogger.info('Zep Memory Service initialized');
     } else {
       infraLogger.warn('ZEP_API_URL not set — long-term memory disabled (fail-open)');
@@ -225,7 +222,7 @@ export class ZepMemoryService {
     // Mapear facts do Zep para entidades tipadas
     return memory.facts
       .slice(0, 10)
-      .map((fact: any) => {
+      .map(fact => {
         const type = this._classifyEntityType(fact.fact ?? '');
         return {
           type,
@@ -234,7 +231,7 @@ export class ZepMemoryService {
           lastSeen: fact.createdAt ?? new Date().toISOString(),
         };
       })
-      .filter((e: any) => e.type !== 'unknown');
+      .filter(e => e.type !== 'unknown');
   }
 
   private _classifyEntityType(fact: string): string {

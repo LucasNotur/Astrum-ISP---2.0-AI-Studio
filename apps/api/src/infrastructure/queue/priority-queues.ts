@@ -9,7 +9,7 @@ import { getRedisClient } from '../cache/redis.client';
  * batch   (1):  ETL, Batch API, relatórios, indexação
  */
 
-const isMock = !((getRedisClient() as any).options);
+const isMock = process.env.NODE_ENV === 'test' || !((getRedisClient() as any).options);
 
 const Queue = isMock ? class {
   constructor(public name: string, opts: any) {}

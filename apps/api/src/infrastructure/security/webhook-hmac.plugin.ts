@@ -18,7 +18,7 @@ const WEBHOOK_ROUTES: Record<string, WebhookProvider> = {
 
 const webhookHmacPlugin: FastifyPluginCallback = (fastify, _opts, done) => {
   fastify.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
-    const urlWithoutQuery = (request.url || '').split('?')[0] ?? '';
+    const urlWithoutQuery = request.url.split('?')[0];
     const provider = WEBHOOK_ROUTES[urlWithoutQuery];
     if (!provider) return; // não é rota de webhook — ignorar
 

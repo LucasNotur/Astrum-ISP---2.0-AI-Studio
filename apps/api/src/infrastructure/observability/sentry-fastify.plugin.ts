@@ -22,12 +22,12 @@ const sentryPlugin: FastifyPluginCallback = (fastify, _opts, done) => {
   });
 
   // Capturar erros não tratados das rotas
-  fastify.setErrorHandler(async (error: any, request, reply) => {
+  fastify.setErrorHandler(async (error, request, reply) => {
     const statusCode = error.statusCode ?? 500;
 
     // Apenas reportar erros de servidor (5xx), não de cliente (4xx)
     if (statusCode >= 500) {
-      captureError(error as Error, {
+      captureError(error, {
         url: request.url,
         method: request.method,
         tenantId: (request as any).user?.tenantId,

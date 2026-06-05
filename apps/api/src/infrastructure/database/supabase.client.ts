@@ -6,7 +6,6 @@ const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL ||
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KE || 'placeholder';
 
 export const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
-export const supabase = supabaseClient;
 
 export const SUPABASE_URL = supabaseUrl;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || 'placeholder_service_role_key';

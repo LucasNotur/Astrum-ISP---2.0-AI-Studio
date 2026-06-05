@@ -28,7 +28,7 @@ export async function checkRateLimit(tenantId: string, routeGroup: string): Prom
     const rawData = await redis.get(cacheKey);
     const now = Date.now();
 
-    let tokens: number = capacity;
+    let tokens = capacity;
     let lastRefill = now;
 
     if (rawData) {
