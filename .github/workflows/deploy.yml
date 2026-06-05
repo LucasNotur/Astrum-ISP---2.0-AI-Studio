@@ -26,7 +26,7 @@ jobs:
     timeout-minutes: 20
     environment:
       name: ${{ github.event.inputs.environment || 'production' }}
-      url: ${{ vars.PRODUCTION_URL }}
+      url: ${{ secrets.PRODUCTION_URL }}
 
     steps:
       - uses: actions/checkout@v4
@@ -37,8 +37,7 @@ jobs:
           name: build-${{ github.sha }}
 
       - name: Deploy Backend (Railway)
-        if: ${{ vars.RAILWAY_ENABLED == 'true' }}
-        continue-on-error: true
+        if: ${{ secrets.RAILWAY_TOKEN != '' }}
         run: |
           npm install -g @railway/cli
           railway up --service astrum-api
@@ -46,8 +45,7 @@ jobs:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
       - name: Deploy Frontend (Vercel)
-        if: ${{ vars.VERCEL_ENABLED == 'true' }}
-        continue-on-error: true
+        if: ${{ secrets.VERCEL_TOKEN != '' }}
         run: |
           npm install -g vercel
           vercel --prod --token=${{ secrets.VERCEL_TOKEN }} apps/web/dist
@@ -56,8 +54,7 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Notificar Sentry de novo release
-        if: ${{ vars.SENTRY_ENABLED == 'true' }}
-        continue-on-error: true
+        if: ${{ secrets.SENTRY_AUTH_TOKEN != '' }}
         run: |
           npm install -g @sentry/cli
           sentry-cli releases new "${{ github.sha }}"

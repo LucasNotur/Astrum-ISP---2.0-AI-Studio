@@ -15,8 +15,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # TruffleHog precisa do historico completo para comparar commits
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -35,7 +33,6 @@ jobs:
 
       - name: Verificar secrets vazados no código
         uses: trufflesecurity/trufflehog@main
-        continue-on-error: true
         with:
           path: ./
           base: main
