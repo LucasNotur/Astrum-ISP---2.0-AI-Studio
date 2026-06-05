@@ -1,7 +1,13 @@
 import { vi, beforeEach } from 'vitest';
+import WebSocket from 'ws';
 
 // Mock global fetch
 global.fetch = vi.fn();
+
+// Polyfill para WebSocket (Supabase exige no Node)
+if (typeof global.WebSocket === 'undefined') {
+  (global as any).WebSocket = WebSocket;
+}
 
 // Mock Redis using ioredis-mock
 vi.mock('ioredis', async () => {
