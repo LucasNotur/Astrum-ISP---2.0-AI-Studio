@@ -131,8 +131,22 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+      - name: Cache Playwright Browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('apps/web/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
       - name: Instalar Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: cd apps/web && npx playwright install --with-deps chromium
+
+      - name: Instalar dependências OS do Playwright
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: cd apps/web && npx playwright install-deps chromium
 
       - name: Iniciar backend em background
         run: |

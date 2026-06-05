@@ -1,0 +1,43 @@
+name: "CodeQL - Análise Estática"
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: '30 4 * * 1' # Segunda-feira às 4:30 AM
+
+jobs:
+  analyze:
+    name: 🕵️ Analisar Código (CodeQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'javascript-typescript' ]
+
+    steps:
+    - name: Checkout repositório
+      uses: actions/checkout@v4
+
+    - name: Inicializar CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+        queries: security-extended,security-and-quality
+
+    - name: Autobuild CodeQL
+      uses: github/codeql-action/autobuild@v3
+
+    - name: Realizar Análise CodeQL
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/language:${{matrix.language}}"

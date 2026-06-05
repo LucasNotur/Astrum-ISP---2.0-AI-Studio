@@ -1,11 +1,12 @@
 name: Deploy — Produção
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - '**.md'
-      - '.astrum-progress/**'
+  workflow_run:
+    workflows: ["CI — Testes e Build"]
+    types:
+      - completed
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       environment:
@@ -27,6 +28,7 @@ jobs:
     name: 🚀 Deploy ${{ github.event.inputs.environment || 'production' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     environment:
       name: ${{ github.event.inputs.environment || 'production' }}
       url: ${{ secrets.PRODUCTION_URL }}
@@ -37,7 +39,16 @@ jobs:
       - name: Download artefato do build
         uses: actions/download-artifact@v4
         with:
-          name: build-${{ github.sha }}
+          name: build-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          run-id: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || github.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ./dist-artifacts
+
+      - name: Restauração de workspaces
+        run: |
+          mkdir -p apps/web/dist apps/api/dist
+          cp -r ./dist-artifacts/apps/web/dist/* apps/web/dist/ || true
+          cp -r ./dist-artifacts/apps/api/dist/* apps/api/dist/ || true
 
       - name: Deploy Backend (Railway)
         if: ${{ secrets.RAILWAY_TOKEN != '' }}
@@ -69,6 +80,7 @@ jobs:
           SENTRY_PROJECT: astrum-api
 
       - name: Health check pós-deploy
+        if: ${{ secrets.PRODUCTION_URL != '' }}
         run: |
           sleep 10
           curl -f ${{ secrets.PRODUCTION_URL }}/api/v2/health || exit 1

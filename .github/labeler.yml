@@ -1,0 +1,24 @@
+frontend:
+  - changed-files:
+    - any-glob-to-any-file: 'apps/web/**'
+    - any-glob-to-any-file: 'packages/ui/**'
+
+backend:
+  - changed-files:
+    - any-glob-to-any-file: 'apps/api/**'
+    - any-glob-to-any-file: 'packages/db/**'
+    - any-glob-to-any-file: 'packages/queue/**'
+
+dependencies:
+  - changed-files:
+    - any-glob-to-any-file: 'package.json'
+    - any-glob-to-any-file: 'package-lock.json'
+    - any-glob-to-any-file: '**/package.json'
+
+config:
+  - changed-files:
+    - any-glob-to-any-file: '.github/**'
+    - any-glob-to-any-file: 'turbo.json'
+    - any-glob-to-any-file: 'vitest.config.ts'
+    - any-glob-to-any-file: 'vite.config.ts'
+    - any-glob-to-any-file: 'tailwind.config.js'

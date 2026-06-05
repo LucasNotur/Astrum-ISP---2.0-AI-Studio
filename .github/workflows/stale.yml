@@ -1,0 +1,22 @@
+name: Cuidar de Issues Stale
+on:
+  schedule:
+    - cron: '30 1 * * *'
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/stale@v9
+        with:
+          stale-issue-message: 'Esta issue foi marcada como "stale" (inativa) automaticamente devido à falta de atividade recente. Por favor, adicione um comentário se ainda for relevante, senão ela será fechada em breve.'
+          stale-pr-message: 'Este PR foi marcado como "stale" (inativo) automaticamente devido à falta de atividade recente. Por favor, adicione um comentário se ainda estiver sendo trabalhado, senão será fechado.'
+          days-before-stale: 30
+          days-before-close: 7
+          stale-issue-label: 'stale'
+          stale-pr-label: 'stale'
+          exempt-issue-labels: 'bug,security,enhancement,pinned'
+          exempt-pr-labels: 'dependencies,security,pinned'
