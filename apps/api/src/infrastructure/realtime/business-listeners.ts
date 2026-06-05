@@ -15,7 +15,7 @@ export function initBusinessListeners() {
   watchTable({
     table: 'messages',
     event: 'INSERT',
-    handler: async ({ new: message }) => {
+    handler: async ({ new: message }: any) => {
       if (message.role !== 'user') return; // ignorar mensagens do bot
       if (message.from_ai) return;
 
@@ -42,7 +42,7 @@ export function initBusinessListeners() {
   watchTable({
     table: 'invoices',
     event: 'UPDATE',
-    handler: async ({ new: invoice, old: oldInvoice }) => {
+    handler: async ({ new: invoice, old: oldInvoice }: any) => {
       if (oldInvoice.status === invoice.status) return;
       if (invoice.status !== 'overdue') return;
 
@@ -65,7 +65,7 @@ export function initBusinessListeners() {
   watchTable({
     table: 'invoices',
     event: 'UPDATE',
-    handler: async ({ new: invoice, old: oldInvoice }) => {
+    handler: async ({ new: invoice, old: oldInvoice }: any) => {
       if (oldInvoice.status === invoice.status) return;
       if (invoice.status !== 'paid') return;
 
@@ -94,7 +94,7 @@ export function initBusinessListeners() {
     table: 'tickets',
     event: 'UPDATE',
     filter: 'resolved_by_ai=eq.true',
-    handler: async ({ new: ticket }) => {
+    handler: async ({ new: ticket }: any) => {
       atendimentoLogger.info(
         { ticketId: ticket.id, tenantId: ticket.tenant_id },
         '✅ Ticket resolvido pela IA — computar para métricas de ROI'

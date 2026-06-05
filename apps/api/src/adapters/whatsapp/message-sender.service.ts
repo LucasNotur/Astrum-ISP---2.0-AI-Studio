@@ -51,7 +51,7 @@ export async function sendWhatsAppResponse(opts: SendWhatsAppOptions): Promise<v
   for (let i = 0; i < parts.length; i++) {
     const result = await sendMessage({
       to,
-      content: parts[i],
+      content: parts[i] ?? '',
       tenantId,
     });
 

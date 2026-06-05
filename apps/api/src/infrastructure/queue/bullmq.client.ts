@@ -87,9 +87,11 @@ export async function getAggregateJobCounts(...types: any[]): Promise<Record<str
   }
 
   try {
-    const globalCounts = await messageQueue.getJobCounts(...types);
-    for (const type of types) {
-      result[type] += (globalCounts[type] as number) || 0;
+    const globalCounts = await (messageQueue as any).getJobCounts(...types);
+    if (globalCounts) {
+      for (const type of types) {
+        result[type] = (result[type] ?? 0) + ((globalCounts[type] as number) || 0);
+      }
     }
   } catch (e) {}
 

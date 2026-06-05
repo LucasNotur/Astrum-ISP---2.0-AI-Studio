@@ -51,8 +51,8 @@ export async function moderateContent(
 
     if (!result) return SAFE_FALLBACK;
 
-    const scores = result.category_scores as Record<string, number>;
-    const categories = result.categories as Record<string, boolean>;
+    const scores = result.category_scores as unknown as Record<string, number>;
+    const categories = result.categories as unknown as Record<string, boolean>;
 
     // Encontrar a categoria com maior score
     let highestScore = 0;

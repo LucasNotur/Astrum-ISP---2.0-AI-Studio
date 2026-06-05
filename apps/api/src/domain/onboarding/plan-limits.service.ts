@@ -100,7 +100,9 @@ export async function checkPlanLimit(
     messages: { table: 'messages', maxField: 'maxMessagesPerMonth' },
   };
 
-  const { table, maxField } = countMap[resource];
+  const config = countMap[resource];
+  if (!config) throw new Error(`Configuração do recurso ${resource} não encontrada.`);
+  const { table, maxField } = config;
 
   const query = supabaseAdmin
     .from(table)
@@ -118,7 +120,7 @@ export async function checkPlanLimit(
   const { count } = await query;
 
   const current = count ?? 0;
-  const limit = limits[maxField] as number;
+  const limit = limits[maxField as keyof PlanLimits] as number;
   const allowed = current < limit;
 
   if (!allowed) {

@@ -30,7 +30,7 @@ import { getRedisClient } from '../../infrastructure/cache/redis.client';
 // ─── Registro de conexões ativas ─────────────────────────────────────────────
 
 interface WsConnection {
-  ws: import('ws').WebSocket;
+  ws: any;
   tenantId: string;
   userId: string;
   role: string;
@@ -78,7 +78,7 @@ const websocketRoutes: FastifyPluginAsync = async (fastify) => {
     infraLogger.info({ connId, channel }, 'WS: client connected to conversation');
 
     // Mensagens do cliente para o servidor (ex: "typing indicator")
-    socket.on('message', async (raw) => {
+    socket.on('message', async (raw: any) => {
       try {
         const data = JSON.parse(raw.toString());
         if (data.type === 'typing') {
@@ -99,7 +99,7 @@ const websocketRoutes: FastifyPluginAsync = async (fastify) => {
       infraLogger.debug({ connId }, 'WS: client disconnected');
     });
 
-    socket.on('error', (err) => {
+    socket.on('error', (err: any) => {
       infraLogger.error({ err, connId }, 'WS error');
       connections.delete(connId);
     });
@@ -248,7 +248,7 @@ function wsRequireRole(roles: string[]) {
 }
 
 async function sendPendingNotifications(
-  socket: import('ws').WebSocket,
+  socket: any,
   tenantId: string,
   userId: string,
 ) {
