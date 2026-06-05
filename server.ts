@@ -1,7 +1,7 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
-import { createServer as createViteServer } from "vite";
+
 import superAdminRouter from "./src/routes/superAdmin.ts";
 import apiV1Router from "./src/routes/api-v1.ts";
 import { cobraiRouter } from "./src/routes/cobrai.ts";
@@ -19,11 +19,8 @@ import { startFastifyServer } from "./apps/api/src/server.ts";
 process.on("uncaughtException", err => console.error("UNCAUGHT EXCEPTION", err));
 process.on("unhandledRejection", err => console.error("UNHANDLED REJECTION", err));
 
-export const app = express();
-let serverReadyResolver: () => void;
-export const serverReady = new Promise<void>(resolve => { serverReadyResolver = resolve; });
-
 async function startServer() {
+  const app = express();
   const PORT = 3000;
 
   // Lança o servidor Fastify em background
@@ -74,6 +71,7 @@ async function startServer() {
   
   let vite: any;
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "custom",
@@ -108,13 +106,9 @@ async function startServer() {
     }
   });
 
-  serverReadyResolver();
-
-  if (process.env.NODE_ENV !== "test") {
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-    });
-  }
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
 }
 
 startServer();

@@ -78,7 +78,7 @@ vi.mock('../../lib/redis.ts', () => ({
 // Since `app` in server.ts is default exported (if it is we can use it) or we can just mock the /api/onboarding/provision by requiring server.ts 
 // Actually, let's load server.ts app and test it with request(app).
 
-describe.skip('Onboarding Routes /api/onboarding/provision', () => {
+describe('Onboarding Routes /api/onboarding/provision', () => {
     beforeEach(async () => {
         vi.clearAllMocks();
         await serverReady;

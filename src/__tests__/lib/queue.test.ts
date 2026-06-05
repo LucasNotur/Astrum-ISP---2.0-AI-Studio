@@ -1,11 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach, afterAll } from 'vitest';
 import request from 'supertest';
 
-vi.mock('bullmq', () => ({
-  Queue: vi.fn(),
-  Worker: vi.fn()
-}));
-
 const { mockAdd, mockUpdate, mockGet, mockWhere, mockDocRef, mockCollection, mockGetAggregateJobCounts, mockCobraiQueue, mockTenantQueueAdd, mockGetTenantQueue } = vi.hoisted(() => {
   const mockAdd = vi.fn();
   const mockUpdate = vi.fn();
@@ -95,7 +90,7 @@ global.setInterval = function(cb: Function, ms?: number) {
   return originalSetInterval.apply(this, arguments as any);
 } as any;
 
-describe.skip('DLQ Tests', () => {
+describe('DLQ Tests', () => {
   let app: any;
 
   beforeEach(async () => {

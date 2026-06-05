@@ -21,7 +21,7 @@ export async function generateEmbedding(
   tenantId?: string
 ): Promise<number[]> {
   const embeddings = await generateEmbeddingsBatch([text], tenantId);
-  return embeddings[0];
+  return embeddings[0] || [];
 }
 
 export async function generateEmbeddingsBatch(

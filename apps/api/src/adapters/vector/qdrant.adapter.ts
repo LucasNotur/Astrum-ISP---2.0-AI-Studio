@@ -183,8 +183,8 @@ export async function getCollectionStats(tenantId: string) {
     const info = await qdrant.getCollection(collectionName);
     return {
       exists: true,
-      pointsCount: info.points_count ?? 0,
-      vectorsCount: info.vectors_count ?? 0,
+      pointsCount: (info as any).points_count ?? 0,
+      vectorsCount: (info as any).vectors_count ?? 0,
       status: info.status,
     };
   } catch {

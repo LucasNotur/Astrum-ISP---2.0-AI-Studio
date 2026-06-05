@@ -24,10 +24,6 @@ vi.mock('../../lib/queue', () => ({
   }
 }));
 
-vi.mock('../../../apps/api/src/infrastructure/security/hmac.service', () => ({
-  validateWebhookSignature: vi.fn().mockReturnValue(true)
-}));
-
 // vi.mock('../../lib/facebookClient'); // Do not mock entirely to test it in test 7
 
 

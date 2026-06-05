@@ -1,2 +1,0 @@
-Este arquivo foi criado no ambiente local para testar se o AI Studio sincroniza (pull) automaticamente as alterações do GitHub.
-Horário da criação: 2026-06-05

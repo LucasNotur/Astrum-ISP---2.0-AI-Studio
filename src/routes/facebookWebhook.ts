@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { adminDb } from '../lib/firebaseAdmin';
 import { messageQueue } from '../lib/queue';
-import { validateWebhookSignature } from '../../apps/api/src/infrastructure/security/hmac.service';
 
 export const facebookWebhookRouter = Router();
 
@@ -25,6 +24,7 @@ facebookWebhookRouter.get('/', (req: Request, res: Response) => {
 
 facebookWebhookRouter.post('/', async (req: Request, res: Response) => {
     try {
+        const { validateWebhookSignature } = await import('../../apps/api/src/infrastructure/security/hmac.service.ts');
         const signature = req.headers['x-hub-signature-256'] as string ?? '';
         const rawBody = JSON.stringify(req.body);
         const isValid = validateWebhookSignature(rawBody, signature, 'facebook');

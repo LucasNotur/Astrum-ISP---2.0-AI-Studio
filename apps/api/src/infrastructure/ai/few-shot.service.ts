@@ -1,7 +1,9 @@
 import { QdrantClient } from '@qdrant/js-client-rest';
-import { openai as openaiClient } from 'openai';
+import OpenAI from 'openai';
 import { infraLogger } from '../logging/logger';
 import { getRedisClient } from '../cache/redis.client';
+import { getQdrantClient } from '../../adapters/vector/qdrant.adapter';
+import { createOpenAIClient } from '../../adapters/openai/openai.adapter';
 
 /**
  * Few-Shot Prompting Dinâmico
@@ -30,8 +32,8 @@ export class FewShotService {
   private redis = getRedisClient();
 
   constructor(
-    private readonly qdrant: QdrantClient,
-    private readonly openaiSdk: typeof openaiClient.prototype,
+    private readonly qdrant: QdrantClient = getQdrantClient(),
+    private readonly openaiSdk: OpenAI = createOpenAIClient(),
   ) {}
 
   /**
@@ -54,7 +56,7 @@ export class FewShotService {
         model: 'text-embedding-3-small',
         input: query,
       });
-      const queryVector = embeddingResponse.data[0].embedding;
+      const queryVector = embeddingResponse.data?.[0]?.embedding ?? [];
 
       // Buscar tickets resolvidos similares no Qdrant
       const collectionName = `resolved_tickets_${tenantId}`;
@@ -75,7 +77,7 @@ export class FewShotService {
 
       // Formatar exemplos
       const examples = results.map((result, i) => {
-        const payload = result.payload as ResolvedTicketExample;
+        const payload = result.payload as unknown as ResolvedTicketExample;
         return `
 EXEMPLO ${i + 1} (score de satisfação: ${payload.satisfaction_score ?? 'N/A'}):
 Cliente: "${payload.customerMessage}"
@@ -129,7 +131,7 @@ ${examples.join('\n\n')}
         model: 'text-embedding-3-small',
         input: ticket.customerMessage,
       });
-      const vector = embeddingResponse.data[0].embedding;
+      const vector = embeddingResponse.data?.[0]?.embedding ?? [];
 
       await this.qdrant.upsert(collectionName, {
         wait: true,
@@ -154,3 +156,5 @@ ${examples.join('\n\n')}
     }
   }
 }
+
+export const fewShotService = new FewShotService();

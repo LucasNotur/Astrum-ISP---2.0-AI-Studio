@@ -1,7 +1,8 @@
 import { AgentState } from './agent.state';
 import { vercelAIService } from '../../infrastructure/ai/vercel-ai.service';
-import { guardrailsService } from '../../infrastructure/ai/guardrails.service';
-import { hybridSearchService } from '../../infrastructure/rag/hybrid-search.service';
+import { runGuardrails } from '../../infrastructure/guardrails/guardrails.pipeline';
+import { HybridSearchService } from '../../infrastructure/rag/hybrid-search.service';
+import { getQdrantClient } from '../../adapters/vector/qdrant.adapter';
 import { memoryComposerService } from '../../infrastructure/memory/memory-composer.service';
 import { ToolsExecutor } from '../../infrastructure/ai/tools.executor';
 import { supabase } from '../../infrastructure/database/supabase.client';
@@ -64,21 +65,19 @@ export async function nodeClassify(state: AgentState): Promise<Partial<AgentStat
 // ─── Nó 2: Guardrails ────────────────────────────────────────────────────────
 
 export async function nodeGuardrails(state: AgentState): Promise<Partial<AgentState>> {
-  const result = await guardrailsService.check({
-    message: state.userMessage,
+  const result = await runGuardrails(state.userMessage, {
     tenantId: state.tenantId,
-    customerId: state.customerId,
   });
 
   infraLogger.info({
     step: 'guardrails',
-    passed: result.passed,
-    reason: result.reason,
+    passed: result.safe,
+    reason: result.blockedReason,
   }, 'Agent: guardrails');
 
   return {
-    guardPassed: result.passed,
-    guardReason: result.reason,
+    guardPassed: result.safe,
+    guardReason: result.blockedReason,
     steps: [...state.steps, 'guardrails'],
   };
 }
@@ -157,8 +156,8 @@ export async function nodeFetchContext(state: AgentState): Promise<Partial<Agent
 
   if (dataSource === 'qdrant' || dataSource === 'both') {
     promises.push(
-      hybridSearchService.search(userMessage, tenantId, { limit: 4, hydeSensitivity: 'auto' })
-        .then(results => {
+      new HybridSearchService(getQdrantClient()).search(userMessage, tenantId, { limit: 4, hydeSensitivity: 'auto' })
+        .then((results: any) => {
           ragContext = results.map((r: any, i: number) =>
             `[Doc ${i+1}] ${r.filename} (score: ${r.score.toFixed(2)}):\n${r.content}`
           ).join('\n\n');

@@ -2,7 +2,7 @@ import { Queue } from "bullmq";
 import redis from "./redis";
 import EventEmitter from "events";
 
-const isMockRedis = process.env.NODE_ENV === 'test' || !((redis as any).options);
+const isMockRedis = !((redis as any).options);
 export const mockQueueEmitter = new EventEmitter();
 
 export const messageQueue = isMockRedis ? {
