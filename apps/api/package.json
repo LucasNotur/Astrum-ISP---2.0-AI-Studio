@@ -27,7 +27,7 @@
     "argon2": "^0.44.0",
     "fastify": "^5.0.0",
     "fastify-plugin": "^5.0.0",
-    "helicone": "^1.0.0",
+    "helicone": "^1.0.7",
     "openai": "^4.27.0",
     "opossum": "^8.1.0",
     "svix": "^1.95.1",
@@ -37,6 +37,6 @@
     "@types/node": "^20.0.0",
     "@types/opossum": "^8.1.4",
     "tsx": "^4.0.0",
-    "vitest": "^2.0.0"
+    "vitest": "^4.1.8"
   }
 }
