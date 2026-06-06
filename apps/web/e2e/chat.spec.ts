@@ -3,6 +3,16 @@ import { loginViaAPI } from './helpers/auth';
 
 test.describe('Chat Streaming', () => {
   test.beforeEach(async ({ page }) => {
+    await page.route('**/api/v2/chat/stream', async (route) => {
+      // Delay to allow .typing-cursor to appear in tests
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        body: 'data: "Mock response"\n\n'
+      });
+    });
+
     await loginViaAPI(page);
     await page.goto('/chat');
   });

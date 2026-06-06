@@ -2,8 +2,34 @@ import type { Page } from '@playwright/test';
 
 /**
  * Helpers de autenticação para os testes E2E.
- * Usa credenciais de teste criadas no banco de dados seed.
+ * Usa Mocks de Rede para evitar a necessidade do Backend real.
  */
+
+export async function mockAuthRoutes(page: Page, role: 'admin' | 'operator' = 'admin') {
+  await page.route('**/api/v2/auth/login', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        accessToken: 'fake-access-token',
+        refreshToken: 'fake-refresh-token',
+        user: { id: 'user-123', role: role, email: 'test@example.com' },
+        tenant: { id: 'tenant-123', slug: 'teste' }
+      })
+    });
+  });
+
+  await page.route('**/api/v2/auth/me', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: 'user-123', role: role, email: 'test@example.com',
+        tenant: { id: 'tenant-123', slug: 'teste', plan_id: 'pro' }
+      })
+    });
+  });
+}
 
 export const TEST_CREDENTIALS = {
   admin: {
@@ -20,6 +46,7 @@ export const TEST_CREDENTIALS = {
  * Realiza login pela UI e aguarda redirecionamento para o dashboard.
  */
 export async function loginAs(page: Page, role: 'admin' | 'operator' = 'admin') {
+  await mockAuthRoutes(page, role);
   const creds = TEST_CREDENTIALS[role];
 
   await page.goto('/login');
@@ -37,19 +64,14 @@ export async function loginAs(page: Page, role: 'admin' | 'operator' = 'admin') 
  * Login via API (mais rápido — sem UI, para testes que não testam auth).
  */
 export async function loginViaAPI(page: Page, role: 'admin' | 'operator' = 'admin') {
-  const creds = TEST_CREDENTIALS[role];
-  const apiUrl = process.env.E2E_API_URL ?? 'http://localhost:3001';
+  await mockAuthRoutes(page, role);
 
-  const response = await page.request.post(`${apiUrl}/api/v2/auth/login`, {
-    data: { email: creds.email, password: creds.password },
-  });
-
-  const data = await response.json();
-
+  await page.goto('/'); // go to a neutral page first to set context if needed, or just evaluate
+  
   // Salvar token no localStorage para ser usado pelo frontend
-  await page.evaluate(({ accessToken, refreshToken }) => {
-    localStorage.setItem('astrum_auth', JSON.stringify({ accessToken, refreshToken }));
-  }, { accessToken: data.accessToken, refreshToken: data.refreshToken });
+  await page.evaluate(() => {
+    localStorage.setItem('astrum_auth', JSON.stringify({ accessToken: 'fake-access-token', refreshToken: 'fake-refresh-token' }));
+  });
 
   await page.goto('/dashboard');
   await page.waitForURL('**/dashboard');

@@ -3,6 +3,30 @@ import { loginViaAPI } from './helpers/auth';
 
 test.describe('Dashboard', () => {
   test.beforeEach(async ({ page }) => {
+    await page.route('**/api/v2/dashboard/metrics*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ activeCustomers: 1500, mrr: 150000, openTickets: 12, churnRate: 1.2 })
+      });
+    });
+
+    await page.route('**/api/v2/dashboard/chart*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{ date: '2024-01-01', value: 100 }, { date: '2024-01-02', value: 150 }])
+      });
+    });
+
+    await page.route('**/api/v2/tenants/usage', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ messages_used: 500, messages_limit: 1000, storage_used: 5, storage_limit: 10 })
+      });
+    });
+
     await loginViaAPI(page);
   });
 

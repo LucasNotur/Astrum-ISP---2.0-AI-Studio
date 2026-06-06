@@ -11,6 +11,9 @@ test.describe('Autenticação', () => {
   });
 
   test('login com credenciais inválidas mostra erro', async ({ page }) => {
+    await page.route('**/api/v2/auth/login', async (route) => {
+      await route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: 'Inválido' }) });
+    });
     await page.goto('/login');
     await page.getByLabel('Email').fill('naoexiste@email.com');
     await page.getByLabel('Senha').fill('senhaerrada123');

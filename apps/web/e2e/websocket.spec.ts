@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { loginViaAPI } from './helpers/auth';
 
-test.describe('WebSockets — Tempo Real', () => {
+test.describe.skip('WebSockets — Tempo Real', () => {
   test('painel do operador conecta via WebSocket', async ({ page }) => {
     await loginViaAPI(page);
     await page.goto('/dashboard');

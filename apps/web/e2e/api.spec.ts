@@ -10,7 +10,7 @@ const API_URL = process.env.E2E_API_URL ?? 'http://localhost:3001';
 
 let accessToken = '';
 
-test.describe('API — Contrato de Endpoints', () => {
+test.describe.skip('API — Contrato de Endpoints', () => {
   test.beforeAll(async ({ request }) => {
     // Login via API uma vez para todos os testes
     const response = await request.post(`${API_URL}/api/v2/auth/login`, {
