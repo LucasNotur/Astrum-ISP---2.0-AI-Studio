@@ -1,7 +1,6 @@
 import { generateObject, generateText, streamText } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
-import Helicone from 'helicone';
 import { infraLogger } from '../logging/logger';
 
 /**
