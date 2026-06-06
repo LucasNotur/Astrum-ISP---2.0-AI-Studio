@@ -60,7 +60,7 @@ describe('VercelAIService — Structured Outputs', () => {
         urgency: 'high',
         sentiment: 'frustrated',
         extracted_data: { equipment_model: 'TP-Link AX1500' },
-        suggested_tools: ['query_knowledge_base', 'create_ticket'],
+        suggested_tools: ['query_rag', 'create_ticket'],
       };
       expect(() => CustomerIntentSchema.parse(valid)).not.toThrow();
     });
@@ -95,7 +95,15 @@ describe('VercelAIService — Structured Outputs', () => {
 
       // Mockar supabase
       vi.mock('../database/supabase.client', () => ({
-        supabase: { from: vi.fn(() => ({ insert: vi.fn(() => ({ select: vi.fn(() => ({ single: vi.fn(() => ({ data: { id: 'ticket-1' }, error: null })) })) })) }) },
+        supabase: {
+          from: vi.fn().mockReturnValue({
+            insert: vi.fn().mockReturnValue({
+              select: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({ data: { id: 'ticket-1' }, error: null })
+              })
+            })
+          })
+        }
       }));
 
       const result = await executor.execute('unknown_tool', { foo: 'bar' });

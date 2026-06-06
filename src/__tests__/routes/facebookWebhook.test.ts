@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
+import crypto from 'crypto';
 import express, { Request, Response } from 'express';
 import { facebookWebhookRouter } from '../../routes/facebookWebhook';
 import { facebookClient } from '../../lib/facebookClient';
@@ -22,6 +23,10 @@ vi.mock('../../lib/queue', () => ({
   messageQueue: {
     add: vi.fn()
   }
+}));
+
+vi.mock('../../../../apps/api/src/infrastructure/security/hmac.service', () => ({
+  validateWebhookSignature: vi.fn().mockReturnValue(true)
 }));
 
 // vi.mock('../../lib/facebookClient'); // Do not mock entirely to test it in test 7
@@ -70,7 +75,13 @@ describe('Facebook Webhook', () => {
             }]
         };
 
-        const res = await request(app).post('/api/webhook/facebook').send(payload);
+        process.env.FACEBOOK_APP_SECRET = 'secret_token';
+        const signature = 'sha256=' + crypto.createHmac('sha256', 'secret_token').update(JSON.stringify(payload)).digest('hex');
+
+        const res = await request(app).post('/api/webhook/facebook')
+            .set('x-hub-signature-256', signature)
+            .send(payload);
+            
         expect(res.status).toBe(200);
         expect(messageQueue.add).toHaveBeenCalledWith(
             "process_message",
@@ -111,7 +122,13 @@ describe('Facebook Webhook', () => {
             }]
         };
 
-        const res = await request(app).post('/api/webhook/facebook').send(payload);
+        process.env.FACEBOOK_APP_SECRET = 'secret_token';
+        const signature = 'sha256=' + crypto.createHmac('sha256', 'secret_token').update(JSON.stringify(payload)).digest('hex');
+
+        const res = await request(app).post('/api/webhook/facebook')
+            .set('x-hub-signature-256', signature)
+            .send(payload);
+            
         expect(res.status).toBe(200);
         expect(res.body).toEqual({ status: 'skipped:unknown_page' });
     });
@@ -131,7 +148,13 @@ describe('Facebook Webhook', () => {
             }]
         };
 
-        const res = await request(app).post('/api/webhook/facebook').send(payload);
+        process.env.FACEBOOK_APP_SECRET = 'secret_token';
+        const signature = 'sha256=' + crypto.createHmac('sha256', 'secret_token').update(JSON.stringify(payload)).digest('hex');
+
+        const res = await request(app).post('/api/webhook/facebook')
+            .set('x-hub-signature-256', signature)
+            .send(payload);
+            
         expect(res.status).toBe(200);
         expect(messageQueue.add).not.toHaveBeenCalled();
     });

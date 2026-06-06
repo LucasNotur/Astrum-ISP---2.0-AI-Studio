@@ -2,16 +2,16 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import tsconfigPaths from 'vite-tsconfig-paths';
 import path from 'path';
 
 export default defineConfig({
   root: '.',
-  plugins: [react(), tailwindcss(), tsconfigPaths()],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: [
       { find: /^@\/(.*)/, replacement: path.resolve(__dirname, '$1') }
-    ]
+    ],
+    tsconfigPaths: true
   },
   build: {
     outDir: 'dist',
@@ -25,6 +25,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
+    exclude: ['node_modules', 'dist', 'apps/web/e2e/**'],
     alias: [
       { find: /^@\/(.*)/, replacement: path.resolve(__dirname, '$1') }
     ],

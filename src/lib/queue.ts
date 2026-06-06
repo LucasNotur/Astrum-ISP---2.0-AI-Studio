@@ -8,6 +8,10 @@ export const mockQueueEmitter = new EventEmitter();
 export const messageQueue = isMockRedis ? {
   add: async (name: string, payload: any, opts?: any) => {
     console.warn("Using mock messageQueue (No real Redis)");
+    if (opts?.delay) {
+      console.warn(`Mock queue skipping delayed job ${name} to prevent loops.`);
+      return { id: "mock_delayed" };
+    }
     mockQueueEmitter.emit("process-message", { id: Math.random().toString(), data: payload });
     return { id: "mock" };
   },
@@ -61,6 +65,10 @@ export function getTenantQueue(tenantId: string): Queue {
       tenantQueues.set(tenantId, {
         add: async (name: string, payload: any, opts?: any) => {
           console.warn(`Using mock tenantQueue for ${tenantId}`);
+          if (opts?.delay) {
+            console.warn(`Mock tenantQueue skipping delayed job ${name} to prevent loops.`);
+            return { id: "mock_delayed" };
+          }
           mockQueueEmitter.emit("process-message", { id: Math.random().toString(), data: payload });
           return { id: "mock" };
         },

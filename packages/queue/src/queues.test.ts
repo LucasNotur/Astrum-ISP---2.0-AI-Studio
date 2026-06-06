@@ -36,7 +36,7 @@ describe('BullMQ Queues', () => {
 
   it('fila de suspension existe (crítica para CobrAI)', () => {
     const names = allQueues.map(q => q.name);
-    expect(names).toContain('astrum:suspension');
-    expect(names).toContain('astrum:cobranca');
+    expect(names).toContain('astrum-suspension');
+    expect(names).toContain('astrum-cobranca');
   });
 });
