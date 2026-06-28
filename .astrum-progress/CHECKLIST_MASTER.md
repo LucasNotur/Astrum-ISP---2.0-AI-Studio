@@ -14,9 +14,9 @@
 | Sprint 3 | Semanas 7–8 | B04 Agentes + B10 DevOps + B11 Observabilidade | 14/14 dias | ✅ Aprovado |
 | Sprint 4 | Semanas 9–10 | B08 Frontend | 14/14 dias | ✅ Aprovado |
 | Sprint 5 | Semanas 11–12 | Integração E2E | 14/14 dias | ✅ Aprovado |
-| Sprint 6 | Semanas 13–14 | Escala Multi-tenant | 0/14 dias | ⬜ Pendente |
+| Sprint 6 | Semanas 13–14 | Escala Multi-tenant | 8/14 dias | 🔶 Em progresso |
 
-**Progresso Total: 84 / 98 dias concluídos**
+**Progresso Total: 92 / 98 dias concluídos (Sessões 1–67 de ~96)**
 
 ---
 
