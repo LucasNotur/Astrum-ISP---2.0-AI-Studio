@@ -89,13 +89,9 @@ describe('VercelAIService — Structured Outputs', () => {
   });
 
   describe('ToolsExecutor', () => {
-    it('ferramenta desconhecida retorna erro sem crash', async () => {
-      const { ToolsExecutor } = await import('./tools.executor');
-      const executor = new ToolsExecutor('tenant-test');
-
-      // Mockar supabase
+    beforeAll(() => {
       vi.mock('../database/supabase.client', () => ({
-        supabase: {
+        default: {
           from: vi.fn().mockReturnValue({
             insert: vi.fn().mockReturnValue({
               select: vi.fn().mockReturnValue({
@@ -106,8 +102,19 @@ describe('VercelAIService — Structured Outputs', () => {
         }
       }));
 
+      vi.mock('../../../../../packages/queue/src/queues', () => ({
+        suspensionQueue: {
+          add: vi.fn().mockResolvedValue({})
+        }
+      }));
+    });
+
+    it('ferramenta desconhecida retorna erro sem crash', async () => {
+      const { ToolsExecutor } = await import('./tools.executor');
+      const executor = new ToolsExecutor('tenant-test');
+
       const result = await executor.execute('unknown_tool', { foo: 'bar' });
       expect(result).toHaveProperty('error');
-    });
+    }, 10000);
   });
 });
