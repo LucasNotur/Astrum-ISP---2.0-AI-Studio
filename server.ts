@@ -12,6 +12,7 @@ import { evolutionRouter } from "./src/routes/evolution.ts";
 import { facebookWebhookRouter } from "./src/routes/facebookWebhook.ts";
 import { evolutionWebhookRouter } from "./src/routes/evolutionWebhook.ts";
 import { jobsRouter } from "./src/routes/jobs.ts";
+import { verifySuperAdmin } from "./src/routes/superAdmin.ts";
 
 import { getLLMStatus } from "./apps/api/src/adapters/ai/llm.adapter.ts";
 import { startFastifyServer } from "./apps/api/src/server.ts";
@@ -51,12 +52,12 @@ async function startServer() {
 
   app.use("/api/super-admin", superAdminRouter);
   app.use("/api/v1", apiV1Router);
-  app.use("/api/cobrai", cobraiRouter);
-  app.use("/api/queues", queuesRouter);
-  app.use("/api/dlq", dlqRouter);
-  app.use("/api/os", osRoutingRouter);
+  app.use("/api/cobrai", verifySuperAdmin, cobraiRouter);
+  app.use("/api/queues", verifySuperAdmin, queuesRouter);
+  app.use("/api/dlq", verifySuperAdmin, dlqRouter);
+  app.use("/api/os", verifySuperAdmin, osRoutingRouter);
   app.use("/api/evolution", evolutionRouter);
-  app.use("/api/jobs", jobsRouter);
+  app.use("/api/jobs", verifySuperAdmin, jobsRouter);
   app.use("/api/webhook/facebook", facebookWebhookRouter);
   app.use("/api/webhook/evolution", evolutionWebhookRouter);
 

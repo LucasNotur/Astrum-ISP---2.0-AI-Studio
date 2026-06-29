@@ -39,7 +39,8 @@ evolutionWebhookRouter.post("/", async (req, res) => {
       if (!tenantQuery.empty) {
         tenantId = tenantQuery.docs[0].id;
       } else {
-        tenantId = "local_tenant";
+        console.warn(`[SECURITY] Webhook rejeitado: instance '${instanceName}' não mapeada a nenhum tenant`);
+        return res.status(403).json({ error: "Unknown instance" });
       }
     }
 

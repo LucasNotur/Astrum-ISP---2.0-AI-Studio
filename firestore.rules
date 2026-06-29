@@ -12,14 +12,9 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      // Allow read/write for admin role, developer emails, and the specific test user ID
-      return isAuthenticated() && (
-        getRole() == 'admin' || 
-        request.auth.token.email == 'lucaspferraz123@gmail.com' || 
-        request.auth.token.email == 'noturcursos1@gmail.com' ||
-        request.auth.uid == 'QAF43mllapOP6LtgiyTRkfUdei83' ||
-        request.auth.uid == '675qOaE7wGUSFk45V0D39B1g9y93' // Often useful for other test admins
-      );
+      // NUNCA coloque emails/UIDs aqui — use custom claims via Firebase Admin SDK
+      // Ex: admin.auth().setCustomUserClaims(uid, { role: 'admin' })
+      return isAuthenticated() && getRole() == 'admin';
     }
 
     function getUserTenant() {
@@ -42,12 +37,8 @@ service cloud.firestore {
       );
     }
 
-    // By default, allow everything if the user is an admin, so we don't need to specify every single collection.
-    // For non-admins, they must match specific collections.
-    
-    match /{document=**} {
-      allow read, write: if isAdmin();
-    }
+    // Wildcard removido — cada coleção tem sua própria regra explícita abaixo.
+    // audit_logs e security_logs: append-only mesmo para admins.
 
     // ==========================================
     // EXPLICITLY REQUESTED COLLECTIONS
@@ -174,8 +165,9 @@ service cloud.firestore {
     }
     
     match /audit_logs/{logId} {
-      allow read: if canReadContent(resource);
-      allow write: if canWriteContent(request.resource, resource);
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      // sem update/delete — imutável por design
     }
     
     match /notifications/{notificationId} {
@@ -227,8 +219,9 @@ service cloud.firestore {
       allow write: if canWriteContent(request.resource, resource);
     }
     match /security_logs/{docId} {
-      allow read: if canReadContent(resource);
-      allow write: if canWriteContent(request.resource, resource);
+      allow read: if isAdmin();
+      allow create: if isAuthenticated();
+      // sem update/delete — imutável por design
     }
   }
 }

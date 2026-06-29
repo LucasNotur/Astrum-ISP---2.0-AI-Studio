@@ -40,8 +40,13 @@ export async function buildServer() {
     credentials: true,
   });
 
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret || jwtSecret.length < 32) {
+    throw new Error('FATAL: JWT_SECRET ausente ou menor que 32 caracteres. Servidor NÃO vai subir.');
+  }
+
   await app.register(jwt, {
-    secret: process.env.JWT_SECRET ?? 'dev-secret-change-in-production',
+    secret: jwtSecret,
     sign: { expiresIn: '15m' },
   });
 
