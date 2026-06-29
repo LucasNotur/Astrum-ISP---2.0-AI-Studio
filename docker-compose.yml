@@ -1,42 +1,73 @@
 version: '3.8'
+name: astrum-prod
 
-name: astrum-dev
+# ═══════════════════════════════════════════════════════════
+# REDES
+# - internal: rede isolada sem saída para internet
+#   Redis, Qdrant, Zep e API se comunicam aqui.
+#   Nenhum desses containers precisa de internet diretamente.
+# - external: apenas os containers que precisam receber
+#   tráfego externo (api, web) ficam nessa rede também.
+# ═══════════════════════════════════════════════════════════
+networks:
+  internal:
+    driver: bridge
+    internal: true        # sem rota para internet
+  external:
+    driver: bridge
 
 services:
-  # ─── Redis ──────────────────────────────────────────
+
+  # ─── Redis ──────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: astrum-redis
-    ports:
-      - "127.0.0.1:6379:6379"  # só localhost — sem exposição externa
+    # SEGURANÇA: sem port binding externo em produção.
+    # Apenas containers na rede 'internal' acessam o Redis.
+    # Se precisar de acesso local para debug: use redis-cli
+    # via `docker exec astrum-redis redis-cli -a $REDIS_PASSWORD`
+    expose:
+      - "6379"
     volumes:
       - redis_data:/data
     command: >
       redis-server
       --appendonly yes
       --requirepass ${REDIS_PASSWORD}
-      --bind 127.0.0.1
+      --bind 0.0.0.0
+      --protected-mode yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks:
+      - internal
 
-  # ─── Qdrant ─────────────────────────────────────────
+  # ─── Qdrant ─────────────────────────────────────────────
   qdrant:
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.9.7
     container_name: astrum-qdrant
-    ports:
-      - "6333:6333"
-      - "6334:6334"  # gRPC
+    # SEGURANÇA: sem port binding externo.
+    # Acesso apenas via rede interna Docker (http://qdrant:6333).
+    expose:
+      - "6333"
+      - "6334"
     volumes:
       - qdrant_data:/qdrant/storage
     environment:
       QDRANT__SERVICE__GRPC_PORT: 6334
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY}
     restart: unless-stopped
+    networks:
+      - internal
 
-  # ─── API Backend ────────────────────────────────────
+  # ─── API Backend ────────────────────────────────────────
   api:
     build:
       context: .
@@ -44,12 +75,14 @@ services:
       target: production
     container_name: astrum-api
     ports:
-      - "3001:3001"
+      - "3001:3001"     # exposto para o host — protegido por nginx/firewall
     environment:
       NODE_ENV: production
       PORT: 3001
+      # Redis com autenticação — formato: redis://:senha@host:porta
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       QDRANT_URL: http://qdrant:6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY}
     env_file:
       - .env
     volumes:
@@ -57,6 +90,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      qdrant:
+        condition: service_started
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3001/api/v2/health"]
       interval: 30s
@@ -64,8 +99,11 @@ services:
       retries: 3
       start_period: 15s
     restart: unless-stopped
+    networks:
+      - internal
+      - external
 
-  # ─── Frontend ───────────────────────────────────────
+  # ─── Frontend ───────────────────────────────────────────
   web:
     build:
       context: .
@@ -79,24 +117,34 @@ services:
       api:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - external
 
-  # ─── Zep ────────────────────────────────────────────
+  # ─── Zep (Memória de Longo Prazo) ───────────────────────
   zep:
-    image: ghcr.io/getzep/zep:latest
+    image: ghcr.io/getzep/zep:0.17.0
     container_name: astrum-zep
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     environment:
       ZEP_NLP_SERVER_URL: http://zep-nlp:5557
       ZEP_OPENAI_API_KEY: ${OPENAI_API_KEY}
       ZEP_STORE_TYPE: postgres
-      ZEP_STORE_POSTGRES_DSN: ${SUPABASE_DB_URL}
+      # SEGURANÇA: usuário zep_user com acesso apenas ao schema zep
+      # Criar com o script infra/sql/create-zep-user.sql antes de subir
+      ZEP_STORE_POSTGRES_DSN: ${ZEP_POSTGRES_DSN}
     restart: unless-stopped
+    depends_on:
+      - zep-nlp
+    networks:
+      - internal
 
   zep-nlp:
-    image: ghcr.io/getzep/zep-python:latest
+    image: ghcr.io/getzep/zep-python:0.17.0
     container_name: astrum-zep-nlp
     restart: unless-stopped
+    networks:
+      - internal
 
 volumes:
   redis_data:
