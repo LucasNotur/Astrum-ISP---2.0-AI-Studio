@@ -1198,3 +1198,14 @@ Testes: 9 novos.
 Status: 🔶 Métricas + calibração prontas/testadas. Test set real de 50 perguntas + CI job pendem.
 Observações: contextPrecision/faithfulness com judge injetável, ragasGate (>=0.75), calibrateRouter
   (intent vai p/ 4o só se >=30% exige raciocínio; senão 4o-mini — economia com dados reais).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 7 — Sessão 88
+Tarefa: Synthetic monitoring + dashboard de saúde por ISP (lógica)
+Arquivos criados:
+  - apps/api/src/infrastructure/observability/health-score.ts (+ .test.ts)
+Testes: 8 novos.
+Status: 🔶 Lógica pronta/testada. Cron da sonda 24/7 + página nova no frontend pendem.
+Observações: evaluateProbe (fluxo E2E sintético dentro do SLA), computeIspHealth (score 0-100 +
+  healthy/degraded/critical combinando fila/WhatsApp/resolução/erros). Alimenta dashboard de saúde (item 85).
