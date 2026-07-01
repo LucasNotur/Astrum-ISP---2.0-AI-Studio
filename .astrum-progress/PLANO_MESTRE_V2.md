@@ -235,7 +235,7 @@ GATE FINAL                   → S98
 - [ ] Login/logout/refresh funcionando no frontend legado contra `/api/v2` (teste manual + Playwright de auth adaptado).
 - [ ] Nenhum import de `firebase/auth` restante no frontend.
 
-## ⬜ S78 — Data swap: repositories Supabase + hooks colhidos + morte do apps/web
+## 🔶 S78 — Data swap: repositories Supabase + hooks colhidos + morte do apps/web
 **Passos:**
 1. O legado JÁ tem o padrão pronto: `src/repositories/firebase/*` e `src/repositories/supabase/*` (Customer, Ticket, Knowledge, ServiceOrder, Tenant). Localizar a factory/injeção que escolhe a implementação e **virar a chave para Supabase**. Completar as implementações Supabase que estiverem defasadas em relação às Firebase (comparar método a método).
 2. Páginas que falam com endpoints Express (`/api/v1`, `/api/cobrai` etc.): repontar para os equivalentes `/api/v2` via `api-client`. Onde não houver equivalente v2 ainda, criar a rota no `apps/api` (fina, sobre os services existentes) — listar as rotas criadas na entrada do PROGRESS_LOG.

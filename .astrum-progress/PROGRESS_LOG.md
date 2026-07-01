@@ -1057,3 +1057,17 @@ Status: 🔶 Bridge + mapa de usuários prontos e testados. Ligação no App.tsx
 Observações: AuthV2 espelha a superfície do firebase/auth (onAuthStateChanged/signIn/signOut/currentUser)
   para trocar o import sem reescrever a tela (R1). DECISÃO NECESSÁRIA DO LUCAS: hash Firebase (scrypt) é
   incompatível com Argon2id — 'force_reset' (default, seguro) vs 'hash_import'. mapFirebaseUser suporta ambos.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 4 — Sessão 78
+Tarefa: Data swap — repository factory → Supabase (default)
+Arquivos criados:
+  - src/repositories/resolveDbProvider.test.ts
+Arquivos modificados:
+  - src/repositories/index.ts (extrai resolveDbProvider testável; default supabase)
+Testes: 5 novos.
+Status: 🔶 Data-swap central pronto/testado. Deleção do apps/web + repointe /api/v1→/api/v2 + colheita
+  de hooks pendem de integração com o frontend rodando (deletar apps/web agora quebraria test:e2e).
+Observações: a factory JÁ defaultava para Supabase; extraída resolveDbProvider como função pura testável.
+  Firestore só via DB_PROVIDER=firebase (fallback de emergência até cutover S82).

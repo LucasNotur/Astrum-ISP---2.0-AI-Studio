@@ -10,9 +10,20 @@ import { ServiceOrderRepositorySupabase } from './supabase/ServiceOrderRepositor
 import { KnowledgeRepositorySupabase } from './supabase/KnowledgeRepositorySupabase';
 import { TenantRepositorySupabase } from './supabase/TenantRepositorySupabase';
 
-const DB_PROVIDER = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_DB_PROVIDER) ||
-  (typeof process !== 'undefined' && process.env && process.env.DB_PROVIDER) ||
-  'supabase';
+/**
+ * Resolve o provider de dados do frontend. Default 'supabase' (S78 — data swap).
+ * Firestore só se explicitamente pedido (fallback de emergência até o cutover S82).
+ * Pura e testável.
+ */
+export function resolveDbProvider(env: { VITE_DB_PROVIDER?: string; DB_PROVIDER?: string } = {}): 'supabase' | 'firebase' {
+  const raw = (env.VITE_DB_PROVIDER ?? env.DB_PROVIDER ?? 'supabase').toLowerCase();
+  return raw === 'firebase' ? 'firebase' : 'supabase';
+}
+
+const DB_PROVIDER = resolveDbProvider({
+  VITE_DB_PROVIDER: typeof import.meta !== 'undefined' ? (import.meta as any).env?.VITE_DB_PROVIDER : undefined,
+  DB_PROVIDER: typeof process !== 'undefined' ? process.env?.DB_PROVIDER : undefined,
+});
 
 export function getCustomerRepository(): CustomerRepository {
   if (DB_PROVIDER === 'supabase') return new CustomerRepositorySupabase();
