@@ -991,3 +991,15 @@ Status: ✅ Concluído
 Observações: Fallback multi-provider portado de src/ai-provider com melhoria — failover DENTRO
   da request (imperceptível), não só entre requests. Circuit store injetável (testável sem Redis).
   _checkInvoice agora seleciona payment_url/pix_copy_paste (dado crítico da 2ª via que faltava).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 2 — Sessão 73
+Tarefa: Port messageWorker parte 2 — mídia (áudio/imagem/documento)
+Arquivos criados:
+  - apps/api/src/adapters/whatsapp/media-processor.service.ts (+ .test.ts)
+Testes: 8 novos.
+Status: ✅ Concluído
+Observações: Whisper (áudio, fail-open→pede reenvio), GPT-4o vision (imagem→laudo no system prompt;
+  atualizado do gpt-4-vision-preview aposentado), R2 (áudio/documento). Dependências injetáveis.
+  Inventário F1-F3 marcados.

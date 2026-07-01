@@ -34,9 +34,9 @@
 - [ ] E2. `incrementShardedCounter('messages_today')` — métrica de volume por tenant (contador shardeado)
 
 ## F. Mídia
-- [ ] F1. Áudio → `downloadAndTranscribeAudio` (Whisper); prefixa `[Mensagem de voz transcrita]`; fallback pede reenvio em texto *(S73)*
-- [ ] F2. Imagem → `imageMessage` processada por visão *(S73)*
-- [ ] F3. Documento (`isDocument`) *(S73)*
+- [x] F1. Áudio → `downloadAndTranscribeAudio` (Whisper); prefixa `[Mensagem de voz transcrita]`; fallback pede reenvio em texto *(S73)*
+- [x] F2. Imagem → `imageMessage` processada por visão *(S73)*
+- [x] F3. Documento (`isDocument`) *(S73)*
 
 ## G. Fluxo de ticket / sessão
 - [ ] G1. Encontrar ticket aberto/escalado existente por cliente OU criar novo *(S72)*

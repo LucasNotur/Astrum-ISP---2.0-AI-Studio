@@ -162,7 +162,7 @@ GATE FINAL                   → S98
 - [ ] Derrubar o adapter OpenAI (forçar erro) → resposta ainda sai pelo fallback, com log do provider usado.
 - [ ] Checkboxes correspondentes marcados no `MESSAGEWORKER_INVENTORY.md`.
 
-## ⬜ S73 — Port do messageWorker, parte 2: mídia (áudio, imagem, documento)
+## ✅ S73 — Port do messageWorker, parte 2: mídia (áudio, imagem, documento)
 **Passos:**
 1. **Áudio:** download da mídia Evolution → transcrição Whisper (`openai.audio.transcriptions`) → texto entra no fluxo normal. Guardar áudio original no R2 (`r2.adapter.ts`). *(fecha dossiê-105 item 71)*
 2. **Imagem:** GPT-4o vision para descrever/diagnosticar (ex.: foto de roteador com LED) → resultado vira contexto da resposta. Portar prompts do `visionProcessor.ts` legado. *(prepara item 78)*
