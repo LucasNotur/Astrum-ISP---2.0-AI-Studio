@@ -1029,3 +1029,18 @@ Status: 🔶 IXC+MK-Auth portados e testados; sgp/voalle/hubsoft/radiusnet/rbx s
 Observações: HTTP injetável (testável sem ERP vivo). Credenciais AES-256-GCM (nunca texto puro).
   BUG pego: parseAmountToCents corrige formato BR "1.234,56" (antes virava 123 centavos). 2ª via
   normalizada (boleto_url/pix) — liga direto na tool get_billing_status da S72.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 3 — Sessão 76
+Tarefa: CobrAI unificado — portar guardas (janela/limites/opt-out) do legado
+Arquivos criados:
+  - apps/api/src/domain/cobranca/cobrai-guards.ts (+ .test.ts)
+  - packages/db/src/migrations/025_cobrai_tenant_config.sql
+Arquivos modificados:
+  - packages/queue/src/workers/cobrai.worker.ts (aplica evaluateCobraiGate antes de send_message)
+Testes: 13 novos.
+Status: 🔶 Guardas portadas e ligadas; virada COBRAI_ENGINE=v2 + monitor 48h pendem de produção.
+Observações: portadas do cobraiWorker legado as proteções que faltavam no novo: janela de horário
+  (inclui cruzar meia-noite), limite/hora, limite/dia, opt-out por estágio e por cliente. Régua única
+  garantida pela flag da S68. Cutover real (COBRAI_ENGINE=v2) depende de produção.

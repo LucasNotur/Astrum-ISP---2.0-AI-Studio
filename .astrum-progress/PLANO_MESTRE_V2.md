@@ -206,7 +206,7 @@ GATE FINAL                   → S98
 - [ ] Tool de fatura retorna boleto real de ERP sandbox em teste de integração.
 - [ ] Credenciais no banco ilegíveis sem a chave (verificar por SELECT direto).
 
-## ⬜ S76 — CobrAI unificado E2E sobre Supabase
+## 🔶 S76 — CobrAI unificado E2E sobre Supabase
 **Objetivo:** uma única régua de cobrança, no motor novo, com os dados migrados. *(fecha dossiê-105 item 82)*
 
 **Passos:**

@@ -65,6 +65,37 @@ async function executeCobraiAction(job: Job<CobraiJobData>): Promise<void> {
     return;
   }
 
+  // Guardas portadas do legado (S76): janela de horário, limites, opt-out.
+  if (action === 'send_message') {
+    const { evaluateCobraiGate } = await import('../../../apps/api/src/domain/cobranca/cobrai-guards');
+    const { data: tenantCfg } = await supabaseAdmin
+      .from('tenants')
+      .select('cobrai_window, cobrai_hourly_limit, cobrai_daily_limit, cobrai_stages')
+      .eq('id', tenantId)
+      .maybeSingle();
+    const { count: sentThisHour } = await supabaseAdmin
+      .from('cobrai_jobs')
+      .select('*', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .eq('status', 'sent')
+      .gte('executed_at', new Date(Date.now() - 3600_000).toISOString());
+
+    const gate = evaluateCobraiGate({
+      hour: new Date().getHours(),
+      window: tenantCfg?.cobrai_window ?? null,
+      sentThisHour: sentThisHour ?? 0,
+      hourlyLimit: tenantCfg?.cobrai_hourly_limit ?? 30,
+      sentToday: 0,
+      dailyLimit: tenantCfg?.cobrai_daily_limit ?? null,
+      stage: (action as string) ?? 'lembrete',
+      stagesConfig: tenantCfg?.cobrai_stages ?? null,
+    });
+    if (!gate.allowed) {
+      cobrancaLogger.warn({ tenantId, invoiceId, reason: gate.reason }, 'CobrAI bloqueado por guarda');
+      return;
+    }
+  }
+
   cobrancaLogger.info({ tenantId, invoiceId, action }, `Executando CobrAI action: ${action}`);
 
   switch (action) {
