@@ -930,3 +930,17 @@ Testes: 23 novos (engine-flags 12, boot-state 6, conversation NULL 5). Suíte: 4
 Status: ✅ Concluído
 Observações: apps/frontend e Supabase_Assinaturas MANTIDOS (UI de billing viva em SettingsPage — R1).
   Falha pré-existente em src/__tests__/middleware/auth.test.ts (import tokenCache) mapeada p/ S83.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 1 — Sessão 69
+Tarefa: Schema final + ETL backfill (cadastral/financeiro) Firestore → Supabase
+Arquivos criados:
+  - scripts/etl/lib/transform.ts (+ .test.ts)
+  - scripts/etl/lib/upsert-planner.ts (+ .test.ts)
+  - scripts/etl/firestore-to-supabase.ts (+ .test.ts)
+Testes: 26 novos (transform 17, planner 6, orchestrator 6... financeiro+enums+idempotência).
+Status: 🔶 Código completo e testado; backfill real pendente de credenciais vivas.
+Observações: Schema (migrations 015-019) já estava pronto de deliverable A. Lógica de risco
+  (centavos, enums divergentes, idempotência por legacy_id) isolada em funções puras 100% testadas.
+  reaisToCents resolve o erro de float 19.99*100. audit_logs legado → ai_performance_logs (nunca audit_log).

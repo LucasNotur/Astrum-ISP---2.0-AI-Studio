@@ -89,7 +89,8 @@ GATE FINAL                   → S98
 
 # FASE 1 — MIGRAÇÃO DE DADOS (Firestore → Supabase)
 
-## ⬜ S69 — Schema final + ETL backfill (entidades financeiras e cadastrais)
+## 🔶 S69 — Schema final + ETL backfill (entidades financeiras e cadastrais)
+> Código completo e testado (26 testes). **Execução do backfill real pendente de credenciais vivas** (FIREBASE_*/SUPABASE_*).
 **Objetivo:** todos os dados cadastrais/financeiros do Firestore existindo no Supabase, com validação por contagem.
 
 **Pré-requisito:** ler `docs/DB_MIGRATION_GAP_REPORT.md` INTEIRO antes de escrever qualquer linha.
