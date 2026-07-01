@@ -68,8 +68,7 @@ async function startServer() {
 
   const distPath = path.join(process.cwd(), 'dist/client');
   app.use(express.static(distPath));
-  app.use('/app/applet', express.static(distPath + '/app/applet'));
-  
+
   let vite: any;
   if (process.env.NODE_ENV !== "production") {
     const { createServer: createViteServer } = await import("vite");
@@ -89,12 +88,10 @@ async function startServer() {
       }
       
       const distIndex = path.join(process.cwd(), 'dist/client/index.html');
-      const distAppletIndex = path.join(process.cwd(), 'dist/client/app/applet/index.html');
       const rootIndex = path.join(process.cwd(), 'index.html');
-      
+
       let finalIndex = '';
       if (fs.existsSync(distIndex)) finalIndex = distIndex;
-      else if (fs.existsSync(distAppletIndex)) finalIndex = distAppletIndex;
       else if (fs.existsSync(rootIndex)) finalIndex = rootIndex;
       else {
          return res.status(404).send("No index.html found anywhere.");

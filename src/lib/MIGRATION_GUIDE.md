@@ -25,6 +25,17 @@ const response = await callLLM({
 });
 ```
 
-## Status da migração
-Os arquivos legados continuam funcionando (Strangler Fig).
-Serão removidos no Sprint 3 quando LangGraph assumir completamente.
+## Status da migração (revisado 2026-07-01)
+
+> ⚠️ **CORREÇÃO:** A versão anterior dizia que estes arquivos "serão removidos no
+> Sprint 3 quando LangGraph assumir completamente". Estamos no **Sprint 6** e isso
+> **não aconteceu**. `gemini.server.ts` (172kb) continua sendo importado por código
+> ativo e central: `src/workers/messageWorker.ts`, `src/lib/toolRegistry.ts`,
+> `src/pages/ChatPage.tsx` e `src/App.tsx`.
+
+O motor de IA legado (`gemini.ts`, `gemini.server.ts`, `ai-provider.service.ts`)
+ainda está **em produção**. O `apps/api` (LangGraph + `callLLM`) é uma base nova
+que ainda não recebeu o cérebro do atendimento — o `messageWorker` de 1605 linhas
+segue no legado.
+
+Remoção real: **Fase 1** do plano em `docs/LEGACY_RETIREMENT_PLAN.md`.
