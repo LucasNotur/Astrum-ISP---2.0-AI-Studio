@@ -3,6 +3,13 @@ build/
 coverage/
 .DS_Store
 *.log
+
+# Build outputs / artefatos
+dist/
+.turbo/
+playwright-report/
+stdout/
+vite.config.ts.timestamp-*.mjs
 .env*
 !.env.example
 .env
