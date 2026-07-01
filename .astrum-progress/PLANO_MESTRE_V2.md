@@ -316,7 +316,7 @@ GATE FINAL                   → S98
 Reavaliar as North Star Metrics do `CHECKLIST_MASTER.md` com dados REAIS (agora existem): resolução autônoma, custo/conversa (Helicone), p95, jobs perdidos, custo por ISP visível.
 - [ ] Gate documentado com números reais. Aprovação do Lucas registrada.
 
-## ⬜ S87 — RAGAS + LLM-as-a-Judge + calibração do router
+## 🔶 S87 — RAGAS + LLM-as-a-Judge + calibração do router
 - Test set de ≥50 perguntas reais de ISP (extrair das conversas migradas); RAGAS ≥0.75; judge automático em cada deploy de prompt (CI job).
 - Calibrar LLM Router com dados reais do shadow/produção: quais intents realmente precisam de 4o vs 4o-mini (relatório de custo antes/depois).
 - [ ] RAGAS no CI; router recalibrado com evidência de economia.

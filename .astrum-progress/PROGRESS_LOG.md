@@ -1187,3 +1187,14 @@ Testes: 6 novos.
 Status: 🔶 Lógica do gate pronta/testada. Aprovação real precisa dos números de produção + OK do Lucas.
 Observações: evaluateGoLive exige resolução>80%, p95<1.5s, custo<=40% baseline, 0 jobs perdidos,
   0 vazamento cross-tenant, custo/ISP visível. Scorecard com valor/target/pass por métrica.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 7 — Sessão 87
+Tarefa: RAGAS + LLM-as-a-Judge + calibração do router
+Arquivos criados:
+  - apps/api/src/infrastructure/rag/ragas.ts (+ .test.ts)
+Testes: 9 novos.
+Status: 🔶 Métricas + calibração prontas/testadas. Test set real de 50 perguntas + CI job pendem.
+Observações: contextPrecision/faithfulness com judge injetável, ragasGate (>=0.75), calibrateRouter
+  (intent vai p/ 4o só se >=30% exige raciocínio; senão 4o-mini — economia com dados reais).
