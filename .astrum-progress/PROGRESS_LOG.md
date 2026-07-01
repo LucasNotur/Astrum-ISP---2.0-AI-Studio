@@ -1015,3 +1015,17 @@ Testes: 7 novos.
 Status: 🔶 Código completo; shadow run real + decisão de cutover pendentes de tráfego + aprovação Lucas.
 Observações: decideSend garante que motor novo nunca envia+registra ao mesmo tempo. ATENDIMENTO_ENGINE
   controla o cutover (rollback = trocar env). computeEquivalenceRate = base do gate ≥95% (LLM-judge injetável).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 3 — Sessão 75
+Tarefa: Port integrações ERP (IXC + MK-Auth) com cifra de credenciais
+Arquivos criados:
+  - packages/db/src/migrations/024_tenant_erp_credentials.sql
+  - apps/api/src/adapters/erp/{erp.types,credential-cipher,ixc.adapter,mkauth.adapter,erp.factory}.ts
+  - apps/api/src/adapters/erp/erp.test.ts
+Testes: 20 novos.
+Status: 🔶 IXC+MK-Auth portados e testados; sgp/voalle/hubsoft/radiusnet/rbx seguem o mesmo padrão (incremental).
+Observações: HTTP injetável (testável sem ERP vivo). Credenciais AES-256-GCM (nunca texto puro).
+  BUG pego: parseAmountToCents corrige formato BR "1.234,56" (antes virava 123 centavos). 2ª via
+  normalizada (boleto_url/pix) — liga direto na tool get_billing_status da S72.

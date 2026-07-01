@@ -191,7 +191,7 @@ GATE FINAL                   → S98
 
 # FASE 3 — ERP + COBRAI ÚNICOS
 
-## ⬜ S75 — Port das integrações ERP
+## 🔶 S75 — Port das integrações ERP
 **Objetivo:** a IA nova resolve boleto/sinal/cadastro REAIS. *(fecha dossiê-105 itens 31–35, 40, 43 parcial)*
 
 **Passos:**
