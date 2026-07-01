@@ -944,3 +944,17 @@ Status: 🔶 Código completo e testado; backfill real pendente de credenciais v
 Observações: Schema (migrations 015-019) já estava pronto de deliverable A. Lógica de risco
   (centavos, enums divergentes, idempotência por legacy_id) isolada em funções puras 100% testadas.
   reaisToCents resolve o erro de float 19.99*100. audit_logs legado → ai_performance_logs (nunca audit_log).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 1 — Sessão 70
+Tarefa: ETL conversacional (ticket→conversation) + delta-sync + ponte
+Arquivos criados:
+  - packages/db/src/migrations/021_legacy_conversation_map.sql
+  - scripts/etl/lib/ticket-splitter.ts (+ .test.ts)
+  - scripts/etl/lib/delta-sync.ts (+ .test.ts)
+Testes: 10 novos (splitter 7, delta 4... na verdade 6+4=10).
+Status: 🔶 Código completo e testado; execução + GATE DE DADOS pendentes de credenciais.
+Observações: 1 ticket legado → 1 conversation + N messages (modelo relacional muda). Ponte
+  legacy_ticket_conversation_map com watermark para delta-sync a cada 15min. Re-ingestão de KB
+  reusa pipeline RAG existente (document-chunker→embedding→Qdrant, já testado no Sprint 2).
