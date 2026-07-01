@@ -1044,3 +1044,16 @@ Status: 🔶 Guardas portadas e ligadas; virada COBRAI_ENGINE=v2 + monitor 48h p
 Observações: portadas do cobraiWorker legado as proteções que faltavam no novo: janela de horário
   (inclui cruzar meia-noite), limite/hora, limite/dia, opt-out por estágio e por cliente. Régua única
   garantida pela flag da S68. Cutover real (COBRAI_ENGINE=v2) depende de produção.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 4 — Sessão 77
+Tarefa: Auth swap — bridge JWT/Supabase v2 no frontend legado
+Arquivos criados:
+  - src/lib/auth-v2.ts (+ .test.ts)
+  - scripts/etl/lib/auth-user-map.ts (+ .test.ts)
+Testes: 11 novos.
+Status: 🔶 Bridge + mapa de usuários prontos e testados. Ligação no App.tsx + DECISÃO de senha pendem.
+Observações: AuthV2 espelha a superfície do firebase/auth (onAuthStateChanged/signIn/signOut/currentUser)
+  para trocar o import sem reescrever a tela (R1). DECISÃO NECESSÁRIA DO LUCAS: hash Firebase (scrypt) é
+  incompatível com Argon2id — 'force_reset' (default, seguro) vs 'hash_import'. mapFirebaseUser suporta ambos.
