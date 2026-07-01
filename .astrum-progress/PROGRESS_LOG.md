@@ -1154,3 +1154,14 @@ Status: ✅ Suíte 100% verde agora. Ephemeral envs por PR + Dockerfiles finais 
 Observações: 3 bugs no teste legado — (1) caminho ../src/ em vez de ../../, (2) getAuth devolvia
   mock novo a cada chamada, (3) mockResolvedValue de revoke/blacklist vazava entre testes (→ Once).
   Última peça vermelha da suíte resolvida.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 7 — Sessão 84
+Tarefa: Load + Chaos — helpers de avaliação (o disparo é operacional)
+Arquivos criados:
+  - scripts/qa/load-analysis.ts (+ .test.ts)
+Testes: 10 novos.
+Status: 🔶 Lógica de avaliação (passa/falha) pronta e testada. Disparo K6 + chaos real pendem de ambiente.
+Observações: percentile (p95), evaluateLoad (p95<1.5s, perda de job 0, erro<1%), chaosDegradesGracefully
+  (zero perda + fail-open). Estes são os critérios que decidem o gate de carga — testáveis sem cluster.

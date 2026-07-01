@@ -302,7 +302,7 @@ GATE FINAL                   → S98
 
 # FASE 7 — QUALIDADE, ESCALA E GO-LIVE
 
-## ⬜ S84 — Load + Chaos
+## 🔶 S84 — Load + Chaos
 - K6: 1000 mensagens simultâneas no webhook v2; medir p95 (<1.5s meta), throughput, perda de jobs (deve ser 0 — Outbox+DLQ).
 - Chaos: derrubar Redis, Qdrant, OpenAI (via proxy) e Supabase um por vez → sistema degrada com fail-open/fallback documentado, sem perder mensagem.
 - [ ] Relatório `docs/qa/LOAD_CHAOS_S84.md` com números e correções aplicadas.
