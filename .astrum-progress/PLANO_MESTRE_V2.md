@@ -149,7 +149,8 @@ GATE FINAL                   → S98
 - [ ] POST simulado no `/api/v2/webhook/evolution` com payload real de exemplo → job aparece na fila com todos os campos (teste de integração com Redis local via `docker:dev`).
 - [ ] Assinatura HMAC inválida → 401; instância desconhecida → 403 (testes).
 
-## ⬜ S72 — Port do messageWorker, parte 1: texto, contexto, tools de negócio
+## ✅ S72 — Port do messageWorker, parte 1: texto, contexto, tools de negócio
+> Fallback multi-provider (R3) portado com failover na request + tools de negócio ligadas ao Supabase (billing com pix/2ª via, cobertura, diagnóstico, agendamento). 18 testes.
 **Passos:**
 1. Expandir `packages/queue/src/workers/message.worker.ts` (hoje 103L) seguindo o inventário: deduplicação por `messageId`, janela de agrupamento de mensagens picadas (se o legado tiver), seleção de idioma/persona por tenant.
 2. **Port do fallback LLM (R3):** portar `src/ai-provider/` (service + adapters openai/anthropic/gemini) para `apps/api/src/adapters/ai/` integrando com o `llm.adapter.ts` existente. Roteamento: 4o-mini conversa / 4o orquestração; em falha do provider primário (circuit breaker Opossum já existe), próximo adapter assume de forma transparente. Config por tenant em `ai_configurations` (adicionar colunas `provider/model/fallback_provider/fallback_model` — gap report item 1.8, migration `023`).

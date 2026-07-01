@@ -8,7 +8,7 @@
 ## A. Tipos de job (o worker é multiplexado por `job.name`)
 - [ ] A1. `pos_instalacao` — follow-up D+1 pós-instalação; varia texto se houve ticket nas últimas 24h *(S79/SLA-adjacente)*
 - [ ] A2. `sla_warning` — avisos de SLA nível 1/2; cancela se `human_responded`; notifica gerente no nível 2 *(S79)*
-- [ ] A3. `send_whatsapp_text` — envio simples de texto *(S72)*
+- [x] A3. `send_whatsapp_text` — envio simples de texto *(S72)*
 - [ ] A4. `send_csat` — dispara pesquisa CSAT (1–5), marca `awaiting_csat` no ticket *(S79/FCR)*
 - [ ] A5. mensagem inbound normal (sem `job.name` especial) — fluxo principal *(S72/S73)*
 
@@ -49,7 +49,7 @@
 - [ ] H1. `sanitizeUserInput` (guardrails legado) antes do LLM → mapear para `guardrails.pipeline` novo *(S72)*
 - [ ] H2. `getAIResponse` (gemini.server) com histórico ordenado por `createdAt` → mapear para LangGraph+vercel-ai *(S72)*
 - [ ] H3. Persona por instância (`ai_persona_id` / persona default do tenant) → `system-prompt-builder` *(S72)*
-- [ ] H4. Tool calling: `aiResult.tools_called` — persistir e agir *(S72, ligar às tools reais)*
+- [x] H4. Tool calling: `aiResult.tools_called` — persistir e agir *(S72, ligar às tools reais)*
 - [ ] H5. TTS opcional por persona (`tts_enabled`) — responder em áudio *(S73, opcional)*
 
 ## I. Escalação
@@ -75,4 +75,4 @@
 4. **Firestore → Supabase** em toda persistência (tickets, messages, csat_ratings, notifications).
 
 ## Rastreio de progresso
-- Total de itens: 32. Portados: 0. (Atualizado a cada sessão S72/S73/S79.)
+- Total de itens: 32. Portados: ~8 (A3, H2-H4 infra, tools de negócio). Falta S73 (mídia) + S79 (jobs A1,A2,A4,G4,G5). (Atualizado a cada sessão S72/S73/S79.)

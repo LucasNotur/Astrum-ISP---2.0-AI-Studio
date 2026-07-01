@@ -976,3 +976,18 @@ Status: ✅ Concluído (não recebe tráfego real até cutover S74)
 Observações: BUG corrigido — worker escutava 'astrum:messages' mas a fila é 'astrum-messages';
   jobs nunca seriam consumidos. Parser cobre texto/áudio/imagem/documento/base64. Tenant lookup
   por instância no Supabase (multi-instância + coluna direta); instância desconhecida → 403.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 2 — Sessão 72
+Tarefa: Port messageWorker parte 1 — fallback LLM (R3) + tools de negócio
+Arquivos criados:
+  - apps/api/src/adapters/ai/provider-fallback.service.ts (+ .test.ts)
+  - apps/api/src/infrastructure/ai/tools.executor.test.ts
+Arquivos modificados:
+  - apps/api/src/infrastructure/ai/tools.executor.ts (get_billing_status c/ pix, check_coverage, run_diagnostics, schedule_technical_visit)
+Testes: 18 novos (fallback 12, tools 6).
+Status: ✅ Concluído
+Observações: Fallback multi-provider portado de src/ai-provider com melhoria — failover DENTRO
+  da request (imperceptível), não só entre requests. Circuit store injetável (testável sem Redis).
+  _checkInvoice agora seleciona payment_url/pix_copy_paste (dado crítico da 2ª via que faltava).
