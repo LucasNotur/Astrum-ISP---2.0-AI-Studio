@@ -256,7 +256,7 @@ GATE FINAL                   → S98
 > port sobre BullMQ + Supabase + Sentry (`addSentryToWorker`) + DLQ (`setupDLQ`) → teste unitário →
 > registrar no bootstrap de workers → desligar o legado correspondente.
 
-## ⬜ S79 — Workers de atendimento: `slaWorker`, `fcrWorker`, `snoozeWorker`
+## 🔶 S79 — Workers de atendimento: `slaWorker`, `fcrWorker`, `snoozeWorker`
 - SLA: monitora `conversations`/`tickets` abertos, escala por tempo (usar `escalateConversation` + notificação WS). *(dossiê item 84)*
 - FCR (first contact resolution): métrica pós-conversa gravada em `ai_performance_logs`.
 - Snooze: reagendamento de follow-ups.

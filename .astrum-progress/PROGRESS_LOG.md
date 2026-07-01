@@ -1071,3 +1071,17 @@ Status: 🔶 Data-swap central pronto/testado. Deleção do apps/web + repointe 
   de hooks pendem de integração com o frontend rodando (deletar apps/web agora quebraria test:e2e).
 Observações: a factory JÁ defaultava para Supabase; extraída resolveDbProvider como função pura testável.
   Firestore só via DB_PROVIDER=firebase (fallback de emergência até cutover S82).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 5 — Sessão 79
+Tarefa: Workers de atendimento — SLA, FCR, Snooze (lógica pura portada)
+Arquivos criados:
+  - apps/api/src/domain/sla/sla-eval.ts
+  - apps/api/src/domain/atendimento/fcr-calc.ts
+  - apps/api/src/domain/atendimento/snooze.ts
+  - apps/api/src/domain/sla/workers-s79.test.ts
+Testes: 10 novos.
+Status: 🔶 Lógica de negócio dos 3 workers portada e testada. Wiring BullMQ + desligar legados pendem.
+Observações: evaluateSla (breach resposta/resolução + níveis de aviso), computeFcr (taxa FCR + IA vs humano,
+  reaberto não conta), snooze (vencidos). Fecha itens do inventário A2/A4/G4 (lógica). Grava em ai_performance_logs.
