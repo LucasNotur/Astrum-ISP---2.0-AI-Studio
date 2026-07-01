@@ -1115,3 +1115,16 @@ Testes: 18 (2 login-response + 16 engine-flags).
 Status: ✅ S77 concluída. S74 ganhou base canário (virada por tenant, rollback por tenant).
 Observações: Lucas aprovou force_reset e cutover canário. Login de usuário migrado retorna
   {kind:'reset_required'} sem tokens. atendimento_engine por tenant vence a env (default global).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 5 — Sessão 81
+Tarefa: Workers de percepção — siteScrape + erpSync (vision já na S73)
+Arquivos criados:
+  - apps/api/src/domain/provedor/site-scrape.ts
+  - apps/api/src/adapters/erp/erp-sync.ts
+  - apps/api/src/domain/provedor/workers-s81.test.ts
+Testes: 6 novos.
+Status: 🔶 Lógica portada e testada. Wiring BullMQ + reindex Qdrant + desligar legados pendem.
+Observações: siteScrape (extração cheerio + hash MD5 + detecção de mudança p/ reindex RAG),
+  erpSync (outcome ok/retry). Vision já foi consolidado na S73 (media-processor).

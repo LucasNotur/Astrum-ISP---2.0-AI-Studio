@@ -267,7 +267,7 @@ GATE FINAL                   → S98
 - Gamification: ranking de operadores. PlanSync: sincroniza planos tenant↔ERP.
 - [ ] 3 workers portados, testados, legados desligados.
 
-## ⬜ S81 — Workers de percepção: `visionProcessor`, `siteScrapeWorker`, `erpSyncWorker`
+## 🔶 S81 — Workers de percepção: `visionProcessor`, `siteScrapeWorker`, `erpSyncWorker`
 - Vision: já parcialmente coberto na S73 — consolidar aqui o processamento assíncrono em lote. *(item 78)*
 - SiteScrape: ingestão do site do ISP para o RAG (cheerio já é dependência).
 - ErpSync: sincronização em massa de cadastros ERP→Supabase. *(itens 39/40)*
