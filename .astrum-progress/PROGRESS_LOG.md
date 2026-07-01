@@ -1165,3 +1165,14 @@ Testes: 10 novos.
 Status: 🔶 Lógica de avaliação (passa/falha) pronta e testada. Disparo K6 + chaos real pendem de ambiente.
 Observações: percentile (p95), evaluateLoad (p95<1.5s, perda de job 0, erro<1%), chaosDegradesGracefully
   (zero perda + fail-open). Estes são os critérios que decidem o gate de carga — testáveis sem cluster.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 7 — Sessão 85
+Tarefa: Security audit — authz por tenant (anti-IDOR) + LGPD right-to-be-forgotten
+Arquivos criados:
+  - apps/api/src/infrastructure/security/authz-guard.ts (+ .test.ts)
+Testes: 9 novos.
+Status: 🔶 Guardas de authz/LGPD prontas e testadas. Varredura OWASP manual + /security-review pendem.
+Observações: canAccessResource (bloqueia cross-tenant IDOR, super_admin transcende), hasMinRole (RBAC),
+  planCustomerForget (LGPD item 99 — expurga customers/messages/zep/qdrant/r2; só admin do próprio tenant).

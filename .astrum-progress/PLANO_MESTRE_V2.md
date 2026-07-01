@@ -307,7 +307,7 @@ GATE FINAL                   → S98
 - Chaos: derrubar Redis, Qdrant, OpenAI (via proxy) e Supabase um por vez → sistema degrada com fail-open/fallback documentado, sem perder mensagem.
 - [ ] Relatório `docs/qa/LOAD_CHAOS_S84.md` com números e correções aplicadas.
 
-## ⬜ S85 — Security audit (OWASP Top 10 + LGPD)
+## 🔶 S85 — Security audit (OWASP Top 10 + LGPD)
 - Rodar `/security-review` no repo + checklist OWASP manual (authz por tenant em TODAS as rotas v2, IDOR em ids, rate limits, headers).
 - LGPD: testar `deleteCustomerMemory` (Zep) + right-to-be-forgotten E2E (dossiê item 99 — criar rota se faltar).
 - [ ] Zero achados críticos/altos abertos.
