@@ -1085,3 +1085,17 @@ Testes: 10 novos.
 Status: 🔶 Lógica de negócio dos 3 workers portada e testada. Wiring BullMQ + desligar legados pendem.
 Observações: evaluateSla (breach resposta/resolução + níveis de aviso), computeFcr (taxa FCR + IA vs humano,
   reaberto não conta), snooze (vencidos). Fecha itens do inventário A2/A4/G4 (lógica). Grava em ai_performance_logs.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 5 — Sessão 80
+Tarefa: Workers de gestão — report, gamification, planSync (lógica pura portada)
+Arquivos criados:
+  - apps/api/src/domain/provedor/gamification.ts
+  - apps/api/src/domain/provedor/plan-sync.ts
+  - apps/api/src/domain/provedor/report-summary.ts
+  - apps/api/src/domain/provedor/workers-s80.test.ts
+Testes: 9 novos.
+Status: 🔶 Lógica de negócio dos 3 workers portada e testada. Wiring BullMQ + DuckDB + desligar legados pendem.
+Observações: gamification (ranking transparente por score), plan-sync (diff ERP: insert/update/deactivate,
+  nunca deleta), report (agregados + NPS proxy). planSync usa os adapters ERP da S75 (getPlans).

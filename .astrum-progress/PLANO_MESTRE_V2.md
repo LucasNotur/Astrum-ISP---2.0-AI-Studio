@@ -262,7 +262,7 @@ GATE FINAL                   → S98
 - Snooze: reagendamento de follow-ups.
 - [ ] 3 workers portados, testados, legados desligados.
 
-## ⬜ S80 — Workers de gestão: `reportWorker`, `gamificationWorker`, `planSyncWorker`
+## 🔶 S80 — Workers de gestão: `reportWorker`, `gamificationWorker`, `planSyncWorker`
 - Reports: relatórios agendados via DuckDB (não bater no Postgres transacional). *(itens 85/90 parciais)*
 - Gamification: ranking de operadores. PlanSync: sincroniza planos tenant↔ERP.
 - [ ] 3 workers portados, testados, legados desligados.
