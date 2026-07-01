@@ -958,3 +958,21 @@ Status: 🔶 Código completo e testado; execução + GATE DE DADOS pendentes de
 Observações: 1 ticket legado → 1 conversation + N messages (modelo relacional muda). Ponte
   legacy_ticket_conversation_map com watermark para delta-sync a cada 15min. Re-ingestão de KB
   reusa pipeline RAG existente (document-chunker→embedding→Qdrant, já testado no Sprint 2).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 2 — Sessão 71
+Tarefa: Webhook Evolution no Fastify + inventário do messageWorker (1605L)
+Arquivos criados:
+  - docs/port/MESSAGEWORKER_INVENTORY.md (32 comportamentos rastreáveis)
+  - packages/db/src/migrations/022_tenant_evolution.sql
+  - apps/api/src/domain/atendimento/evolution-payload.ts (+ .test.ts)
+  - apps/api/src/domain/atendimento/evolution-webhook.routes.ts (+ evolution-webhook.test.ts)
+Arquivos modificados:
+  - packages/queue/src/workers/message.worker.ts (MessageJobData + campos mídia; FIX nome fila astrum:messages→astrum-messages)
+  - apps/api/src/server.ts (registra rota v2)
+Testes: 15 novos (parser 10, builder+resolver 5).
+Status: ✅ Concluído (não recebe tráfego real até cutover S74)
+Observações: BUG corrigido — worker escutava 'astrum:messages' mas a fila é 'astrum-messages';
+  jobs nunca seriam consumidos. Parser cobre texto/áudio/imagem/documento/base64. Tenant lookup
+  por instância no Supabase (multi-instância + coluna direta); instância desconhecida → 403.

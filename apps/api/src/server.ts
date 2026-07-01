@@ -107,6 +107,10 @@ export async function buildServer() {
   const websocketRoutes = await import('./domain/realtime/websocket.routes');
   await app.register(websocketRoutes.default);
 
+  // Webhook Evolution v2 (S71) — não recebe tráfego real até o cutover S74.
+  const { evolutionWebhookRoutes } = await import('./domain/atendimento/evolution-webhook.routes');
+  await app.register(evolutionWebhookRoutes);
+
   // Health check com status dos serviços
   app.get('/api/v2/health', async () => {
     const { getLLMStatus } = await import('./adapters/ai/llm.adapter');

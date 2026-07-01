@@ -133,7 +133,8 @@ GATE FINAL                   → S98
 > lógica validada em produção. O objetivo NÃO é reescrevê-la "mais bonita" — é reproduzi-la
 > sobre a fundação nova (guardrails → LangGraph → tools), comportamento por comportamento.
 
-## ⬜ S71 — Webhook Evolution no Fastify + inventário do messageWorker
+## ✅ S71 — Webhook Evolution no Fastify + inventário do messageWorker
+> Inventário completo (32 comportamentos), rota v2, parser testado, bug de nome de fila corrigido. Não recebe tráfego real até S74.
 **Passos:**
 1. **Inventário (entregável obrigatório):** ler `src/workers/messageWorker.ts` (1605L) e `src/routes/evolutionWebhook.ts` inteiros. Produzir `docs/port/MESSAGEWORKER_INVENTORY.md` listando TODOS os comportamentos: tipos de mídia tratados, transcrição de áudio, visão em imagem, tool calls e cada tool, regras de escalação, deduplicação de mensagens, rate limits, respostas fora de horário, etc. Cada item vira checkbox que as S72–S73 vão marcando. **Sem esse inventário, o port vai perder comportamento silenciosamente.**
 2. Migration `022_tenant_evolution.sql`: colunas `evolution_instance TEXT` (+ tabela `tenant_evolution_instances` se houver multi-instância, cf. campo legado `evolution_instances`) em `tenants`, populada pelo ETL a partir do Firestore.
