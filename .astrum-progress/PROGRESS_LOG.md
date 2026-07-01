@@ -906,3 +906,27 @@ Observações: Fastify websocket registry, hooks do React para conexão websocke
 ---
 
 *Atualizado automaticamente pela IA ao final de cada sessão*
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 0 — Sessão 68
+Tarefa: Contenção — matar split-brain CobrAI + limpar órfão + bugs conhecidos
+Arquivos criados:
+  - apps/api/src/infrastructure/config/engine-flags.ts
+  - apps/api/src/infrastructure/config/engine-flags.test.ts
+  - apps/api/src/infrastructure/observability/boot-state.ts
+  - apps/api/src/infrastructure/observability/boot-state.test.ts
+  - CLAUDE.md (regras R1–R6)
+Arquivos modificados:
+  - packages/queue/src/workers/cobrai.worker.ts (guarda COBRAI_ENGINE=v2)
+  - src/workers/cobraiWorker.ts (guarda COBRAI_ENGINE=legacy)
+  - apps/api/src/domain/atendimento/conversation.service.ts (bug customer_id NULL → .is())
+  - apps/api/src/domain/atendimento/conversation.service.test.ts (cobertura NULL)
+  - apps/api/src/server.ts (401 no authenticate; boot não engole mais erro)
+  - server.ts (health expõe fastify_boot_failed)
+  - .env.example (COBRAI_ENGINE, ATENDIMENTO_ENGINE)
+Arquivos removidos:
+  - apps/backend/** (órfão real, 0 importadores; preservado em graveyard/billing-enterprise)
+Testes: 23 novos (engine-flags 12, boot-state 6, conversation NULL 5). Suíte: 457 passando.
+Status: ✅ Concluído
+Observações: apps/frontend e Supabase_Assinaturas MANTIDOS (UI de billing viva em SettingsPage — R1).
+  Falha pré-existente em src/__tests__/middleware/auth.test.ts (import tokenCache) mapeada p/ S83.

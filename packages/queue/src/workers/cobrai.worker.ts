@@ -6,6 +6,7 @@ import { supabaseAdmin } from '../../../apps/api/src/infrastructure/database/sup
 import { cobrancaLogger } from '../../../apps/api/src/infrastructure/logging/logger';
 import { addSentryToWorker } from '../../../apps/api/src/infrastructure/observability/sentry-worker.helper';
 import { svixEvents } from '../../../apps/api/src/adapters/webhooks/svix.service';
+import { shouldBootWorker } from '../../../apps/api/src/infrastructure/config/engine-flags';
 
 export interface CobraiJobData {
   tenantId: string;
@@ -142,6 +143,11 @@ async function executeCobraiAction(job: Job<CobraiJobData>): Promise<void> {
 }
 
 export function createCobraiWorker() {
+  // Guarda R6: só sobe se COBRAI_ENGINE=v2. Evita disparo duplo com o worker legado.
+  if (!shouldBootWorker('cobrai', 'v2', (m) => cobrancaLogger.warn(m))) {
+    return null;
+  }
+
   const worker = new Worker<CobraiJobData>(
     'astrum:cobranca',
     executeCobraiAction,

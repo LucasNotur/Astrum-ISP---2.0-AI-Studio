@@ -7,8 +7,12 @@ import { COBRAI_TEMPLATES } from "../lib/cobraiTemplates";
 import { buildTemplateComponents } from "../lib/templateBuilder";
 import { incrementShardedCounter } from "../lib/dbAdmin";
 import { logger } from "../lib/logger";
+import { shouldBootWorker } from "../../apps/api/src/infrastructure/config/engine-flags";
 
 const isMockRedis = !((redis as any).options);
+// Guarda R6 (Plano Mestre V2, S68): o worker legado só sobe se COBRAI_ENGINE=legacy.
+// Se for 'v2', o worker novo (apps/api) é a única régua ativa — evita cobrança dupla.
+const cobraiEngineActive = shouldBootWorker("cobrai", "legacy", (m) => logger.warn("cobrai_engine_guard", { data: { msg: m } }));
 
 async function logCobraiSkip(customerId: string, tenantId: string, reason: string) {
   try {
@@ -422,7 +426,7 @@ export const processCobraiJob = async (job: any) => {
   }
 };
 
-export const worker = isMockRedis ? {
+export const worker = (isMockRedis || !cobraiEngineActive) ? {
   on: () => {}
 } as any : new Worker('cobrai', processCobraiJob, { connection, concurrency: 3 });
 
