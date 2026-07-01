@@ -326,7 +326,7 @@ Reavaliar as North Star Metrics do `CHECKLIST_MASTER.md` com dados REAIS (agora 
 - Dashboard de saúde por ISP (página nova no frontend legado — exceção a R1 aprovada por ser página NOVA, não migração): status filas, custo IA, resolução autônoma, uptime WhatsApp. *(dossiê itens 85, 26)*
 - [ ] Sonda ativa; dashboard populado com dados reais.
 
-## ⬜ S89 — Feature flags por tenant + prova de 10 ISPs
+## 🔶 S89 — Feature flags por tenant + prova de 10 ISPs
 - Tabela `tenant_feature_flags` + helper no backend + gate por plano *(dossiê itens 29, 86)*.
 - Teste de isolamento: 10 tenants simultâneos com dados/coleções Qdrant/limites distintos; provar por teste automatizado que RLS impede vazamento cruzado (rodar `packages/db/src/tests/rls-isolation.test.sql` estendido).
 - [ ] Flags funcionando; teste de isolamento no CI.

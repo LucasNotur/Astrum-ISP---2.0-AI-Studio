@@ -1209,3 +1209,15 @@ Testes: 8 novos.
 Status: 🔶 Lógica pronta/testada. Cron da sonda 24/7 + página nova no frontend pendem.
 Observações: evaluateProbe (fluxo E2E sintético dentro do SLA), computeIspHealth (score 0-100 +
   healthy/degraded/critical combinando fila/WhatsApp/resolução/erros). Alimenta dashboard de saúde (item 85).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 7 — Sessão 89
+Tarefa: Feature flags por tenant + tier de plano
+Arquivos criados:
+  - apps/api/src/infrastructure/config/feature-flags.ts (+ .test.ts)
+  - packages/db/src/migrations/027_feature_flags.sql
+Testes: 9 novos.
+Status: 🔶 Flags por tier + override por tenant prontos/testados. Prova de 10 ISPs (isolamento RLS) pende de infra.
+Observações: flagsForTier (cumulativo starter<pro<enterprise), isFeatureEnabled (override do tenant
+  vence a tier, liga beta ou desliga). Migration 027. Teste RLS de isolamento roda contra Postgres vivo.
