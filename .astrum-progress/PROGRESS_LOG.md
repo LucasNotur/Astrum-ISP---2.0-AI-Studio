@@ -1221,3 +1221,14 @@ Testes: 9 novos.
 Status: 🔶 Flags por tier + override por tenant prontos/testados. Prova de 10 ISPs (isolamento RLS) pende de infra.
 Observações: flagsForTier (cumulativo starter<pro<enterprise), isFeatureEnabled (override do tenant
   vence a tier, liga beta ou desliga). Migration 027. Teste RLS de isolamento roda contra Postgres vivo.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 8 — Sessão 90
+Tarefa: Svix outbound — mapeamento Outbox→Svix
+Arquivos criados:
+  - apps/api/src/adapters/webhooks/outbound-events.ts (+ .test.ts)
+Testes: 6 novos.
+Status: 🔶 Mapeamento pronto/testado. Ligação no outbox.worker + portal Svix por ISP pendem de integração.
+Observações: mapOutboxEventToSvix (só eventos que o ISP deve receber propagam), buildOutboundDelivery
+  (carimba emittedAt, lança se não propagável). svix.service já existia; agora o Outbox alimenta ele.
