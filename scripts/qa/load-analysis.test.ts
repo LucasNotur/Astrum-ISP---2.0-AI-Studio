@@ -23,10 +23,12 @@ describe('evaluateLoad', () => {
   });
 
   it('falha se p95 estoura 1.5s', () => {
+    // 10% lentas → o p95 cai na região lenta (3000ms)
     const v = evaluateLoad({
-      latenciesMs: [...Array(950).fill(800), ...Array(50).fill(3000)],
+      latenciesMs: [...Array(900).fill(800), ...Array(100).fill(3000)],
       jobsEnqueued: 100, jobsProcessed: 100, errors: 0,
     });
+    expect(v.p95).toBe(3000);
     expect(v.passed).toBe(false);
     expect(v.reasons.join()).toMatch(/p95/);
   });
