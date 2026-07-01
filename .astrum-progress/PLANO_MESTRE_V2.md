@@ -312,7 +312,7 @@ GATE FINAL                   → S98
 - LGPD: testar `deleteCustomerMemory` (Zep) + right-to-be-forgotten E2E (dossiê item 99 — criar rota se faltar).
 - [ ] Zero achados críticos/altos abertos.
 
-## ⬜ S86 — 🚦 GATE GO-LIVE
+## 🔶 S86 — 🚦 GATE GO-LIVE
 Reavaliar as North Star Metrics do `CHECKLIST_MASTER.md` com dados REAIS (agora existem): resolução autônoma, custo/conversa (Helicone), p95, jobs perdidos, custo por ISP visível.
 - [ ] Gate documentado com números reais. Aprovação do Lucas registrada.
 

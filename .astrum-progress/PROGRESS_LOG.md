@@ -1176,3 +1176,14 @@ Testes: 9 novos.
 Status: 🔶 Guardas de authz/LGPD prontas e testadas. Varredura OWASP manual + /security-review pendem.
 Observações: canAccessResource (bloqueia cross-tenant IDOR, super_admin transcende), hasMinRole (RBAC),
   planCustomerForget (LGPD item 99 — expurga customers/messages/zep/qdrant/r2; só admin do próprio tenant).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 7 — Sessão 86
+Tarefa: GATE GO-LIVE — reavaliação das North Star Metrics
+Arquivos criados:
+  - scripts/cutover/go-live-gate.ts (+ .test.ts)
+Testes: 6 novos.
+Status: 🔶 Lógica do gate pronta/testada. Aprovação real precisa dos números de produção + OK do Lucas.
+Observações: evaluateGoLive exige resolução>80%, p95<1.5s, custo<=40% baseline, 0 jobs perdidos,
+  0 vazamento cross-tenant, custo/ISP visível. Scorecard com valor/target/pass por métrica.
