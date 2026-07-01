@@ -15,7 +15,7 @@ export async function loginRoute(fastify: FastifyInstance) {
     // Buscar usuário
     const { data: user } = await supabaseAdmin
       .from('users')
-      .select('id, tenant_id, role, password_hash, active')
+      .select('id, tenant_id, role, password_hash, active, must_reset_password')
       .eq('email', email.toLowerCase())
       .single();
 
@@ -47,6 +47,15 @@ export async function loginRoute(fastify: FastifyInstance) {
         .eq('id', user.id);
     }
 
+    // force_reset (S77): usuário migrado do Firebase precisa redefinir a senha antes de
+    // receber sessão plena. Não emitimos tokens neste caso.
+    if (user.must_reset_password) {
+      const { buildLoginResult } = await import('./login-response');
+      const result = buildLoginResult(user as any, { accessToken: '', refreshToken: '' });
+      securityLogger.info({ userId: user.id }, 'Login exige redefinição de senha (migração)');
+      return reply.status(200).send(result);
+    }
+
     const tokens = await generateTokenPair(
       fastify,
       { userId: user.id, tenantId: user.tenant_id, role: user.role as any },
@@ -54,6 +63,6 @@ export async function loginRoute(fastify: FastifyInstance) {
     );
 
     securityLogger.info({ userId: user.id, tenantId: user.tenant_id }, 'Login bem-sucedido');
-    return reply.send(tokens);
+    return reply.send({ kind: 'ok', tokens });
   });
 }

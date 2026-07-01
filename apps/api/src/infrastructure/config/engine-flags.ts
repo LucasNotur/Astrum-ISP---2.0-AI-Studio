@@ -43,6 +43,20 @@ export function isCobraiEngineActive(target: EngineTarget): boolean {
   return getCobraiEngine() === target;
 }
 
+/**
+ * Resolve a engine de atendimento POR TENANT (cutover canário — S74).
+ * Se o tenant tem `atendimento_engine` definido, ele vence; senão usa o default da env.
+ * Permite virar ISP por ISP (rollback por tenant = limpar a coluna ou setar 'legacy').
+ */
+export function resolveAtendimentoEngineForTenant(
+  tenantEngineValue: string | null | undefined,
+  envDefault: EngineTarget = getAtendimentoEngine(),
+): EngineTarget {
+  const raw = (tenantEngineValue ?? '').trim().toLowerCase();
+  if ((VALID_TARGETS as string[]).includes(raw)) return raw as EngineTarget;
+  return envDefault;
+}
+
 /** True se a engine de atendimento ativa é a passada em `target`. */
 export function isAtendimentoEngineActive(target: EngineTarget): boolean {
   return getAtendimentoEngine() === target;

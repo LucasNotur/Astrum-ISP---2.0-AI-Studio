@@ -224,7 +224,7 @@ GATE FINAL                   → S98
 
 # FASE 4 — FRONTEND LEGADO SOBRE O MUNDO NOVO (telas intactas — R1)
 
-## 🔶 S77 — Auth swap: Firebase Auth → Supabase/JWT v2
+## ✅ S77 — Auth swap: Firebase Auth → Supabase/JWT v2
 **Passos:**
 1. Mapear todos os pontos de auth do frontend legado (grep `firebase/auth`, `onAuthStateChanged`, `signIn`) e o contexto de usuário atual.
 2. Trocar por Supabase Auth + rotas do `apps/api` (`login.route.ts`, refresh token). Aproveitar `apps/web/src/contexts/AuthContext.tsx` e `apps/web/src/lib/api-client.ts` como base — copiar para `src/` e adaptar (é o único sentido permitido: apps/web → src).

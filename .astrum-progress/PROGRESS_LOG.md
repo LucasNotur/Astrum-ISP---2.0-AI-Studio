@@ -1099,3 +1099,19 @@ Testes: 9 novos.
 Status: 🔶 Lógica de negócio dos 3 workers portada e testada. Wiring BullMQ + DuckDB + desligar legados pendem.
 Observações: gamification (ranking transparente por score), plan-sync (diff ERP: insert/update/deactivate,
   nunca deleta), report (agregados + NPS proxy). planSync usa os adapters ERP da S75 (getPlans).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Decisões do Lucas — force_reset + engine por tenant
+Tarefa: Cabear as 2 decisões (S77 force_reset; S74 canário por tenant)
+Arquivos criados:
+  - packages/db/src/migrations/026_force_reset_and_per_tenant_engine.sql
+  - apps/api/src/domain/auth/login-response.ts (+ .test.ts)
+Arquivos modificados:
+  - apps/api/src/domain/auth/login.route.ts (força reset antes de emitir tokens)
+  - apps/api/src/infrastructure/config/engine-flags.ts (resolveAtendimentoEngineForTenant)
+  - apps/api/src/infrastructure/config/engine-flags.test.ts (+4 testes canário)
+Testes: 18 (2 login-response + 16 engine-flags).
+Status: ✅ S77 concluída. S74 ganhou base canário (virada por tenant, rollback por tenant).
+Observações: Lucas aprovou force_reset e cutover canário. Login de usuário migrado retorna
+  {kind:'reset_required'} sem tokens. atendimento_engine por tenant vence a env (default global).

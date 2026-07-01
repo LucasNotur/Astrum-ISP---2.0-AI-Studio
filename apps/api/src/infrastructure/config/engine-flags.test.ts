@@ -5,6 +5,7 @@ import {
   isCobraiEngineActive,
   isAtendimentoEngineActive,
   shouldBootWorker,
+  resolveAtendimentoEngineForTenant,
 } from './engine-flags';
 
 describe('engine-flags', () => {
@@ -94,6 +95,28 @@ describe('engine-flags', () => {
       process.env.ATENDIMENTO_ENGINE = 'legacy';
       expect(shouldBootWorker('atendimento', 'legacy')).toBe(true);
       expect(shouldBootWorker('atendimento', 'v2')).toBe(false);
+    });
+  });
+
+  describe('resolveAtendimentoEngineForTenant (cutover canário S74)', () => {
+    it('valor do tenant vence o default da env', () => {
+      expect(resolveAtendimentoEngineForTenant('v2', 'legacy')).toBe('v2');
+      expect(resolveAtendimentoEngineForTenant('legacy', 'v2')).toBe('legacy');
+    });
+
+    it('tenant sem valor (null) usa o default da env', () => {
+      expect(resolveAtendimentoEngineForTenant(null, 'legacy')).toBe('legacy');
+      expect(resolveAtendimentoEngineForTenant(undefined, 'v2')).toBe('v2');
+    });
+
+    it('valor inválido no tenant cai para o default (fail-safe)', () => {
+      expect(resolveAtendimentoEngineForTenant('banana', 'legacy')).toBe('legacy');
+    });
+
+    it('permite 1 ISP em v2 enquanto os demais seguem legacy (canário)', () => {
+      process.env.ATENDIMENTO_ENGINE = 'legacy'; // default global
+      expect(resolveAtendimentoEngineForTenant('v2')).toBe('v2');       // ISP piloto
+      expect(resolveAtendimentoEngineForTenant(null)).toBe('legacy');   // demais
     });
   });
 });
