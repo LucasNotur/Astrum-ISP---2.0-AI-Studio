@@ -1128,3 +1128,15 @@ Testes: 6 novos.
 Status: 🔶 Lógica portada e testada. Wiring BullMQ + reindex Qdrant + desligar legados pendem.
 Observações: siteScrape (extração cheerio + hash MD5 + detecção de mudança p/ reindex RAG),
   erpSync (outcome ok/retry). Vision já foi consolidado na S73 (media-processor).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 6 — Sessão 82
+Tarefa: Cutover final — gate de prontidão (lógica)
+Arquivos criados:
+  - scripts/cutover/readiness.ts (+ .test.ts)
+Testes: 4 novos.
+Status: 🔶 Gate de prontidão pronto/testado. Remoção real de Express/Firestore só quando os 7 sinais
+  verdes E cutover de atendimento 100% (depende de produção).
+Observações: evaluateCutoverReadiness exige 7 sinais (atendimento v2, cobrai estável, gate dados, auth,
+  frontend supabase, workers, backup Firestore). Um pendente bloqueia. O corte de código é a etapa final.

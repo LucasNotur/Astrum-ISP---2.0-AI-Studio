@@ -277,7 +277,7 @@ GATE FINAL                   → S98
 
 # FASE 6 — CUTOVER FINAL
 
-## ⬜ S82 — Fastify primário; adeus Express + Firestore
+## 🔶 S82 — Fastify primário; adeus Express + Firestore
 **Pré-condição dura:** S74, S76, S77, S78, S79–S81 concluídas = NADA em produção depende de Express/Firestore.
 
 **Passos:**
