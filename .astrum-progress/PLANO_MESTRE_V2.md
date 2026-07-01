@@ -173,7 +173,7 @@ GATE FINAL                   → S98
 - [ ] Os 4 tipos de payload (texto/áudio/imagem/documento) processados em teste de integração local.
 - [ ] `MESSAGEWORKER_INVENTORY.md` 100% marcado (ou item explicitamente descartado com justificativa escrita).
 
-## ⬜ S74 — Shadow mode → cutover do atendimento
+## 🔶 S74 — Shadow mode → cutover do atendimento
 **Objetivo:** provar que o motor novo responde igual ou melhor, e então virar a chave.
 
 **Passos:**

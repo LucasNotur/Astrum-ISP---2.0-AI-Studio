@@ -1003,3 +1003,15 @@ Status: ✅ Concluído
 Observações: Whisper (áudio, fail-open→pede reenvio), GPT-4o vision (imagem→laudo no system prompt;
   atualizado do gpt-4-vision-preview aposentado), R2 (áudio/documento). Dependências injetáveis.
   Inventário F1-F3 marcados.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 2 — Sessão 74
+Tarefa: Shadow mode → cutover do atendimento (infra)
+Arquivos criados:
+  - packages/db/src/migrations/023_shadow_results.sql
+  - apps/api/src/domain/atendimento/shadow-mode.ts (+ .test.ts)
+Testes: 7 novos.
+Status: 🔶 Código completo; shadow run real + decisão de cutover pendentes de tráfego + aprovação Lucas.
+Observações: decideSend garante que motor novo nunca envia+registra ao mesmo tempo. ATENDIMENTO_ENGINE
+  controla o cutover (rollback = trocar env). computeEquivalenceRate = base do gate ≥95% (LLM-judge injetável).
