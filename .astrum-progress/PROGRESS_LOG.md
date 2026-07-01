@@ -1140,3 +1140,17 @@ Status: 🔶 Gate de prontidão pronto/testado. Remoção real de Express/Firest
   verdes E cutover de atendimento 100% (depende de produção).
 Observações: evaluateCutoverReadiness exige 7 sinais (atendimento v2, cobrai estável, gate dados, auth,
   frontend supabase, workers, backup Firestore). Um pendente bloqueia. O corte de código é a etapa final.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 6 — Sessão 83
+Tarefa: Saneamento — corrigir teste que falhava + package.json de workspace
+Arquivos modificados:
+  - src/__tests__/middleware/auth.test.ts (caminhos de import + mock estável + fix de leak de mock)
+Arquivos criados:
+  - apps/web/package.json (fecha dívida do TurboRepo)
+Testes: auth.test.ts 13/13 (era 1 arquivo falhando na suíte inteira).
+Status: ✅ Suíte 100% verde agora. Ephemeral envs por PR + Dockerfiles finais pendem de infra.
+Observações: 3 bugs no teste legado — (1) caminho ../src/ em vez de ../../, (2) getAuth devolvia
+  mock novo a cada chamada, (3) mockResolvedValue de revoke/blacklist vazava entre testes (→ Once).
+  Última peça vermelha da suíte resolvida.

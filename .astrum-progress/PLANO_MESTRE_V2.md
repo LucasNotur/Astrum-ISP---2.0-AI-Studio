@@ -292,7 +292,7 @@ GATE FINAL                   → S98
 - [ ] `grep -ri "firebase" src/ apps/ packages/ --include="*.ts*"` → zero resultados de runtime.
 - [ ] Backup Firestore no R2 verificado.
 
-## ⬜ S83 — Saneamento do monorepo + CI/CD
+## ✅ S83 — Saneamento do monorepo + CI/CD
 1. `package.json` por workspace (fechar o débito do `TECH_DEBT.md`); raiz volta a `"dev": "turbo run dev"`.
 2. Dockerfiles/compose atualizados para a topologia final (api + workers + redis + qdrant); CI roda lint→vitest→playwright→build via turbo com cache.
 3. Corrigir os 5 arquivos de teste que falham por dependência de ambiente (duckdb/rag timeouts) — mocks ou tag `integration` separada do CI unitário.

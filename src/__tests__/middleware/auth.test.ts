@@ -3,29 +3,32 @@ import type { Request, Response, NextFunction } from 'express'
 import type { DecodedIdToken } from 'firebase-admin/auth'
 
 // ── Mocks ──────────────────────────────────────────────────
-vi.mock('firebase-admin/auth', () => ({
-  getAuth: vi.fn(() => ({ verifyIdToken: vi.fn() })),
-}))
+vi.mock('firebase-admin/auth', () => {
+  // verifyIdToken precisa ser estável entre chamadas: o middleware chama getAuth()
+  // de novo, e antes cada chamada devolvia um mock novo (por isso o teste falhava).
+  const verifyIdToken = vi.fn()
+  return { getAuth: () => ({ verifyIdToken }) }
+})
 
-vi.mock('../src/lib/tokenBlacklist', () => ({
+vi.mock('../../lib/tokenBlacklist', () => ({
   isTokenBlacklisted:    vi.fn().mockResolvedValue(false),
   getUserRevokeTimestamp: vi.fn().mockResolvedValue(null),
 }))
 
-vi.mock('../src/lib/tokenCache', () => ({
+vi.mock('../../lib/tokenCache', () => ({
   getCachedToken: vi.fn().mockReturnValue(null),
   setCachedToken: vi.fn(),
 }))
 
 import { getAuth }                from 'firebase-admin/auth'
-import { isTokenBlacklisted, getUserRevokeTimestamp } from '../src/lib/tokenBlacklist'
-import { getCachedToken }         from '../src/lib/tokenCache'
+import { isTokenBlacklisted, getUserRevokeTimestamp } from '../../lib/tokenBlacklist'
+import { getCachedToken }         from '../../lib/tokenCache'
 import {
   requireAuth,
   requireAdminAuth,
   requireSuperAdminAuth,
   requireTenantAccess,
-} from '../src/middleware/auth'
+} from '../../middleware/auth'
 
 // ── Helpers ────────────────────────────────────────────────
 const TENANT_ID = '550e8400-e29b-41d4-a716-446655440000'
@@ -112,7 +115,7 @@ describe('requireAuth', () => {
   it('retorna 401 quando token está na blacklist', async () => {
     const decoded = makeDecodedToken()
     ;(getAuth().verifyIdToken as ReturnType<typeof vi.fn>).mockResolvedValue(decoded)
-    ;(isTokenBlacklisted as ReturnType<typeof vi.fn>).mockResolvedValue(true)
+    ;(isTokenBlacklisted as ReturnType<typeof vi.fn>).mockResolvedValueOnce(true)
 
     const req  = makeReq('blacklisted-token')
     const { res, status, json } = makeRes()
@@ -127,7 +130,7 @@ describe('requireAuth', () => {
   it('retorna 401 quando usuário teve tokens revogados globalmente', async () => {
     const decoded = makeDecodedToken({ iat: 1000 })
     ;(getAuth().verifyIdToken as ReturnType<typeof vi.fn>).mockResolvedValue(decoded)
-    ;(getUserRevokeTimestamp as ReturnType<typeof vi.fn>).mockResolvedValue(2000)
+    ;(getUserRevokeTimestamp as ReturnType<typeof vi.fn>).mockResolvedValueOnce(2000)
 
     const req  = makeReq('old-token')
     const { res, status, json } = makeRes()
