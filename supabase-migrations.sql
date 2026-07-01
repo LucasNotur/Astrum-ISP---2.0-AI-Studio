@@ -1,3 +1,12 @@
+-- =============================================================================
+-- ⚠️ DEPRECADO — arquivo mantido apenas como registro histórico.
+-- A fonte canônica de migrations agora é packages/db/src/migrations/*.sql,
+-- aplicada por `npm run db:migrate`. Todo o conteúdo único deste arquivo foi
+-- migrado: DLQ → 002_dead_letter_queue.sql, Realtime CDC → 020_realtime_cdc.sql,
+-- trigger CobrAI → 010_cobrai_default_trigger.sql, idempotency → 001.
+-- NÃO adicione novas migrations aqui. Ver docs/DB_CONSOLIDATION_NOTES.md.
+-- =============================================================================
+
 -- Migration 001: Idempotency Keys
 -- Garante que operações financeiras não sejam executadas duas vezes
 

@@ -1,37 +1,18 @@
-import { Client } from 'pg';
-import fs from 'fs';
-import dotenv from 'dotenv';
-import path from 'path';
-
-dotenv.config();
-
-const dbUrl = process.env.DATABASE_URL;
-
-if (!dbUrl) {
-  console.log('DATABASE_URL is missing in .env');
-  process.exit(1);
-}
-
-const client = new Client({
-  connectionString: dbUrl,
-});
-
-async function run() {
-  try {
-    await client.connect();
-    console.log('Connected to PostgreSQL');
-    
-    const sql = fs.readFileSync(path.join(process.cwd(), 'supabase-migrations.sql'), 'utf-8');
-    
-    console.log('Executing migrations...');
-    await client.query(sql);
-    
-    console.log('Migrations executed successfully.');
-  } catch (err) {
-    console.error('Error executing migrations:', err);
-  } finally {
-    await client.end();
-  }
-}
-
-run();
+/**
+ * ⚠️ DEPRECADO — não use este runner.
+ *
+ * Este script só aplicava `supabase-migrations.sql` (uma única fonte, hoje redundante).
+ * A fonte canônica de migrations passou a ser `packages/db/src/migrations/*.sql`,
+ * aplicada por um runner ordenado com tracking (schema_migrations).
+ *
+ * Use:
+ *   npm run db:migrate        # aplica pendentes
+ *   npm run db:migrate:dry    # mostra o plano
+ *   npm run db:baseline       # marca existentes como aplicadas (banco já provisionado à mão)
+ *
+ * Ver docs/DB_CONSOLIDATION_NOTES.md.
+ */
+console.error(
+  '[DEPRECADO] Use `npm run db:migrate` (packages/db/src/migrate.ts). Ver docs/DB_CONSOLIDATION_NOTES.md.'
+);
+process.exit(1);
