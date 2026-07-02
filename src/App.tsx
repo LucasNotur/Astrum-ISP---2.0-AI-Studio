@@ -142,6 +142,8 @@ import {
   getMultiFactorResolver,
   TotpMultiFactorGenerator,
 } from "firebase/auth";
+// Auth v2 (S77): autenticação migrada para Supabase (login local, sem Firebase).
+import { supabase } from "./lib/supabase";
 import {
   collection,
   query,
@@ -701,6 +703,7 @@ export default function App() {
   const [mfaResolver, setMfaResolver] = useState<MultiFactorResolver | null>(null);
   const [needsMfaEnrollment, setNeedsMfaEnrollment] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [pdfSummary, setPdfSummary] = useState<string | null>(null);
   const [isProcessingPdf, setIsProcessingPdf] = useState(false);
   const { isTicketDetailOpen, setIsTicketDetailOpen } = useAppStore();
@@ -1527,6 +1530,48 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // --- Auth v2 (S77): sessão via Supabase ---
+    let mounted = true;
+    const applySession = async (session: any) => {
+      const su = session?.user ?? null;
+      if (!su) { if (mounted) { setUser(null); setLoading(false); } return; }
+      const appUser: any = {
+        uid: su.id,
+        email: su.email,
+        displayName: su.user_metadata?.name || (su.email ? su.email.split('@')[0] : 'Usuário'),
+      };
+      if (!mounted) return;
+      setUser(appUser);
+      const superEmails = ['lucaspferraz123@gmail.com', 'noturcursos1@gmail.com'];
+      if (superEmails.includes((appUser.email || '').toLowerCase())) {
+        setCurrentUserRole('admin');
+        setUserProfile({ email: appUser.email, role: 'admin', name: appUser.displayName, tenantId: 'DEFAULT_TENANT' });
+      } else {
+        try {
+          const { data } = await supabase
+            .from('users')
+            .select('role, tenant_id, name, email')
+            .eq('email', appUser.email)
+            .maybeSingle();
+          if (data) {
+            const r = ((data as any).role || 'support').toLowerCase();
+            const mapped = (r === 'admin' || r === 'owner') ? 'owner' : (r === 'tecnico' ? 'tecnico' : 'support');
+            setCurrentUserRole(mapped as any);
+            setUserProfile({ ...(data as any), tenantId: (data as any).tenant_id });
+          } else {
+            setCurrentUserRole('support');
+            setUserProfile({ email: appUser.email, role: 'support', tenantId: null });
+          }
+        } catch { setCurrentUserRole('support'); }
+      }
+      setNeedsMfaEnrollment(false);
+      setLoading(false);
+    };
+    supabase.auth.getSession().then(({ data }: any) => applySession(data.session));
+    const { data: authSub } = supabase.auth.onAuthStateChange((_e: any, session: any) => applySession(session));
+
+    // Bloco legado do Firebase mantido INERTE (if(false)) — removido no cutover S82.
+    if (false) {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       if (u) {
@@ -1666,7 +1711,8 @@ export default function App() {
       }
       setLoading(false);
     });
-    return () => unsubscribe();
+    } // fim do bloco legado inerte (Firebase)
+    return () => { mounted = false; authSub?.subscription?.unsubscribe?.(); };
   }, []);
 
   useEffect(() => {
@@ -2279,23 +2325,30 @@ export default function App() {
 
   const handleLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const provider = new GoogleAuthProvider();
-    if (loginEmail) {
-      provider.setCustomParameters({ login_hint: loginEmail });
+    if (!loginEmail || !loginPassword) {
+      toast.error("Informe e-mail e senha.");
+      return;
     }
     try {
-      await signInWithPopup(auth, provider);
+      const { error } = await supabase.auth.signInWithPassword({
+        email: loginEmail.trim(),
+        password: loginPassword,
+      });
+      if (error) {
+        toast.error("Erro ao fazer login: " + error.message);
+        return;
+      }
       toast.success("Bem-vindo ao Astrum!");
     } catch (error: any) {
-      if (error.code === 'auth/multi-factor-auth-required') {
-         setMfaResolver(getMultiFactorResolver(auth, error));
-      } else {
-         toast.error("Erro ao fazer login: " + error.message);
-      }
+      toast.error("Erro ao fazer login: " + (error?.message ?? "falha desconhecida"));
     }
   };
 
-  const handleLogout = () => signOut(auth);
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setCurrentUserRole("" as any);
+  };
 
   const handleEditCustomer = (customer: any) => {
     setEditingCustomer({ ...customer });
@@ -3025,18 +3078,22 @@ export default function App() {
                 className="py-6 text-lg"
               />
             </div>
+            <div>
+              <Input
+                type="password"
+                placeholder="Sua senha"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                className="py-6 text-lg"
+              />
+            </div>
             <Button
               type="submit"
               className="w-full py-6 text-lg"
               size="lg"
             >
-              Continuar
+              Entrar
             </Button>
-            {loginEmail && (
-               <p className="text-xs text-center text-zinc-500 mt-2">
-                 Você será redirecionado para o Google.
-               </p>
-            )}
           </form>
         </motion.div>
       </div>
