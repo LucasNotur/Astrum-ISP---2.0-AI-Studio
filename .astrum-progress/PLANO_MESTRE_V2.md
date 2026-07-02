@@ -363,7 +363,7 @@ Reavaliar as North Star Metrics do `CHECKLIST_MASTER.md` com dados REAIS (agora 
 - Métricas agregadas anônimas entre tenants (DuckDB) → "seu churn vs mediana do setor"; geração assistida de indicadores regulatórios (SICI/RQUAL).
 - [ ] Relatório de benchmark gerado para 2+ tenants; export regulatório validado com 1 ISP.
 
-## ⬜ S97 — Performance final + hardening
+## 🔶 S97 — Performance final + hardening
 - Lighthouse ≥85/90; revisão de índices Postgres com dados reais; tuning de filas; revisão de custos (Helicone) com metas do CHECKLIST_MASTER.
 - [ ] Todas as métricas de performance do checklist master verdes.
 

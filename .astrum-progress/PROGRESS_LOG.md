@@ -1298,3 +1298,14 @@ Testes: 9 novos.
 Status: 🔶 Comparação anônima + indicadores prontos/testados. Agregação DuckDB multi-tenant + export pendem.
 Observações: benchmarkMetric (compara só pares do mesmo porte, só a mediana sai — anonimato),
   buildAnatelReport (taxa resolução 48h + reabertura → conforme). Dossiê: inteligência setorial monetizável.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 8 — Sessão 97
+Tarefa: Performance final + hardening
+Arquivos criados:
+  - apps/api/src/infrastructure/observability/cost-budget.ts (+ .test.ts)
+Testes: 9 novos.
+Status: 🔶 Lógica de orçamento + metas de perf prontas/testadas. Lighthouse CI + tuning de índices pendem.
+Observações: budgetStatus (ok/warning80%/exceeded), shouldPauseAi (hard-stop de custo), evaluatePerformance
+  (Lighthouse>=85/90, p95<1.5s). Portado o conceito llm_budget_usd do cobraiWorker legado.
