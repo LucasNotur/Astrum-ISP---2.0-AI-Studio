@@ -347,7 +347,7 @@ Reavaliar as North Star Metrics do `CHECKLIST_MASTER.md` com dados REAIS (agora 
 - Worker que detecta pico de mensagens por região/CTO (janela deslizante no Redis) → agrupa, responde em massa com status do incidente, suprime cobrança/SLA do período, painel de crise. *(dossiê item 94)*
 - [ ] Simulação de 200 mensagens iguais em 5min → 1 incidente criado, respostas agrupadas.
 
-## ⬜ S93 — MÓDULO NOVO: Telemetria de rede (SNMP/TR-069) — MVP
+## 🔶 S93 — MÓDULO NOVO: Telemetria de rede (SNMP/TR-069) — MVP
 - Poller SNMP para OLT/CTOs piloto → série temporal (DuckDB) → alerta proativo ("degradação na sua região") ligado ao módulo de crise. Escopo MVP: 1 fabricante, 1 ISP piloto.
 - [ ] Alerta proativo disparado por degradação real/simulada antes do cliente reclamar.
 

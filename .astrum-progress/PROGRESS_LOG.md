@@ -1254,3 +1254,14 @@ Testes: 6 novos.
 Status: 🔶 Motor de detecção pronto/testado. Worker (janela Redis) + resposta em massa + painel pendem.
 Observações: detectCrises (janela deslizante por região, conta clientes DISTINTOS — spam do mesmo não
   infla), crisisSuppressions (suprime SLA+cobrança dos afetados). Dossiê item 94. Liga na telemetria da S93.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 8 — Sessão 93
+Tarefa: MÓDULO NOVO — Telemetria de rede (SNMP/TR-069) MVP
+Arquivos criados:
+  - apps/api/src/domain/provedor/network-telemetry.ts (+ .test.ts)
+Testes: 7 novos.
+Status: 🔶 Interpretação de sinal + alerta proativo prontos/testados. Poller SNMP real + série temporal pendem.
+Observações: classifyOpticalSignal (faixas GPON dBm), detectDegradation (alerta se >=30% ONUs de uma
+  região degradadas — proativo, antes da reclamação). Liga na crise (S92) e na tool run_diagnostics (S72).
