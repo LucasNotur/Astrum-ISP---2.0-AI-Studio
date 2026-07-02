@@ -1232,3 +1232,14 @@ Testes: 6 novos.
 Status: 🔶 Mapeamento pronto/testado. Ligação no outbox.worker + portal Svix por ISP pendem de integração.
 Observações: mapOutboxEventToSvix (só eventos que o ISP deve receber propagam), buildOutboundDelivery
   (carimba emittedAt, lança se não propagável). svix.service já existia; agora o Outbox alimenta ele.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 8 — Sessão 91
+Tarefa: Onboarding wizard + automação Evolution (lógica)
+Arquivos criados:
+  - apps/api/src/domain/onboarding/wizard.ts (+ .test.ts)
+Testes: 10 novos.
+Status: 🔶 Máquina de estados + geração de instância prontas/testadas. UI do wizard + provisionamento real pendem.
+Observações: nextStep/wizardProgress/canActivate (4 etapas obrigatórias, ERP e KB opcionais),
+  evolutionInstanceName (slug determinístico sem acento, trunca 24 chars — idempotência do provisionamento).

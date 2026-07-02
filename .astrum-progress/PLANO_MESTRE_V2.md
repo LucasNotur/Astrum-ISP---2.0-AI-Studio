@@ -339,7 +339,7 @@ Reavaliar as North Star Metrics do `CHECKLIST_MASTER.md` com dados REAIS (agora 
 - Ativar `svix.service.ts` (já escrito): eventos `invoice.paid/overdue`, `ticket.*`, `customer.*` emitidos pelo Outbox; portal de webhooks para o ISP. *(dossiê item 38)*
 - [ ] ISP de teste recebe eventos com retry e assinatura.
 
-## ⬜ S91 — Onboarding wizard UI + automação Evolution
+## 🔶 S91 — Onboarding wizard UI + automação Evolution
 - Wizard no frontend legado consumindo `onboarding.service.ts` (6 etapas) + criação automática de instância Evolution API por tenant. *(dossiê itens 1, 2, 5, 10)*
 - [ ] ISP novo entra sozinho do signup ao WhatsApp conectado em <30min.
 
