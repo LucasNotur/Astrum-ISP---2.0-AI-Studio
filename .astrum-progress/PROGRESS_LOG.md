@@ -1287,3 +1287,14 @@ Testes: 8 novos.
 Status: 🔶 Máquina de estados da chamada pronta/testada. Integração OpenAI Realtime/Whisper+TTS + telefonia pendem.
 Observações: transition (ringing→greeting→identifying→serving→transferring→ended). Fora do horário encerra,
   3 falhas de ID transfere, intent fora do escopo MVP transfere. Reusa tools da S72 no serving.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 8 — Sessão 96
+Tarefa: MÓDULO NOVO — Benchmarking setorial + relatórios ANATEL
+Arquivos criados:
+  - apps/api/src/domain/provedor/benchmarking.ts (+ .test.ts)
+Testes: 9 novos.
+Status: 🔶 Comparação anônima + indicadores prontos/testados. Agregação DuckDB multi-tenant + export pendem.
+Observações: benchmarkMetric (compara só pares do mesmo porte, só a mediana sai — anonimato),
+  buildAnatelReport (taxa resolução 48h + reabertura → conforme). Dossiê: inteligência setorial monetizável.

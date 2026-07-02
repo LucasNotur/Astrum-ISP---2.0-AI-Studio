@@ -359,7 +359,7 @@ Reavaliar as North Star Metrics do `CHECKLIST_MASTER.md` com dados REAIS (agora 
 - Atendimento telefônico IA (OpenAI Realtime API ou pipeline Whisper+TTS): atender, identificar cliente, consultar fatura, agendar visita; transferir para humano quando precisar. Escopo MVP: 1 número, horário comercial, PT-BR.
 - [ ] Ligação de teste resolve consulta de fatura de ponta a ponta.
 
-## ⬜ S96 — MÓDULO NOVO: Benchmarking setorial + relatórios ANATEL
+## 🔶 S96 — MÓDULO NOVO: Benchmarking setorial + relatórios ANATEL
 - Métricas agregadas anônimas entre tenants (DuckDB) → "seu churn vs mediana do setor"; geração assistida de indicadores regulatórios (SICI/RQUAL).
 - [ ] Relatório de benchmark gerado para 2+ tenants; export regulatório validado com 1 ISP.
 
