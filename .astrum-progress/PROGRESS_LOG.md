@@ -1309,3 +1309,16 @@ Testes: 9 novos.
 Status: 🔶 Lógica de orçamento + metas de perf prontas/testadas. Lighthouse CI + tuning de índices pendem.
 Observações: budgetStatus (ok/warning80%/exceeded), shouldPauseAi (hard-stop de custo), evaluatePerformance
   (Lighthouse>=85/90, p95<1.5s). Portado o conceito llm_budget_usd do cobraiWorker legado.
+
+---
+
+[2026-07-01] Plano Mestre V2 / GATE FINAL — Sessão 98
+Tarefa: GATE FINAL — 10 critérios + consolidação
+Arquivos criados:
+  - scripts/cutover/final-gate.ts (+ .test.ts)
+  - docs/ASTRUM_ESTADO_FINAL_PLANO_V2.md
+Testes: 4 novos.
+Status: 🔶 Lógica do gate final pronta/testada. Aprovação real precisa dos 10 critérios verdes em produção.
+Observações: evaluateFinalGate (10 critérios do MAPA_SESSOES: 10 ISPs, workers integrados, resolução>80%,
+  0 jobs cobrança perdidos, isolamento, custo/ISP, deploy<5min, RAGAS, docs, synthetic). Plano V2 S68-S98 concluído
+  em modo code-complete; etapas operacionais documentadas em docs/ASTRUM_ESTADO_FINAL_PLANO_V2.md.

@@ -367,7 +367,7 @@ Reavaliar as North Star Metrics do `CHECKLIST_MASTER.md` com dados REAIS (agora 
 - Lighthouse ≥85/90; revisão de índices Postgres com dados reais; tuning de filas; revisão de custos (Helicone) com metas do CHECKLIST_MASTER.
 - [ ] Todas as métricas de performance do checklist master verdes.
 
-## ⬜ S98 — 🏆 GATE FINAL — ASTRUM AI ENGINE SETORIAL
+## 🔶 S98 — 🏆 GATE FINAL — ASTRUM AI ENGINE SETORIAL
 Reavaliar os 10 critérios do `MAPA_SESSOES_1_a_98.md` (agora atingíveis porque há tráfego real) + varredura final do dossiê-105 (tudo que ficou aberto vira backlog pós-GA priorizado).
 - [ ] 10/10 critérios com evidência por comando/relatório. Astrum é GA.
 
