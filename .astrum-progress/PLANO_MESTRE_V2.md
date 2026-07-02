@@ -351,7 +351,7 @@ Reavaliar as North Star Metrics do `CHECKLIST_MASTER.md` com dados REAIS (agora 
 - Poller SNMP para OLT/CTOs piloto → série temporal (DuckDB) → alerta proativo ("degradação na sua região") ligado ao módulo de crise. Escopo MVP: 1 fabricante, 1 ISP piloto.
 - [ ] Alerta proativo disparado por degradação real/simulada antes do cliente reclamar.
 
-## ⬜ S94 — MÓDULO NOVO: Portal do assinante white-label (PWA)
+## 🔶 S94 — MÓDULO NOVO: Portal do assinante white-label (PWA)
 - PWA mínimo: login por CPF+contrato, 2ª via/pix, diagnóstico self-service (mesma tool da IA), acompanhar OS (função Uber básica — dossiê itens 92, 11 parcial).
 - [ ] Assinante de ISP piloto pega 2ª via sem falar com ninguém.
 

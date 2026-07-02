@@ -1265,3 +1265,14 @@ Testes: 7 novos.
 Status: 🔶 Interpretação de sinal + alerta proativo prontos/testados. Poller SNMP real + série temporal pendem.
 Observações: classifyOpticalSignal (faixas GPON dBm), detectDegradation (alerta se >=30% ONUs de uma
   região degradadas — proativo, antes da reclamação). Liga na crise (S92) e na tool run_diagnostics (S72).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 8 — Sessão 94
+Tarefa: MÓDULO NOVO — Portal do assinante white-label (PWA)
+Arquivos criados:
+  - apps/api/src/domain/provedor/subscriber-portal.ts (+ .test.ts)
+Testes: 9 novos.
+Status: 🔶 Auth por CPF+contrato + ações self-service prontas/testadas. PWA (UI) + rotas pendem.
+Observações: authenticateSubscriber (CPF normalizado + contrato; not_found/mismatch/inactive),
+  availableActions (suspenso pega 2ª via mas não diagnóstico; cancelado só histórico). Dossiê 11/92.
