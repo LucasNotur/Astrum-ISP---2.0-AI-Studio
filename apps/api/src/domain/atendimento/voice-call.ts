@@ -43,6 +43,7 @@ export function transition(ctx: CallContext, ev: CallEvent): CallContext {
       return fails >= MAX_ID_ATTEMPTS
         ? { ...ctx, state: 'transferring', failedIdentifications: fails }
         : { ...ctx, state: 'identifying', failedIdentifications: fails };
+    }
 
     case 'intent_detected': {
       const intent = ev.intent ?? null;
