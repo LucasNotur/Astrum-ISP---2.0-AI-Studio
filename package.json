@@ -11,7 +11,7 @@
   "_migration_notes": "Firebase removido Sprint 0 Dia 8. Migrado para Supabase.",
   "scripts": {
     "dev:turbo": "turbo run dev",
-    "dev": "tsx server.ts",
+    "dev": "tsx -r dotenv/config server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "build:turbo": "turbo run build",
     "test:unit": "vitest run",
