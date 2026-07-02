@@ -343,7 +343,7 @@ Reavaliar as North Star Metrics do `CHECKLIST_MASTER.md` com dados REAIS (agora 
 - Wizard no frontend legado consumindo `onboarding.service.ts` (6 etapas) + criação automática de instância Evolution API por tenant. *(dossiê itens 1, 2, 5, 10)*
 - [ ] ISP novo entra sozinho do signup ao WhatsApp conectado em <30min.
 
-## ⬜ S92 — MÓDULO NOVO: Detecção de crise massiva
+## 🔶 S92 — MÓDULO NOVO: Detecção de crise massiva
 - Worker que detecta pico de mensagens por região/CTO (janela deslizante no Redis) → agrupa, responde em massa com status do incidente, suprime cobrança/SLA do período, painel de crise. *(dossiê item 94)*
 - [ ] Simulação de 200 mensagens iguais em 5min → 1 incidente criado, respostas agrupadas.
 

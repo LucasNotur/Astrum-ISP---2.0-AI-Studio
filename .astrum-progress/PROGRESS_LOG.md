@@ -1243,3 +1243,14 @@ Testes: 10 novos.
 Status: 🔶 Máquina de estados + geração de instância prontas/testadas. UI do wizard + provisionamento real pendem.
 Observações: nextStep/wizardProgress/canActivate (4 etapas obrigatórias, ERP e KB opcionais),
   evolutionInstanceName (slug determinístico sem acento, trunca 24 chars — idempotência do provisionamento).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 8 — Sessão 92
+Tarefa: MÓDULO NOVO — Detecção de crise massiva
+Arquivos criados:
+  - apps/api/src/domain/atendimento/crisis-detector.ts (+ .test.ts)
+Testes: 6 novos.
+Status: 🔶 Motor de detecção pronto/testado. Worker (janela Redis) + resposta em massa + painel pendem.
+Observações: detectCrises (janela deslizante por região, conta clientes DISTINTOS — spam do mesmo não
+  infla), crisisSuppressions (suprime SLA+cobrança dos afetados). Dossiê item 94. Liga na telemetria da S93.
