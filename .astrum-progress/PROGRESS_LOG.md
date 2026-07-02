@@ -1276,3 +1276,14 @@ Testes: 9 novos.
 Status: 🔶 Auth por CPF+contrato + ações self-service prontas/testadas. PWA (UI) + rotas pendem.
 Observações: authenticateSubscriber (CPF normalizado + contrato; not_found/mismatch/inactive),
   availableActions (suspenso pega 2ª via mas não diagnóstico; cancelado só histórico). Dossiê 11/92.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 8 — Sessão 95
+Tarefa: MÓDULO NOVO — Voz em tempo real (MVP)
+Arquivos criados:
+  - apps/api/src/domain/atendimento/voice-call.ts (+ .test.ts)
+Testes: 8 novos.
+Status: 🔶 Máquina de estados da chamada pronta/testada. Integração OpenAI Realtime/Whisper+TTS + telefonia pendem.
+Observações: transition (ringing→greeting→identifying→serving→transferring→ended). Fora do horário encerra,
+  3 falhas de ID transfere, intent fora do escopo MVP transfere. Reusa tools da S72 no serving.

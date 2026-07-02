@@ -355,7 +355,7 @@ Reavaliar as North Star Metrics do `CHECKLIST_MASTER.md` com dados REAIS (agora 
 - PWA mínimo: login por CPF+contrato, 2ª via/pix, diagnóstico self-service (mesma tool da IA), acompanhar OS (função Uber básica — dossiê itens 92, 11 parcial).
 - [ ] Assinante de ISP piloto pega 2ª via sem falar com ninguém.
 
-## ⬜ S95 — MÓDULO NOVO: Voz em tempo real — MVP
+## 🔶 S95 — MÓDULO NOVO: Voz em tempo real — MVP
 - Atendimento telefônico IA (OpenAI Realtime API ou pipeline Whisper+TTS): atender, identificar cliente, consultar fatura, agendar visita; transferir para humano quando precisar. Escopo MVP: 1 número, horário comercial, PT-BR.
 - [ ] Ligação de teste resolve consulta de fatura de ponta a ponta.
 
