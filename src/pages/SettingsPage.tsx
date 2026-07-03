@@ -17,8 +17,6 @@ import { Switch } from "@/src/components/ui/switch";
 import { Save, Bug, Database, BellRing, LogOut, Copy, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/src/lib/supabase';
-import { signOut, multiFactor, TotpMultiFactorGenerator, TotpSecret } from 'firebase/auth';
-import { auth } from '@/src/lib/firebase';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAppStore } from '../store/useAppStore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
@@ -116,7 +114,8 @@ export function SettingsPage(props: any) {
 
   const [editingRolePermissions, setEditingRolePermissions] = useState<Record<string, Record<string, any>>>({});
 
-  const [totpSecret, setTotpSecret] = useState<TotpSecret | null>(null);
+  const [totpFactorId, setTotpFactorId] = useState<string | null>(null);
+  const [totpSecret, setTotpSecret] = useState<string | null>(null);
   const [totpUrl, setTotpUrl] = useState<string | null>(null);
   const [totpPin, setTotpPin] = useState('');
   const [isEnrollingMfa, setIsEnrollingMfa] = useState(false);
@@ -170,15 +169,11 @@ export function SettingsPage(props: any) {
     setIsEnrollingMfa(true);
     setMfaError('');
     try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error('Usuário não autenticado');
-      
-      const multiFactorSession = await multiFactor(currentUser).getSession();
-      const secret = await TotpMultiFactorGenerator.generateSecret(multiFactorSession);
-      const url = secret.generateQrCodeUrl(currentUser.email || 'user', 'Astrum AI');
-      
-      setTotpSecret(secret);
-      setTotpUrl(url);
+      const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' });
+      if (error) throw error;
+      setTotpFactorId(data.id);
+      setTotpSecret(data.totp.secret);
+      setTotpUrl(data.totp.uri);
     } catch (e: any) {
       setMfaError(e.message || 'Erro ao iniciar MFA');
       setIsEnrollingMfa(false);
@@ -186,21 +181,24 @@ export function SettingsPage(props: any) {
   };
 
   const confirmMfaEnrollment = async () => {
-    if (!totpSecret || !totpPin) return;
+    if (!totpFactorId || !totpPin) return;
     try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error('Usuário não autenticado');
-      
-      const totpAssertion = TotpMultiFactorGenerator.assertionForEnrollment(totpSecret, totpPin);
-      await multiFactor(currentUser).enroll(totpAssertion, 'Autenticador');
-      
+      const { data: challenge, error: challengeErr } = await supabase.auth.mfa.challenge({ factorId: totpFactorId });
+      if (challengeErr) throw challengeErr;
+      const { error: verifyErr } = await supabase.auth.mfa.verify({
+        factorId: totpFactorId,
+        challengeId: challenge.id,
+        code: totpPin,
+      });
+      if (verifyErr) throw verifyErr;
       toast.success('MFA ativado com sucesso!');
       setIsEnrollingMfa(false);
+      setTotpFactorId(null);
       setTotpSecret(null);
       setTotpUrl(null);
       setTotpPin('');
     } catch (e: any) {
-       toast.error(e.message || 'Código inválido');
+      toast.error(e.message || 'Código inválido');
     }
   };
 
@@ -875,10 +873,12 @@ export function SettingsPage(props: any) {
   const handleSaveDepartment = async () => {
     if (!deptForm.name) return toast.error("Nome do departamento é obrigatório");
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? '';
       if (editingDeptId && editingDeptId !== 'new') {
         const res = await fetch(`/api/departments/${editingDeptId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await auth.currentUser?.getIdToken()}` },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify(deptForm)
         });
         if (!res.ok) throw new Error(await res.text());
@@ -886,7 +886,7 @@ export function SettingsPage(props: any) {
       } else {
         const res = await fetch(`/api/departments`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await auth.currentUser?.getIdToken()}` },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify(deptForm)
         });
         if (!res.ok) throw new Error(await res.text());
@@ -901,9 +901,11 @@ export function SettingsPage(props: any) {
   const handleDeleteDepartment = async (id: string) => {
     if (!confirm("Tem certeza que deseja excluir?")) return;
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? '';
       const res = await fetch(`/api/departments/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${await auth.currentUser?.getIdToken()}` }
+        headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) throw new Error(await res.text());
       toast.success("Departamento removido");
@@ -2098,14 +2100,14 @@ export function SettingsPage(props: any) {
                             <h3 className="text-sm font-semibold">Autenticação de Dois Fatores (2FA)</h3>
                             <p className="text-xs text-zinc-500">Adicione uma camada extra de segurança utilizando o Google Authenticator ou similar.</p>
                           </div>
-                          {!totpSecret && (
+                          {!totpFactorId && (
                              <Button onClick={startMfaEnrollment} disabled={isEnrollingMfa}>
                                Ativar 2FA
                              </Button>
                           )}
                         </div>
 
-                        {totpSecret && totpUrl && (
+                        {totpFactorId && totpUrl && (
                            <div className="p-4 bg-zinc-50 dark:bg-zinc-800 rounded-md flex flex-col items-center gap-4">
                              <p className="text-sm">Escaneie o QR Code abaixo com seu aplicativo de autenticação (ex: Google Authenticator)</p>
                              <div className="bg-white p-2 rounded-md">
@@ -2123,6 +2125,7 @@ export function SettingsPage(props: any) {
                              {mfaError && <p className="text-xs text-red-500">{mfaError}</p>}
                              <div className="flex gap-2 w-full max-w-sm">
                                <Button variant="outline" className="flex-1" onClick={() => {
+                                 setTotpFactorId(null);
                                  setTotpSecret(null);
                                  setTotpUrl(null);
                                  setIsEnrollingMfa(false);

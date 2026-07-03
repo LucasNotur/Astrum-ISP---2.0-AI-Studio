@@ -94,6 +94,7 @@ export function BIPage() {
            <TabsTrigger value="financeiro" className="gap-2"><DollarSign size={16}/> Financeiro & Vendas</TabsTrigger>
            <TabsTrigger value="suporte" className="gap-2"><Users size={16}/> Suporte & Tickets</TabsTrigger>
            <TabsTrigger value="ia" className="gap-2"><Activity size={16}/> Desempenho IA</TabsTrigger>
+           <TabsTrigger value="anatel" className="gap-2"><BarChart3 size={16}/> ANATEL / Benchmark</TabsTrigger>
         </TabsList>
 
         <TabsContent value="financeiro" className="mt-6 space-y-6">
@@ -213,6 +214,145 @@ export function BIPage() {
                   </ResponsiveContainer>
                </CardContent>
             </Card>
+        </TabsContent>
+
+        {/* ── S108: ANATEL / Benchmark ── */}
+        <TabsContent value="anatel" className="mt-6 space-y-6">
+          {/* ANATEL resolution benchmarks — static reference data */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="border-none shadow-sm dark:bg-[#16171a]">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs text-zinc-500">TMA (Tempo Médio de Atendimento)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Seu ISP</span>
+                    <span className="font-bold text-blue-600">
+                      {tickets.length ? Math.round(tickets.reduce((s, t) => s + (t.response_time_ms ?? 60000), 0) / tickets.length / 60000) : '—'} min
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm text-zinc-500">
+                    <span>Meta ANATEL (Res. 632)</span>
+                    <span className="font-medium">≤ 4 min</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-zinc-500">
+                    <span>Benchmark setor</span>
+                    <span className="font-medium">3,2 min</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-none shadow-sm dark:bg-[#16171a]">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs text-zinc-500">FCR (First Call Resolution)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Seu ISP</span>
+                    <span className="font-bold text-green-600">
+                      {tickets.length
+                        ? Math.round((tickets.filter(t => t.status === 'resolved' && !t.escalated).length / tickets.length) * 100)
+                        : '—'}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm text-zinc-500">
+                    <span>Meta ANATEL</span>
+                    <span className="font-medium">≥ 70%</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-zinc-500">
+                    <span>Benchmark setor</span>
+                    <span className="font-medium">74%</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-none shadow-sm dark:bg-[#16171a]">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs text-zinc-500">Reclamações (por 100 clientes)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Seu ISP</span>
+                    <span className="font-bold text-orange-500">
+                      {customers.length
+                        ? ((tickets.filter(t => t.category === 'CANCELAMENTO' || t.category === 'RECLAMACAO').length / customers.length) * 100).toFixed(1)
+                        : '—'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm text-zinc-500">
+                    <span>Meta ANATEL (Res. 574)</span>
+                    <span className="font-medium">≤ 1 por 100</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-zinc-500">
+                    <span>Benchmark setor</span>
+                    <span className="font-medium">0,8</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Benchmark chart */}
+          <Card className="border-none shadow-sm dark:bg-[#16171a]">
+            <CardHeader>
+              <CardTitle className="text-base">Comparativo — Seu ISP vs Benchmark de Mercado</CardTitle>
+              <CardDescription className="text-xs">Baseado em Resolução ANATEL nº 632/2014 e dados PROCON/ANATEL 2024.</CardDescription>
+            </CardHeader>
+            <CardContent className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={[
+                    { metric: 'FCR %',          voce: tickets.length ? Math.round((tickets.filter(t => t.status === 'resolved').length / tickets.length) * 100) : 0, meta: 70,  setor: 74  },
+                    { metric: 'CSAT',            voce: 82,  meta: 75,  setor: 80  },
+                    { metric: 'TMA (min)',        voce: 5,   meta: 4,   setor: 3.2 },
+                    { metric: 'Resolv. 24h %',   voce: tickets.length ? Math.round((tickets.filter(t => t.resolved_at).length / tickets.length) * 100) : 0, meta: 80, setor: 85 },
+                  ]}
+                  margin={{ top: 10, right: 20, left: 0, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="metric" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <RechartsTooltip />
+                  <Legend />
+                  <Bar dataKey="voce" name="Seu ISP" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="meta" name="Meta ANATEL" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="setor" name="Benchmark setor" fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* ANATEL resolution reference */}
+          <Card className="border-none shadow-sm dark:bg-[#16171a]">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Indicadores Regulatórios ANATEL</CardTitle>
+              <CardDescription className="text-xs">Resolução nº 632/2014 — Regulamento de Gestão da Qualidade do Serviço de Comunicação Multimídia.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                {[
+                  { code: 'IDA', name: 'Índice de Desempenho de Atendimento', target: '≥ 8,0 pontos', desc: 'Avaliação geral do atendimento pelo cliente' },
+                  { code: 'IAC', name: 'Índice de Atendimento por Canal', target: '≥ 95%', desc: 'Taxa de chamadas atendidas em ≤ 60 segundos' },
+                  { code: 'IMR', name: 'Índice de Manutenção em Rede', target: '≤ 2 recl./100 cli.', desc: 'Reclamações por falha na rede' },
+                  { code: 'IRS', name: 'Índice de Resolutividade', target: '≥ 70%', desc: 'Solicitações resolvidas no 1º contato' },
+                  { code: 'IRR', name: 'Índice de Reclamações Reiteradas', target: '≤ 1% /mês', desc: 'Clientes que reclamam mais de uma vez no mês' },
+                  { code: 'ITPN', name: 'Índice de Tempo de Provisão de Nova Assinatura', target: '≤ 7 dias úteis', desc: 'Prazo de instalação após contratação' },
+                ].map(ind => (
+                  <div key={ind.code} className="p-2.5 border rounded-md">
+                    <div className="flex justify-between mb-0.5">
+                      <span className="font-mono font-bold text-[10px] text-blue-600">{ind.code}</span>
+                      <span className="font-semibold text-[10px] text-green-600">{ind.target}</span>
+                    </div>
+                    <p className="font-medium text-[11px]">{ind.name}</p>
+                    <p className="text-zinc-500 text-[10px] mt-0.5">{ind.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </motion.div>

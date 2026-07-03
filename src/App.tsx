@@ -258,6 +258,11 @@ import { MonitoringPage } from "./pages/MonitoringPage";
 import { CobrAIPage } from "./pages/CobrAIPage";
 import { InventoryPage } from "./pages/InventoryPage";
 import { AIObservabilityPage } from "./pages/AIObservabilityPage";
+import { AICostsPage } from "./pages/AICostsPage";
+import { ERPIntegrationsPage } from "./pages/ERPIntegrationsPage";
+import { WebhooksPage } from "./pages/WebhooksPage";
+import { SecurityPage } from "./pages/SecurityPage";
+import { SignupPage } from "./pages/SignupPage";
 import TechnicianAppPage from "./pages/TechnicianAppPage";
 import { BIPage } from "./pages/BIPage";
 
@@ -301,6 +306,14 @@ export default function App() {
           <Routes>
              <Route path="/webchat" element={<WebchatPage />} />
              <Route path="/operador-mobile" element={<OperatorMobilePage />} />
+          </Routes>
+      );
+  }
+
+  if (routerLocation.pathname === '/register') {
+      return (
+          <Routes>
+              <Route path="/register" element={<SignupPage />} />
           </Routes>
       );
   }
@@ -3295,6 +3308,58 @@ export default function App() {
                   animate={{ opacity: 1, x: 0 }}
                 >
                   <AIObservabilityPage />
+                </motion.div>
+              }
+            />
+
+            <Route
+              path="/ai-costs"
+              element={
+                <motion.div
+                  key="ai-costs"
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                >
+                  <AICostsPage />
+                </motion.div>
+              }
+            />
+
+            <Route
+              path="/integrations"
+              element={
+                <motion.div
+                  key="integrations"
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                >
+                  <ERPIntegrationsPage />
+                </motion.div>
+              }
+            />
+
+            <Route
+              path="/webhooks"
+              element={
+                <motion.div
+                  key="webhooks"
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                >
+                  <WebhooksPage />
+                </motion.div>
+              }
+            />
+
+            <Route
+              path="/security"
+              element={
+                <motion.div
+                  key="security"
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                >
+                  <SecurityPage />
                 </motion.div>
               }
             />
