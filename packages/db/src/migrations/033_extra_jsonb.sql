@@ -19,3 +19,11 @@ ALTER TABLE knowledge_articles ADD COLUMN IF NOT EXISTS extra JSONB NOT NULL DEF
 ALTER TABLE users              ADD COLUMN IF NOT EXISTS extra JSONB NOT NULL DEFAULT '{}';
 ALTER TABLE ai_performance_logs ADD COLUMN IF NOT EXISTS extra JSONB NOT NULL DEFAULT '{}';
 ALTER TABLE dead_letter_queue  ADD COLUMN IF NOT EXISTS extra JSONB NOT NULL DEFAULT '{}';
+
+-- Operadores por tenant (array JSONB): routingEngine (backend, via db-compat
+-- tenantColumn) e App.tsx (frontend, via upsertTenantOperator) usam o mesmo storage.
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS operators JSONB NOT NULL DEFAULT '[]';
+
+-- Regras de escalonamento por tenant (array JSONB): EscalationRulesBuilder (frontend)
+-- e escalationEngine/messageWorker (backend, via db-compat) usam o mesmo storage.
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS escalation_rules JSONB NOT NULL DEFAULT '[]';

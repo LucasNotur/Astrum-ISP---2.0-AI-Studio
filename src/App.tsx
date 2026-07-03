@@ -130,36 +130,10 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { auth, db } from "./lib/firebase";
 import { Skeleton } from "./components/Skeleton";
 import { cn } from "./lib/utils";
-import {
-  signInWithPopup,
-  GoogleAuthProvider,
-  signOut,
-  onAuthStateChanged,
-  multiFactor,
-  getMultiFactorResolver,
-  TotpMultiFactorGenerator,
-} from "firebase/auth";
-// Auth v2 (S77): autenticação migrada para Supabase (login local, sem Firebase).
+// FZ-4: autenticação e dados 100% Supabase (Firestore removido).
 import { supabase } from "./lib/supabase";
-import {
-  collection,
-  query,
-  onSnapshot,
-  doc,
-  updateDoc,
-  addDoc,
-  deleteDoc,
-  orderBy,
-  limit,
-  Timestamp,
-  serverTimestamp,
-  getDocs,
-  where,
-  setDoc,
-} from "firebase/firestore";
 import {
   Dialog,
   DialogContent,
@@ -225,6 +199,7 @@ import {
   getRolePermissions as sbGetRolePermissions,
   getTenantSettings as sbGetTenantSettings,
   getIntegrationKeys as sbGetIntegrationKeys,
+  upsertTenantOperator,
 } from "./lib/supabaseDb";
 import { seedPopularAstrum, wipeSystemData } from "./lib/seedAstrum";
 import { uploadAttachment } from "./lib/storage";
@@ -290,9 +265,6 @@ import {
 // --- App Component ---
 import { WhatsAppConnectionsPage } from "./pages/WhatsAppPage";
 import { MaskedSensitiveData } from "./components/MaskedSensitiveData";
-import { MfaRequirement } from "./components/MfaRequirement";
-import { MfaLoginResolver } from "./components/MfaLoginResolver";
-import { MultiFactorResolver } from "firebase/auth";
 
 import WebchatPage from "./pages/WebchatPage";
 import OperatorMobilePage from "./pages/OperatorMobilePage";
@@ -730,7 +702,6 @@ export default function App() {
   const [isMiningDialogOpen, setIsMiningDialogOpen] = useState(false);
   const [miningResult, setMiningResult] = useState<any>(null);
   const [isPdfDialogOpen, setIsPdfDialogOpen] = useState(false);
-  const [mfaResolver, setMfaResolver] = useState<MultiFactorResolver | null>(null);
   const [needsMfaEnrollment, setNeedsMfaEnrollment] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -783,7 +754,8 @@ export default function App() {
         "Tem certeza que deseja remover este colaborador? Esta ação não pode ser desfeita.",
       onConfirm: async () => {
         try {
-          await deleteDoc(doc(db, "team_members", id));
+          const { error } = await supabase.from("team_members").delete().eq("id", id);
+          if (error) throw error;
           toast.success("Colaborador removido com sucesso!");
         } catch (error: any) {
           toast.error("Erro ao remover colaborador: " + error.message);
@@ -801,23 +773,25 @@ export default function App() {
           customers[Math.floor(Math.random() * customers.length)];
         if (!customer) continue;
 
-        const ticketRef = await addDoc(collection(db, "tickets"), {
-          customerId: customer.id,
-          subject: `Problema de conexão #${i}`,
-          status: Math.random() > 0.5 ? "resolved" : "open",
-          priority: ["low", "medium", "high", "urgent"][
-            Math.floor(Math.random() * 4)
-          ],
-          aiHandled: Math.random() > 0.3,
-          createdAt: serverTimestamp(),
-        });
+        const { data: ticketRef, error: seedTicketErr } = await supabase
+          .from("tickets")
+          .insert({
+            customer_id: customer.id,
+            subject: `Problema de conexão #${i}`,
+            status: Math.random() > 0.5 ? "resolved" : "open",
+            priority: ["low", "medium", "high", "urgent"][
+              Math.floor(Math.random() * 4)
+            ],
+          })
+          .select()
+          .single();
+        if (seedTicketErr || !ticketRef) continue;
 
         // Seed some messages
-        await addDoc(collection(db, `tickets/${ticketRef.id}/messages`), {
-          ticketId: ticketRef.id,
-          senderType: "customer",
-          text: "Minha internet está caindo muito hoje.",
-          createdAt: serverTimestamp(),
+        await supabase.from("messages").insert({
+          ticket_id: ticketRef.id,
+          sender_type: "customer",
+          body: "Minha internet está caindo muito hoje.",
         });
 
         // Seed some audit logs
@@ -973,11 +947,11 @@ export default function App() {
       return;
     }
     try {
-      await addDoc(collection(db, "team_members"), {
+      const { error } = await supabase.from("team_members").insert({
         ...newTeamMember,
         status: "Ativo",
-        createdAt: serverTimestamp(),
       });
+      if (error) throw error;
       setIsTeamMemberDialogOpen(false);
       setNewTeamMember({ name: "", email: "", role: "Suporte Técnico" });
       toast.success("Membro adicionado à equipe!");
@@ -1356,9 +1330,8 @@ export default function App() {
 
   const handleSimulatePayment = async (invoiceId: string) => {
     try {
-      await updateDoc(doc(db, "billing_invoices", invoiceId), {
-        status: "paid",
-      });
+      const { error } = await supabase.from("invoices").update({ status: "paid" }).eq("id", invoiceId);
+      if (error) throw error;
       await logAction("INVOICE_PAID", { invoiceId });
       toast.success("Pagamento simulado com sucesso!");
     } catch (error) {
@@ -1600,148 +1573,7 @@ export default function App() {
     supabase.auth.getSession().then(({ data }: any) => applySession(data.session));
     const { data: authSub } = supabase.auth.onAuthStateChange((_e: any, session: any) => applySession(session));
 
-    // Bloco legado do Firebase mantido INERTE (if(false)) — removido no cutover S82.
-    if (false) {
-    const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      setUser(u);
-      if (u) {
-        let finalRole = "";
-        // Check if user is the super admin (Astrum)
-        if (
-          u.email?.toLowerCase() === "lucaspferraz123@gmail.com" ||
-          u.email?.toLowerCase() === "noturcursos1@gmail.com"
-        ) {
-          finalRole = "admin";
-          setCurrentUserRole("admin");
-          // Ensure super admin exists in users collection for rules
-          await setDoc(
-            doc(db, "users", u.uid),
-            {
-              email: u.email,
-              role: "admin",
-              name: u.displayName || "Astrum",
-            },
-            { merge: true },
-          );
-          
-          if (Notification.permission === 'default') {
-             Notification.requestPermission().then(async (perm) => {
-                if (perm === 'granted') {
-                   const mockToken = "mock-fcm-token-" + u.uid;
-                   // Default tenant for admin might be DEFAULT_TENANT
-                   await setDoc(doc(db, "tenants", "DEFAULT_TENANT", "operators", u.uid), { fcmToken: mockToken }, { merge: true });
-                }
-             });
-          }
-        } else {
-          // Fetch role from team_members
-          const q = query(
-            collection(db, "team_members"),
-            where("email", "==", u.email),
-          );
-          const snapshot = await getDocs(q);
-          if (!snapshot.empty) {
-            const memberDoc = snapshot.docs[0];
-            const memberData = memberDoc.data();
-            const role = memberData.role?.toLowerCase();
 
-            let mappedRole: "owner" | "support" | "tecnico" = "support";
-            if (role === "admin" || role === "owner") mappedRole = "owner";
-            else if (role === "support" || role === "atendente")
-              mappedRole = "support";
-            else if (role === "tecnico") mappedRole = "tecnico";
-
-            finalRole = mappedRole;
-            setCurrentUserRole(mappedRole as any);
-            setUserProfile(memberData);
-
-            // Sync to users collection for security rules
-            await setDoc(
-              doc(db, "users", u.uid),
-              {
-                email: u.email,
-                role: mappedRole,
-                name: memberData.name,
-              },
-              { merge: true },
-            );
-            
-            // Request push notification permission and generate mock FCM token if none exists (since we don't have VAPID key)
-            if (Notification.permission === 'default' && memberData.tenantId) {
-               Notification.requestPermission().then(async (perm) => {
-                  if (perm === 'granted') {
-                     // Since we don't have VAPID key, let's just save a standard mock token to indicate capability, or use a real token if we can
-                     const mockToken = "mock-fcm-token-" + u.uid;
-                     await setDoc(doc(db, "tenants", memberData.tenantId, "operators", u.uid), { fcmToken: mockToken }, { merge: true });
-                  }
-               });
-            }
-          } else if (u.email) {
-            // Check for SSO domain auto-provisioning
-            const domain = u.email.split('@')[1];
-            if (domain) {
-              const tenantsQuery = query(collection(db, "tenants"), where("sso_config.domain", "==", domain));
-              const tenantsSnap = await getDocs(tenantsQuery);
-              
-              if (!tenantsSnap.empty) {
-                 const tenantDoc = tenantsSnap.docs[0];
-                 const tenantId = tenantDoc.id;
-                 
-                 // Auto-provision as support
-                 const newMemberData = {
-                    name: u.displayName || u.email.split('@')[0],
-                    email: u.email,
-                    role: "support",
-                    status: "offline",
-                    tenantId: tenantId,
-                    createdAt: new Date().toISOString()
-                 };
-                 await setDoc(doc(collection(db, "team_members")), newMemberData);
-                 
-                 // Also create the user doc
-                 await setDoc(doc(db, "users", u.uid), {
-                    email: u.email,
-                    role: "support",
-                    name: newMemberData.name,
-                    tenantId: tenantId
-                 }, { merge: true });
-                 
-                 finalRole = "support";
-                 setCurrentUserRole("support");
-                 setUserProfile(newMemberData);
-                 toast.success(`Conta provisionada via SSO pelo domínio ${domain}`);
-              } else {
-                 toast.error("Acesso negado. Domínio não configurado ou email não listado na equipe.");
-                 auth.signOut();
-                 setCurrentUserRole("support");
-              }
-            } else {
-              toast.error("Acesso negado. Email inválido.");
-              auth.signOut();
-              setCurrentUserRole("support");
-            }
-          } else {
-            toast.error("Acesso negado. Seu email não foi fornecido.");
-            auth.signOut();
-            setCurrentUserRole("support");
-          }
-        }
-        
-        // MFA Temporariamente opcional/desabilitado por padrão para evitar o erro auth/operation-not-allowed
-        // if (finalRole === 'admin' || finalRole === 'owner') {
-        //    const enrolledFactors = multiFactor(u).enrolledFactors;
-        //    if (!enrolledFactors || enrolledFactors.length === 0) {
-        //       setNeedsMfaEnrollment(true);
-        //    } else {
-        //       setNeedsMfaEnrollment(false);
-        //    }
-        // } else {
-           setNeedsMfaEnrollment(false);
-        // }
-      }
-      setLoading(false);
-    });
-    } // fim do bloco legado inerte (Firebase)
     return () => { mounted = false; authSub?.subscription?.unsubscribe?.(); };
   }, []);
 
@@ -1924,7 +1756,7 @@ export default function App() {
 
   const handleMarkNotificationRead = async (id: string) => {
     try {
-      await updateDoc(doc(db, "notifications", id), { read: true });
+      await supabase.from("notifications").update({ read: true }).eq("id", id);
     } catch (err) {
       console.error(err);
     }
@@ -1932,8 +1764,9 @@ export default function App() {
 
   const clearNotifications = async () => {
     try {
-      for (const n of notifications) {
-        await deleteDoc(doc(db, "notifications", n.id));
+      const ids = notifications.map((n) => n.id);
+      if (ids.length > 0) {
+        await supabase.from("notifications").delete().in("id", ids);
       }
     } catch (err) {
       console.error(err);
@@ -2085,14 +1918,14 @@ export default function App() {
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + 5);
 
-      await addDoc(collection(db, "billing_invoices"), {
-        customerId: selectedCustomerDetails.id,
-        customerName: selectedCustomerDetails.name,
+      const { error } = await supabase.from("invoices").insert({
+        customer_id: selectedCustomerDetails.id,
+        customer_name: selectedCustomerDetails.name,
         amount,
         status: "pending",
-        dueDate: Timestamp.fromDate(dueDate),
-        createdAt: serverTimestamp(),
+        due_date: dueDate.toISOString(),
       });
+      if (error) throw error;
 
       toast.success("Fatura gerada com sucesso!");
     } catch (error) {
@@ -2106,13 +1939,13 @@ export default function App() {
 
     try {
       const activeTenant = userProfile?.tenantId || "DEFAULT_TENANT";
-      const docRef = await addDoc(collection(db, "team_members"), {
+      const { data: memberRow, error } = await supabase.from("team_members").insert({
         ...newTeamMember,
-        createdAt: serverTimestamp(),
-        tenantId: activeTenant,
-      });
+        tenant_id: activeTenant,
+      }).select().single();
+      if (error) throw error;
       if (newTeamMember.role === "Atendente" || newTeamMember.role === "support") {
-        await setDoc(doc(db, "tenants", activeTenant, "operators", docRef.id), {
+        await upsertTenantOperator(activeTenant, memberRow.id, {
           name: newTeamMember.name,
           email: newTeamMember.email,
           status: "online",
@@ -2216,34 +2049,36 @@ export default function App() {
     try {
       const activeTenant = userProfile?.tenantId || "DEFAULT_TENANT";
       if (selectedTeamMember.id) {
-        await updateDoc(doc(db, "team_members", selectedTeamMember.id), {
+        const { error } = await supabase.from("team_members").update({
           name: selectedTeamMember.name,
           email: selectedTeamMember.email,
           role: selectedTeamMember.role,
           status: selectedTeamMember.status,
-          tenantId: activeTenant
-        });
+          tenant_id: activeTenant
+        }).eq("id", selectedTeamMember.id);
+        if (error) throw error;
         if (selectedTeamMember.role === "support") {
-          await setDoc(doc(db, "tenants", activeTenant, "operators", selectedTeamMember.id), {
+          await upsertTenantOperator(activeTenant, selectedTeamMember.id, {
             name: selectedTeamMember.name,
             email: selectedTeamMember.email,
             status: selectedTeamMember.status === "active" ? "online" : "offline",
             skills: selectedTeamMember.skills || ["SAC_GERAL"],
             max_concurrent_chats: selectedTeamMember.max_concurrent_chats || 5,
             current_chat_count: 0
-          }, { merge: true });
+          });
         }
         toast.success("Colaborador atualizado com sucesso!");
       } else {
-        const docRef = await addDoc(collection(db, "team_members"), {
+        const { data: memberRow, error } = await supabase.from("team_members").insert({
           name: selectedTeamMember.name,
           email: selectedTeamMember.email,
           role: selectedTeamMember.role,
           status: selectedTeamMember.status,
-          tenantId: activeTenant
-        });
+          tenant_id: activeTenant
+        }).select().single();
+        if (error) throw error;
         if (selectedTeamMember.role === "support") {
-          await setDoc(doc(db, "tenants", activeTenant, "operators", docRef.id), {
+          await upsertTenantOperator(activeTenant, memberRow.id, {
             name: selectedTeamMember.name,
             email: selectedTeamMember.email,
             status: selectedTeamMember.status === "active" ? "online" : "offline",
@@ -2351,15 +2186,15 @@ export default function App() {
     const priority = formData.get("priority") as string;
 
     try {
-      const docRef = await addDoc(collection(db, "tickets"), {
-        customerId,
+      const { data: docRef, error } = await supabase.from("tickets").insert({
+        customer_id: customerId,
         subject,
         priority,
         status: "open",
-        aiEnabled: true,
-        aiAttempts: 0,
-        createdAt: serverTimestamp(),
-      });
+        ai_enabled: true,
+        ai_attempts: 0,
+      }).select().single();
+      if (error) throw error;
 
       await logAction("TICKET_CREATED", {
         ticketId: docRef.id,
@@ -2534,7 +2369,7 @@ export default function App() {
            toast.error("Erro ao enviar mensagem pelo WhatsApp.");
         } else if (msgRefId && (resData?.key?.id || resData?.message?.key?.id)) {
            const evoId = resData?.key?.id || resData?.message?.key?.id;
-           await updateDoc(msgRefId, { evoMsgIds: [evoId] });
+           await supabase.from("messages").update({ evo_msg_ids: [evoId] }).eq("id", (msgRefId as any).id ?? msgRefId);
         }
       } catch (err) {
          console.error("Falha requisição Evolution:", err);
@@ -2545,7 +2380,7 @@ export default function App() {
     // Disable AI for this ticket so it doesn't interfere.
     if (selectedTicket.aiEnabled !== false) {
       // Mark ticket as answered by human
-      await updateDoc(doc(db, "tickets", selectedTicket.id), { human_responded: true });
+      await supabase.from("tickets").update({ human_responded: true }).eq("id", selectedTicket.id);
       await toggleTicketAI(selectedTicket.id, false);
       await sendMessage(
         selectedTicket.id,
@@ -2768,7 +2603,7 @@ export default function App() {
             .map((v) => v.replace(/^"|"$/g, "").trim());
 
           if (values.length >= 2) {
-            await addDoc(collection(db, "customers"), {
+            await supabase.from("customers").insert({
               name: values[0] || "Sem Nome",
               email: values[1] || "",
               phone: values[2] || "",
@@ -2778,7 +2613,6 @@ export default function App() {
               status:
                 values[6]?.toLowerCase() === "inativo" ? "inactive" : "active",
               tags: [],
-              createdAt: serverTimestamp(),
             });
             importedCount++;
           }
@@ -2824,13 +2658,12 @@ export default function App() {
             .map((v) => v.replace(/^"|"$/g, "").trim());
 
           if (values.length >= 2) {
-            await addDoc(collection(db, "inventory"), {
+            await supabase.from("inventory").insert({
               name: values[0] || "Item sem nome",
               category: values[1] || "Geral",
               stock: parseInt(values[2]) || 0,
-              minStock: parseInt(values[3]) || 5,
+              min_stock: parseInt(values[3]) || 5,
               price: parseFloat(values[4]) || 0,
-              updatedAt: serverTimestamp(),
             });
             importedCount++;
           }
@@ -2990,13 +2823,6 @@ export default function App() {
   if (!user) {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-950 font-sans transition-colors duration-300">
-        {mfaResolver && (
-           <MfaLoginResolver 
-             resolver={mfaResolver} 
-             onResolved={() => setMfaResolver(null)} 
-             onCancel={() => setMfaResolver(null)} 
-           />
-        )}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -3051,7 +2877,7 @@ export default function App() {
       clearNotifications={clearNotifications}
       handleMarkNotificationRead={handleMarkNotificationRead}
     >
-      {needsMfaEnrollment && <MfaRequirement onEnrolled={() => setNeedsMfaEnrollment(false)} />}
+      {/* FZ-4: enrollment de MFA agora é 100% Supabase na SettingsPage (S101) */}
       <UpgradePrompt />
       <Toaster position="top-right" />
 

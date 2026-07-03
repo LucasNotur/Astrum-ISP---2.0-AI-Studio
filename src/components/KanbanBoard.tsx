@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import { updateDoc, doc } from "firebase/firestore";
-import { db } from "@/src/lib/firebase";
+import { supabase } from "@/src/lib/supabase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/src/components/ui/avatar";
 import { cn } from "@/src/lib/utils";
 import { toast } from "sonner";
@@ -61,9 +60,9 @@ export function KanbanBoard({ tickets, customers, onTicketClick }: any) {
       });
 
       try {
-        await updateDoc(doc(db, "tickets", draggableId), {
+        await supabase.from("tickets").update({
           pipeline_stage: destination.droppableId
-        });
+        }).eq("id", draggableId);
 
         // Automações de Funil Simuladas/Aprimoradas
         if (destination.droppableId === 'qualificado') {

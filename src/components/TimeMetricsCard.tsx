@@ -40,8 +40,7 @@ import {
   TableHeader,
   TableRow,
 } from "./ui/table";
-import { db } from "@/src/lib/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { supabase } from "@/src/lib/supabase";
 import { useAppStore } from "../store/useAppStore";
 
 const formatDuration = (ms: number) => {
@@ -68,13 +67,10 @@ export const TimeMetricsCard = () => {
   const fetchDepartments = async () => {
     if (!tenantId) return;
     try {
-      const q = query(
-        collection(db, "departments"),
-        where("tenantId", "==", tenantId)
-      );
-      const snap = await getDocs(q);
-      const deps = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setDepartments(deps);
+      // FZ-4: departamentos vivem em tenants.departments (JSONB array)
+      const { data } = await supabase
+        .from("tenants").select("departments").eq("id", tenantId).maybeSingle();
+      setDepartments(Array.isArray(data?.departments) ? data!.departments : []);
     } catch (e) {
       console.error("Failed to fetch departments", e);
     }

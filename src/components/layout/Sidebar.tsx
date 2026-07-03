@@ -11,8 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/src/components/ui/avatar'
 import { Button } from '@/src/components/ui/button';
 import { Badge } from '@/src/components/ui/badge';
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/src/components/ui/tooltip";
-import { auth } from '@/src/lib/firebase';
-import { signOut } from 'firebase/auth';
+import { supabase } from '@/src/lib/supabase';
 
 function NavItem({ active, onClick, icon, label, collapsed, shortcut, badge }: any) {
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -91,10 +90,14 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
 
 
   React.useEffect(() => {
+    // FZ-4: super admin é a role da tabela users (era claim do Firebase)
     if (user) {
-      auth.currentUser?.getIdTokenResult()
-        .then(tokenResult => {
-          setIsSuperAdmin(!!tokenResult?.claims?.isSuperAdmin);
+      supabase.auth.getSession()
+        .then(({ data: { session } }) => {
+          const uid = session?.user?.id;
+          if (!uid) { setIsSuperAdmin(false); return; }
+          return supabase.from('users').select('role').eq('id', uid).maybeSingle()
+            .then(({ data }) => setIsSuperAdmin(data?.role === 'super_admin'));
         })
         .catch(() => setIsSuperAdmin(false));
     } else {
@@ -122,7 +125,7 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
   const hasAccess = (tab: string) => canAccess(currentUserRole, tab, rolePermissions && Object.keys(rolePermissions).length > 0 ? rolePermissions : companySettings?.rolePermissions);
   const isDeveloper = user?.email?.toLowerCase() === 'lucaspferraz123@gmail.com' || user?.email?.toLowerCase() === 'noturcursos1@gmail.com';
   const isProvedorAdmin = currentUserRole === 'admin' || currentUserRole === 'owner';
-  const handleLogout = () => signOut(auth);
+  const handleLogout = () => supabase.auth.signOut();
 
   return (
     <TooltipProvider delayDuration={200}>

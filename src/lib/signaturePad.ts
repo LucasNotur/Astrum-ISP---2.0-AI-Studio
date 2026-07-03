@@ -1,6 +1,9 @@
 import jsPDF from "jspdf";
-import { storage } from "./firebase";
-import { ref, uploadString, getDownloadURL } from "firebase/storage";
+import { uploadTenantFile } from "./storage";
+
+async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
+  return (await fetch(dataUrl)).blob();
+}
 
 export async function processSignatureAndPdf({
   tenantId,
@@ -17,10 +20,10 @@ export async function processSignatureAndPdf({
     throw new Error("Canvas vazio: PDF não gerado");
   }
 
-  // Upload assinatura
-  const sigRef = ref(storage, `tenants/${tenantId}/signatures/${osId}.png`);
-  await uploadString(sigRef, signatureData, "data_url");
-  const signature_url = await getDownloadURL(sigRef);
+  // Upload assinatura (FZ-4: Supabase Storage)
+  const signature_url = await uploadTenantFile(
+    tenantId, "signatures", `${osId}.png`, await dataUrlToBlob(signatureData),
+  );
 
   // Gerar PDF
   const doc = new jsPDF();
@@ -35,9 +38,9 @@ export async function processSignatureAndPdf({
   
   // No node, doc.output("datauristring") is prefixed string: 'data:application/pdf;base64,...'
   const pdfDataUri = doc.output("datauristring");
-  const pdfRef = ref(storage, `tenants/${tenantId}/contracts/${osId}.pdf`);
-  await uploadString(pdfRef, pdfDataUri.toString(), "data_url");
-  const contract_url = await getDownloadURL(pdfRef);
+  const contract_url = await uploadTenantFile(
+    tenantId, "contracts", `${osId}.pdf`, await dataUrlToBlob(pdfDataUri.toString()),
+  );
 
   return { signature_url, contract_url };
 }

@@ -42,6 +42,7 @@ export const TENANT_JSONB_COLUMNS = new Set([
   'integration_keys',
   'cobrai_window',
   'cobrai_stages',
+  'operators', // routingEngine (backend) e App.tsx (frontend) usam o mesmo array
 ]);
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -112,6 +113,13 @@ export function resolveRoute(segments: string[]): Route {
     return { kind: 'native', table: 'messages', fixedFilters: { ticket_id: segments[1] } };
   }
 
+  // escalation_rules/{tid}/rules → tenants.escalation_rules (JSONB array).
+  // Frontend (EscalationRulesBuilder) e backend (escalationEngine/messageWorker)
+  // compartilham o mesmo storage.
+  if (segments[0] === 'escalation_rules' && segments.length >= 2 && segments.length <= 4) {
+    return { kind: 'tenantColumn', tenantId: segments[1], column: 'escalation_rules', isArray: true };
+  }
+
   // tenants/{tid}/settings/{docId} → coluna docId (se conhecida)
   if (
     segments[0] === 'tenants' &&
@@ -129,7 +137,7 @@ export function resolveRoute(segments: string[]): Route {
     segments.length <= 4 &&
     TENANT_JSONB_COLUMNS.has(segments[2])
   ) {
-    const isArray = segments[2] === 'departments' || segments[2] === 'holidays' || segments[2] === 'forms';
+    const isArray = ['departments', 'holidays', 'forms', 'operators'].includes(segments[2]);
     return { kind: 'tenantColumn', tenantId: segments[1], column: segments[2], isArray };
   }
 

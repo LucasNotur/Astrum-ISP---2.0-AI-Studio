@@ -391,6 +391,23 @@ export async function getAiTokenLogs(tenantId: string, limit = 100) {
   return data ?? [];
 }
 
+// ─── Operators (JSONB array na linha do tenant — mesmo storage do backend/db-compat) ──
+
+export async function upsertTenantOperator(
+  tenantId: string,
+  operatorId: string,
+  data: Record<string, any>,
+) {
+  const { data: row } = await supabase
+    .from('tenants').select('operators').eq('id', tenantId).maybeSingle();
+  const ops: any[] = Array.isArray(row?.operators) ? [...row!.operators] : [];
+  const idx = ops.findIndex(o => o?.id === operatorId);
+  const item = { ...(idx >= 0 ? ops[idx] : {}), ...data, id: operatorId };
+  if (idx >= 0) ops[idx] = item; else ops.push(item);
+  const { error } = await supabase.from('tenants').update({ operators: ops }).eq('id', tenantId);
+  if (error) console.error('upsertTenantOperator', error);
+}
+
 // ─── Departments (scoped under tenant) ───────────────────────────────────────
 
 export async function getDepartments(tenantId: string) {

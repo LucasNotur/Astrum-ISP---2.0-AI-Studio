@@ -1,5 +1,4 @@
-import { db } from "./firebase";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { supabase } from "./supabase";
 
 export type Action =
   | "create"
@@ -36,30 +35,27 @@ export async function checkPermission(
 
   try {
     // 1. Get user role
-    const usersSnap = await getDocs(
-      query(
-        collection(db, "users"),
-        where("uid", "==", userId),
-        where("tenantId", "==", context.tenantId),
-      ),
-    );
-    if (usersSnap.empty) return false;
+    const { data: userRow } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", userId)
+      .eq("tenant_id", context.tenantId)
+      .maybeSingle();
+    if (!userRow) return false;
 
-    const userData = usersSnap.docs[0].data();
-    const roleName = userData.role || "support";
+    const roleName = userRow.role || "support";
 
     // 2. Check granular role permissions
-    const rolesSnap = await getDocs(
-      query(
-        collection(db, "role_permissions"),
-        where("tenant_id", "==", context.tenantId),
-        where("role_name", "==", roleName),
-      ),
-    );
+    const { data: roleRows } = await supabase
+      .from("role_permissions")
+      .select("permissions")
+      .eq("tenant_id", context.tenantId)
+      .eq("role_name", roleName)
+      .limit(1);
 
     let roleHasAccess = false;
-    if (!rolesSnap.empty) {
-      const rolePerms = rolesSnap.docs[0].data().permissions || {};
+    if (roleRows && roleRows.length > 0) {
+      const rolePerms = roleRows[0].permissions || {};
       const resourcePerms = rolePerms[resource];
 
       if (resourcePerms) {
@@ -82,18 +78,15 @@ export async function checkPermission(
     if (!roleHasAccess) return false;
 
     // 3. Check ABAC (Resource Permissions) - e.g. operator X specific to a department
-    const abacSnap = await getDocs(
-      query(
-        collection(db, "resource_permissions"),
-        where("tenant_id", "==", context.tenantId),
-        where("user_id", "==", userId),
-        where("resource", "==", resource),
-      ),
-    );
+    const { data: abacRows } = await supabase
+      .from("resource_permissions")
+      .select("conditions")
+      .eq("tenant_id", context.tenantId)
+      .eq("user_id", userId)
+      .eq("resource", resource);
 
-    if (!abacSnap.empty) {
-      for (const doc of abacSnap.docs) {
-        const abacData = doc.data();
+    if (abacRows && abacRows.length > 0) {
+      for (const abacData of abacRows) {
         // Condition matching example: {"departmentId": "dep-1"}
         const conditions = abacData.conditions || {};
         let matchesAll = true;

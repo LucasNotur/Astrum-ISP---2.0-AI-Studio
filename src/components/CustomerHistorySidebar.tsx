@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db } from "../lib/firebase";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { supabase } from "../lib/supabase";
 import { ChevronRight, ChevronLeft, User, FileText, Wrench, HardDrive, Edit2, Calendar } from "lucide-react";
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
@@ -32,35 +31,28 @@ export function CustomerHistorySidebar({ customerId, tenantId, onEditCustomer }:
       return;
     }
 
-    const unsubCustomer = onSnapshot(collection(db, "customers"), (snap) => {
-        const c = snap.docs.find(d => d.id === customerId);
-        if (c) {
-           setCustomer({ id: c.id, ...c.data() });
-        }
-    });
+    // FZ-4: leitura via Supabase (uma carga + realtime no ticket do cliente)
+    const load = async () => {
+      const [custRes, ticketsRes, osRes] = await Promise.all([
+        supabase.from("customers").select("*").eq("id", customerId).maybeSingle(),
+        supabase.from("tickets").select("*").eq("customer_id", customerId)
+          .order("created_at", { ascending: false }),
+        supabase.from("service_orders").select("*").eq("customer_id", customerId)
+          .order("created_at", { ascending: false }),
+      ]);
+      if (custRes.data) setCustomer(custRes.data);
+      if (ticketsRes.data) setTickets(ticketsRes.data);
+      if (osRes.data) setServiceOrders(osRes.data);
+    };
+    load();
 
-    const qTickets = query(collection(db, "tickets"), where("customerId", "==", customerId), where("tenantId", "==", tenantId));
-    const unsubTickets = onSnapshot(qTickets, (snap) => {
-      setTickets(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => {
-        const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : (a.createdAt ? new Date(a.createdAt) : new Date(0));
-        const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : (b.createdAt ? new Date(b.createdAt) : new Date(0));
-        return dateB.getTime() - dateA.getTime();
-      }));
-    });
-
-    const qOs = query(collection(db, "serviceOrders"), where("customerId", "==", customerId), where("tenantId", "==", tenantId));
-    const unsubOs = onSnapshot(qOs, (snap) => {
-      setServiceOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => {
-          const dateA = a.date?.toDate ? a.date.toDate() : (a.date ? new Date(a.date) : new Date(0));
-          const dateB = b.date?.toDate ? b.date.toDate() : (b.date ? new Date(b.date) : new Date(0));
-          return dateB.getTime() - dateA.getTime();
-      }));
-    });
+    const ch = supabase.channel(`customer-history:${customerId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tickets", filter: `customer_id=eq.${customerId}` }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "service_orders", filter: `customer_id=eq.${customerId}` }, load)
+      .subscribe();
 
     return () => {
-      unsubCustomer();
-      unsubTickets();
-      unsubOs();
+      supabase.removeChannel(ch);
     };
   }, [customerId, tenantId, isOpen]);
 

@@ -2,8 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { openDB } from "idb";
 import jsPDF from "jspdf";
-import { storage } from "../lib/firebase";
-import { ref, uploadString, getDownloadURL } from "firebase/storage";
+import { uploadTenantFile } from "../lib/storage";
 import { SignaturePad } from "../components/SignaturePad";
 import { processSignatureAndPdf } from "../lib/signaturePad";
 import { Html5QrcodeScanner } from "html5-qrcode";
@@ -261,12 +260,12 @@ export default function TechnicianAppPage() {
           if (navigator.onLine) {
             try {
               toast.loading("Enviando foto...", { id: toastId });
-              const photoRef = ref(storage, `tenants/${tenantId}/checkins/${osId}_${ts}.jpg`);
-              await uploadString(photoRef, dataUrl, "data_url");
-              uploadedUrl = await getDownloadURL(photoRef);
+              // FZ-4: Supabase Storage (data_url → Blob)
+              const blob = await (await fetch(dataUrl)).blob();
+              uploadedUrl = await uploadTenantFile(tenantId, "checkins", `${osId}_${ts}.jpg`, blob);
             } catch (e: any) {
               console.error(e);
-              toast.error("Salvo apenas localmente. Erro no Firebase: " + e.message, { id: toastId });
+              toast.error("Salvo apenas localmente. Erro no upload: " + e.message, { id: toastId });
             }
           }
 

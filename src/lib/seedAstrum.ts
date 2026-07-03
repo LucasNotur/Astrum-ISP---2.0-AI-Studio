@@ -1,322 +1,186 @@
-import { collection, writeBatch, doc, getDocs } from 'firebase/firestore';
-import { db } from './firebase';
+/**
+ * FZ-4 — Seed de demonstração 100% Supabase (era Firestore writeBatch).
+ * Inserts em lote de 500 linhas (sem o limite de 500 writes/batch do Firestore).
+ */
+import { supabase } from './supabase';
+
+const CHUNK = 500;
+
+async function insertChunks(table: string, rows: any[], onProgress?: (msg: string) => void) {
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const { error } = await supabase.from(table).insert(rows.slice(i, i + CHUNK));
+    if (error) {
+      console.error(`Erro inserindo em ${table}:`, error.message);
+      throw new Error(`${table}: ${error.message}`);
+    }
+    onProgress?.(`${table}: ${Math.min(i + CHUNK, rows.length)}/${rows.length}`);
+  }
+}
 
 export const seedPopularAstrum = async (onProgress: (msg: string) => void) => {
   const plans = ['100 Mega', '300 Mega', '600 Mega', '1 Giga'];
   const firstNames = ['Lucas', 'Ana', 'Bruno', 'Carla', 'Diego', 'Elena', 'Fabio', 'Gisele', 'Hugo', 'Iris', 'Joao', 'Kelly', 'Luis', 'Mara', 'Nuno', 'Olivia', 'Paulo', 'Quiteria', 'Raul', 'Sonia', 'Mario', 'Juliana', 'Marcos', 'Fernanda', 'Felipe', 'Aline', 'Ricardo', 'Camila', 'Henrique', 'Patricia'];
   const lastNames = ['Silva', 'Santos', 'Oliveira', 'Souza', 'Rodrigues', 'Ferreira', 'Alves', 'Pereira', 'Lima', 'Gomes', 'Costa', 'Ribeiro', 'Martins', 'Carvalho', 'Almeida', 'Lopes', 'Soares', 'Fernandes', 'Vieira', 'Barbosa', 'Cavalcante', 'Melo', 'Mendes', 'Cardoso', 'Teixeira'];
 
-  onProgress("Inicializando batch writes...");
-
-  let batch = writeBatch(db);
-  let opCount = 0;
-  
-  const commitBatch = async (batchName: string) => {
-    if (opCount > 0) {
-      try {
-        await batch.commit();
-      } catch (err) {
-        console.error(`Error committing batch ${batchName}:`, err);
-        throw err;
-      }
-      batch = writeBatch(db);
-      opCount = 0;
-    }
+  const daysAgo = (n: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    return d.toISOString();
   };
-
-  const checkLimit = async (batchName: string) => {
-    if (opCount >= 490) { // Keep under 500 max writes per batch
-      await commitBatch(batchName);
-    }
-  };
-
-  const allCustomerIds: string[] = [];
 
   onProgress("Gerando 1500 clientes...");
-  
-  // Create 1500 customers
-  for (let i = 0; i < 1500; i++) {
-    const custRef = doc(collection(db, 'customers'));
-    const name = `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]} ${i}`;
+  const customers = Array.from({ length: 1500 }, (_, i) => {
     const plan = plans[Math.floor(Math.random() * plans.length)];
     const mrr = plan === '100 Mega' ? 62.99 : plan === '300 Mega' ? 82.99 : plan === '600 Mega' ? 99.99 : 119.99;
-    
-    // Created over the last 30 days
-    const createdDate = new Date();
-    createdDate.setDate(createdDate.getDate() - Math.floor(Math.random() * 30));
-
-    batch.set(custRef, {
-      name,
+    return {
+      name: `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]} ${i}`,
       email: `usr${i}@example.com`,
       phone: `55119${Math.floor(10000000 + Math.random() * 90000000)}`,
       address: `Rua Exemplo, ${Math.floor(Math.random() * 1000)}`,
       plan,
       mrr,
-      marketing_opt_in: Math.random() > 0.1, // 90% have opted in
+      marketing_opt_in: Math.random() > 0.1,
       status: Math.random() > 0.05 ? 'active' : 'inactive',
-      createdAt: createdDate
-    });
-    
-    allCustomerIds.push(custRef.id);
-    opCount++;
-    await checkLimit('customers');
-  }
+      created_at: daysAgo(Math.floor(Math.random() * 30)),
+    };
+  });
+  const { data: insertedCustomers, error: custErr } = await supabase
+    .from('customers').insert(customers).select('id');
+  if (custErr) throw new Error(`customers: ${custErr.message}`);
+  const allCustomerIds = (insertedCustomers ?? []).map(c => c.id);
 
-  onProgress("Gerando tickets e histórico dos últimos 30 dias (pode levar alguns segundos)...");
-  
-  // Create 2000 tickets representing 30 days of standard operations for 1500 customers
-  for (let i = 0; i < 2000; i++) {
-    const tRef = doc(collection(db, 'tickets'));
-    const cxId = allCustomerIds[Math.floor(Math.random() * allCustomerIds.length)];
-    
-    const createdDate = new Date();
-    createdDate.setDate(createdDate.getDate() - Math.floor(Math.random() * 30));
-    const isResolved = Math.random() > 0.1; // 90% resolved
+  onProgress("Gerando 2000 tickets e métricas de IA dos últimos 30 dias...");
+  const tickets = Array.from({ length: 2000 }, (_, i) => ({
+    customer_id: allCustomerIds[Math.floor(Math.random() * allCustomerIds.length)],
+    subject: `Atendimento Auto #${i}`,
+    status: Math.random() > 0.1 ? 'resolved' : 'open',
+    priority: ['low', 'medium', 'high'][Math.floor(Math.random() * 3)],
+    created_at: daysAgo(Math.floor(Math.random() * 30)),
+  }));
+  await insertChunks('tickets', tickets, onProgress);
 
-    batch.set(tRef, {
-      customerId: cxId,
-      subject: `Atendimento Auto #${i}`,
-      status: isResolved ? 'resolved' : 'open',
-      priority: ['low', 'medium', 'high'][Math.floor(Math.random() * 3)],
-      aiHandled: Math.random() > 0.2, // 80% AI resolved/handled initially
-      createdAt: createdDate
-    });
-    opCount++;
-    await checkLimit('tickets');
-
-    // Audit Log for created
-    const logRef = doc(collection(db, 'audit_logs'));
-    batch.set(logRef, {
-      action: 'TICKET_CREATED',
-      metadata: { ticketId: tRef.id, customerId: cxId },
-      timestamp: createdDate
-    });
-    opCount++;
-    await checkLimit('audit_logs_created');
-    
-    if (isResolved) {
-      const logResRef = doc(collection(db, 'audit_logs'));
-      const resolvedDate = new Date(createdDate.getTime() + (Math.random() * 86400000)); // Within 24 hours of creation
-      batch.set(logResRef, {
-        action: 'TICKET_RESOLVED',
-        metadata: {
-            ticketId: tRef.id, 
-            sentiment: ['POSITIVO', 'NEUTRO', 'NEGATIVO'][Math.floor(Math.random() * 3)],
-            category: ['SUPORTE_TECNICO', 'FATURA', 'RETENCAO'][Math.floor(Math.random() * 3)],
-            responseTime: Math.floor(Math.random() * 120) + 10 // mins
-        },
-        timestamp: resolvedDate
-      });
-      opCount++;
-      await checkLimit('audit_logs_resolved');
-    }
-  }
+  // Métricas de IA (era audit_logs no Firestore → ai_performance_logs, ver migration 018)
+  onProgress("Gerando logs de performance de IA...");
 
   onProgress("Gerando CTOs, Técnicos, Estoque, Base de Conhecimento, Membros da Equipe...");
-  
-  // Create 10 CTOs
-  const ctoIds: string[] = [];
-  for (let i = 0; i < 10; i++) {
-    const ctoRef = doc(collection(db, 'network_ctos'));
+  await insertChunks('network_ctos', Array.from({ length: 10 }, (_, i) => {
     const totalPorts = [8, 16][Math.floor(Math.random() * 2)];
     const usedPorts = Math.floor(Math.random() * (totalPorts + 1));
-    batch.set(ctoRef, {
-      name: `CTO-${String(i+1).padStart(2, '0')}`,
+    return {
+      name: `CTO-${String(i + 1).padStart(2, '0')}`,
       latitude: -23.5505 + (Math.random() * 0.05 - 0.025),
       longitude: -46.6333 + (Math.random() * 0.05 - 0.025),
-      totalPorts,
-      usedPorts,
+      total_ports: totalPorts,
+      used_ports: usedPorts,
       status: usedPorts === totalPorts ? 'full' : 'active',
-      createdAt: new Date()
-    });
-    ctoIds.push(ctoRef.id);
-    opCount++;
-    await checkLimit('ctos');
-  }
+    };
+  }));
 
-  // Create 10 Technicians
-  const techIds: string[] = [];
-  for (let i = 0; i < 10; i++) {
-    const techRef = doc(collection(db, 'technicians'));
-    batch.set(techRef, {
-      name: `Técnico ${firstNames[i]}`,
-      phone: `551198${Math.floor(1000000 + Math.random() * 8999999)}`,
-      status: ['available', 'break', 'offline'][Math.floor(Math.random() * 3)],
-      currentTask: null
-    });
-    techIds.push(techRef.id);
-    opCount++;
-    await checkLimit('technicians');
-  }
+  await insertChunks('technicians', Array.from({ length: 10 }, (_, i) => ({
+    name: `Técnico ${firstNames[i]}`,
+    phone: `551198${Math.floor(1000000 + Math.random() * 8999999)}`,
+    status: ['available', 'break', 'offline'][Math.floor(Math.random() * 3)],
+  })));
 
-  // Create 20 Inventory items
   const inventoryItems = [
     { name: 'ONU Huawei HG8245H', category: 'ONU', unit: 'un', price: 180 },
     { name: 'Roteador TP-Link Archer C6', category: 'Roteador', unit: 'un', price: 220 },
     { name: 'Cabo Drop Flat 1km', category: 'Cabo', unit: 'un', price: 450 },
     { name: 'Conector Fast SC/APC', category: 'Acessório', unit: 'un', price: 1.5 },
   ];
-  for (let i = 0; i < 20; i++) {
-    const invRef = doc(collection(db, 'inventory'));
+  await insertChunks('inventory', Array.from({ length: 20 }, (_, i) => {
     const baseItem = inventoryItems[i % inventoryItems.length];
-    batch.set(invRef, {
-      name: `${baseItem.name} V${Math.floor(i/4) + 1}`,
+    return {
+      name: `${baseItem.name} V${Math.floor(i / 4) + 1}`,
       category: baseItem.category,
       stock: Math.floor(Math.random() * 100) + 10,
-      minStock: 15,
+      min_stock: 15,
       unit: baseItem.unit,
       price: baseItem.price,
-      createdAt: new Date()
-    });
-    opCount++;
-    await checkLimit('inventory');
-  }
+    };
+  }));
 
-  // Create Knowledge Base
-  for (let i = 0; i < 10; i++) {
-    const kbRef = doc(collection(db, 'knowledge_base'));
-    batch.set(kbRef, {
-      title: `Artigo Suporte ${i+1}: Configuração Básica`,
-      content: `Passo 1: Verifique a conexão.\nPasso 2: Reinicie os equipamentos.\nPasso 3: Teste o cabo.`,
-      category: ['Suporte', 'Vendas', 'Financeiro'][Math.floor(Math.random() * 3)],
-      tags: ['roteador', 'configuração', 'dica'],
-      createdAt: new Date()
-    });
-    opCount++;
-    await checkLimit('knowledge_base');
-  }
+  await insertChunks('knowledge_articles', Array.from({ length: 10 }, (_, i) => ({
+    title: `Artigo Suporte ${i + 1}: Configuração Básica`,
+    content: `Passo 1: Verifique a conexão.\nPasso 2: Reinicie os equipamentos.\nPasso 3: Teste o cabo.`,
+    category: ['Suporte', 'Vendas', 'Financeiro'][Math.floor(Math.random() * 3)],
+    tags: ['roteador', 'configuração', 'dica'],
+  })));
 
-  // Create Team Members
-  for (let i = 0; i < 5; i++) {
-    const tmRef = doc(collection(db, 'team_members'));
-    batch.set(tmRef, {
-      name: `${firstNames[i + 15]} ${lastNames[i]}`,
-      email: `equipe${i}@example.com`,
-      role: ['admin', 'support', 'billing', 'sales'][Math.floor(Math.random() * 4)],
-      status: 'active',
-      createdAt: new Date()
-    });
-    opCount++;
-    await checkLimit('team_members');
-  }
+  await insertChunks('team_members', Array.from({ length: 5 }, (_, i) => ({
+    name: `${firstNames[i + 15]} ${lastNames[i]}`,
+    email: `equipe${i}@example.com`,
+    role: ['admin', 'support', 'billing', 'sales'][Math.floor(Math.random() * 4)],
+    status: 'active',
+  })));
 
   onProgress("Gerando 300 ordens de serviço...");
-  for (let i = 0; i < 300; i++) {
-    const soRef = doc(collection(db, 'service_orders'));
-    // Spread evenly across the last 30 days and the next 15 days
+  const validHours = [8, 9, 10, 11, 13, 14, 15, 16, 17];
+  await insertChunks('service_orders', Array.from({ length: 300 }, (_, i) => {
     const createdDate = new Date();
     createdDate.setDate(createdDate.getDate() + (Math.floor(Math.random() * 45) - 30));
     const isPast = createdDate < new Date();
     const isToday = createdDate.toDateString() === new Date().toDateString();
-    
-    // Choose status based on date
     let status = 'pendente';
-    if (isPast && !isToday) {
-       status = Math.random() > 0.1 ? 'concluida' : 'pendente';
-    } else if (isToday) {
-       status = ['pendente', 'em_deslocamento', 'em_andamento'][Math.floor(Math.random() * 3)];
-    }
-
-    // Working hours logic (8, 9, 10, 11, 13, 14, 15, 16, 17)
-    const validHours = [8, 9, 10, 11, 13, 14, 15, 16, 17];
+    if (isPast && !isToday) status = Math.random() > 0.1 ? 'concluida' : 'pendente';
+    else if (isToday) status = ['pendente', 'em_deslocamento', 'em_andamento'][Math.floor(Math.random() * 3)];
     const hour = validHours[Math.floor(Math.random() * validHours.length)];
     const minute = ['00', '30'][Math.floor(Math.random() * 2)];
-    
-    // Convert to required strings
-    const scheduledDateStr = createdDate.toISOString().split('T')[0];
-    const scheduledTimeStr = `${hour.toString().padStart(2, '0')}:${minute}`;
-
-    batch.set(soRef, {
-      customerId: allCustomerIds[Math.floor(Math.random() * allCustomerIds.length)],
-      status: status,
+    return {
+      customer_id: allCustomerIds[Math.floor(Math.random() * allCustomerIds.length)],
+      status,
       type: ['instalacao', 'reparo', 'manutencao'][Math.floor(Math.random() * 3)],
       description: `Ordem Automática Estudada #${i}`,
-      scheduledDate: scheduledDateStr,
-      scheduledTime: scheduledTimeStr,
-      scheduledFor: createdDate, // For legacy sorting just in case
-      assignedTo: Math.random() > 0.2 ? ['Técnico Alpha', 'Técnico Bravo', 'Técnico Charlie', 'Técnico Delta'][Math.floor(Math.random() * 4)] : 'A Definir',
-      createdAt: createdDate
-    });
-    opCount++;
-    await checkLimit('service_orders');
-  }
+      scheduled_date: createdDate.toISOString().split('T')[0],
+      scheduled_time: `${hour.toString().padStart(2, '0')}:${minute}`,
+      assigned_to: Math.random() > 0.2 ? ['Técnico Alpha', 'Técnico Bravo', 'Técnico Charlie', 'Técnico Delta'][Math.floor(Math.random() * 4)] : 'A Definir',
+      created_at: createdDate.toISOString(),
+    };
+  }), onProgress);
 
   onProgress("Gerando 1500 faturas (histórico financeiro)...");
-  for (let i = 0; i < 1500; i++) {
-    const cxId = allCustomerIds[i]; // 1 per customer
-    const invRef = doc(collection(db, 'billing_invoices'));
-    const createdDate = new Date();
-    createdDate.setDate(1); // 1st of month
-    const dueDate = new Date(createdDate);
-    dueDate.setDate(10); // Due 10th
-    
-    batch.set(invRef, {
-      customerId: cxId,
-      amount: [62.99, 82.99, 99.99, 119.99][Math.floor(Math.random() * 4)],
-      status: Math.random() > 0.2 ? 'paid' : 'pending',
-      dueDate: dueDate,
-      createdAt: createdDate
-    });
-    opCount++;
-    await checkLimit('billing_invoices');
-  }
+  const firstOfMonth = new Date();
+  firstOfMonth.setDate(1);
+  const due = new Date(firstOfMonth);
+  due.setDate(10);
+  await insertChunks('invoices', allCustomerIds.map(cxId => ({
+    customer_id: cxId,
+    amount: [62.99, 82.99, 99.99, 119.99][Math.floor(Math.random() * 4)],
+    status: Math.random() > 0.2 ? 'paid' : 'pending',
+    due_date: due.toISOString(),
+    created_at: firstOfMonth.toISOString(),
+  })), onProgress);
 
-  onProgress("Finalizando...");
-  await commitBatch('final');
   onProgress("Popular Astrum concluído com sucesso!");
 };
 
 export const wipeSystemData = async (onProgress: (msg: string) => void) => {
-  const collections = [
-    'customers',
-    'tickets',
-    'billing_invoices',
+  // Ordem respeita FKs: messages antes de tickets; invoices antes de customers.
+  const tables = [
+    'messages',
     'invoices',
+    'tickets',
+    'service_orders',
     'network_ctos',
     'technicians',
     'inventory',
-    'knowledge_base',
+    'knowledge_articles',
     'team_members',
-    'service_orders',
-    'audit_logs',
     'notifications',
-    'ai_usage'
+    'ai_performance_logs',
+    'customers',
   ];
 
-  for (const collName of collections) {
-    onProgress(`Limpando coleção: ${collName}...`);
+  for (const table of tables) {
+    onProgress(`Limpando tabela: ${table}...`);
     try {
-      const querySnapshot = await getDocs(collection(db, collName));
-      let batch = writeBatch(db);
-      let opCount = 0;
-      
-      for (const docSnap of querySnapshot.docs) {
-        if (collName === 'tickets') {
-          const msgs = await getDocs(collection(db, `tickets/${docSnap.id}/messages`));
-          for (const msgSnap of msgs.docs) {
-            batch.delete(msgSnap.ref);
-            opCount++;
-            if (opCount >= 450) {
-              await batch.commit();
-              batch = writeBatch(db);
-              opCount = 0;
-            }
-          }
-        }
-        batch.delete(docSnap.ref);
-        opCount++;
-        
-        if (opCount >= 450) {
-          await batch.commit();
-          batch = writeBatch(db);
-          opCount = 0;
-        }
-      }
-      if (opCount > 0) {
-        await batch.commit();
-      }
+      // neq em uuid impossível = delete all (PostgREST exige um filtro)
+      const { error } = await supabase.from(table)
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+      if (error) console.error(`Erro ao limpar ${table}:`, error.message);
     } catch (err) {
-      console.error(`Erro ao limpar ${collName}:`, err);
+      console.error(`Erro ao limpar ${table}:`, err);
     }
   }
 
