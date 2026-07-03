@@ -1,5 +1,5 @@
 import { adminDb as db } from "./firebaseAdmin.ts";
-import { getStorage } from "firebase-admin/storage";
+import { supabaseAdmin } from "./supabaseAdmin.ts";
 import archiver from "archiver";
 import fs from "fs";
 import os from "os";
@@ -62,18 +62,17 @@ export async function processDataExport(tenantId: string, requestedBy: string) {
     });
 
     await updateProgress("uploading", 90);
-    const bucket = getStorage().bucket();
     const uniqueFileName = `exports/${tenantId}/data_export_${Date.now()}.zip`;
-    const destination = bucket.file(uniqueFileName);
-    
-    await destination.save(fs.readFileSync(zipPath), {
-      metadata: { contentType: 'application/zip' }
-    });
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from('uploads')
+      .upload(uniqueFileName, fs.readFileSync(zipPath), { contentType: 'application/zip' });
+    if (uploadError) throw new Error(`Upload do export falhou: ${uploadError.message}`);
 
-    const [url] = await destination.getSignedUrl({
-      action: 'read',
-      expires: Date.now() + 72 * 60 * 60 * 1000 // 72 hours
-    });
+    const { data: signed, error: signError } = await supabaseAdmin.storage
+      .from('uploads')
+      .createSignedUrl(uniqueFileName, 72 * 60 * 60); // 72 horas
+    if (signError || !signed) throw new Error(`Signed URL falhou: ${signError?.message}`);
+    const url = signed.signedUrl;
 
     await updateProgress("completed", 100, url);
 

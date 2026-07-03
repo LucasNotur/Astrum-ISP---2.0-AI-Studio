@@ -1,5 +1,5 @@
 import { adminDb as db } from './firebaseAdmin.ts';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue } from './db-compat/index.ts';
 
 export const seedNewTenant = async (tenantId: string, companyName: string, adminUserId?: string) => {
   const batch = db.batch();
