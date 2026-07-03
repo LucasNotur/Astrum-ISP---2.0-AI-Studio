@@ -1,17 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { formatTenantDate, calculateBullMQDelay } from '../../lib/dateUtils';
 import { isHoliday } from '../../lib/holidays';
-import { doc, getDoc } from 'firebase/firestore';
 
-vi.mock('firebase/firestore', () => ({
-  doc: vi.fn(),
-  getDoc: vi.fn(),
-  getFirestore: vi.fn()
-}));
-
-vi.mock('../../lib/firebase', () => ({
-  db: {}
-}));
 vi.mock('../../lib/firebaseAdmin', () => ({
   adminDb: {
     collection: vi.fn(() => ({

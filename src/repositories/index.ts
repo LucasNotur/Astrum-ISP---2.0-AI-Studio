@@ -1,9 +1,4 @@
 import { CustomerRepository, TicketRepository, ServiceOrderRepository, KnowledgeRepository, TenantRepository } from './interfaces';
-import { CustomerRepositoryFirebase } from './firebase/CustomerRepositoryFirebase';
-import { TicketRepositoryFirebase } from './firebase/TicketRepositoryFirebase';
-import { ServiceOrderRepositoryFirebase } from './firebase/ServiceOrderRepositoryFirebase';
-import { KnowledgeRepositoryFirebase } from './firebase/KnowledgeRepositoryFirebase';
-import { TenantRepositoryFirebase } from './firebase/TenantRepositoryFirebase';
 import { CustomerRepositorySupabase } from './supabase/CustomerRepositorySupabase';
 import { TicketRepositorySupabase } from './supabase/TicketRepositorySupabase';
 import { ServiceOrderRepositorySupabase } from './supabase/ServiceOrderRepositorySupabase';
@@ -11,43 +6,37 @@ import { KnowledgeRepositorySupabase } from './supabase/KnowledgeRepositorySupab
 import { TenantRepositorySupabase } from './supabase/TenantRepositorySupabase';
 
 /**
- * Resolve o provider de dados do frontend. Default 'supabase' (S78 — data swap).
- * Firestore só se explicitamente pedido (fallback de emergência até o cutover S82).
- * Pura e testável.
+ * FZ-5: Supabase é o ÚNICO provider de dados — o Firestore foi removido do
+ * projeto (Plano FIRESTORE-ZERO, 2026-07-03). A função continua exportada
+ * por compatibilidade com quem inspeciona a decisão, mas sempre resolve
+ * 'supabase' e loga um aviso se alguém pedir 'firebase'.
  */
-export function resolveDbProvider(env: { VITE_DB_PROVIDER?: string; DB_PROVIDER?: string } = {}): 'supabase' | 'firebase' {
+export function resolveDbProvider(env: { VITE_DB_PROVIDER?: string; DB_PROVIDER?: string } = {}): 'supabase' {
   const raw = (env.VITE_DB_PROVIDER ?? env.DB_PROVIDER ?? 'supabase').toLowerCase();
-  return raw === 'firebase' ? 'firebase' : 'supabase';
+  if (raw === 'firebase') {
+    console.warn('[repositories] DB_PROVIDER=firebase ignorado — o Firestore foi removido (Plano FZ). Usando supabase.');
+  }
+  return 'supabase';
 }
 
-const DB_PROVIDER = resolveDbProvider({
-  VITE_DB_PROVIDER: typeof import.meta !== 'undefined' ? (import.meta as any).env?.VITE_DB_PROVIDER : undefined,
-  DB_PROVIDER: typeof process !== 'undefined' ? process.env?.DB_PROVIDER : undefined,
-});
-
 export function getCustomerRepository(): CustomerRepository {
-  if (DB_PROVIDER === 'supabase') return new CustomerRepositorySupabase();
-  return new CustomerRepositoryFirebase();
+  return new CustomerRepositorySupabase();
 }
 
 export function getTicketRepository(): TicketRepository {
-  if (DB_PROVIDER === 'supabase') return new TicketRepositorySupabase();
-  return new TicketRepositoryFirebase();
+  return new TicketRepositorySupabase();
 }
 
 export function getServiceOrderRepository(): ServiceOrderRepository {
-  if (DB_PROVIDER === 'supabase') return new ServiceOrderRepositorySupabase();
-  return new ServiceOrderRepositoryFirebase();
+  return new ServiceOrderRepositorySupabase();
 }
 
 export function getKnowledgeRepository(): KnowledgeRepository {
-  if (DB_PROVIDER === 'supabase') return new KnowledgeRepositorySupabase();
-  return new KnowledgeRepositoryFirebase();
+  return new KnowledgeRepositorySupabase();
 }
 
 export function getTenantRepository(): TenantRepository {
-  if (DB_PROVIDER === 'supabase') return new TenantRepositorySupabase();
-  return new TenantRepositoryFirebase();
+  return new TenantRepositorySupabase();
 }
 
 export * from './interfaces';

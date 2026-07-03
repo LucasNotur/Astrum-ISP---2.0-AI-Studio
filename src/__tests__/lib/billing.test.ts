@@ -38,9 +38,7 @@ vi.mock('../../lib/firebaseAdmin.ts', () => ({
   }
 }));
 
-vi.mock('firebase-admin/firestore', () => ({
-  FieldValue: { serverTimestamp: vi.fn(() => 'SERVER_TIMESTAMP') }
-}));
+// FZ-5: FieldValue agora vem de lib/db-compat (sentinel real, sem mock)
 
 const originalFetch = global.fetch;
 

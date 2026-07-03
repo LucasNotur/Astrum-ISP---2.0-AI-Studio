@@ -122,8 +122,7 @@ export const processMessageJob = async (job: any) => {
       const { customerId, tenantId, osId, installedPlan } = job.data;
       
       const last24h = new Date(Date.now() - 86400000);
-      const { Timestamp } = await import("firebase-admin/firestore");
-      
+
       const recentSupport = await db.collection('tickets')
         .where('customerId', '==', customerId)
         .get();
@@ -1347,20 +1346,16 @@ export const processMessageJob = async (job: any) => {
                      ticketId
                   }));
                }
-               // PUSH: Send FCM Notification
-               const opDoc = await db.collection("tenants").doc(tenantId).collection("operators").doc(routingResult.operator.id).get();
-               const fcmToken = opDoc.data()?.fcmToken;
-               if (fcmToken) {
-                  await admin.messaging().send({
-                     token: fcmToken,
-                     notification: {
-                        title: "Novo Atendimento",
-                        body: `O ticket #${ticketId.slice(0,5)} foi transferido para você.`
-                     },
-                     data: { ticketId, type: "NEW_TICKET" }
-                  });
-                  logger.info("fcm_sent", { operatorId: routingResult.operator.id, ticketId });
-               }
+               // FZ-5: push via tabela notifications (Supabase realtime no frontend).
+               // O FCM do Firebase foi removido; os tokens eram mocks ("mock-fcm-token-*").
+               await db.collection("notifications").add({
+                  type: "NEW_TICKET",
+                  message: `O ticket #${ticketId.slice(0,5)} foi transferido para você.`,
+                  operator_id: routingResult.operator.id,
+                  ticket_id: ticketId,
+                  tenant_id: tenantId,
+               });
+               logger.info("operator_notified", { operatorId: routingResult.operator.id, ticketId });
             } catch (err: any) {
                console.error("Failed to publish to redis or send FCM", err);
             }
@@ -1481,14 +1476,17 @@ export const processMessageJob = async (job: any) => {
                    });
                    const buffer = Buffer.from(await mp3.arrayBuffer());
                    
-                   const { getStorage } = await import("firebase-admin/storage");
-                   const bucket = getStorage().bucket();
+                   // FZ-5: TTS vai para o Supabase Storage (bucket uploads, migration 032)
+                   const { supabaseAdmin } = await import("../lib/supabaseAdmin");
                    const ttsMessageId = messageId || crypto.randomUUID();
-                   const file = bucket.file(`tenants/${tenantId}/tts/${ttsMessageId}.mp3`);
-                   
-                   await file.save(buffer, { metadata: { contentType: "audio/mpeg" } });
-                   await file.makePublic();
-                   const audioUrlToSend = file.publicUrl();
+                   const ttsPath = `tenants/${tenantId}/tts/${ttsMessageId}.mp3`;
+
+                   const { error: ttsUploadErr } = await supabaseAdmin.storage
+                     .from("uploads")
+                     .upload(ttsPath, buffer, { contentType: "audio/mpeg" });
+                   if (ttsUploadErr) throw new Error(`TTS upload falhou: ${ttsUploadErr.message}`);
+                   const audioUrlToSend = supabaseAdmin.storage
+                     .from("uploads").getPublicUrl(ttsPath).data.publicUrl;
 
                    const audioRes = await safeEvoFetch(
                      `${evoUrl}/message/sendWhatsAppAudio/${evoInstance}`,

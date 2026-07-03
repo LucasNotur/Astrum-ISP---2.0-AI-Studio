@@ -1,5 +1,11 @@
 # PLANO FIRESTORE-ZERO (FZ) — Supabase como único banco
 
+> **STATUS: ✅ EXECUTADO em 2026-07-03.** Todos os sprints FZ-0..FZ-6 completos.
+> Suíte: 804 testes passando, `npm ls firebase firebase-admin` vazio, zero imports
+> de firebase em `src/`. Commits: fz-0..2, fz-3, fz-4, fz-5..6 na branch
+> `chore/cleanup-repo-junk`. Passo operacional restante (quem tem dados reais no
+> Firestore de produção): backfill do §2 ANTES do deploy desta branch.
+
 > **Decisão do dono do produto (Lucas, 2026-07-03):** remover o Firestore TOTALMENTE do
 > codebase, mantendo apenas Supabase (+ Redis para cache/filas), **sem quebrar o sistema**.
 > Esta decisão substitui o cronograma S82 do PLANO_MESTRE_V2 — o cutover de banco é AGORA,

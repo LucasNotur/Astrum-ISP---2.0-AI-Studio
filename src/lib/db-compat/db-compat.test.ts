@@ -106,15 +106,24 @@ describe('resolveRoute', () => {
     });
   });
 
-  it('tenants/{id}/departments → tenantColumn array', () => {
+  it('tenants/{id}/departments e operators → tenantColumn array', () => {
     expect(resolveRoute(['tenants', UUID, 'departments'])).toMatchObject({
       kind: 'tenantColumn', column: 'departments', isArray: true,
+    });
+    expect(resolveRoute(['tenants', UUID, 'operators'])).toMatchObject({
+      kind: 'tenantColumn', column: 'operators', isArray: true,
+    });
+  });
+
+  it('escalation_rules/{tid}/rules → tenants.escalation_rules', () => {
+    expect(resolveRoute(['escalation_rules', UUID, 'rules'])).toMatchObject({
+      kind: 'tenantColumn', column: 'escalation_rules', isArray: true,
     });
   });
 
   it('coleção sem tabela → legacy', () => {
     expect(resolveRoute(['ai_personas'])).toMatchObject({ kind: 'legacy' });
-    expect(resolveRoute(['tenants', UUID, 'operators'])).toMatchObject({ kind: 'legacy' });
+    expect(resolveRoute(['tenants', UUID, 'hsm_templates'])).toMatchObject({ kind: 'legacy' });
   });
 });
 
@@ -304,10 +313,10 @@ describe('legacy_docs fallback', () => {
   });
 
   it('subcoleção legacy tem parent_path', async () => {
-    await db.collection('tenants').doc('t1').collection('operators').doc('op1').set({ status: 'online' });
+    await db.collection('tenants').doc('t1').collection('hsm_templates').doc('tpl1').set({ body: 'oi' });
     const call = callsFor('legacy_docs').pop();
     expect(call.payload.parent_path).toBe('tenants/t1');
-    expect(call.payload.collection).toBe('operators');
+    expect(call.payload.collection).toBe('hsm_templates');
   });
 
   it('query legacy filtra em JS', async () => {

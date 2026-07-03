@@ -16,11 +16,16 @@ const mockCollection = vi.fn(() => ({
   add: mockAdd
 }));
 
-const mockRevokeRefreshTokens = vi.fn();
-const mockListUsers = vi.fn();
-const mockAuth = vi.fn(() => ({
-  listUsers: mockListUsers,
-  revokeRefreshTokens: mockRevokeRefreshTokens
+// FZ-3: a revogação de sessões é via tabela users + Redis (era listUsers do Firebase)
+const mockRevokeTenantUserTokens = vi.fn(async (..._args: any[]) => 1);
+
+vi.mock('../../lib/authVerify.ts', () => ({
+  revokeTenantUserTokens: (...args: any[]) => mockRevokeTenantUserTokens(...args),
+}));
+vi.mock('../../lib/tokenBlacklist.ts', () => ({
+  revokeAllUserTokens: vi.fn(),
+  isTokenBlacklisted: vi.fn().mockResolvedValue(false),
+  getUserRevokeTimestamp: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock('../../lib/firebaseAdmin.ts', () => {
@@ -29,7 +34,6 @@ vi.mock('../../lib/firebaseAdmin.ts', () => {
       collection: (...args: [any]) => mockCollection(...args)
     },
     default: {
-      auth: () => mockAuth(),
       firestore: {
         FieldValue: {
           serverTimestamp: vi.fn(() => 'SERVER_TIMESTAMP')
@@ -75,15 +79,12 @@ describe('Lockout Worker & Middleware Tests', () => {
         exists: true,
         data: () => ({ billing_status: 'overdue' })
       });
-      mockListUsers.mockResolvedValueOnce({
-        users: [{ uid: 'user-1', customClaims: { tenantId: 'tenant-1' } }],
-        pageToken: undefined
-      });
 
       await processCobraiJob({ name: 'lockout_tenant', data: { tenantId: 'tenant-1' } });
-      
+
       expect(mockUpdate).toHaveBeenCalledWith({ status: 'suspended', suspended_reason: 'billing_overdue' });
-      expect(mockRevokeRefreshTokens).toHaveBeenCalledWith('user-1');
+      // FZ-3: revogação de todas as sessões do tenant via tabela users + Redis
+      expect(mockRevokeTenantUserTokens).toHaveBeenCalledWith('tenant-1', expect.any(Function));
       expect(mockAdd).toHaveBeenCalledWith(expect.objectContaining({
         action: 'BILLING_LOCK',
         tenant_id: 'tenant-1'
@@ -97,9 +98,9 @@ describe('Lockout Worker & Middleware Tests', () => {
       });
 
       await processCobraiJob({ name: 'lockout_tenant', data: { tenantId: 'tenant-1' } });
-      
+
       expect(mockUpdate).not.toHaveBeenCalled();
-      expect(mockRevokeRefreshTokens).not.toHaveBeenCalled();
+      expect(mockRevokeTenantUserTokens).not.toHaveBeenCalled();
     });
   });
 

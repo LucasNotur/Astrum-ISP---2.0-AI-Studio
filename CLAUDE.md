@@ -11,8 +11,11 @@
   Mudanças no frontend legado são permitidas apenas em: camada de dados (repositories), auth,
   hooks de rede e correção de bug. Páginas **novas** (ex.: dashboard de saúde) são permitidas.
 
-- **R2 — Dados:** Supabase é o único banco de destino. Redis para cache/filas. Firestore só
-  existe até o cutover (S82) — **proibido criar coleção/campo novo no Firestore**.
+- **R2 — Dados:** Supabase é o **ÚNICO** banco. Redis para cache/filas. O Firestore foi
+  **REMOVIDO totalmente do código** em 2026-07-03 (Plano FIRESTORE-ZERO —
+  `.astrum-progress/PLANO_FIRESTORE_ZERO.md`). O backend legado acessa o Supabase pela
+  camada de compatibilidade `src/lib/db-compat/` (via seam `src/lib/firebaseAdmin.ts`,
+  que mantém o nome histórico mas é 100% Supabase). **Proibido reintroduzir firebase/firebase-admin.**
 
 - **R3 — LLMs:** GPT-4o-mini para conversação, GPT-4o para orquestração/raciocínio. O sistema de
   fallback multi-provider **já existe** em `src/ai-provider/` (adapters openai/anthropic/gemini) e
@@ -42,11 +45,14 @@
 
 Rollback de cutover = trocar a env de volta. Nenhuma das duas engines de um domínio sobe junto com a outra.
 
-## Estado das frentes de backend (2026-07-01)
+## Estado das frentes de backend (2026-07-03)
 
-- `/src` + `server.ts` raiz (Express + Firestore) — **em produção hoje**.
+- `/src` + `server.ts` raiz (Express + **Supabase via db-compat**) — **em produção hoje**.
+  Desde o Plano FZ (2026-07-03) NÃO usa mais Firestore: `adminDb` é servido por
+  `src/lib/db-compat/` e a auth verifica JWT Supabase (`src/lib/authVerify.ts`).
 - `apps/api` (Fastify + Supabase) — fundação nova, alta qualidade, ainda sem tráfego real.
 - `apps/backend` — **removido** na S68 (órfão; preservado em `graveyard/billing-enterprise`).
 - `apps/frontend` — billing/subscriptions **em uso** por `src/pages/SettingsPage.tsx` (UI viva, mantido).
 
-Fontes da verdade: `docs/LEGACY_RETIREMENT_PLAN.md`, `docs/DB_MIGRATION_GAP_REPORT.md`, `.astrum-progress/PLANO_MESTRE_V2.md`.
+Fontes da verdade: `.astrum-progress/PLANO_FIRESTORE_ZERO.md` (remoção do Firestore),
+`docs/LEGACY_RETIREMENT_PLAN.md`, `docs/DB_MIGRATION_GAP_REPORT.md`, `.astrum-progress/PLANO_MESTRE_V2.md`.
