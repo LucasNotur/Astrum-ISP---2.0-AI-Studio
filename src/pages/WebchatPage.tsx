@@ -3,8 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Send, Bot, User, Phone, MapPin, ExternalLink, Zap } from "lucide-react";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
-import { db } from "@/src/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+// S99 — config loaded via /api/webchat/config (no direct Firestore needed)
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function WebchatPage() {

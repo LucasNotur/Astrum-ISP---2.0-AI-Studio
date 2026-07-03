@@ -13,9 +13,7 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
-import { db } from '@/src/lib/firebase';
-import { auth } from '@/src/lib/firebase';
+import { supabase } from '@/src/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
 import { Badge } from "@/src/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
@@ -33,9 +31,9 @@ export const AIObservabilityPage = () => {
   useEffect(() => {
     const fetchCircuitInfo = async () => {
       try {
-        const user = auth.currentUser;
-        if (!user) return;
-        const token = await user.getIdToken();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        const token = session.access_token;
         const res = await fetch('/api/super-admin/ai-circuit', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -54,30 +52,33 @@ export const AIObservabilityPage = () => {
     fetchCircuitInfo();
     const interval = setInterval(fetchCircuitInfo, 60000); // 1 minute fresh
 
-    const qLogs = query(collection(db, 'logs'), orderBy('timestamp', 'desc'));
-    const unsubscribeLogs = onSnapshot(qLogs, (snapshot) => {
-      const logsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        timestamp: doc.data().timestamp?.toDate?.()?.toLocaleString() || new Date(doc.data().timestamp).toLocaleString()
-      }));
-      setLogs(logsData);
-    });
-
-    const qUsage = query(collection(db, 'token_usage'), orderBy('updated_at', 'desc'));
-    const unsubscribeUsage = onSnapshot(qUsage, (snapshot) => {
-      const usageData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setTokenUsage(usageData);
-      setLoading(false);
-    });
+    // S99 — lê logs de AI do Supabase (ai_performance_logs)
+    supabase
+      .from('ai_performance_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(200)
+      .then(({ data }) => {
+        if (data) {
+          setLogs(data.map(r => ({
+            ...r,
+            timestamp: r.created_at ? new Date(r.created_at).toLocaleString('pt-BR') : '',
+          })));
+          setTokenUsage(
+            data.reduce((acc: any[], r: any) => {
+              const key = r.provider || 'openai';
+              const ex = acc.find(x => x.provider === key);
+              if (ex) { ex.tokens += r.tokens_used || 0; ex.cost += r.cost_usd || 0; }
+              else acc.push({ provider: key, tokens: r.tokens_used || 0, cost: r.cost_usd || 0 });
+              return acc;
+            }, [])
+          );
+          setLoading(false);
+        }
+      });
 
     return () => {
       clearInterval(interval);
-      unsubscribeLogs();
-      unsubscribeUsage();
     };
   }, []);
 

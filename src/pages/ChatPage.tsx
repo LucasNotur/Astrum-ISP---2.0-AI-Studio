@@ -48,18 +48,7 @@ import {
   getAIResponse as askAiAgent,
   AGENT_CATEGORIES,
 } from "@/src/lib/gemini";
-import {
-  addDoc,
-  collection,
-  serverTimestamp,
-  doc,
-  updateDoc,
-  deleteDoc,
-  getDocs,
-  query,
-  orderBy,
-  onSnapshot,
-} from "firebase/firestore";
+// S99 — Firestore removido; mensagens via Supabase
 import {
   Dialog,
   DialogContent,
@@ -70,7 +59,7 @@ import {
 } from "@/src/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/components/ui/select";
 import { Label } from "@/src/components/ui/label";
-import { db } from "@/src/lib/firebase";
+import { supabase } from "@/src/lib/supabase";
 import { uploadAttachment as uploadToStorage } from "@/src/lib/storage";
 import { CustomerHistorySidebar } from "@/src/components/CustomerHistorySidebar";
 import { MaskedSensitiveData } from "@/src/components/MaskedSensitiveData";
@@ -122,8 +111,8 @@ export function ChatPage() {
           tenantId,
         };
 
-        // Optimistic UI updates
-        await updateDoc(doc(db, "customers", editingCustomerData.id), payload);
+        // S99 — customer update via Supabase
+        await supabase.from('customers').update(payload).eq('id', editingCustomerData.id);
 
         // Try calling the new backend API for ERP bidirecional sync
         fetch(`/api/customers/${editingCustomerData.id}`, {
@@ -187,16 +176,21 @@ export function ChatPage() {
 
   const [departments, setDepartments] = useState<any[]>([]);
 
+  // S99 — departamentos via Supabase
   React.useEffect(() => {
     if (!userProfile?.tenantId) return;
-    import("firebase/firestore").then(({ onSnapshot, collection }) => {
-      onSnapshot(
-        collection(db, "tenants", userProfile.tenantId, "departments"),
-        (snap) => {
-          setDepartments(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        },
-      );
-    });
+    supabase
+      .from('tickets')
+      .select('department_id')
+      .eq('tenant_id', userProfile.tenantId)
+      .not('department_id', 'is', null)
+      .then(({ data }) => {
+        if (data) {
+          const unique = [...new Set(data.map((r: any) => r.department_id))]
+            .map((id) => ({ id, name: id }));
+          setDepartments(unique);
+        }
+      });
   }, [userProfile?.tenantId]);
 
   const getSLAStatus = (ticket: any) => {
@@ -238,32 +232,29 @@ export function ChatPage() {
   const [editingFormId, setEditingFormId] = useState<string | null>(null);
   const [formBuilderData, setFormBuilderData] = useState({ name: '', fields: [] as { id: string, label: string, type: string, required: boolean, options?: string }[] });
 
+  // S99 — forms persistidos como JSONB na coluna tenants.forms
   const handleSaveForm = async () => {
      if (!tenantId) return;
      if (!formBuilderData.name.trim()) return toast.error("Nome do formulário é obrigatório");
-     try {
-       if (editingFormId && editingFormId !== 'new') {
-          await updateDoc(doc(db, "tenants", tenantId, "forms", editingFormId), { ...formBuilderData, updatedAt: new Date() });
-          toast.success("Formulário atualizado");
-       } else {
-          await addDoc(collection(db, "tenants", tenantId, "forms"), { ...formBuilderData, createdAt: new Date() });
-          toast.success("Formulário criado");
-       }
-       setFormBuilderData({ name: '', fields: [] });
-       setEditingFormId(null);
-     } catch (e: any) {
-       toast.error("Erro ao salvar formulário");
-     }
+     const newForm = { ...formBuilderData, id: editingFormId && editingFormId !== 'new' ? editingFormId : crypto.randomUUID() };
+     const updated = editingFormId && editingFormId !== 'new'
+       ? tenantForms.map((f: any) => f.id === editingFormId ? newForm : f)
+       : [...tenantForms, newForm];
+     const { error } = await supabase.from('tenants').update({ forms: updated }).eq('id', tenantId);
+     if (error) { toast.error("Erro ao salvar formulário"); return; }
+     setTenantForms(updated);
+     setFormBuilderData({ name: '', fields: [] });
+     setEditingFormId(null);
+     toast.success(editingFormId && editingFormId !== 'new' ? "Formulário atualizado" : "Formulário criado");
   };
 
   const handleDeleteForm = async (id: string) => {
      if (!tenantId || !confirm("Tem certeza?")) return;
-     try {
-       await deleteDoc(doc(db, "tenants", tenantId, "forms", id));
-       toast.success("Removido com sucesso");
-     } catch (e: any) {
-       toast.error("Erro ao remover");
-     }
+     const updated = tenantForms.filter((f: any) => f.id !== id);
+     const { error } = await supabase.from('tenants').update({ forms: updated }).eq('id', tenantId);
+     if (error) { toast.error("Erro ao remover"); return; }
+     setTenantForms(updated);
+     toast.success("Removido com sucesso");
   };
 
   const [snoozeForm, setSnoozeForm] = useState({
@@ -291,9 +282,9 @@ export function ChatPage() {
         return;
       }
 
-      await updateDoc(doc(db, "tickets", selectedTicket.id), {
+      await supabase.from('tickets').update({
         status: "snoozed",
-        snoozed_until: snoozedUntilDate,
+        snoozed_until: snoozedUntilDate.toISOString(),
         snooze_reason: snoozeForm.reason,
         snoozed_by: userProfile?.id || "Operador",
       });
@@ -447,12 +438,11 @@ export function ChatPage() {
           m.key?.fromMe === "true" ||
           m.fromMe === true ||
           String(m.fromMe) === "true";
-        await addDoc(collection(db, "tickets", selectedTicket.id, "messages"), {
-          ticketId: selectedTicket.id,
-          text: text,
-          senderType: isFromMe ? "human" : "customer",
-          status: "sent",
-          createdAt: new Date((m.messageTimestamp || 0) * 1000),
+        await supabase.from('messages').insert({
+          ticket_id: selectedTicket.id,
+          body: text,
+          sender_type: isFromMe ? "human" : "customer",
+          created_at: new Date((m.messageTimestamp || 0) * 1000).toISOString(),
         });
         added++;
 
@@ -519,18 +509,13 @@ export function ChatPage() {
       return;
     }
 
-    // Simulate incoming customer message
-    const msgRef = await addDoc(
-      collection(db, "tickets", ticketId, "messages"),
-      {
-        text: testMessage,
-        senderType: "customer",
-        createdAt: serverTimestamp(),
-      },
-    );
+    // Simulate incoming customer message (S99 — via Supabase)
+    const { data: msgRow } = await supabase.from('messages').insert({
+      ticket_id: ticketId, body: testMessage, sender_type: "customer",
+    }).select().single();
 
     const newMsg = {
-      id: msgRef.id,
+      id: msgRow?.id,
       text: testMessage,
       senderType: "customer",
       createdAt: new Date(),
@@ -563,25 +548,13 @@ export function ChatPage() {
       );
       console.log("Resposta recebida:", response);
 
-      const aiMsgRef = await addDoc(
-        collection(db, "tickets", ticketId, "messages"),
-        {
-          text: response.text,
-          senderType: "ai",
-          category: response.category,
-          createdAt: serverTimestamp(),
-        },
-      );
+      const { data: aiMsgRow } = await supabase.from('messages').insert({
+        ticket_id: ticketId, body: response.text, sender_type: "ai", category: response.category,
+      }).select().single();
 
       setMessages((prev) => [
         ...prev,
-        {
-          id: aiMsgRef.id,
-          text: response.text,
-          senderType: "ai",
-          category: response.category,
-          createdAt: new Date(),
-        },
+        { id: aiMsgRow?.id, text: response.text, senderType: "ai", category: response.category, createdAt: new Date() },
       ]);
     } catch (error) {
       console.error("Error in AI chat block:", error);
@@ -591,25 +564,18 @@ export function ChatPage() {
     }
   };
 
+  // S99 — closing_reasons e forms via Supabase (tabela tenants JSONB ou default)
   React.useEffect(() => {
     if (!tenantId) return;
-    const crQuery = query(collection(db, "tenants", tenantId, "closing_reasons"));
-    const unsubCr = onSnapshot(crQuery, (snap) => {
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setClosingReasonsList(data.length > 0 ? data : [
+    supabase.from('tenants').select('closing_reasons,forms').eq('id', tenantId).maybeSingle().then(({ data }) => {
+      setClosingReasonsList((data?.closing_reasons?.length ?? 0) > 0 ? data!.closing_reasons : [
         { id: "1", name: "Dúvida Sanada" },
         { id: "2", name: "Problema Técnico Resolvido" },
         { id: "3", name: "Falta de Retorno do Cliente" },
         { id: "4", name: "Encaminhado para outro setor" }
       ]);
+      setTenantForms(data?.forms ?? []);
     });
-    
-    const formsQuery = query(collection(db, "tenants", tenantId, "forms"));
-    const unsubForms = onSnapshot(formsQuery, (snap) => {
-       setTenantForms(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-
-    return () => { unsubCr(); unsubForms(); };
   }, [tenantId]);
 
   const updateTicketStatusLocal = async (ticketId: string, status: string) => {
@@ -649,9 +615,7 @@ export function ChatPage() {
     }
     if (!selectedTicket) return;
     try {
-      await updateDoc(doc(db, "tickets", selectedTicket.id), {
-         closing_reason: closingReason
-      });
+      await supabase.from('tickets').update({ closing_reason: closingReason }).eq('id', selectedTicket.id);
       await updateTicketStatus(selectedTicket.id, "resolved");
       toast.success("Ticket resolvido com sucesso!");
       setIsClosingModalOpen(false);
@@ -694,19 +658,16 @@ export function ChatPage() {
     }
 
     try {
-      const msgRef = await addDoc(
-        collection(db, "tickets", selectedTicket.id, "messages"),
-        {
-          ticketId: selectedTicket.id,
-          text: messageText,
-          senderType: "human", // Human agent sending from panel
-          agentId: userProfile?.uid || null,
-          agentName: userProfile?.name || "Agente (Desconhecido)",
-          attachment: attachmentData,
-          createdAt: serverTimestamp(),
-          isInternal: isInternalNote
-        },
-      );
+      // S99 — send message via Supabase
+      const { data: msgRef } = await supabase.from('messages').insert({
+        ticket_id: selectedTicket.id,
+        body: messageText,
+        sender_type: "human",
+        agent_id: userProfile?.uid ?? null,
+        agent_name: userProfile?.name ?? "Agente (Desconhecido)",
+        attachment: attachmentData ?? null,
+        is_internal: isInternalNote,
+      }).select().single();
 
       if (
         !selectedTicket.human_responded &&
@@ -790,7 +751,7 @@ export function ChatPage() {
             toast.error("Erro ao enviar mensagem pelo WhatsApp.");
           } else if (resData?.key?.id || resData?.message?.key?.id) {
             const evoId = resData?.key?.id || resData?.message?.key?.id;
-            await updateDoc(msgRef, { evoMsgIds: [evoId] });
+            if (msgRef?.id) await supabase.from('messages').update({ evo_msg_ids: [evoId] }).eq('id', msgRef.id);
           }
         } catch (evoErr) {
           console.error("Evolution local error:", evoErr);

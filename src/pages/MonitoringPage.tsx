@@ -4,8 +4,7 @@ import { Badge } from "@/src/components/ui/badge";
 import { Button } from "@/src/components/ui/button";
 import { toast } from 'sonner';
 import { Activity, RefreshCw, Smartphone, Server, AlertTriangle, AlertCircle, CheckCircle } from 'lucide-react';
-import { db } from '@/src/lib/firebase';
-import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc, where } from 'firebase/firestore';
+import { supabase } from '@/src/lib/supabase';
 import { useAppStore } from '@/src/store/useAppStore';
 
 export function MonitoringPage() {
@@ -20,37 +19,22 @@ export function MonitoringPage() {
   useEffect(() => {
     if (!user) return;
 
-    // Escutar DLQ
-    const unsubDlq = onSnapshot(query(collection(db, 'dead_letter_queue'), where('resolved', '==', false), limit(10)), (snap) => {
-      setDlqJobs(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => {
-      console.error('DLQ listener error:', error);
-    });
-
-    const unsubNotif = onSnapshot(query(collection(db, 'notifications'), where('read', '==', false), orderBy('created_at', 'desc'), limit(20)), (snap) => {
-      setNotifications(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => {
-      console.error('Notifications listener error:', error);
-    });
-
-    // Listen to tenant doc for whatsapp_health
+    // S99 — DLQ e notifications via Supabase
     const tenantId = user?.tenantId || 'DEFAULT_TENANT';
-    const unsubTenant = onSnapshot(doc(db, 'tenants', tenantId), (docSnap) => {
-      if (docSnap.exists() && docSnap.data().whatsapp_health) {
-        setWaHealth(docSnap.data().whatsapp_health);
-      }
-    }, (error) => {
-      console.error('Tenant listener error:', error);
-    });
+    supabase.from('dead_letter_queue').select('*').eq('resolved', false).limit(10)
+      .then(({ data }) => setDlqJobs(data ?? []));
+
+    supabase.from('notifications').select('*').eq('read', false).eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false }).limit(20)
+      .then(({ data }) => setNotifications(data ?? []));
+
+    supabase.from('tenants').select('whatsapp_health').eq('id', tenantId).maybeSingle()
+      .then(({ data }) => { if (data?.whatsapp_health) setWaHealth(data.whatsapp_health); });
 
     fetchWaHealth();
     fetchQueueStats();
 
-    return () => {
-      unsubDlq();
-      unsubNotif();
-      unsubTenant();
-    };
+    return () => {};
   }, [user]);
 
   const fetchWaHealth = async () => {
@@ -95,7 +79,7 @@ export function MonitoringPage() {
 
   const markDlqResolved = async (id: string, action: string = 'descartado') => {
     try {
-      await updateDoc(doc(db, 'dead_letter_queue', id), { resolved: true, action });
+      await supabase.from('dead_letter_queue').update({ resolved: true, action }).eq('id', id);
       toast.success(action === 'descartado' ? 'Job descartado' : 'Job marcado como resolvido');
     } catch (e) {
       toast.error('Erro ao atualizar job');
@@ -128,7 +112,7 @@ export function MonitoringPage() {
     try {
       // Basic approach
       for (const n of notifications) {
-        await updateDoc(doc(db, 'notifications', n.id), { read: true });
+        await supabase.from('notifications').update({ read: true }).eq('id', n.id);
       }
       toast.success('Todas as notificações foram lidas');
     } catch (e) {

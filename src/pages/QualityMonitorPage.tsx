@@ -19,18 +19,7 @@ import {
   Smile,
   Search,
 } from "lucide-react";
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  limit,
-  onSnapshot,
-  getDocs,
-  doc,
-  updateDoc,
-} from "firebase/firestore";
-import { db } from "@/src/lib/firebase";
+import { supabase } from "@/src/lib/supabase";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Button } from "@/src/components/ui/button";
 import { FCRMetricsCard } from "@/src/components/FCRMetricsCard";
@@ -89,50 +78,25 @@ export default function QualityMonitorPage() {
   useEffect(() => {
     if (!tenantId) return;
 
-    const qTickets = query(
-      collection(db, "tickets"),
-      where("tenantId", "==", tenantId),
-      where("status", "==", "open"),
-      orderBy("updatedAt", "desc"),
-      limit(10),
-    );
-    const unsubscribeTickets = onSnapshot(qTickets, (snap) => {
-      setActiveConversations(
-        snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
-      );
-    });
+    // S99 — quality data via Supabase
+    supabase.from('tickets').select('*').eq('tenant_id', tenantId).eq('status', 'open')
+      .order('updated_at', { ascending: false }).limit(10)
+      .then(({ data }) => setActiveConversations(data ?? []));
 
-    const qAlerts = query(
-      collection(db, "notifications"),
-      where("tenantId", "==", tenantId),
-      where("read", "==", false),
-      orderBy("timestamp", "desc"),
-      limit(20),
-    );
-    const unsubscribeAlerts = onSnapshot(qAlerts, (snap) => {
-      setRecentAlerts(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-    });
+    supabase.from('notifications').select('*').eq('tenant_id', tenantId).eq('read', false)
+      .order('created_at', { ascending: false }).limit(20)
+      .then(({ data }) => setRecentAlerts(data ?? []));
 
-    const qCsat = query(
-      collection(db, "csat_ratings"),
-      where("tenantId", "==", tenantId),
-      orderBy("createdAt", "desc"),
-      limit(100),
-    );
-    const unsubscribeCsat = onSnapshot(qCsat, (snap) => {
-      setCsatRatings(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-    });
+    supabase.from('tickets').select('csat_score,created_at').eq('tenant_id', tenantId)
+      .not('csat_score', 'is', null).order('created_at', { ascending: false }).limit(100)
+      .then(({ data }) => setCsatRatings((data ?? []).map((r: any) => ({ id: r.id, rating: r.csat_score, createdAt: r.created_at }))));
 
-    return () => {
-      unsubscribeTickets();
-      unsubscribeAlerts();
-      unsubscribeCsat();
-    };
+    return () => {};
   }, [tenantId]);
 
   const markAlertAsRead = async (id: string) => {
     try {
-      await updateDoc(doc(db, "notifications", id), { read: true });
+      await supabase.from('notifications').update({ read: true }).eq('id', id);
     } catch (e) {
       console.error(e);
     }

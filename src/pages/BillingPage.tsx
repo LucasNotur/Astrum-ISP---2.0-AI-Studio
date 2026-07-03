@@ -29,8 +29,7 @@ import {
 } from 'recharts';
 import { cn } from '@/src/lib/utils';
 import { useAppStore } from '../store/useAppStore';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '@/src/lib/firebase';
+import { supabase } from '@/src/lib/supabase';
 import { toast } from 'sonner';
 
 import { RequireProvedorAdmin } from '../components/RequireProvedorAdmin';
@@ -72,7 +71,7 @@ export function BillingPage() {
 
   const simulatePayment = async (id: string) => {
      try {
-       await updateDoc(doc(db, 'billing_invoices', id), { status: 'paid' });
+       await supabase.from('invoices').update({ status: 'paid' }).eq('id', id);
        toast.success("Fatura marcada como paga.");
      } catch (error) {
        toast.error("Erro ao atualizar fatura.");
@@ -460,7 +459,7 @@ export function BillingPage() {
                           onConfirm: async () => {
                             try {
                               const promises = selectedInvoices.map(id => 
-                                updateDoc(doc(db, 'billing_invoices', id), { status: 'paid' })
+                                supabase.from('invoices').update({ status: 'paid' }).eq('id', id)
                               );
                               await Promise.all(promises);
                               setSelectedInvoices([]);

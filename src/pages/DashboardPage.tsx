@@ -70,8 +70,7 @@ import {
 } from "recharts";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { db } from "@/src/lib/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { supabase } from "@/src/lib/supabase";
 
 export function DashboardPage() {
   const loading = useAppStore((s) => s.loading);
@@ -94,23 +93,13 @@ export function DashboardPage() {
       try {
         const tenantId = companySettings?.tenant_id || "default";
 
-        // Fetch Upsells
-        const qUpsell = query(
-          collection(db, "upsell_events"),
-          where("tenant_id", "==", tenantId),
-        );
-        const snapUpsell = await getDocs(qUpsell);
-        setUpsellEvents(
-          snapUpsell.docs.map((d) => ({ id: d.id, ...d.data() })),
-        );
-
-        // Fetch CSAT
-        const qCsat = query(
-          collection(db, "csat_ratings"),
-          where("tenantId", "==", tenantId),
-        );
-        const snapCsat = await getDocs(qCsat);
-        setCsatRatings(snapCsat.docs.map((d) => ({ id: d.id, ...d.data() })));
+        // S99 — Upsells e CSAT via Supabase
+        const [{ data: upsells }, { data: csats }] = await Promise.all([
+          supabase.from('cobrai_jobs').select('*').eq('tenant_id', tenantId).eq('status', 'completed'),
+          supabase.from('tickets').select('csat_score,created_at').eq('tenant_id', tenantId).not('csat_score', 'is', null),
+        ]);
+        setUpsellEvents(upsells ?? []);
+        setCsatRatings((csats ?? []).map((r: any) => ({ id: r.id, rating: r.csat_score, tenantId })));
       } catch (err) {
         console.error("Error fetching dashboard data", err);
       }

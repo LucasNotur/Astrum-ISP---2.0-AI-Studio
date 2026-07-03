@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { openDB } from "idb";
 import jsPDF from "jspdf";
-import { storage, db as firestoreDb } from "../lib/firebase"; // imported firestore if needed, but not required yet
+import { storage } from "../lib/firebase";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { SignaturePad } from "../components/SignaturePad";
 import { processSignatureAndPdf } from "../lib/signaturePad";

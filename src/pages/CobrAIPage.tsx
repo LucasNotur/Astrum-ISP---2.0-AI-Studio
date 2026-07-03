@@ -7,8 +7,7 @@ import { Label } from "@/src/components/ui/label";
 import { Switch } from "@/src/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/src/components/ui/tabs";
 import { toast } from 'sonner';
-import { db } from '@/src/lib/firebase';
-import { collection, query, where, getDocs, onSnapshot, doc, updateDoc, Timestamp, orderBy, limit as fsLimit, arrayRemove, arrayUnion } from 'firebase/firestore';
+import { supabase } from '@/src/lib/supabase';
 import { useAppStore } from '@/src/store/useAppStore';
 import { maskCpfForLog } from '@/src/lib/db';
 import { Bot, Pause, Play, Send, Trash2, Clock, CheckCircle2, AlertTriangle, AlertCircle, RefreshCw } from 'lucide-react';
@@ -41,45 +40,38 @@ export function CobrAIPage() {
     fetchQueue();
     fetchLogs();
     
-    // Listen to tenant doc for config
-    const unsubTenant = onSnapshot(doc(db, 'tenants', tenantId), (docSnap) => {
-      if (docSnap.exists()) {
-        setTenantData(docSnap.data());
-      }
-    }, (error) => {
-      console.error("Erro listener tenants:", error);
-    });
+    // S99 — tenant config via Supabase
+    supabase
+      .from('tenants')
+      .select('*')
+      .eq('id', tenantId)
+      .maybeSingle()
+      .then(({ data }) => { if (data) setTenantData(data); });
 
-    return () => {
-      unsubTenant();
-    };
+    return () => {};
   }, [tenantId, user]);
 
   const fetchMetrics = async () => {
     try {
-      // 1. Clientes inadimplentes
-      const qInadimplentes = query(collection(db, 'customers'), where('financial_status', '==', 'inadimplente'));
-      const snapInadimplentes = await getDocs(qInadimplentes);
-      setInadimplentes(snapInadimplentes.size);
+      // S99 — métricas CobrAI via Supabase
+      const [{ count: countInadimplentes }, { count: countAcordos }] = await Promise.all([
+        supabase.from('customers').select('*', { count: 'exact', head: true }).eq('financial_status', 'inadimplente').eq('tenant_id', tenantId),
+        supabase.from('customers').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
+      ]);
+      setInadimplentes(countInadimplentes ?? 0);
+      setAcordosAtivos(countAcordos ?? 0);
 
-      // 2. Acordos ativos
-      const qAcordos = query(collection(db, 'customers'), where('payment_agreement.active', '==', true));
-      const snapAcordos = await getDocs(qAcordos);
-      setAcordosAtivos(snapAcordos.size);
-
-      // 3. Mensagens hoje e taxa de entrega (últimas 24h aproximado por hoje para simplificar)
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
-      const qLogs = query(collection(db, 'cobrai_logs'), where('sent_at', '>=', Timestamp.fromDate(now)));
-      const snapLogs = await getDocs(qLogs);
-      
-      setMensagensHoje(snapLogs.size);
-      
-      let delivered = 0;
-      snapLogs.forEach(doc => {
-        if (doc.data().status === 'delivered') delivered++;
-      });
-      setTaxaEntrega(snapLogs.size > 0 ? `${Math.round((delivered / snapLogs.size) * 100)}%` : '0%');
+      // cobrai_jobs como proxy de mensagens enviadas hoje
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const { data: jobsHoje } = await supabase
+        .from('cobrai_jobs')
+        .select('status')
+        .eq('tenant_id', tenantId)
+        .gte('created_at', today.toISOString());
+      setMensagensHoje(jobsHoje?.length ?? 0);
+      const delivered = (jobsHoje ?? []).filter((j: any) => j.status === 'completed').length;
+      const total = jobsHoje?.length ?? 0;
+      setTaxaEntrega(total > 0 ? `${Math.round((delivered / total) * 100)}%` : '0%');
 
       // 4. Queue Stats
       const resStats = await fetch('/api/cobrai/queue-stats');
@@ -119,14 +111,14 @@ export function CobrAIPage() {
 
   const fetchLogs = async () => {
     try {
-      const qLogs = query(
-        collection(db, 'cobrai_logs'), 
-        where('tenant_id', '==', tenantId),
-        orderBy('sent_at', 'desc'), 
-        fsLimit(100)
-      );
-      const snap = await getDocs(qLogs);
-      setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      // S99 — cobrai_jobs como fonte de logs
+      const { data } = await supabase
+        .from('cobrai_jobs')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      setLogs(data ?? []);
     } catch (e) {
       console.error("Erro fetchLogs", e);
     }
@@ -140,11 +132,11 @@ export function CobrAIPage() {
 
   const pauseCustomer = async (customerId: string) => {
     try {
-      const isPaused = tenantData.cobrai_paused_customers?.includes(customerId);
-      await updateDoc(doc(db, 'tenants', tenantId), { 
-        cobrai_paused_customers: isPaused ? arrayRemove(customerId) : arrayUnion(customerId)
-      });
-      toast.success(isPaused ? "Cliente retomado" : "Cliente pausado");
+      // S99 — opt-out via customers.cobrai_opted_out (migration 025)
+      const { data: c } = await supabase.from('customers').select('cobrai_opted_out').eq('id', customerId).maybeSingle();
+      const isOptedOut = c?.cobrai_opted_out ?? false;
+      await supabase.from('customers').update({ cobrai_opted_out: !isOptedOut }).eq('id', customerId);
+      toast.success(isOptedOut ? "Cliente retomado" : "Cliente pausado");
     } catch (e) {
       toast.error('Erro ao pausar cliente');
     }

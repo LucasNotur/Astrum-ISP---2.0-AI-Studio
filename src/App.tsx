@@ -209,6 +209,23 @@ import {
   createTechnician,
   seedServiceOrdersAndTechnicians,
 } from "./lib/db";
+// S99 — Supabase real-time subscriptions (substituem os onSnapshot do Firestore)
+import {
+  getCustomers as sbGetCustomers,
+  getTickets as sbGetTickets,
+  getInvoices as sbGetInvoices,
+  getNetworkCTOs as sbGetNetworkCTOs,
+  getAuditLogs as sbGetAuditLogs,
+  getInventory as sbGetInventory,
+  getServiceOrders as sbGetServiceOrders,
+  getTechnicians as sbGetTechnicians,
+  getTeamMembers as sbGetTeamMembers,
+  getKnowledgeBase as sbGetKnowledgeBase,
+  getNotifications as sbGetNotifications,
+  getRolePermissions as sbGetRolePermissions,
+  getTenantSettings as sbGetTenantSettings,
+  getIntegrationKeys as sbGetIntegrationKeys,
+} from "./lib/supabaseDb";
 import { seedPopularAstrum, wipeSystemData } from "./lib/seedAstrum";
 import { uploadAttachment } from "./lib/storage";
 import {
@@ -1717,10 +1734,9 @@ export default function App() {
 
   useEffect(() => {
     if (!userProfile?.tenantId) return;
-    const unsub = onSnapshot(doc(db, "tenants", userProfile.tenantId, "settings", "theme"), (docSnap) => {
-      if (docSnap.exists()) {
-        applyTheme(docSnap.data());
-      }
+    // S99 — lê configurações de tema do tenant no Supabase
+    const unsub = sbGetTenantSettings(userProfile.tenantId, (settings) => {
+      if (settings?.theme) applyTheme(settings.theme);
     });
     return () => unsub();
   }, [userProfile?.tenantId]);
@@ -1748,113 +1764,31 @@ export default function App() {
     }
   };
 
+  // S99 — Data loading via Supabase real-time (substituiu onSnapshot do Firestore)
   useEffect(() => {
     if (!user) return;
-    const currentTenant = companySettings?.tenant_id || "default";
+    const tid = companySettings?.tenant_id || userProfile?.tenantId || "default";
 
-    // Check if user is trying to read but has no tenant. Super admins can read everything but usually we want to fetch the correct one
-
-    const unsubCustomers = getCustomers(setCustomers);
-    const unsubTickets = getTickets(setTickets);
-    const unsubInvoices = getInvoices(setInvoices);
-    const unsubCtos = getNetworkCTOs(setCtos, currentTenant);
-
-    const qKB =
-      currentTenant && currentTenant !== "default"
-        ? query(
-            collection(db, "knowledge_base"),
-            where("tenant_id", "==", currentTenant),
-          )
-        : query(collection(db, "knowledge_base"));
-    const unsubKB = onSnapshot(qKB, (snapshot) => {
-      setKnowledgeBase(
-        snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
-      );
+    const unsubCustomers    = sbGetCustomers(setCustomers, tid);
+    const unsubTickets      = sbGetTickets(setTickets, tid);
+    const unsubInvoices     = sbGetInvoices(setInvoices, tid);
+    const unsubCtos         = sbGetNetworkCTOs(setCtos, tid);
+    const unsubKB           = sbGetKnowledgeBase(setKnowledgeBase, tid);
+    const unsubAudit        = sbGetAuditLogs(setAuditLogs, tid);
+    const unsubInventory    = sbGetInventory(setInventory, tid);
+    const unsubServiceOrders = sbGetServiceOrders(setServiceOrders, tid);
+    const unsubTechnicians  = sbGetTechnicians(setTechnicians, tid);
+    const unsubTeam         = sbGetTeamMembers(setTeamMembers, tid);
+    const unsubNotifications = sbGetNotifications(setNotifications, tid);
+    const unsubRoles        = sbGetRolePermissions((rolesData) => {
+      useAppStore.getState().setRolePermissions(rolesData);
     });
 
-    const unsubAudit = getAuditLogs(setAuditLogs, currentTenant);
-    const unsubInventory = getInventory(setInventory, currentTenant);
-    const unsubServiceOrders = getServiceOrders(
-      setServiceOrders,
-      currentTenant,
-    );
-    const unsubTechnicians = getTechnicians(setTechnicians, currentTenant);
-
-    const teamQ =
-      currentTenant && currentTenant !== "default"
-        ? query(
-            collection(db, "team_members"),
-            where("tenant_id", "==", currentTenant),
-          )
-        : query(collection(db, "team_members"));
-    const unsubTeam = onSnapshot(teamQ, (snapshot) => {
-      setTeamMembers(
-        snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
-      );
+    // Integration keys e system prompts (async one-shot)
+    sbGetIntegrationKeys(tid).then((keys) => setIntegrationKeys(keys || {}));
+    getSystemPrompts(tid).then((prompts) => {
+      if (prompts) setAiPrompts((prev) => ({ ...prev, ...prompts }));
     });
-
-    // Fetch integration keys
-    getIntegrationKeys().then((keys) => setIntegrationKeys(keys || {}));
-
-    // Load System Prompts
-    getSystemPrompts(currentTenant).then((prompts) => {
-      if (prompts) {
-        setAiPrompts((prev) => ({ ...prev, ...prompts }));
-      }
-    });
-
-    // Notifications Listener
-    const notificationsQuery =
-      currentTenant && currentTenant !== "default"
-        ? query(
-            collection(db, "notifications"),
-            where("tenant_id", "==", currentTenant),
-            orderBy("timestamp", "desc"),
-            limit(20),
-          )
-        : query(
-            collection(db, "notifications"),
-            orderBy("timestamp", "desc"),
-            limit(20),
-          );
-
-    const unsubNotifications = onSnapshot(notificationsQuery, (snapshot) => {
-      setNotifications(
-        snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
-      );
-    });
-
-    const unsubSettings = onSnapshot(
-      doc(db, "settings", "company"),
-      (docSnap) => {
-        if (docSnap.exists()) {
-          setCompanySettings((prev) => ({ ...prev, ...docSnap.data() }));
-        }
-      },
-    );
-
-    const unsubRoles = onSnapshot(
-      collection(db, "role_permissions"),
-      (snapshot) => {
-        const rolesData: Record<string, any> = {};
-        snapshot.forEach((doc) => {
-          const d = doc.data();
-          if (d.role_name && d.permissions) {
-            rolesData[d.role_name] = d.permissions;
-          }
-        });
-        useAppStore.getState().setRolePermissions(rolesData);
-      },
-    );
-
-    const unsubResources = onSnapshot(
-      collection(db, "resource_permissions"),
-      (snapshot) => {
-        const perms: any[] = [];
-        snapshot.forEach((doc) => perms.push(doc.data()));
-        useAppStore.getState().setResourcePermissions(perms);
-      },
-    );
 
     return () => {
       unsubCustomers();
@@ -1864,15 +1798,13 @@ export default function App() {
       unsubKB();
       unsubAudit();
       unsubInventory();
-      unsubTeam();
-      unsubNotifications();
       unsubServiceOrders();
       unsubTechnicians();
-      unsubSettings();
+      unsubTeam();
+      unsubNotifications();
       unsubRoles();
-      unsubResources();
     };
-  }, [user, companySettings?.tenant_id]);
+  }, [user, companySettings?.tenant_id, userProfile?.tenantId]);
 
   const handleSeedKB = async () => {
     setIsSeeding(true);
