@@ -1,13 +1,17 @@
 import { describe, it, expect, vi, beforeEach, type MockedFunction } from 'vitest'
 import type { Request, Response, NextFunction } from 'express'
-import type { DecodedIdToken } from 'firebase-admin/auth'
+import type { AstrumDecodedToken } from '../../middleware/auth.types'
 
 // ── Mocks ──────────────────────────────────────────────────
-vi.mock('firebase-admin/auth', () => {
-  // verifyIdToken precisa ser estável entre chamadas: o middleware chama getAuth()
-  // de novo, e antes cada chamada devolvia um mock novo (por isso o teste falhava).
-  const verifyIdToken = vi.fn()
-  return { getAuth: () => ({ verifyIdToken }) }
+// FZ-3: o middleware verifica JWT Supabase via lib/authVerify (era firebase-admin/auth).
+// Mock parcial: verifySupabaseToken vira vi.fn(); TokenVerifyError continua a classe real
+// (o middleware usa instanceof).
+vi.mock('../../lib/authVerify', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../lib/authVerify')>()
+  return {
+    ...original,
+    verifySupabaseToken: vi.fn(),
+  }
 })
 
 vi.mock('../../lib/tokenBlacklist', () => ({
@@ -20,9 +24,8 @@ vi.mock('../../lib/tokenCache', () => ({
   setCachedToken: vi.fn(),
 }))
 
-import { getAuth }                from 'firebase-admin/auth'
+import { verifySupabaseToken, TokenVerifyError } from '../../lib/authVerify'
 import { isTokenBlacklisted, getUserRevokeTimestamp } from '../../lib/tokenBlacklist'
-import { getCachedToken }         from '../../lib/tokenCache'
 import {
   requireAuth,
   requireAdminAuth,
@@ -30,22 +33,22 @@ import {
   requireTenantAccess,
 } from '../../middleware/auth'
 
+const mockVerify = verifySupabaseToken as ReturnType<typeof vi.fn>
+
 // ── Helpers ────────────────────────────────────────────────
 const TENANT_ID = '550e8400-e29b-41d4-a716-446655440000'
 
-function makeDecodedToken(overrides: Partial<DecodedIdToken> = {}): DecodedIdToken {
+function makeDecodedToken(overrides: Partial<AstrumDecodedToken> = {}): AstrumDecodedToken {
   return {
     uid:      'test-uid',
+    sub:      'test-uid',
     iat:      Math.floor(Date.now() / 1000) - 60,
     exp:      Math.floor(Date.now() / 1000) + 3600,
-    aud:      'astrum-prod',
-    iss:      'https://securetoken.google.com/astrum-prod',
-    sub:      'test-uid',
     jti:      'test-jti',
     role:     'user',
     tenantId: TENANT_ID,
     ...overrides,
-  } as DecodedIdToken
+  } as AstrumDecodedToken
 }
 
 function makeReq(token?: string, params: Record<string, string> = {}): Partial<Request> {
@@ -72,8 +75,7 @@ describe('requireAuth', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('chama next() com token válido e claims corretos', async () => {
-    const decoded = makeDecodedToken()
-    ;(getAuth().verifyIdToken as ReturnType<typeof vi.fn>).mockResolvedValue(decoded)
+    mockVerify.mockResolvedValue(makeDecodedToken())
 
     const req  = makeReq('valid-token')
     const { res, status } = makeRes()
@@ -99,8 +101,9 @@ describe('requireAuth', () => {
   })
 
   it('retorna 401 com token expirado', async () => {
-    ;(getAuth().verifyIdToken as ReturnType<typeof vi.fn>)
-      .mockRejectedValue(new Error('Firebase ID token has expired'))
+    mockVerify.mockRejectedValue(
+      new TokenVerifyError('TOKEN_EXPIRED', 'Token expirado — faça login novamente'),
+    )
 
     const req  = makeReq('expired-token')
     const { res, status, json } = makeRes()
@@ -113,8 +116,7 @@ describe('requireAuth', () => {
   })
 
   it('retorna 401 quando token está na blacklist', async () => {
-    const decoded = makeDecodedToken()
-    ;(getAuth().verifyIdToken as ReturnType<typeof vi.fn>).mockResolvedValue(decoded)
+    mockVerify.mockResolvedValue(makeDecodedToken())
     ;(isTokenBlacklisted as ReturnType<typeof vi.fn>).mockResolvedValueOnce(true)
 
     const req  = makeReq('blacklisted-token')
@@ -128,8 +130,7 @@ describe('requireAuth', () => {
   })
 
   it('retorna 401 quando usuário teve tokens revogados globalmente', async () => {
-    const decoded = makeDecodedToken({ iat: 1000 })
-    ;(getAuth().verifyIdToken as ReturnType<typeof vi.fn>).mockResolvedValue(decoded)
+    mockVerify.mockResolvedValue(makeDecodedToken({ iat: 1000 }))
     ;(getUserRevokeTimestamp as ReturnType<typeof vi.fn>).mockResolvedValueOnce(2000)
 
     const req  = makeReq('old-token')
@@ -142,11 +143,27 @@ describe('requireAuth', () => {
     expect(json).toHaveBeenCalledWith(expect.objectContaining({ code: 'USER_TOKENS_REVOKED' }))
   })
 
-  it('retorna 401 quando token não tem custom claims', async () => {
-    const decoded = makeDecodedToken({ role: undefined, tenantId: undefined } as Partial<DecodedIdToken>)
-    ;(getAuth().verifyIdToken as ReturnType<typeof vi.fn>).mockResolvedValue(decoded)
+  it('retorna 401 quando usuário não tem claims configurados', async () => {
+    mockVerify.mockRejectedValue(
+      new TokenVerifyError('MISSING_CLAIMS', 'Usuário sem permissões configuradas.'),
+    )
 
     const req  = makeReq('no-claims-token')
+    const { res, status, json } = makeRes()
+    const next = makeNext()
+
+    await requireAuth(req as Request, res as Response, next)
+
+    expect(status).toHaveBeenCalledWith(401)
+    expect(json).toHaveBeenCalledWith(expect.objectContaining({ code: 'MISSING_CLAIMS' }))
+  })
+
+  it('retorna 401 MISSING_CLAIMS quando o token decodificado vem sem role/tenantId', async () => {
+    mockVerify.mockResolvedValue(
+      makeDecodedToken({ role: undefined, tenantId: undefined } as any),
+    )
+
+    const req  = makeReq('bad-claims-token')
     const { res, status, json } = makeRes()
     const next = makeNext()
 
@@ -162,8 +179,7 @@ describe('requireAdminAuth', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('permite role admin', async () => {
-    const decoded = makeDecodedToken({ role: 'admin' })
-    ;(getAuth().verifyIdToken as ReturnType<typeof vi.fn>).mockResolvedValue(decoded)
+    mockVerify.mockResolvedValue(makeDecodedToken({ role: 'admin' }))
 
     const req  = makeReq('admin-token')
     const { res, status } = makeRes()
@@ -176,11 +192,10 @@ describe('requireAdminAuth', () => {
   })
 
   it('permite role super_admin', async () => {
-    const decoded = makeDecodedToken({ role: 'super_admin' })
-    ;(getAuth().verifyIdToken as ReturnType<typeof vi.fn>).mockResolvedValue(decoded)
+    mockVerify.mockResolvedValue(makeDecodedToken({ role: 'super_admin' }))
 
     const req  = makeReq('super-token')
-    const { res, status } = makeRes()
+    const { res } = makeRes()
     const next = makeNext()
 
     await requireAdminAuth(req as Request, res as Response, next)
@@ -189,8 +204,7 @@ describe('requireAdminAuth', () => {
   })
 
   it('retorna 403 para role user', async () => {
-    const decoded = makeDecodedToken({ role: 'user' })
-    ;(getAuth().verifyIdToken as ReturnType<typeof vi.fn>).mockResolvedValue(decoded)
+    mockVerify.mockResolvedValue(makeDecodedToken({ role: 'user' }))
 
     const req  = makeReq('user-token')
     const { res, status, json } = makeRes()
@@ -209,8 +223,7 @@ describe('requireSuperAdminAuth', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('retorna 404 para role admin (obscuridade deliberada)', async () => {
-    const decoded = makeDecodedToken({ role: 'admin' })
-    ;(getAuth().verifyIdToken as ReturnType<typeof vi.fn>).mockResolvedValue(decoded)
+    mockVerify.mockResolvedValue(makeDecodedToken({ role: 'admin' }))
 
     const req  = makeReq('admin-token')
     const { res, status, json } = makeRes()

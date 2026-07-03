@@ -2,6 +2,8 @@ import { Queue, Worker } from "bullmq";
 import redis, { connection } from "../lib/redis";
 import { adminDb as db } from "../lib/firebaseAdmin";
 import admin from "../lib/firebaseAdmin";
+import { revokeTenantUserTokens } from "../lib/authVerify";
+import { revokeAllUserTokens } from "../lib/tokenBlacklist";
 import { subBusinessDays, differenceInHours } from "date-fns";
 import { COBRAI_TEMPLATES } from "../lib/cobraiTemplates";
 import { buildTemplateComponents } from "../lib/templateBuilder";
@@ -265,17 +267,9 @@ export const processCobraiJob = async (job: any) => {
         suspended_reason: 'billing_overdue'
       });
       
-      const auth = admin.auth();
-      let pageToken;
-      do {
-        const result = await auth.listUsers(1000, pageToken);
-        for (const userRecord of result.users) {
-          if (userRecord.customClaims?.tenantId === tenantId) {
-            await auth.revokeRefreshTokens(userRecord.uid);
-          }
-        }
-        pageToken = result.pageToken;
-      } while (pageToken);
+      // FZ-3: revogação via tabela users + Redis (era listUsers/revokeRefreshTokens do Firebase)
+      const revoked = await revokeTenantUserTokens(tenantId, revokeAllUserTokens);
+      logger.info("tenant_sessions_revoked", { tenant_id: tenantId, data: { revoked } });
       
       await db.collection("audit_logs").add({
         action: "BILLING_LOCK",

@@ -1,17 +1,24 @@
 import type { Request } from 'express'
-import type { DecodedIdToken } from 'firebase-admin/auth'
 
-// Claims customizadas setadas via Firebase Admin SDK (setCustomUserClaims)
-// Espelha exatamente o que está no firestore.rules:
-//   request.auth.token.role == 'admin'
-//   request.auth.token.tenantId
+// FZ-3: shape do JWT Supabase decodificado (substitui DecodedIdToken do Firebase).
+// Claims role/tenantId vêm da tabela users (ver src/lib/authVerify.ts).
+export interface SupabaseTokenBase {
+  uid: string
+  sub: string
+  email?: string
+  iat: number
+  exp: number
+  jti?: string
+  [key: string]: any
+}
+
 export interface AstrumClaims {
   role: 'admin' | 'super_admin' | 'agent' | 'user'
   tenantId: string
 }
 
 // Token decodificado com claims Astrum garantidas
-export type AstrumDecodedToken = DecodedIdToken & AstrumClaims
+export type AstrumDecodedToken = SupabaseTokenBase & AstrumClaims
 
 // Request autenticado — disponível após requireAuth passar
 export interface AuthenticatedRequest extends Request {

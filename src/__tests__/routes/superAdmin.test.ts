@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+﻿import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import superAdminRouter from '../../routes/superAdmin.ts';
@@ -31,14 +31,16 @@ const mockCollection = vi.fn(() => ({
 
 vi.mock('../../lib/firebaseAdmin.ts', () => {
   return {
-    adminAuth: {
-      verifyIdToken: (...args: [any]) => mockVerifyIdToken(...args),
-    },
     adminDb: {
       collection: (...args: [any]) => mockCollection(...args),
     },
   };
 });
+
+// FZ-3: a rota verifica JWT Supabase via lib/authVerify
+vi.mock('../../lib/authVerify.ts', () => ({
+  verifySupabaseToken: (...args: [any]) => mockVerifyIdToken(...args),
+}));
 
 vi.mock('../../lib/saasMetrics', () => {
   return {
@@ -70,7 +72,7 @@ describe('Super Admin Routes', () => {
     mockVerifyIdToken.mockResolvedValueOnce({
       uid: 'user-123',
       tenantId: 'tenant-123',
-      isSuperAdmin: false,
+      role: 'admin',
     });
 
     const res = await request(app)
@@ -84,7 +86,7 @@ describe('Super Admin Routes', () => {
   it('3. GET /api/super-admin/tenants com claim isSuperAdmin=true -> retorna lista de tenants com status', async () => {
     mockVerifyIdToken.mockResolvedValueOnce({
       uid: 'super-admin-user',
-      isSuperAdmin: true,
+      role: 'super_admin',
     });
 
     mockGet.mockResolvedValueOnce({
@@ -107,7 +109,7 @@ describe('Super Admin Routes', () => {
   });
 
   it('4. POST /api/super-admin/tenants/:id/suspend -> atualiza status=suspended no Firestore', async () => {
-    mockVerifyIdToken.mockResolvedValueOnce({ isSuperAdmin: true });
+    mockVerifyIdToken.mockResolvedValueOnce({ role: 'super_admin' });
     
     mockGet.mockResolvedValueOnce({ exists: true });
     mockUpdate.mockResolvedValueOnce({});
@@ -124,7 +126,7 @@ describe('Super Admin Routes', () => {
   });
 
   it('5. POST /api/super-admin/tenants/:id/reactivate -> atualiza status=active', async () => {
-    mockVerifyIdToken.mockResolvedValueOnce({ isSuperAdmin: true });
+    mockVerifyIdToken.mockResolvedValueOnce({ role: 'super_admin' });
     
     mockGet.mockResolvedValueOnce({ exists: true });
     mockUpdate.mockResolvedValueOnce({});
@@ -141,7 +143,7 @@ describe('Super Admin Routes', () => {
   });
 
   it('6. GET /api/super-admin/metrics -> retorna MRR, churn e tenants ativos', async () => {
-    mockVerifyIdToken.mockResolvedValueOnce({ isSuperAdmin: true });
+    mockVerifyIdToken.mockResolvedValueOnce({ role: 'super_admin' });
 
     // mock saas_metrics get
     mockGet.mockResolvedValueOnce({
@@ -175,8 +177,8 @@ describe('Super Admin Routes', () => {
     expect(res.body.top_tenants[0].name).toBe('Company 1');
   });
 
-  it('7. Tenant inexistente em qualquer operação -> 404', async () => {
-    mockVerifyIdToken.mockResolvedValueOnce({ isSuperAdmin: true });
+  it('7. Tenant inexistente em qualquer operaÃ§Ã£o -> 404', async () => {
+    mockVerifyIdToken.mockResolvedValueOnce({ role: 'super_admin' });
     
     mockGet.mockResolvedValueOnce({ exists: false });
 

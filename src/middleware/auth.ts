@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express'
-import { getAuth }                              from 'firebase-admin/auth'
+import { verifySupabaseToken, TokenVerifyError } from '../lib/authVerify'
 import { z }                                    from 'zod'
 import pino                                     from 'pino'
 import type {
@@ -75,24 +75,19 @@ async function verifyAndDecodeToken(rawToken: string): Promise<AstrumDecodedToke
     return cached
   }
 
-  // 2. Verificar no Firebase Admin SDK
-  // checkRevoked: false — fazemos nossa própria revogação via Redis
-  // (checkRevoked=true faria uma chamada extra ao Firebase a cada request)
+  // 2. Verificar JWT Supabase (FZ-3 — assinatura HS256 + claims da tabela users)
+  // A revogação continua sendo nossa, via Redis (blacklist + revoke global).
   let decoded
   try {
-    decoded = await getAuth().verifyIdToken(rawToken, false)
+    decoded = await verifySupabaseToken(rawToken)
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err)
-    if (msg.includes('expired')) {
-      throw new AuthError('TOKEN_EXPIRED', 'Token expirado — faça login novamente')
-    }
-    if (msg.includes('invalid') || msg.includes('malformed')) {
-      throw new AuthError('TOKEN_INVALID', 'Token inválido')
+    if (err instanceof TokenVerifyError) {
+      throw new AuthError(err.code, err.message)
     }
     throw new AuthError('TOKEN_VERIFY_FAILED', 'Falha na verificação do token')
   }
 
-  // 3. Validar custom claims com Zod
+  // 3. Validar claims com Zod (defesa em profundidade — authVerify já garante)
   const claimsResult = AstrumClaimsSchema.safeParse({
     role:     decoded.role,
     tenantId: decoded.tenantId,
@@ -100,7 +95,7 @@ async function verifyAndDecodeToken(rawToken: string): Promise<AstrumDecodedToke
   if (!claimsResult.success) {
     logger.warn(
       { uid: decoded.uid, issues: claimsResult.error.issues },
-      'Token sem custom claims válidos — usuário não configurado',
+      'Token sem claims válidos — usuário não configurado',
     )
     throw new AuthError(
       'MISSING_CLAIMS',
