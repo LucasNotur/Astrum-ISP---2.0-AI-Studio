@@ -6,13 +6,28 @@ import { iaLogger } from '../../infrastructure/logging/logger';
 const isHeliconeEnabled = !!process.env.HELICONE_API_KEY;
 
 /**
+ * Resolve a API key da OpenAI com fail-fast em produção.
+ * - produção sem chave → lança (não deixa subir cliente inútil que só falha em runtime)
+ * - dev/test sem chave  → 'dummy_key' + warn (permite rodar local/CI sem segredo real)
+ */
+function resolveOpenAIKey(): string {
+  const key = process.env.OPENAI_API_KEY;
+  if (key) return key;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('OPENAI_API_KEY ausente em produção — abortando criação do cliente OpenAI.');
+  }
+  iaLogger.warn('[OPENAI] OPENAI_API_KEY ausente — usando dummy_key (apenas dev/test).');
+  return 'dummy_key';
+}
+
+/**
  * Cliente OpenAI roteado via Helicone quando API key disponível.
  * Em desenvolvimento sem HELICONE_API_KEY → chama OpenAI diretamente.
  * Em produção → sempre via Helicone para rastreamento de custos.
  */
 export function createOpenAIClient(tenantId?: string, userId?: string) {
   const baseConfig = {
-    apiKey: process.env.OPENAI_API_KEY || 'dummy_key',
+    apiKey: resolveOpenAIKey(),
     defaultHeaders: tenantId ? {
       'Helicone-Property-TenantId': tenantId,
       'Helicone-Property-UserId': userId ?? 'unknown',
