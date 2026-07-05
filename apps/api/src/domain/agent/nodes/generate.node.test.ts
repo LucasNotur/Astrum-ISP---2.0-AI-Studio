@@ -49,6 +49,7 @@ describe('nodeGenerate', () => {
       expect.stringContaining('Doc: manual PPPoE'),
       't1',
       expect.any(Function),
+      { tier: 'full' },
     );
   });
 
@@ -63,7 +64,7 @@ describe('nodeGenerate', () => {
     let capturedCallback: Function | undefined;
 
     mockStreamWithTools.mockImplementation(
-      async (_msgs: any, _ctx: any, _tenant: any, onTool: Function) => {
+      async (_msgs: any, _ctx: any, _tenant: any, onTool: Function, _opts?: any) => {
         capturedCallback = onTool;
         return { textStream: makeTextStream(['ok']) };
       }

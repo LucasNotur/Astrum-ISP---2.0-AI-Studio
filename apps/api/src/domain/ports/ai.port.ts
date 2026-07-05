@@ -23,5 +23,6 @@ export interface IAIPort {
     systemContext: string,
     tenantId: string,
     onTool: IToolCallback,
+    opts?: { tier?: 'mini' | 'full' },
   ): Promise<IStreamResult>;
 }
