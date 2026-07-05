@@ -34,6 +34,12 @@ export interface MediaDeps {
   describeImage: (imageUrl: string, tenantId: string) => Promise<string | null>;
   storeMedia?: (data: string, mime: string, tenantId: string) => Promise<string>;
   visionEnabled?: boolean;
+  /** IA-04: OCR de boleto — injetável, condicionado à flag VISION_STRUCTURED_ENABLED */
+  extractBoleto?: (url: string, tenantId: string) => Promise<{
+    linha_digitavel?: string; valor_cents?: number; vencimento?: string;
+    beneficiario?: string; is_boleto: boolean; confidence: number;
+  } | null>;
+  formatBoletoPrompt?: (boleto: any) => string;
 }
 
 export async function processInboundMedia(
@@ -81,15 +87,29 @@ export async function processInboundMedia(
     };
   }
 
-  // ── Documento → guarda referência ──
+  // ── Documento → guarda referência + tenta OCR de boleto (IA-04) ──
   if (media.isDocument) {
     let storedRef: string | null = null;
+    let systemPromptExtension: string | null = null;
+
     if (deps.storeMedia && media.base64Media) {
       storedRef = await deps.storeMedia(media.base64Media, media.mediaMimeType ?? 'application/octet-stream', tenantId).catch(() => null);
     }
+
+    // IA-04: tentar OCR de boleto se os deps estão disponíveis
+    if (deps.extractBoleto && deps.formatBoletoPrompt) {
+      const docUrl = media.imageUrl || media.audioUrl || storedRef || '';
+      if (docUrl) {
+        const boleto = await deps.extractBoleto(docUrl, tenantId).catch(() => null);
+        if (boleto) {
+          systemPromptExtension = deps.formatBoletoPrompt(boleto);
+        }
+      }
+    }
+
     return {
       textForLLM: media.textMessage || '[Cliente enviou um documento]',
-      systemPromptExtension: storedRef ? `Documento anexado pelo cliente (ref: ${storedRef}).` : null,
+      systemPromptExtension: systemPromptExtension || (storedRef ? `Documento anexado pelo cliente (ref: ${storedRef}).` : null),
       storedRef,
       mediaType: 'document',
     };
