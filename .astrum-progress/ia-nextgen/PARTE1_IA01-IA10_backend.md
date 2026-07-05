@@ -93,7 +93,7 @@ IA-10 Multi-agente por domínio                (SÓ depois do cutover ATENDIMENT
 
 ---
 
-# ⬜ IA-01 — Self-RAG / CRAG no grafo existente
+# ✅ IA-01 — Self-RAG / CRAG no grafo existente
 
 **Objetivo:** o agente avalia o contexto recuperado ANTES de gerar (grade), re-busca com
 query reescrita se o contexto for ruim (corrective), e verifica a própria resposta contra
@@ -326,11 +326,11 @@ cd apps/api; npx vitest run src/domain/agent
 ```
 
 ### Critérios de aceite
-- [ ] `CRAG_ENABLED=false` (default): comportamento e nº de chamadas LLM idênticos aos de hoje (provar por teste com spy no mock de `ai`).
-- [ ] Flag on: contexto ruim dispara exatamente 1 re-busca com query reescrita.
-- [ ] Flag on: resposta não-fundamentada vai para `escalate`, nunca para o cliente.
-- [ ] Logs `Agent: CRAG grade|rewrite|self-check` com `tenantId` presentes.
-- [ ] Typecheck + suíte `src/domain/agent` verde.
+- [x] `CRAG_ENABLED=false` (default): comportamento e nº de chamadas LLM idênticos aos de hoje (provar por teste com spy no mock de `ai`).
+- [x] Flag on: contexto ruim dispara exatamente 1 re-busca com query reescrita.
+- [x] Flag on: resposta não-fundamentada vai para `escalate`, nunca para o cliente.
+- [x] Logs `Agent: CRAG grade|rewrite|self-check` com `tenantId` presentes.
+- [x] Typecheck + suíte `src/domain/agent` verde.
 
 **Rollback:** `CRAG_ENABLED=false` (nenhum deploy necessário).
 **Commit:** `feat(ia01): CRAG — grade/rewrite/self-check no grafo do agente (flag off)`.
