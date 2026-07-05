@@ -11,7 +11,10 @@ function makeState(userMessage = 'Minha internet está lenta') {
 }
 
 describe('nodeClassify', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    delete process.env.LIVE_TRANSLATION_ENABLED;
+  });
 
   it('mapeia retorno do service para o estado do agente', async () => {
     mockClassifyIntent.mockResolvedValue({
@@ -41,5 +44,18 @@ describe('nodeClassify', () => {
 
     const r = await nodeClassify(makeState('Preciso da 2ª via da minha fatura'));
     expect(r.intent).toBe('support_billing');
+  });
+
+  it('IA-14: flag off → não seta detectedLanguage', async () => {
+    mockClassifyIntent.mockResolvedValue({ intent: 'other', urgency: 'low', sentiment: 'neutral' });
+    const r = await nodeClassify(makeState('Hi, my internet is down.'));
+    expect(r.detectedLanguage).toBeUndefined();
+  });
+
+  it('IA-14: flag on + msg EN → detectedLanguage=en', async () => {
+    process.env.LIVE_TRANSLATION_ENABLED = 'true';
+    mockClassifyIntent.mockResolvedValue({ intent: 'support_technical', urgency: 'high', sentiment: 'frustrated' });
+    const r = await nodeClassify(makeState('Hi, my internet is down since yesterday.'));
+    expect(r.detectedLanguage).toBe('en');
   });
 });

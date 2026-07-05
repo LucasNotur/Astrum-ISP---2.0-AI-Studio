@@ -64,6 +64,9 @@ export const AgentStateSchema = z.object({
   safetyVetoed: z.boolean().optional(),
   safetyCategories: z.array(z.string()).optional(),
 
+  // IA-14 — Idioma detectado (nó: classify)
+  detectedLanguage: z.enum(['pt', 'en', 'es']).optional(),
+
   // Escalação (nó: escalate)
   requiresHuman: z.boolean().optional(),
   escalationReason: z.string().optional(),
