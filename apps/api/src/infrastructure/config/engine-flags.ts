@@ -67,6 +67,14 @@ export function isAtendimentoEngineActive(target: EngineTarget): boolean {
  * Quando false, o chamador NÃO deve instanciar o worker (evita disparo duplo).
  * O `log` é injetável para não acoplar a nenhum logger específico.
  */
+/**
+ * Multi-agente por domínio (IA-10).
+ * Default: false — só ativa quando ATENDIMENTO_ENGINE=v2 estiver estável.
+ */
+export function isMultiAgentEnabled(): boolean {
+  return (process.env.MULTI_AGENT_ENABLED ?? '').trim().toLowerCase() === 'true';
+}
+
 export function shouldBootWorker(
   domain: 'cobrai' | 'atendimento',
   self: EngineTarget,

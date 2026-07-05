@@ -2,6 +2,7 @@ import { generateObject, generateText, streamText, stepCountIs } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
 import { infraLogger } from '../logging/logger';
+import { resolvePrompt, type PromptVersion } from './prompt-registry';
 
 /**
  * Vercel AI SDK Service
@@ -126,10 +127,11 @@ export class VercelAIService {
     conversationHistory: string,
     tenantId: string,
   ): Promise<CustomerIntent> {
+    const prompt = resolvePrompt('classification');
     const { object } = await generateObject({
       model: this.model as any,
       schema: CustomerIntentSchema,
-      system: this._buildSystemPrompt('classification'),
+      system: prompt.text,
       messages: [
         {
           role: 'user',
@@ -139,6 +141,7 @@ export class VercelAIService {
       headers: {
         'Helicone-Property-TenantId': tenantId,
         'Helicone-Property-UseCase': 'classify-intent',
+        'Helicone-Property-PromptVersion': prompt.version,
       },
     });
 
@@ -155,10 +158,11 @@ export class VercelAIService {
     ragContext: string,
     tenantId: string,
   ): Promise<NetworkDiagnostic> {
+    const prompt = resolvePrompt('technical_diagnostic');
     const { object } = await generateObject({
       model: this.heavyModel as any, // GPT-4o para diagnósticos técnicos
       schema: NetworkDiagnosticSchema,
-      system: this._buildSystemPrompt('technical_diagnostic'),
+      system: prompt.text,
       messages: [
         {
           role: 'user',
@@ -168,6 +172,7 @@ export class VercelAIService {
       headers: {
         'Helicone-Property-TenantId': tenantId,
         'Helicone-Property-UseCase': 'network-diagnostic',
+        'Helicone-Property-PromptVersion': prompt.version,
       },
     });
 
@@ -182,10 +187,11 @@ export class VercelAIService {
     resolution: string,
     tenantId: string,
   ): Promise<TicketReport> {
+    const prompt = resolvePrompt('ticket_report');
     const { object } = await generateObject({
       model: this.model as any,
       schema: TicketReportSchema,
-      system: this._buildSystemPrompt('ticket_report'),
+      system: prompt.text,
       messages: [
         {
           role: 'user',
@@ -195,6 +201,7 @@ export class VercelAIService {
       headers: {
         'Helicone-Property-TenantId': tenantId,
         'Helicone-Property-UseCase': 'ticket-report',
+        'Helicone-Property-PromptVersion': prompt.version,
       },
     });
 
@@ -205,15 +212,20 @@ export class VercelAIService {
    * Streaming SSE com Function Calling.
    * O agente decide quando usar as ferramentas.
    */
+  private _resolvePrompt(useCase: string): PromptVersion {
+    return resolvePrompt(useCase);
+  }
+
   async streamWithTools(
     messages: Array<{ role: 'user' | 'assistant'; content: string }>,
     systemContext: string,
     tenantId: string,
     onToolCall?: (toolName: string, args: unknown) => Promise<unknown>,
   ) {
+    const prompt = this._resolvePrompt('chat');
     const result = streamText({
       model: this.heavyModel as any,
-      system: `${this._buildSystemPrompt('chat')}\n\n${systemContext}`,
+      system: `${prompt.text}\n\n${systemContext}`,
       messages,
       tools: agentTools as any,
       stopWhen: stepCountIs(5), // máximo de tool calls em sequência (ai-sdk v6)
@@ -233,36 +245,17 @@ export class VercelAIService {
       headers: {
         'Helicone-Property-TenantId': tenantId,
         'Helicone-Property-UseCase': 'chat-stream',
+        'Helicone-Property-PromptVersion': prompt.version,
       },
     });
 
     return result;
   }
 
-  // ─── System Prompts com CoT ────────────────────────────────────────────────
+  // ─── System Prompts com CoT (delegam ao prompt-registry — IA-03) ────────────
 
   private _buildSystemPrompt(useCase: string): string {
-    const base = `Você é o assistente de suporte da Astrum, especializado em ISPs (Provedores de Internet).
-Você SEMPRE pensa passo a passo antes de responder.
-Você NUNCA inventa informações — se não souber, diz que vai criar um ticket para um especialista.
-Você NUNCA executa ações financeiras sem confirmar com o cliente.
-Responda sempre em português do Brasil.`;
-
-    const cotPrefix = `Antes de responder, siga este raciocínio interno:
-1. Qual é a intenção real do cliente?
-2. Tenho informações suficientes para resolver?
-3. Qual ação é mais adequada?
-4. Preciso usar alguma ferramenta?
-Após este raciocínio, forneça a resposta final ao cliente.`;
-
-    const prompts: Record<string, string> = {
-      classification: `${base}\nSua tarefa é classificar a intenção da mensagem. Seja preciso.`,
-      technical_diagnostic: `${base}\n${cotPrefix}\nSua tarefa é diagnosticar problemas técnicos de rede com base nos manuais fornecidos.`,
-      ticket_report: `${base}\nSua tarefa é gerar um relatório estruturado do atendimento realizado.`,
-      chat: `${base}\n${cotPrefix}`,
-    };
-
-    return prompts[useCase] ?? base;
+    return this._resolvePrompt(useCase).text;
   }
 }
 

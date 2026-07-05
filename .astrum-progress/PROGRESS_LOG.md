@@ -1322,3 +1322,55 @@ Status: 🔶 Lógica do gate final pronta/testada. Aprovação real precisa dos 
 Observações: evaluateFinalGate (10 critérios do MAPA_SESSOES: 10 ISPs, workers integrados, resolução>80%,
   0 jobs cobrança perdidos, isolamento, custo/ISP, deploy<5min, RAGAS, docs, synthetic). Plano V2 S68-S98 concluído
   em modo code-complete; etapas operacionais documentadas em docs/ASTRUM_ESTADO_FINAL_PLANO_V2.md.
+
+---
+
+[2026-07-05] Plano IA-NEXTGEN / Parte 1 - Sessao IA-01
+Tarefa: CRAG (Self-RAG) no grafo existente - grade/rewrite/self-check
+Arquivos criados:
+  - apps/api/src/domain/ports/crag.port.ts (ICragPort + isCragEnabled)
+  - apps/api/src/infrastructure/ai/crag.service.ts (+ .test.ts) - service gpt-4o-mini para grading
+  - apps/api/src/infrastructure/adapters/crag.adapter.ts
+  - apps/api/src/domain/agent/nodes/grade-context.node.ts
+  - apps/api/src/domain/agent/nodes/rewrite-query.node.ts
+  - apps/api/src/domain/agent/nodes/self-check.node.ts
+Arquivos modificados:
+  - apps/api/src/domain/agent/agent.state.ts (7 campos CRAG no schema + defaults no initialState)
+  - apps/api/src/domain/agent/agent.nodes.ts (wire-up dos 3 novos nos via cragAdapter)
+  - apps/api/src/domain/agent/langgraph.service.ts (7 channels novos + 3 nos + 2 conditional edges c/ flag lida no edge)
+  - apps/api/src/domain/agent/nodes/fetch-context.node.ts (usa rewrittenQuery ?? userMessage na busca)
+  - apps/api/src/domain/agent/langgraph.service.test.ts (5 novos caminhos CRAG)
+Testes: 10 novos (crag service + 4 fail-open via nos) + 5 caminhos de grafo = +15. Suite apps/api inteira verde: 213 files / 902 tests passed.
+Typecheck: limpo nos arquivos tocados (12 erros pre-existentes isolados em packages/queue/.../message.worker.ts por path relativo).
+Status: CONCLUIDO. Flag CRAG_ENABLED default 'false' - privilegios de producao inalterados (nodos fazem short-circuit sem chamar LLM).
+Observacoes / DESVIO do plano:
+  - Plano foi escrito (2026-07-04) contra agent.nodes.ts com nos inline. Desde a S2.1 o repo evoluiu para DDD ports:
+    nos sao factories em ./nodes/*.node.ts recebendo deps injetadas; adapters vivem em infrastructure/adapters/.
+  - Adaptacao mantendo a INTENCAO da sessao: crag.service.ts em infrastructure/ai ( chamada LLM), ICragPort em
+    domain/ports, adapter em infrastructure/adapters, e 3 nos-factory puramente domain. Wire-up no barrel agent.nodes.ts.
+  - Channels novos declarados explicitamente (Ap2 pitfall #1 respeitado) para patches nao serem descartados.
+  - isCragEnabled() lido DENTRO das conditional edges (pitfall #2) - nao congela no boot do singleton.
+  - Headers Helicone UseCase crag-grade / crag-rewrite / crag-selfcheck (RN7).
+  - TTL do rewrite: max 1 loop corretivo (retrievalAttempts>=1 -> generate mesmo se grade continuar irrelevant).
+Rollback: CRAG_ENABLED=false (nenhum deploy necessario).
+Commit: feat(ia01): CRAG grade/rewrite/self-check no grafo do agente (flag off).
+
+---
+
+[2026-07-05] IA-NEXTGEN / Parte 1 — Sessão IA-10
+Tarefa: Multi-agente por domínio — supervisor LangGraph + subgrafos cobrança/retencao/atendimento.
+Arquivos criados:
+  - apps/api/src/domain/agent/multi-agent.state.ts
+  - apps/api/src/domain/agent/multi-agent.supervisor.ts
+  - apps/api/src/domain/agent/subgraphs/cobranca.subgraph.ts
+  - apps/api/src/domain/agent/subgraphs/retencao.subgraph.ts
+  - apps/api/src/domain/agent/multi-agent.service.test.ts
+Arquivos modificados:
+  - apps/api/src/infrastructure/config/engine-flags.ts (+ isMultiAgentEnabled)
+  - apps/api/src/infrastructure/config/engine-flags.test.ts (+ 3 testes)
+  - .env.example (+ MULTI_AGENT_ENABLED)
+Testes: 4 novos (flag off, cobranca, retencao churn critico, erro fatal) + 3 engine-flags = 7. Suite afetada (agent/ai/ml/config): 142 tests passed.
+Bloqueios resolvidos: mergeados feat/ia-01-crag, feat/ia-03-eval-harness, feat/ia-07-churn-prediction em feat/ia-10-multi-agent.
+Status: ✅ Concluído (código atrás de flag; cutover real depende de ATENDIMENTO_ENGINE=v2).
+Observações: Supervisor classifica domínio com gpt-4o-mini; churn crítico sobrescreve para retenção; flag MULTI_AGENT_ENABLED=false (default). Typecheck do apps/api ainda apresenta 12 erros pré-existentes em packages/queue/src/workers/message.worker.ts por imports relativos cruzados com apps/api.
+Commit: feat(ia10): multi-agente por dominio — supervisor + subgrafos (flag off).

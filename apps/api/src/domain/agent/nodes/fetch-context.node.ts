@@ -16,7 +16,8 @@ Tickets abertos: ${openTickets.length}`;
 
 export function makeNodeFetchContext(deps: { search: ISearchPort; db: IDatabasePort; logger: ILoggerPort }) {
   return async function nodeFetchContext(state: AgentState): Promise<Partial<AgentState>> {
-    const { dataSource, userMessage, tenantId, customerId } = state;
+    const { dataSource, tenantId, customerId } = state;
+    const searchQuery = state.rewrittenQuery ?? state.userMessage;
 
     let ragContext = '';
     let dbContext = '';
@@ -25,7 +26,7 @@ export function makeNodeFetchContext(deps: { search: ISearchPort; db: IDatabaseP
 
     if (dataSource === 'qdrant' || dataSource === 'both') {
       promises.push(
-        deps.search.search(userMessage, tenantId, { limit: 4, hydeSensitivity: 'auto' })
+        deps.search.search(searchQuery, tenantId, { limit: 4, hydeSensitivity: 'auto' })
           .then(results => {
             ragContext = results.map((r, i) =>
               `[Doc ${i + 1}] ${r.filename} (score: ${r.score.toFixed(2)}):\n${r.content}`

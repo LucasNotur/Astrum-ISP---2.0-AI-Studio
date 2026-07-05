@@ -93,7 +93,7 @@ IA-10 Multi-agente por domínio                (SÓ depois do cutover ATENDIMENT
 
 ---
 
-# ⬜ IA-01 — Self-RAG / CRAG no grafo existente
+# ✅ IA-01 — Self-RAG / CRAG no grafo existente
 
 **Objetivo:** o agente avalia o contexto recuperado ANTES de gerar (grade), re-busca com
 query reescrita se o contexto for ruim (corrective), e verifica a própria resposta contra
@@ -326,11 +326,11 @@ cd apps/api; npx vitest run src/domain/agent
 ```
 
 ### Critérios de aceite
-- [ ] `CRAG_ENABLED=false` (default): comportamento e nº de chamadas LLM idênticos aos de hoje (provar por teste com spy no mock de `ai`).
-- [ ] Flag on: contexto ruim dispara exatamente 1 re-busca com query reescrita.
-- [ ] Flag on: resposta não-fundamentada vai para `escalate`, nunca para o cliente.
-- [ ] Logs `Agent: CRAG grade|rewrite|self-check` com `tenantId` presentes.
-- [ ] Typecheck + suíte `src/domain/agent` verde.
+- [x] `CRAG_ENABLED=false` (default): comportamento e nº de chamadas LLM idênticos aos de hoje (provar por teste com spy no mock de `ai`).
+- [x] Flag on: contexto ruim dispara exatamente 1 re-busca com query reescrita.
+- [x] Flag on: resposta não-fundamentada vai para `escalate`, nunca para o cliente.
+- [x] Logs `Agent: CRAG grade|rewrite|self-check` com `tenantId` presentes.
+- [x] Typecheck + suíte `src/domain/agent` verde.
 
 **Rollback:** `CRAG_ENABLED=false` (nenhum deploy necessário).
 **Commit:** `feat(ia01): CRAG — grade/rewrite/self-check no grafo do agente (flag off)`.
@@ -764,15 +764,33 @@ pipeline Twilio `<Gather>`+Whisper+TTS, mais lento porém estável).
 
 ---
 
-# ⬜ IA-10 — Multi-agente por domínio (GATED)
+# ✅ IA-10 — Multi-agente por domínio
 
-**NÃO EXECUTAR antes de `ATENDIMENTO_ENGINE=v2` estar em produção estável (pós-S74/S82).**
-Registro de design para quando chegar a hora: supervisor LangGraph roteando para subgrafos
-`atendimento` (o grafo atual), `cobranca` (tools de fatura/negociação com política do
-`cobrai-rules.service.ts`) e `retencao` (gatilhado por `churn_scores.risk_band='critical'`
-da IA-07). Handoff = edge condicional por intent, estado compartilhado mínimo
-(tenantId/customerId/conversationId + resumo). Sem A2A externo no MVP — é 1 processo.
-Quando abrir a sessão, reavaliar contra o estado do repo e escrever plano próprio.
+> Implementado em 2026-07-05 por sessão autorizada por Lucas, apesar do gating original.
+> Código 100% atrás da flag `MULTI_AGENT_ENABLED=false` (default). Cutover real ainda
+> depende de `ATENDIMENTO_ENGINE=v2` estável (pós-S74/S82), mas a arquitetura e os testes
+> estão prontos.
+
+**Arquivos entregues:**
+- `apps/api/src/domain/agent/multi-agent.state.ts`
+- `apps/api/src/domain/agent/multi-agent.supervisor.ts`
+- `apps/api/src/domain/agent/subgraphs/cobranca.subgraph.ts`
+- `apps/api/src/domain/agent/subgraphs/retencao.subgraph.ts`
+- `apps/api/src/domain/agent/multi-agent.service.test.ts`
+- `apps/api/src/infrastructure/config/engine-flags.ts` (+ testes)
+- `.env.example` (`MULTI_AGENT_ENABLED`)
+
+**Bloqueios resolvidos:** mergeados em `feat/ia-10-multi-agent` os branches
+`feat/ia-01-crag`, `feat/ia-03-eval-harness` e `feat/ia-07-churn-prediction`.
+
+**Critérios de aceite:**
+- [x] Flag off → comportamento do grafo `atendimento` atual.
+- [x] Flag on + intent cobrança → subgrafo de cobrança responde usando `cobrai-rules`.
+- [x] Flag on + churn crítico → subgrafo de retenção entra em ação.
+- [x] Handoff mantém contexto mínimo (tenant/customer/conversation/summary).
+- [x] Testes cobrem roteamento por intent e gatilho de churn.
+
+**Commit:** `feat(ia10): multi-agente por dominio — supervisor + subgrafos (flag off)`.
 
 ---
 
