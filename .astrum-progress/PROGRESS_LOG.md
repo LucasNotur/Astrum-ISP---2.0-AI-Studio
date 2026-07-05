@@ -1354,3 +1354,23 @@ Observacoes / DESVIO do plano:
   - TTL do rewrite: max 1 loop corretivo (retrievalAttempts>=1 -> generate mesmo se grade continuar irrelevant).
 Rollback: CRAG_ENABLED=false (nenhum deploy necessario).
 Commit: feat(ia01): CRAG grade/rewrite/self-check no grafo do agente (flag off).
+
+---
+
+[2026-07-05] IA-NEXTGEN / Parte 1 — Sessão IA-10
+Tarefa: Multi-agente por domínio — supervisor LangGraph + subgrafos cobrança/retencao/atendimento.
+Arquivos criados:
+  - apps/api/src/domain/agent/multi-agent.state.ts
+  - apps/api/src/domain/agent/multi-agent.supervisor.ts
+  - apps/api/src/domain/agent/subgraphs/cobranca.subgraph.ts
+  - apps/api/src/domain/agent/subgraphs/retencao.subgraph.ts
+  - apps/api/src/domain/agent/multi-agent.service.test.ts
+Arquivos modificados:
+  - apps/api/src/infrastructure/config/engine-flags.ts (+ isMultiAgentEnabled)
+  - apps/api/src/infrastructure/config/engine-flags.test.ts (+ 3 testes)
+  - .env.example (+ MULTI_AGENT_ENABLED)
+Testes: 4 novos (flag off, cobranca, retencao churn critico, erro fatal) + 3 engine-flags = 7. Suite afetada (agent/ai/ml/config): 142 tests passed.
+Bloqueios resolvidos: mergeados feat/ia-01-crag, feat/ia-03-eval-harness, feat/ia-07-churn-prediction em feat/ia-10-multi-agent.
+Status: ✅ Concluído (código atrás de flag; cutover real depende de ATENDIMENTO_ENGINE=v2).
+Observações: Supervisor classifica domínio com gpt-4o-mini; churn crítico sobrescreve para retenção; flag MULTI_AGENT_ENABLED=false (default). Typecheck do apps/api ainda apresenta 12 erros pré-existentes em packages/queue/src/workers/message.worker.ts por imports relativos cruzados com apps/api.
+Commit: feat(ia10): multi-agente por dominio — supervisor + subgrafos (flag off).

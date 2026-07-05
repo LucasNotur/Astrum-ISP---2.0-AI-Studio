@@ -6,6 +6,7 @@ import {
   isAtendimentoEngineActive,
   shouldBootWorker,
   resolveAtendimentoEngineForTenant,
+  isMultiAgentEnabled,
 } from './engine-flags';
 
 describe('engine-flags', () => {
@@ -95,6 +96,23 @@ describe('engine-flags', () => {
       process.env.ATENDIMENTO_ENGINE = 'legacy';
       expect(shouldBootWorker('atendimento', 'legacy')).toBe(true);
       expect(shouldBootWorker('atendimento', 'v2')).toBe(false);
+    });
+  });
+
+  describe('isMultiAgentEnabled (IA-10)', () => {
+    it('default é false', () => {
+      delete process.env.MULTI_AGENT_ENABLED;
+      expect(isMultiAgentEnabled()).toBe(false);
+    });
+
+    it('retorna true apenas quando env = true', () => {
+      process.env.MULTI_AGENT_ENABLED = 'true';
+      expect(isMultiAgentEnabled()).toBe(true);
+    });
+
+    it('qualquer outro valor é false (fail-safe)', () => {
+      process.env.MULTI_AGENT_ENABLED = 'on';
+      expect(isMultiAgentEnabled()).toBe(false);
     });
   });
 

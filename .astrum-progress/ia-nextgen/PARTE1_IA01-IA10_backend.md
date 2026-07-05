@@ -764,15 +764,33 @@ pipeline Twilio `<Gather>`+Whisper+TTS, mais lento porém estável).
 
 ---
 
-# ⬜ IA-10 — Multi-agente por domínio (GATED)
+# ✅ IA-10 — Multi-agente por domínio
 
-**NÃO EXECUTAR antes de `ATENDIMENTO_ENGINE=v2` estar em produção estável (pós-S74/S82).**
-Registro de design para quando chegar a hora: supervisor LangGraph roteando para subgrafos
-`atendimento` (o grafo atual), `cobranca` (tools de fatura/negociação com política do
-`cobrai-rules.service.ts`) e `retencao` (gatilhado por `churn_scores.risk_band='critical'`
-da IA-07). Handoff = edge condicional por intent, estado compartilhado mínimo
-(tenantId/customerId/conversationId + resumo). Sem A2A externo no MVP — é 1 processo.
-Quando abrir a sessão, reavaliar contra o estado do repo e escrever plano próprio.
+> Implementado em 2026-07-05 por sessão autorizada por Lucas, apesar do gating original.
+> Código 100% atrás da flag `MULTI_AGENT_ENABLED=false` (default). Cutover real ainda
+> depende de `ATENDIMENTO_ENGINE=v2` estável (pós-S74/S82), mas a arquitetura e os testes
+> estão prontos.
+
+**Arquivos entregues:**
+- `apps/api/src/domain/agent/multi-agent.state.ts`
+- `apps/api/src/domain/agent/multi-agent.supervisor.ts`
+- `apps/api/src/domain/agent/subgraphs/cobranca.subgraph.ts`
+- `apps/api/src/domain/agent/subgraphs/retencao.subgraph.ts`
+- `apps/api/src/domain/agent/multi-agent.service.test.ts`
+- `apps/api/src/infrastructure/config/engine-flags.ts` (+ testes)
+- `.env.example` (`MULTI_AGENT_ENABLED`)
+
+**Bloqueios resolvidos:** mergeados em `feat/ia-10-multi-agent` os branches
+`feat/ia-01-crag`, `feat/ia-03-eval-harness` e `feat/ia-07-churn-prediction`.
+
+**Critérios de aceite:**
+- [x] Flag off → comportamento do grafo `atendimento` atual.
+- [x] Flag on + intent cobrança → subgrafo de cobrança responde usando `cobrai-rules`.
+- [x] Flag on + churn crítico → subgrafo de retenção entra em ação.
+- [x] Handoff mantém contexto mínimo (tenant/customer/conversation/summary).
+- [x] Testes cobrem roteamento por intent e gatilho de churn.
+
+**Commit:** `feat(ia10): multi-agente por dominio — supervisor + subgrafos (flag off)`.
 
 ---
 
