@@ -11,6 +11,11 @@
 
 ## §0 — PROTOCOLO (obrigatório, herda o §0 do PLANO_MESTRE_V2.md)
 
+> ⚠️ **Escopo desta Parte:** sessões IA-01..IA-10 são **100% backend** — todo código vai
+> em `apps/api/`, `packages/queue/` ou `packages/db/`. Nenhuma sessão toca `/src` ou cria
+> tela. **`AUDITORIA_FRONTEND.md` é lida SOMENTE nas sessões da Parte 2 (IA-11..IA-46)**
+> — não é necessária aqui e não faz parte do ritual abaixo.
+
 ### 0.1 Ritual de início de TODA sessão
 1. Ler `.astrum-progress/PLANO_MESTRE_V2.md` §0 inteiro (regras R1–R6 e DoD).
 2. Ler as últimas 3 entradas de `.astrum-progress/PROGRESS_LOG.md`.
