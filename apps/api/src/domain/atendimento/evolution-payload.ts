@@ -27,7 +27,7 @@ export type EvolutionEvent =
   | { kind: 'ignored'; reason: string };
 
 function jidToPhone(remoteJid: string): string {
-  return (remoteJid ?? '').split('@')[0].replace(/\D/g, '');
+  return ((remoteJid ?? '').split('@')[0] ?? '').replace(/\D/g, '');
 }
 
 export function parseEvolutionPayload(payload: any): EvolutionEvent {

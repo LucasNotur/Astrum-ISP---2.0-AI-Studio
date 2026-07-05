@@ -2,7 +2,7 @@
   "extends": "../../packages/shared/tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src",
+    "declaration": false,
     "lib": ["ES2022"],
     "types": ["node"]
   },

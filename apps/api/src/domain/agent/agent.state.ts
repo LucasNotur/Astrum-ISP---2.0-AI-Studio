@@ -39,7 +39,7 @@ export const AgentStateSchema = z.object({
   // Ferramentas executadas (Function Calling)
   toolsExecuted: z.array(z.object({
     name: z.string(),
-    args: z.record(z.unknown()),
+    args: z.record(z.string(), z.unknown()),
     result: z.unknown(),
   })).optional(),
 
