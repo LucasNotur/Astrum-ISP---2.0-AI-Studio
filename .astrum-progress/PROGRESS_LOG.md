@@ -1357,6 +1357,20 @@ Commit: feat(ia01): CRAG grade/rewrite/self-check no grafo do agente (flag off).
 
 ---
 
+[2026-07-05] IA-NEXTGEN Parte 1 — Sessão IA-05
+Tarefa: Memory decay exponencial no composer (Zep)
+Arquivos criados:
+  - apps/api/src/infrastructure/memory/memory-decay.ts (função pura applyDecay + flag isMemoryDecayEnabled)
+  - apps/api/src/infrastructure/memory/memory-decay.test.ts (14 testes)
+Arquivos modificados:
+  - apps/api/src/infrastructure/memory/memory-composer.service.ts (integração do decay em entities e relevantFacts)
+Tecnologias implementadas: decay exponencial e^(-idadeDias/90), threshold 0.2, max 10 fatos, ordenado por peso
+Testes criados: 14 testes (hoje passa, 90d≈0.37 passa, 200d<0.2 cai, lastSeen ausente=1, ordenação, truncagem, threshold customizável, flag)
+Status: ✅ Concluído
+Observações: Flag MEMORY_DECAY_ENABLED default 'false' — comportamento idêntico ao atual com flag off. Typecheck limpo nos arquivos tocados (zero erros em memory/). 22/22 testes passando no pacote memory.
+
+---
+
 [2026-07-05] IA-NEXTGEN / Parte 1 — Sessão IA-10
 Tarefa: Multi-agente por domínio — supervisor LangGraph + subgrafos cobrança/retencao/atendimento.
 Arquivos criados:

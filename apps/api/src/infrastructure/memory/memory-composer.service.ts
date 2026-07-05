@@ -1,5 +1,6 @@
 import { zepMemoryService } from './zep.service';
 import { infraLogger } from '../logging/logger';
+import { applyDecay, isMemoryDecayEnabled } from './memory-decay';
 
 /**
  * Memory Composer — orquestra as 3 camadas de memória
@@ -44,6 +45,22 @@ export class MemoryComposerService {
     ]);
 
     const zepMemory = zepContext.status === 'fulfilled' ? zepContext.value : null;
+
+    // Aplicar decay exponencial à memória de longo prazo (IA-05)
+    if (zepMemory && isMemoryDecayEnabled()) {
+      const now = new Date();
+      zepMemory.entities = applyDecay(
+        zepMemory.entities,
+        (e) => e.lastSeen,
+        now,
+      );
+      zepMemory.relevantFacts = applyDecay(
+        zepMemory.relevantFacts,
+        () => undefined,
+        now,
+      );
+    }
+
     const zepFormatted = zepMemoryService.formatForSystemPrompt(zepMemory);
 
     // Compor system context completo
