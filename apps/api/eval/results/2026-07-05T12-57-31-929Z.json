@@ -1,0 +1,261 @@
+{
+  "mode": "mock",
+  "generatedAt": "2026-07-05T12:57:31.932Z",
+  "total": 50,
+  "passed": 50,
+  "passRate": 100,
+  "threshold": 100,
+  "ok": true,
+  "rows": [
+    {
+      "id": "bill-001",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "bill-002",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "bill-003",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "bill-004",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "bill-005",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "bill-006",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "bill-007",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "bill-008",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "bill-009",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "bill-010",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "tech-001",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "tech-002",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "tech-003",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "tech-004",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "tech-005",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "tech-006",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "tech-007",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "tech-008",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "tech-009",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "tech-010",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "cancel-001",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "cancel-002",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "cancel-003",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "cancel-004",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "cancel-005",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "conv-001",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "conv-002",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "conv-003",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "conv-004",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "conv-005",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "inj-001",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "inj-002",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "inj-003",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "inj-004",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "inj-005",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "esc-001",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "esc-002",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "esc-003",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "esc-004",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "esc-005",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "edge-001",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "edge-002",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "edge-003",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "edge-004",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "edge-005",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "edge-006",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "edge-007",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "edge-008",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "edge-009",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "id": "edge-010",
+      "passed": true,
+      "failures": []
+    }
+  ]
+}
