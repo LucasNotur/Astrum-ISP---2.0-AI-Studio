@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { getOpenAICircuitStatus, callOpenAI, createOpenAIClient } from './openai.adapter';
 
 describe('OpenAI Circuit Breaker', () => {
@@ -28,5 +28,34 @@ describe('Helicone Integration', () => {
 
   it('callOpenAI aceita tenantId e userId sem quebrar', async () => {
     expect(['closed', 'open', 'halfOpen']).toContain(getOpenAICircuitStatus());
+  });
+});
+
+describe('resolveOpenAIKey — fail-fast em produção', () => {
+  const ORIGINAL_ENV = process.env;
+
+  beforeEach(() => {
+    vi.resetModules();
+    process.env = { ...ORIGINAL_ENV };
+  });
+
+  afterEach(() => {
+    process.env = ORIGINAL_ENV;
+  });
+
+  it('lança em produção quando OPENAI_API_KEY está ausente', async () => {
+    process.env.NODE_ENV = 'production';
+    delete process.env.OPENAI_API_KEY;
+    // módulo cria defaultOpenAI no load — o throw vem nesse momento
+    await expect(import('./openai.adapter')).rejects.toThrow(
+      'OPENAI_API_KEY ausente em produção',
+    );
+  });
+
+  it('usa dummy_key em dev/test quando OPENAI_API_KEY está ausente', async () => {
+    process.env.NODE_ENV = 'test';
+    delete process.env.OPENAI_API_KEY;
+    // não deve lançar
+    await expect(import('./openai.adapter')).resolves.toBeDefined();
   });
 });

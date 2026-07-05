@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AgentStateSchema, initialState } from './agent.state';
 
 vi.mock('../../infrastructure/ai/guardrails.service', () => ({
@@ -124,5 +124,83 @@ describe('nodeValidate', () => {
 
     const patch = await nodeValidate(state);
     expect(patch.validationPassed).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cobertura REAL do grafo: exercita buildAgentGraph() + LangGraphService.processMessage()
+// mockando ./agent.nodes para controlar o roteamento (happy / block / escalate / catch).
+// ─────────────────────────────────────────────────────────────────────────────
+describe('LangGraphService.processMessage — grafo completo', () => {
+  // Mutável por teste — as funções mock fecham sobre este objeto por referência.
+  const nodeResults = {
+    guardPassed: true,
+    validationPassed: true,
+    requiresHuman: false,
+    classifyThrows: false,
+  };
+
+  const input = {
+    tenantId: 't1', customerId: 'c1', conversationId: 'conv1',
+    userMessage: 'Minha internet caiu',
+  };
+
+  beforeEach(() => {
+    vi.resetModules();
+    vi.doMock('./agent.nodes', () => ({
+      nodeClassify: async () => {
+        if (nodeResults.classifyThrows) throw new Error('boom-classify');
+        return { intent: 'support_technical' };
+      },
+      nodeGuardrails:   async () => ({ guardPassed: nodeResults.guardPassed }),
+      nodeDecideSource: async () => ({ dataSource: 'qdrant' }),
+      nodeFetchContext: async () => ({ ragContext: 'contexto-fake' }),
+      nodeGenerate:     async () => ({ response: 'resposta-gerada' }),
+      nodeValidate:     async () => ({
+        validationPassed: nodeResults.validationPassed,
+        requiresHuman: nodeResults.requiresHuman,
+      }),
+      nodeEscalate: async () => ({ response: 'escalado-humano', requiresHuman: true }),
+      nodeBlock:    async () => ({ response: 'mensagem-bloqueada', requiresHuman: true }),
+    }));
+  });
+
+  afterEach(() => {
+    nodeResults.guardPassed = true;
+    nodeResults.validationPassed = true;
+    nodeResults.requiresHuman = false;
+    nodeResults.classifyThrows = false;
+    vi.restoreAllMocks();
+  });
+
+  it('caminho feliz: guardrails ok + validação ok → resposta gerada', async () => {
+    const { langGraphService } = await import('./langgraph.service');
+    const out = await langGraphService.processMessage(input);
+    expect(out.response).toBe('resposta-gerada');
+    expect(out.requiresHuman).toBe(false);
+  });
+
+  it('guardrails reprova → nó block encerra o grafo', async () => {
+    nodeResults.guardPassed = false;
+    const { langGraphService } = await import('./langgraph.service');
+    const out = await langGraphService.processMessage(input);
+    expect(out.response).toBe('mensagem-bloqueada');
+    expect(out.requiresHuman).toBe(true);
+  });
+
+  it('validação reprova → nó escalate encerra o grafo', async () => {
+    nodeResults.validationPassed = false;
+    const { langGraphService } = await import('./langgraph.service');
+    const out = await langGraphService.processMessage(input);
+    expect(out.response).toBe('escalado-humano');
+    expect(out.requiresHuman).toBe(true);
+  });
+
+  it('erro fatal dentro de um nó → catch devolve fallback + requiresHuman', async () => {
+    nodeResults.classifyThrows = true;
+    const { langGraphService } = await import('./langgraph.service');
+    const out = await langGraphService.processMessage(input);
+    expect(out.requiresHuman).toBe(true);
+    expect(out.response).toContain('erro interno');
   });
 });

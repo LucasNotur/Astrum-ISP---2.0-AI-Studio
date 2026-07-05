@@ -61,9 +61,16 @@ export function validateEnv(): Env {
     });
     console.error('\nVerifique seu arquivo .env e corrija os erros acima.\n');
     
-    // Sempre permitimos prosseguir, usando as variáveis disponíveis.
-    // Isso evita crash no Preview / Cloud Run caso uma chave (como SUPABASE_URL) esteja faltando.
-    console.warn('⚠️ Ignorando falha de variáveis de ambiente para permitir boot do server.');
+    // Em produção NUNCA subimos com env inválido: cobrança bancária + LGPD exigem
+    // fail-fast. Degradar silenciosamente transforma "falta SUPABASE_URL" em
+    // "undefined.something" no meio de uma transação — muito pior de diagnosticar.
+    if (process.env.NODE_ENV === 'production') {
+      console.error('❌ Boot abortado: variáveis de ambiente inválidas em produção.');
+      process.exit(1);
+    }
+
+    // Fora de produção (dev/preview/test) seguimos degradado para não travar o Studio.
+    console.warn('⚠️ [DEV] Ignorando falha de env para permitir boot local. NUNCA em produção.');
     _env = process.env as any;
     return _env!;
   }
