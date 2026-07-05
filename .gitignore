@@ -18,4 +18,9 @@ vite.config.ts.timestamp-*.mjs
 
 # Stryker mutation testing
 .stryker-tmp/
-reports/mutation/
+**/reports/mutation/
+
+# DuckDB / analytics local
+.data/
+*.duckdb
+*.duckdb.wal
