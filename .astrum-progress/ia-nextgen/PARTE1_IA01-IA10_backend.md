@@ -1,4 +1,4 @@
-# PLANO IA-NEXTGEN — Sessões IA-01 a IA-10
+# PARTE 1 — IA-01 a IA-10 — Backend (CRAG, cache, eval, OCR, memory, audit, churn, voz, rede, multi-agente)
 
 > **Para a IA executora (Sonnet):** este documento é o seu roteiro. Ele foi escrito após
 > auditoria do código real em 2026-07-04 — todos os caminhos, assinaturas e números de linha

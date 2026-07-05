@@ -1,4 +1,4 @@
-# FRONTEND_MAP — Auditoria do frontend real (RN9/§2 do PLANO_IA_NEXTGEN_UI)
+# AUDITORIA_FRONTEND — Auditoria do frontend real (RN9/§2 do PARTE2_IA11-IA46_fullstack)
 
 > Gerado em 2026-07-05 por auditoria direta do código. Este arquivo é lido no início de
 > TODA sessão IA-11..IA-46. Se algo aqui divergir do repo no dia da execução, o repo vence

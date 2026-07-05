@@ -1,6 +1,6 @@
-# PLANO IA-NEXTGEN — PARTE 2 — Fase 1 (o chão) + Fase 2 (os andares)
+# PARTE 2 — IA-11 a IA-46 — Fase 1 (o chão) + Fase 2 (os andares)
 
-> **Para a IA executora (Sonnet):** este arquivo completa o `PLANO_IA_NEXTGEN.md`
+> **Para a IA executora (Sonnet):** este arquivo completa o `PARTE1_IA01-IA10_backend.md`
 > (IA-01..IA-10). Reestruturado em 2026-07-05 em DUAS FASES:
 >
 > - **FASE 1 (IA-11 + 14 sessões):** tecnologias cuja implementação depende SÓ de código
@@ -17,16 +17,16 @@
 > Plano detalhado da Fase 2 → Fase 2.** Sessões da Fase 1 não dependem da Parte 1
 > (podem intercalar se o Lucas mandar), mas NUNCA rode duas sessões em paralelo.
 >
-> Auditoria de frontend: `.astrum-progress/FRONTEND_MAP.md` (leitura obrigatória).
+> Auditoria de frontend: `.astrum-progress/ia-nextgen/AUDITORIA_FRONTEND.md` (leitura obrigatória).
 > Armadilhas: Apêndice B (Parte 1) + Apêndice C (frontend) + Apêndice D (achados novos).
 
 ---
 
-## §0 — PROTOCOLO (herda §0 do PLANO_MESTRE_V2.md e §0/RN1–RN7 do PLANO_IA_NEXTGEN.md)
+## §0 — PROTOCOLO (herda §0 do PLANO_MESTRE_V2.md e §0/RN1–RN7 do PARTE1_IA01-IA10_backend.md)
 
 ### 0.1 Ritual de início de TODA sessão
-1. Ler `PLANO_MESTRE_V2.md` §0 (R1–R6, DoD) e `PLANO_IA_NEXTGEN.md` §0/§1/Apêndice B.
-2. Ler `.astrum-progress/FRONTEND_MAP.md` INTEIRO.
+1. Ler `PLANO_MESTRE_V2.md` §0 (R1–R6, DoD) e `PARTE1_IA01-IA10_backend.md` §0/§1/Apêndice B.
+2. Ler `.astrum-progress/ia-nextgen/AUDITORIA_FRONTEND.md` INTEIRO.
 3. Últimas 3 entradas do `PROGRESS_LOG.md`; `git status` + `git log --oneline -5`.
 4. Branch `feat/ia-XX-<slug>` a partir de `main`.
 5. Primeira sessão ⬜ da FASE 1 deste arquivo. Fase 2 é INEXECUTÁVEL até o gate RN16.
@@ -37,7 +37,7 @@
   (Skeleton p/ fetch >300ms), vazio (EmptyState com ação) e erro (o que houve + como
   resolver); print/gravação no PROGRESS_LOG. Sessões marcadas "SEM UI própria" cumprem
   RN8 na página existente que modificam.
-- **RN9 — Auditoria antes de codar.** Feita para o geral (FRONTEND_MAP.md + Apêndice D).
+- **RN9 — Auditoria antes de codar.** Feita para o geral (AUDITORIA_FRONTEND.md + Apêndice D).
   Cada sessão relê por inteiro os arquivos que vai MODIFICAR antes do primeiro edit.
 - **RN10 — Design System único (§1).** Tokens `--astrum-*` aditivos; linguagem de risco
   idêntica em toda tela.
@@ -58,7 +58,7 @@
   da Parte 1. É proibido expandir sessão de Fase 2 contra código que não existe.
 
 ### 0.3 Ritual de fim de sessão
-Igual à Parte 1 + prints (RN8) + atualizar `FRONTEND_MAP.md` se mudou nav/tokens/flags.
+Igual à Parte 1 + prints (RN8) + atualizar `AUDITORIA_FRONTEND.md` se mudou nav/tokens/flags.
 
 ---
 
@@ -85,7 +85,7 @@ Igual à Parte 1 + prints (RN8) + atualizar `FRONTEND_MAP.md` se mudou nav/token
 
 ---
 
-## §2 — AUDITORIA — FEITA (2026-07-05): `FRONTEND_MAP.md` + Apêndice D deste arquivo.
+## §2 — AUDITORIA — FEITA (2026-07-05): `AUDITORIA_FRONTEND.md` + Apêndice D deste arquivo.
 
 ---
 
@@ -1295,7 +1295,7 @@ registra `dryRun`. Judge: rationale gravada. Pass-rate = equivalent/total.
 ---
 
 ## APÊNDICE C — ARMADILHAS DE FRONTEND
-Detalhe no `FRONTEND_MAP.md` §5. Bolso: C1 App.tsx monólito (rotas ~l.2958; não
+Detalhe no `AUDITORIA_FRONTEND.md` §5. Bolso: C1 App.tsx monólito (rotas ~l.2958; não
 refatorar) · C2 `@/` = raiz (`@/src/...`) · C3 dark muda `--radius` (nunca raio fixo) ·
 C4 `--primary` dark é vermelho (risco = `--astrum-*`) · C5 e2e Playwright aponta p/
 apps/web condenado · C6 sem proxy vite (base URL do Fastify = padrão `auth-v2.ts`) ·
