@@ -2,6 +2,7 @@ import supabase from '../database/supabase.client';
 import { suspensionQueue } from '../../../../../packages/queue/src/queues';
 import { infraLogger } from '../logging/logger';
 import { getEnabledTools, recordToolUsage } from './tool-registry';
+import { impactoCto, reincidencia, capacidade, defaultDb as graphDb } from '../../domain/rede/network-graph.service';
 
 /**
  * Executor de ferramentas do Function Calling.
@@ -55,6 +56,9 @@ export class ToolsExecutor {
         break;
       case 'schedule_technical_visit':
         result = await this._scheduleTechnicalVisit(args);
+        break;
+      case 'query_network_graph': // IA-16
+        result = await this._queryNetworkGraph(args);
         break;
       default:
         infraLogger.warn({ toolName }, 'Unknown tool called — ignoring');
@@ -208,5 +212,25 @@ export class ToolsExecutor {
     // Delegado ao RAG service — retorna contexto já processado
     const { query } = args as { query: string };
     return { query, message: 'RAG query delegated to rag-query.service' };
+  }
+
+  /** IA-16 — GraphRAG leve. Despacha para 1 das 3 consultas nomeadas. */
+  private async _queryNetworkGraph(args: Record<string, unknown>) {
+    const { mode, cto_id, days } = args as {
+      mode: 'impacto_cto' | 'reincidencia' | 'capacidade';
+      cto_id?: string;
+      days?: number;
+    };
+    if (mode === 'impacto_cto') {
+      if (!cto_id) return { error: 'cto_id é obrigatório para impacto_cto' };
+      return await impactoCto(graphDb, this.tenantId, cto_id);
+    }
+    if (mode === 'reincidencia') {
+      return await reincidencia(graphDb, this.tenantId, days ?? 30);
+    }
+    if (mode === 'capacidade') {
+      return await capacidade(graphDb, this.tenantId);
+    }
+    return { error: `mode inválido: ${mode}` };
   }
 }

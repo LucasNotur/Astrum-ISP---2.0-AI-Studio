@@ -154,6 +154,15 @@ export const agentTools = {
       include_overdue_only: z.boolean().default(false),
     }),
   },
+  // IA-16 — GraphRAG leve (3 consultas nomeadas, sem banco de grafo novo).
+  query_network_graph: {
+    description: 'Consulta o grafo da rede física do provedor (clientes ↔ CTOs ↔ tickets). Use para perguntas sobre impacto de falha em CTO, reincidência de problemas por região ou capacidade de portas.',
+    parameters: z.object({
+      mode: z.enum(['impacto_cto', 'reincidencia', 'capacidade']),
+      cto_id: z.string().optional().describe('Obrigatório para impacto_cto'),
+      days: z.number().min(1).max(90).default(30).describe('Janela em dias para reincidencia'),
+    }),
+  },
 };
 
 // ─── Service ─────────────────────────────────────────────────────────────────

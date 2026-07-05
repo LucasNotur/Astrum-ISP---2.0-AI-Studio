@@ -35,8 +35,16 @@ vi.mock('./tool-registry', () => ({
   getEnabledTools: vi.fn(async () => enabledToolsOverride ?? {
     suspend_signal: {}, check_invoice: {}, get_billing_status: {}, create_ticket: {},
     query_knowledge_base: {}, check_coverage: {}, run_diagnostics: {}, schedule_technical_visit: {},
+    query_network_graph: {},
   }),
   recordToolUsage: vi.fn(() => { recordUsageCalls++; }),
+}));
+
+vi.mock('../../domain/rede/network-graph.service', () => ({
+  impactoCto: vi.fn(async () => ({ cto: { id: 'cto1', name: 'Centro' }, customers_total: 5, customers_with_open_ticket: 0, mrr_at_risk_cents: 10000, customers: [] })),
+  reincidencia: vi.fn(async () => []),
+  capacidade: vi.fn(async () => []),
+  defaultDb: {},
 }));
 
 describe('ToolsExecutor', () => {
@@ -82,6 +90,21 @@ describe('ToolsExecutor', () => {
     const { ToolsExecutor } = await import('./tools.executor');
     await new ToolsExecutor('t1').execute('check_invoice', { customer_id: 'c1' });
     expect(recordUsageCalls).toBe(1);
+  });
+
+  it('IA-16: query_network_graph modo impacto_cto despacha para o service', async () => {
+    const { ToolsExecutor } = await import('./tools.executor');
+    const r: any = await new ToolsExecutor('t1').execute('query_network_graph', {
+      mode: 'impacto_cto', cto_id: 'cto1',
+    });
+    expect(r.cto.name).toBe('Centro');
+    expect(r.customers_total).toBe(5);
+  });
+
+  it('IA-16: query_network_graph modo impacto_cto sem cto_id → erro', async () => {
+    const { ToolsExecutor } = await import('./tools.executor');
+    const r: any = await new ToolsExecutor('t1').execute('query_network_graph', { mode: 'impacto_cto' });
+    expect(r.error).toContain('cto_id');
   });
 
   it('IA-19: tool que retorna {error} também chama recordToolUsage', async () => {
