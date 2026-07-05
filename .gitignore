@@ -15,3 +15,7 @@ vite.config.ts.timestamp-*.mjs
 .env
 .env.local
 .env.*.local
+
+# Stryker mutation testing
+.stryker-tmp/
+reports/mutation/
