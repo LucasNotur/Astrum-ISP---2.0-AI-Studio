@@ -1,4 +1,4 @@
-import { generateObject, generateText, streamText } from 'ai';
+import { generateObject, generateText, streamText, stepCountIs } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
 import { infraLogger } from '../logging/logger';
@@ -216,17 +216,17 @@ export class VercelAIService {
       system: `${this._buildSystemPrompt('chat')}\n\n${systemContext}`,
       messages,
       tools: agentTools as any,
-      maxSteps: 5, // máximo de tool calls em sequência
+      stopWhen: stepCountIs(5), // máximo de tool calls em sequência (ai-sdk v6)
       onStepFinish: async (step) => {
         if (step.toolCalls && onToolCall) {
           for (const toolCall of step.toolCalls) {
             infraLogger.info({
               tool: toolCall.toolName,
-              args: toolCall.args,
+              args: toolCall.input,
               tenantId,
             }, 'Tool called by agent');
 
-            await onToolCall(toolCall.toolName, toolCall.args);
+            await onToolCall(toolCall.toolName, toolCall.input);
           }
         }
       },

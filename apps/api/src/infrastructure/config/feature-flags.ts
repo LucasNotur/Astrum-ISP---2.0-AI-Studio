@@ -33,6 +33,6 @@ export function isFeatureEnabled(
   tier: PlanTier,
   tenantOverrides: Record<string, boolean> = {},
 ): boolean {
-  if (flag in tenantOverrides) return tenantOverrides[flag];
+  if (flag in tenantOverrides) return tenantOverrides[flag] ?? false;
   return flagsForTier(tier).has(flag);
 }
