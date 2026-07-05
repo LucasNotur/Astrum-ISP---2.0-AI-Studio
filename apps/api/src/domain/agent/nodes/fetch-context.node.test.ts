@@ -1,40 +1,28 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-
-const { mockSearch, mockSingle } = vi.hoisted(() => ({
-  mockSearch: vi.fn(),
-  mockSingle: vi.fn(),
-}));
-
-vi.mock('../../../infrastructure/rag/hybrid-search.service', () => ({
-  HybridSearchService: function HybridSearchService(this: any) {
-    this.search = mockSearch;
-  },
-}));
-
-vi.mock('../../../adapters/vector/qdrant.adapter', () => ({
-  getQdrantClient: vi.fn().mockReturnValue({}),
-}));
-
-vi.mock('../../../infrastructure/database/supabase.client', () => ({
-  supabase: {
-    from: vi.fn(() => ({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      single: mockSingle,
-    })),
-  },
-}));
-
-import { nodeFetchContext } from './fetch-context.node';
+import { makeNodeFetchContext } from './fetch-context.node';
 import { initialState } from '../agent.state';
 
-function makeState(dataSource: string, overrides: Record<string, any> = {}) {
+const mockSearch = vi.fn();
+const mockFetchCustomer = vi.fn();
+const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+
+const nodeFetchContext = makeNodeFetchContext({
+  search: { search: mockSearch },
+  db: { fetchCustomer: mockFetchCustomer, createTicket: vi.fn() },
+  logger,
+});
+
+function makeState(dataSource: string) {
   return {
     ...initialState({ tenantId: 't1', customerId: 'c1', conversationId: 'conv1', userMessage: 'Minha internet caiu' }),
     dataSource,
-    ...overrides,
   } as any;
 }
+
+const customerData = {
+  name: 'João Silva', plan: 'Fibra 200', status: 'active',
+  monthly_value_cents: 10000, invoices: [], tickets: [],
+};
 
 describe('nodeFetchContext', () => {
   beforeEach(() => {
@@ -42,16 +30,10 @@ describe('nodeFetchContext', () => {
     mockSearch.mockResolvedValue([
       { filename: 'manual.pdf', score: 0.92, content: 'Solução PPPoE: reinicie o modem' },
     ]);
-    mockSingle.mockResolvedValue({
-      data: {
-        name: 'João Silva', plan: 'Fibra 200', status: 'active',
-        monthly_value_cents: 10000, invoices: [], tickets: [],
-      },
-      error: null,
-    });
+    mockFetchCustomer.mockResolvedValue(customerData);
   });
 
-  it('dataSource=qdrant → chama HybridSearch, dbContext vazio', async () => {
+  it('dataSource=qdrant → chama search, dbContext vazio', async () => {
     const r = await nodeFetchContext(makeState('qdrant'));
     expect(mockSearch).toHaveBeenCalledTimes(1);
     expect(r.ragContext).toContain('manual.pdf');
@@ -80,7 +62,7 @@ describe('nodeFetchContext', () => {
     expect(r.dbContext).toBe('');
   });
 
-  it('falha no RAG → dbContext ainda preenchido (Promise.allSettled)', async () => {
+  it('falha no RAG → dbContext ainda preenchido', async () => {
     mockSearch.mockRejectedValue(new Error('Qdrant offline'));
     const r = await nodeFetchContext(makeState('both'));
     expect(r.ragContext).toBe('');
@@ -88,7 +70,7 @@ describe('nodeFetchContext', () => {
   });
 
   it('cliente não encontrado → dbContext vazio sem lançar erro', async () => {
-    mockSingle.mockResolvedValue({ data: null, error: null });
+    mockFetchCustomer.mockResolvedValue(null);
     const r = await nodeFetchContext(makeState('supabase'));
     expect(r.dbContext).toBe('');
   });

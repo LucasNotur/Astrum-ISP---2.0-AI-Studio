@@ -1,6 +1,9 @@
-import { describe, it, expect } from 'vitest';
-import { nodeBlock } from './block.node';
+import { describe, it, expect, vi } from 'vitest';
+import { makeNodeBlock } from './block.node';
 import { initialState } from '../agent.state';
+
+const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+const nodeBlock = makeNodeBlock(logger);
 
 describe('nodeBlock', () => {
   it('retorna mensagem de bloqueio padrão', async () => {
@@ -27,7 +30,6 @@ describe('nodeBlock', () => {
       guardReason: 'Injection: dan_jailbreak',
     } as any;
     const r = await nodeBlock(state);
-    // A mensagem ao cliente não deve vazar o motivo técnico
     expect(r.response).not.toContain('dan_jailbreak');
     expect(r.response).not.toContain('Injection');
   });

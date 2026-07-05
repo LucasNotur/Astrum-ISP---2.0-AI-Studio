@@ -10,6 +10,7 @@ import {
   nodeEscalate,
   nodeBlock,
 } from './agent.nodes';
+import type { ILoggerPort } from '../ports/logger.port';
 import { infraLogger } from '../../infrastructure/logging/logger';
 
 /**
@@ -100,6 +101,7 @@ const agentGraph = buildAgentGraph();
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 export class LangGraphService {
+  constructor(private readonly logger: ILoggerPort = infraLogger) {}
 
   /**
    * Processa uma mensagem pelo grafo de agente completo.
@@ -119,7 +121,7 @@ export class LangGraphService {
   }> {
     const state = initialState(input);
 
-    infraLogger.info({
+    this.logger.info({
       tenantId: input.tenantId,
       messageLength: input.userMessage.length,
     }, 'LangGraph: processing message');
@@ -127,7 +129,7 @@ export class LangGraphService {
     try {
       const finalState = await agentGraph.invoke(state) as AgentState;
 
-      infraLogger.info({
+      this.logger.info({
         steps: finalState.steps,
         requiresHuman: finalState.requiresHuman,
         toolsUsed: finalState.toolsExecuted?.length ?? 0,
@@ -143,7 +145,7 @@ export class LangGraphService {
       };
 
     } catch (err) {
-      infraLogger.error({ err, tenantId: input.tenantId }, 'LangGraph: fatal error');
+      this.logger.error({ err, tenantId: input.tenantId }, 'LangGraph: fatal error');
       return {
         response: 'Desculpe, ocorreu um erro interno. Um ticket foi aberto para nosso time.',
         steps: state.steps,

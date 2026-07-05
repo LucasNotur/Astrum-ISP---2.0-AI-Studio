@@ -1,25 +1,24 @@
 import { AgentState } from '../agent.state';
-import { vercelAIService } from '../../../infrastructure/ai/vercel-ai.service';
-import { infraLogger } from '../../../infrastructure/logging/logger';
+import { IAIPort } from '../../ports/ai.port';
+import { ILoggerPort } from '../../ports/logger.port';
 
-export async function nodeClassify(state: AgentState): Promise<Partial<AgentState>> {
-  const intent = await vercelAIService.classifyIntent(
-    state.userMessage,
-    '', // histórico vem do Zep na etapa de contexto
-    state.tenantId,
-  );
+export function makeNodeClassify(deps: { ai: Pick<IAIPort, 'classifyIntent'>; logger: ILoggerPort }) {
+  return async function nodeClassify(state: AgentState): Promise<Partial<AgentState>> {
+    const { userMessage, tenantId, zepContext } = state;
 
-  infraLogger.info({
-    step: 'classify',
-    intent: intent.intent,
-    urgency: intent.urgency,
-    tenantId: state.tenantId,
-  }, 'Agent: classify');
+    const { intent, urgency, sentiment } = await deps.ai.classifyIntent(
+      userMessage,
+      zepContext ?? '',
+      tenantId,
+    );
 
-  return {
-    intent: intent.intent,
-    urgency: intent.urgency,
-    sentiment: intent.sentiment,
-    steps: [...state.steps, 'classify'],
+    deps.logger.info({ step: 'classify', intent, urgency, tenantId }, 'Agent: classify');
+
+    return {
+      intent: intent as AgentState['intent'],
+      urgency: urgency as AgentState['urgency'],
+      sentiment: sentiment as AgentState['sentiment'],
+      steps: [...state.steps, 'classify'],
+    };
   };
 }
