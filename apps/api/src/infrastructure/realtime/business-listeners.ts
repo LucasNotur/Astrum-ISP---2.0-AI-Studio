@@ -7,8 +7,8 @@ import { atendimentoLogger, cobrancaLogger } from '../logging/logger';
  * Chamar no startup do servidor após conexão com o banco.
  */
 import { detectAndMaskPII } from '../guardrails/pii-detector.service';
-import { scheduleCobraiFlow } from '../../domain/cobranca/cobrai.scheduler';
-import { cancelInvoiceCobraiJobs } from '../../domain/cobranca/cobrai-rules.service';
+import { scheduleCobraiFlow } from '../cobranca/cobrai.scheduler';
+import { cancelInvoiceCobraiJobs } from '../adapters/cobranca-db.adapter';
 
 export function initBusinessListeners() {
   // 1. Nova mensagem → enfileirar processamento de IA

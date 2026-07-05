@@ -20,7 +20,7 @@ vi.mock('../../infrastructure/auth/password.service', () => ({
   hashPassword: vi.fn().mockResolvedValue('$argon2id$hashed'),
 }));
 
-vi.mock('../cobranca/cobrai-rules.service', () => ({
+vi.mock('../../infrastructure/adapters/cobranca-db.adapter', () => ({
   createDefaultCobraiRules: vi.fn().mockResolvedValue(undefined),
 }));
 

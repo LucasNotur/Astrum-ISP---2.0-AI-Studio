@@ -11,11 +11,15 @@ vi.mock('../../../../../packages/queue/src/queues', () => ({
 vi.mock('../guardrails/pii-detector.service', () => ({
   detectAndMaskPII: vi.fn().mockReturnValue({ maskedText: 'texto-mascarado', hasPII: false }),
 }));
-vi.mock('../../domain/cobranca/cobrai.scheduler', () => ({
+vi.mock('../cobranca/cobrai.scheduler', () => ({
   scheduleCobraiFlow: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock('../../domain/cobranca/cobrai-rules.service', () => ({
+vi.mock('../adapters/cobranca-db.adapter', () => ({
   cancelInvoiceCobraiJobs: vi.fn().mockResolvedValue(['job-abc']),
+  getTenantCobraiRules: vi.fn().mockResolvedValue([]),
+  registerCobraiJob: vi.fn().mockResolvedValue(undefined),
+  createDefaultCobraiRules: vi.fn().mockResolvedValue(undefined),
+  cobrancaRulesService: {},
 }));
 
 describe('initBusinessListeners', () => {
@@ -57,11 +61,11 @@ describe('initBusinessListeners', () => {
 
   it('listener invoices:UPDATE dispara CobrAI quando fatura muda para overdue', async () => {
     const { initBusinessListeners } = await import('./business-listeners');
-    const { scheduleCobraiFlow } = await import('../../domain/cobranca/cobrai.scheduler');
+    const { scheduleCobraiFlow } = await import('../cobranca/cobrai.scheduler');
 
     initBusinessListeners();
     const overdueCall = watchTableMock.mock.calls.find(
-      (c: any[]) => c[0].table === 'invoices' && c[0].event === 'UPDATE'
+      (c: any[]) => c[0].table === 'invoices' && c[0].event === 'UPDATE',
     );
     const handler = overdueCall?.[0].handler;
 
@@ -74,7 +78,7 @@ describe('initBusinessListeners', () => {
 
   it('listener invoices:UPDATE cancela CobrAI quando fatura é paga', async () => {
     const { initBusinessListeners } = await import('./business-listeners');
-    const { cancelInvoiceCobraiJobs } = await import('../../domain/cobranca/cobrai-rules.service');
+    const { cancelInvoiceCobraiJobs } = await import('../adapters/cobranca-db.adapter');
 
     initBusinessListeners();
     // Segundo listener de invoices é o que trata 'paid'

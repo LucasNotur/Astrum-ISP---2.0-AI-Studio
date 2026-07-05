@@ -4,7 +4,7 @@ import { setupDLQ } from '../../../apps/api/src/infrastructure/queue/bullmq.clie
 import { runGuardrails, BLOCK_RESPONSE } from '../../../apps/api/src/infrastructure/guardrails/guardrails.pipeline';
 import { queryRAG } from '../../../apps/api/src/infrastructure/rag/rag-query.service';
 import { getConversationContext, ConversationMessage } from '../../../apps/api/src/infrastructure/rag/context-window.service';
-import { getOrCreateConversation, saveMessage, shouldEscalate, escalateConversation } from '../../../apps/api/src/domain/atendimento/conversation.service';
+import { getOrCreateConversation, saveMessage, shouldEscalate, escalateConversation } from '../../../apps/api/src/infrastructure/adapters/conversation-db.adapter';
 import { sendWhatsAppResponse } from '../../../apps/api/src/adapters/whatsapp/message-sender.service';
 import { supabaseAdmin } from '../../../apps/api/src/infrastructure/database/supabase.client';
 import { atendimentoLogger } from '../../../apps/api/src/infrastructure/logging/logger';

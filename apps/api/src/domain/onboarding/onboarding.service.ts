@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { hashPassword } from '../../infrastructure/auth/password.service';
-import { createDefaultCobraiRules } from '../cobranca/cobrai-rules.service';
+import { createDefaultCobraiRules } from '../../infrastructure/adapters/cobranca-db.adapter';
 import { ensureCollection } from '../../adapters/vector/qdrant.adapter';
 import { infraLogger } from '../../infrastructure/logging/logger';
 

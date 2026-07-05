@@ -1,82 +1,79 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { makeConversationService } from './conversation.service';
+import type { IConversationDbPort } from '../ports/conversation.port';
+import type { ILoggerPort } from '../ports/logger.port';
 
-// Builder inspecionável: registra qual filtro de customer_id foi usado.
-const calls = { eqCustomer: [] as any[], isCustomer: [] as any[] };
+const logger: ILoggerPort = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
-function makeBuilder(existing: any) {
-  const builder: any = {
-    select: vi.fn(() => builder),
-    insert: vi.fn(() => builder),
-    update: vi.fn(() => builder),
-    order: vi.fn(() => builder),
-    limit: vi.fn(() => builder),
-    eq: vi.fn((col: string, val: any) => {
-      if (col === 'customer_id') calls.eqCustomer.push(val);
-      return builder;
-    }),
-    is: vi.fn((col: string, val: any) => {
-      if (col === 'customer_id') calls.isCustomer.push(val);
-      return builder;
-    }),
-    single: vi.fn().mockResolvedValue({ data: existing, error: null }),
-    maybeSingle: vi.fn().mockResolvedValue({ data: existing, error: null }),
-    count: 5,
+function makeDb(overrides: Partial<IConversationDbPort> = {}): IConversationDbPort {
+  return {
+    findOpenConversation: vi.fn().mockResolvedValue(null),
+    createConversation: vi.fn().mockResolvedValue('conv-new'),
+    saveMessage: vi.fn().mockResolvedValue('msg-1'),
+    countMessages: vi.fn().mockResolvedValue(2),
+    escalate: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
   };
-  return builder;
 }
 
-vi.mock('../../infrastructure/database/supabase.client', () => ({
-  supabaseAdmin: { from: vi.fn(() => makeBuilder({ id: 'conv-123' })) },
-}));
-
 describe('Conversation Service', () => {
-  beforeEach(() => {
-    calls.eqCustomer = [];
-    calls.isCustomer = [];
-  });
+  it('getOrCreateConversation retorna ID existente sem criar', async () => {
+    const db = makeDb({ findOpenConversation: vi.fn().mockResolvedValue('conv-123') });
+    const svc = makeConversationService({ db, logger });
 
-  it('getOrCreateConversation retorna ID existente', async () => {
-    const { getOrCreateConversation } = await import('./conversation.service');
-    const id = await getOrCreateConversation({ tenantId: 't1', channel: 'whatsapp', customerId: 'cust-1' });
+    const id = await svc.getOrCreateConversation({ tenantId: 't1', channel: 'whatsapp', customerId: 'cust-1' });
+
     expect(id).toBe('conv-123');
+    expect(db.createConversation).not.toHaveBeenCalled();
   });
 
-  it('usa .eq(customer_id) quando há customerId', async () => {
-    const { getOrCreateConversation } = await import('./conversation.service');
-    await getOrCreateConversation({ tenantId: 't1', channel: 'whatsapp', customerId: 'cust-1' });
-    expect(calls.eqCustomer).toContain('cust-1');
-    expect(calls.isCustomer).toHaveLength(0);
+  it('getOrCreateConversation cria nova quando não existe', async () => {
+    const db = makeDb();
+    const svc = makeConversationService({ db, logger });
+
+    const id = await svc.getOrCreateConversation({ tenantId: 't1', channel: 'whatsapp', customerId: 'cust-1' });
+
+    expect(id).toBe('conv-new');
+    expect(db.createConversation).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: 't1', channel: 'whatsapp', customerId: 'cust-1' }),
+    );
   });
 
-  it('BUG S68: usa .is(customer_id, null) quando NÃO há customerId (não .eq)', async () => {
-    const { getOrCreateConversation } = await import('./conversation.service');
-    await getOrCreateConversation({ tenantId: 't1', channel: 'webchat' });
-    // Não pode filtrar customer_id via .eq(null) — PostgREST não casaria NULL.
-    expect(calls.eqCustomer).toHaveLength(0);
-    expect(calls.isCustomer).toEqual([null]);
+  it('BUG S68: findOpenConversation recebe opts sem customerId (sem .eq(null))', async () => {
+    const db = makeDb();
+    const svc = makeConversationService({ db, logger });
+
+    await svc.getOrCreateConversation({ tenantId: 't1', channel: 'webchat' });
+
+    // adapter é quem chama .is('customer_id', null) — service só delega opts sem customerId
+    expect(db.findOpenConversation).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: 't1', channel: 'webchat' }),
+    );
+    const callArg = (db.findOpenConversation as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+    expect(callArg?.customerId).toBeUndefined();
   });
 
   it('shouldEscalate detecta palavra-chave de cancelamento', async () => {
-    const { shouldEscalate } = await import('./conversation.service');
-    const result = await shouldEscalate('conv-1', 'tenant-1', 'Quero cancelar meu plano');
+    const svc = makeConversationService({ db: makeDb(), logger });
+    const result = await svc.shouldEscalate('conv-1', 'tenant-1', 'Quero cancelar meu plano');
     expect(result).toBe(true);
   });
 
   it('shouldEscalate detecta pedido de atendente', async () => {
-    const { shouldEscalate } = await import('./conversation.service');
-    const result = await shouldEscalate('conv-1', 'tenant-1', 'quero falar com um atendente');
+    const svc = makeConversationService({ db: makeDb(), logger });
+    const result = await svc.shouldEscalate('conv-1', 'tenant-1', 'quero falar com um atendente');
     expect(result).toBe(true);
   });
 
-  it('shouldEscalate não escalona mensagem normal', async () => {
-    const { supabaseAdmin } = await import('../../infrastructure/database/supabase.client');
-    (supabaseAdmin.from as any).mockReturnValueOnce({
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      count: 2,
-    });
-    const { shouldEscalate } = await import('./conversation.service');
-    const result = await shouldEscalate('conv-1', 'tenant-1', 'minha internet está lenta');
+  it('shouldEscalate não escalona mensagem normal com poucas mensagens', async () => {
+    const svc = makeConversationService({ db: makeDb({ countMessages: vi.fn().mockResolvedValue(2) }), logger });
+    const result = await svc.shouldEscalate('conv-1', 'tenant-1', 'minha internet está lenta');
     expect(result).toBe(false);
+  });
+
+  it('shouldEscalate escalona quando count >= 10', async () => {
+    const svc = makeConversationService({ db: makeDb({ countMessages: vi.fn().mockResolvedValue(10) }), logger });
+    const result = await svc.shouldEscalate('conv-1', 'tenant-1', 'mensagem normal');
+    expect(result).toBe(true);
   });
 });
