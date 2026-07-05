@@ -1,6 +1,7 @@
 import { AgentState } from '../agent.state';
 import { IAIPort, IToolsPortFactory } from '../../ports/ai.port';
 import { ILoggerPort } from '../../ports/logger.port';
+import { findCachedResponse, storeCachedResponse, isEligibleForCache, isSemanticCacheEnabled } from '../../../infrastructure/cache/semantic-cache.service';
 
 export function makeNodeGenerate(deps: {
   ai: Pick<IAIPort, 'streamWithTools'>;
@@ -8,7 +9,23 @@ export function makeNodeGenerate(deps: {
   logger: ILoggerPort;
 }) {
   return async function nodeGenerate(state: AgentState): Promise<Partial<AgentState>> {
-    const { ragContext, dbContext, zepContext, userMessage, tenantId } = state;
+    const { ragContext, dbContext, zepContext, userMessage, tenantId, intent, dataSource } = state;
+
+    // IA-02: Cache semântico — tentar resposta do cache antes de chamar LLM
+    if (isEligibleForCache({ dataSource, dbContext, toolsExecuted: state.toolsExecuted })) {
+      const cached = await findCachedResponse(userMessage, tenantId);
+      if (cached) {
+        deps.logger.info({
+          step: 'generate',
+          cacheHit: true,
+          score: cached.score.toFixed(4),
+        }, 'Agent: generate (cache hit)');
+        return {
+          response: cached.response,
+          steps: [...state.steps, 'generate:cache_hit'],
+        };
+      }
+    }
 
     const systemContext = [
       ragContext && `## Documentos Técnicos:\n${ragContext}`,
@@ -18,6 +35,9 @@ export function makeNodeGenerate(deps: {
 
     const toolsExecuted: AgentState['toolsExecuted'] = [];
     const tools = deps.createTools(tenantId);
+
+    // IA-02: Cascata de modelos — mini para conversacional, full para raciocínio
+    const tier = (intent === 'other' || dataSource === 'none') ? 'mini' : 'full';
 
     const streamResult = await deps.ai.streamWithTools(
       [{ role: 'user', content: userMessage }],
@@ -29,6 +49,7 @@ export function makeNodeGenerate(deps: {
         toolsExecuted!.push({ name: toolName, args: safeArgs, result });
         return result;
       },
+      { tier },
     );
 
     let fullResponse = '';
@@ -40,7 +61,13 @@ export function makeNodeGenerate(deps: {
       step: 'generate',
       responseLength: fullResponse.length,
       toolsUsed: toolsExecuted.length,
+      tier,
     }, 'Agent: generate');
+
+    // IA-02: Armazenar resposta no cache semântico (fire-and-forget)
+    if (isEligibleForCache({ dataSource, dbContext, toolsExecuted })) {
+      storeCachedResponse(userMessage, fullResponse, tenantId).catch(() => {});
+    }
 
     return {
       response: fullResponse,

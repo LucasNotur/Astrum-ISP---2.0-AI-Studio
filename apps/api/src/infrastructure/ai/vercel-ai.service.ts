@@ -2,6 +2,7 @@ import { generateObject, generateText, streamText, stepCountIs } from 'ai';
 import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
 import { infraLogger } from '../logging/logger';
+import { isModelCascadeEnabled } from '../cache/semantic-cache.service';
 
 /**
  * Vercel AI SDK Service
@@ -210,9 +211,13 @@ export class VercelAIService {
     systemContext: string,
     tenantId: string,
     onToolCall?: (toolName: string, args: unknown) => Promise<unknown>,
+    opts?: { tier?: 'mini' | 'full' },
   ) {
+    const useMini = isModelCascadeEnabled() && opts?.tier === 'mini';
+    const selectedModel = useMini ? this.model : this.heavyModel;
+
     const result = streamText({
-      model: this.heavyModel as any,
+      model: selectedModel as any,
       system: `${this._buildSystemPrompt('chat')}\n\n${systemContext}`,
       messages,
       tools: agentTools as any,
