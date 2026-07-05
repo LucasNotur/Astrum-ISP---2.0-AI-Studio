@@ -1322,3 +1322,17 @@ Status: 🔶 Lógica do gate final pronta/testada. Aprovação real precisa dos 
 Observações: evaluateFinalGate (10 critérios do MAPA_SESSOES: 10 ISPs, workers integrados, resolução>80%,
   0 jobs cobrança perdidos, isolamento, custo/ISP, deploy<5min, RAGAS, docs, synthetic). Plano V2 S68-S98 concluído
   em modo code-complete; etapas operacionais documentadas em docs/ASTRUM_ESTADO_FINAL_PLANO_V2.md.
+
+---
+
+[2026-07-05] IA-NEXTGEN Parte 1 — Sessão IA-05
+Tarefa: Memory decay exponencial no composer (Zep)
+Arquivos criados:
+  - apps/api/src/infrastructure/memory/memory-decay.ts (função pura applyDecay + flag isMemoryDecayEnabled)
+  - apps/api/src/infrastructure/memory/memory-decay.test.ts (14 testes)
+Arquivos modificados:
+  - apps/api/src/infrastructure/memory/memory-composer.service.ts (integração do decay em entities e relevantFacts)
+Tecnologias implementadas: decay exponencial e^(-idadeDias/90), threshold 0.2, max 10 fatos, ordenado por peso
+Testes criados: 14 testes (hoje passa, 90d≈0.37 passa, 200d<0.2 cai, lastSeen ausente=1, ordenação, truncagem, threshold customizável, flag)
+Status: ✅ Concluído
+Observações: Flag MEMORY_DECAY_ENABLED default 'false' — comportamento idêntico ao atual com flag off. Typecheck limpo nos arquivos tocados (zero erros em memory/). 22/22 testes passando no pacote memory.

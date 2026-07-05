@@ -521,7 +521,7 @@ Autenticação: mesmo decorator/middleware das rotas irmãs em `domain/ia/*.rout
 
 ---
 
-# ⬜ IA-05 — Memory decay no composer
+# ✅ IA-05 — Memory decay no composer
 
 **Objetivo:** fatos antigos/irrelevantes do Zep deixam de poluir o contexto: peso
 `e^(-idadeDias/90)`, corte em 0.2, máx. 10 fatos, sempre em ordem de peso.
@@ -554,7 +554,7 @@ for usado em produção hoje, proteger com `MEMORY_DECAY_ENABLED` default `false
 
 **Testes:** fato de hoje passa; 90 dias ≈ 0.37 passa; 200 dias < 0.2 cai; ordena; trunca em 10; `lastSeen` ausente = peso 1.
 
-- [ ] Função pura 100% coberta; composer usa; flag off = passthrough.
+- [x] Função pura 100% coberta; composer usa; flag off = passthrough.
 
 **Commit:** `feat(ia05): decay exponencial de memórias no composer (flag off)`.
 
