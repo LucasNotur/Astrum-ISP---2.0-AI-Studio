@@ -60,6 +60,10 @@ export const AgentStateSchema = z.object({
   validationPassed: z.boolean().optional(),
   validationIssue: z.string().optional(),
 
+  // IA-21 — Veto do classificador de segurança (nó: safety_veto)
+  safetyVetoed: z.boolean().optional(),
+  safetyCategories: z.array(z.string()).optional(),
+
   // Escalação (nó: escalate)
   requiresHuman: z.boolean().optional(),
   escalationReason: z.string().optional(),

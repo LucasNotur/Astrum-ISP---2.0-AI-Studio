@@ -1,5 +1,5 @@
 import { supabase } from '../database/supabase.client';
-import { IDatabasePort, ICustomerData, ITicketInput } from '../../domain/ports/database.port';
+import { IDatabasePort, ICustomerData, ITicketInput, ISafetyVetoInput } from '../../domain/ports/database.port';
 
 export const agentDbAdapter: IDatabasePort = {
   async fetchCustomer(customerId, tenantId): Promise<ICustomerData | null> {
@@ -18,5 +18,15 @@ export const agentDbAdapter: IDatabasePort = {
 
   async createTicket(input: ITicketInput): Promise<void> {
     await supabase.from('tickets').insert(input);
+  },
+
+  // IA-21: grava fila de revisão humana quando o classificador veta uma resposta.
+  async recordSafetyVeto(input: ISafetyVetoInput): Promise<void> {
+    await supabase.from('safety_vetoes').insert({
+      tenant_id: input.tenant_id,
+      conversation_id: input.conversation_id,
+      response_text: input.response_text,
+      categories: input.categories,
+    });
   },
 };

@@ -10,6 +10,7 @@
 const PUBLIC_FLAGS: Record<string, string> = {
   hub: 'INTELLIGENCE_HUB_ENABLED',
   toolreg: 'TOOL_REGISTRY_ENABLED',
+  safety: 'SAFETY_CLASSIFIER_ENABLED',
 };
 
 export function getPublicFlags(): Record<string, boolean> {

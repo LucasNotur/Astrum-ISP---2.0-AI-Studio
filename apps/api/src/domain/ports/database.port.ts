@@ -17,7 +17,15 @@ export interface ITicketInput {
   conversation_id: string;
 }
 
+export interface ISafetyVetoInput {
+  tenant_id: string;
+  conversation_id: string;
+  response_text: string;
+  categories: string[];
+}
+
 export interface IDatabasePort {
   fetchCustomer(customerId: string, tenantId: string): Promise<ICustomerData | null>;
   createTicket(input: ITicketInput): Promise<void>;
+  recordSafetyVeto(input: ISafetyVetoInput): Promise<void>;
 }
