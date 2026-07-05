@@ -117,4 +117,129 @@ describe('VercelAIService — Structured Outputs', () => {
       expect(result).toHaveProperty('error');
     }, 10000);
   });
+
+  describe('IA-37: onStepFinish batching', () => {
+    const originalEnv = process.env;
+    let streamTextMock: any;
+    let onStepFinishCb: any;
+
+    beforeEach(async () => {
+      process.env = { ...originalEnv };
+      vi.resetModules();
+      onStepFinishCb = undefined;
+      // Re-mock the ai SDK streamText to capture the options
+      streamTextMock = vi.fn((opts: any) => {
+        onStepFinishCb = opts.onStepFinish;
+        return { textStream: (async function* () { yield 'ok'; })() };
+      });
+      vi.doMock('ai', () => ({
+        generateObject: vi.fn(),
+        generateText: vi.fn(),
+        streamText: streamTextMock,
+        stepCountIs: (n: number) => ({ __stepCount: n }),
+      }));
+    });
+
+    afterEach(() => {
+      process.env = originalEnv;
+    });
+
+    function makeStep(calls: Array<{ toolName: string; input: any }>) {
+      return { toolCalls: calls };
+    }
+
+    it('flag off: tool calls executam sequencialmente (>= 300ms para 3 de 100ms)', async () => {
+      process.env.TOOL_BATCHING_ENABLED = 'false';
+      const { VercelAIService } = await import('./vercel-ai.service');
+      const svc = new VercelAIService();
+
+      const t0 = Date.now();
+      await svc.streamWithTools(
+        [{ role: 'user', content: 'x' }],
+        'ctx',
+        't1',
+        async (name) => {
+          await new Promise((r) => setTimeout(r, 100));
+          return { ok: name };
+        },
+      );
+      // streamWithTools doesn't run onStepFinish; we have to call it ourselves.
+      const step = makeStep([
+        { toolName: 'a', input: {} },
+        { toolName: 'b', input: {} },
+        { toolName: 'c', input: {} },
+      ]);
+      await onStepFinishCb(step);
+      const elapsed = Date.now() - t0;
+      expect(elapsed).toBeGreaterThanOrEqual(290); // ~300ms com pequena folga
+    });
+
+    it('flag on: 3 tool calls de 100ms cada executam em paralelo (< 200ms total)', async () => {
+      process.env.TOOL_BATCHING_ENABLED = 'true';
+      const { VercelAIService } = await import('./vercel-ai.service');
+      const svc = new VercelAIService();
+
+      await svc.streamWithTools(
+        [{ role: 'user', content: 'x' }],
+        'ctx',
+        't1',
+        async (name) => {
+          await new Promise((r) => setTimeout(r, 100));
+          return { ok: name };
+        },
+      );
+      const step = makeStep([
+        { toolName: 'a', input: {} },
+        { toolName: 'b', input: {} },
+        { toolName: 'c', input: {} },
+      ]);
+      const t0 = Date.now();
+      await onStepFinishCb(step);
+      const elapsed = Date.now() - t0;
+      expect(elapsed).toBeLessThan(200);
+    });
+
+    it('flag on: callback que lança não derruba as outras (allSettled)', async () => {
+      process.env.TOOL_BATCHING_ENABLED = 'true';
+      const { VercelAIService } = await import('./vercel-ai.service');
+      const svc = new VercelAIService();
+
+      const results: any[] = [];
+      await svc.streamWithTools(
+        [{ role: 'user', content: 'x' }],
+        'ctx',
+        't1',
+        async (name) => {
+          if (name === 'quebra') throw new Error('boom');
+          results.push(name);
+          return { ok: name };
+        },
+      );
+      const step = makeStep([
+        { toolName: 'a', input: {} },
+        { toolName: 'quebra', input: {} },
+        { toolName: 'b', input: {} },
+      ]);
+      // Não deve lançar — allSettled absorve.
+      await expect(onStepFinishCb(step)).resolves.toBeUndefined();
+      // a e b completaram apesar da quebra
+      expect(results.sort()).toEqual(['a', 'b']);
+    });
+
+    it('sem toolCalls: onStepFinish é no-op', async () => {
+      process.env.TOOL_BATCHING_ENABLED = 'true';
+      const { VercelAIService } = await import('./vercel-ai.service');
+      const svc = new VercelAIService();
+
+      const cb = vi.fn();
+      await svc.streamWithTools(
+        [{ role: 'user', content: 'x' }],
+        'ctx',
+        't1',
+        cb,
+      );
+      await onStepFinishCb({ toolCalls: [] });
+      expect(cb).not.toHaveBeenCalled();
+    });
+  });
 });
