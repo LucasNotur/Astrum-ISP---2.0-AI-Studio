@@ -4,7 +4,7 @@ export default defineConfig({
     environment: 'node',
     globals: true,
     setupFiles: ['./src/__tests__/setup.ts'],
-    exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**', '**/playwright/**'],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**', '**/playwright/**', '**/.stryker-tmp/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
