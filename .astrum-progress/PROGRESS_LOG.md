@@ -1320,11 +1320,12 @@ Arquivos criados:
 Testes: 4 novos.
 Status: 🔶 Lógica do gate final pronta/testada. Aprovação real precisa dos 10 critérios verdes em produção.
 Observações: evaluateFinalGate (10 critérios do MAPA_SESSOES: 10 ISPs, workers integrados, resolução>80%,
-  0 jobs cobrança perdidos, isolamento, custo/ISP, deploy<5min, RAGAS, docs, synthetic). Plano V2 S68-S98 concluído
+  0 jobs cobrança perdidos, isolamento, custo/ISP, deploy<5min, RAGAS, docs, synthetic). : V2 S68-S98 concluído
   em modo code-complete; etapas operacionais documentadas em docs/ASTRUM_ESTADO_FINAL_PLANO_V2.md.
 
 ---
 
+<<<<<<< HEAD
 [2026-07-05] Plano IA-NEXTGEN / Parte 1 - Sessao IA-01
 Tarefa: CRAG (Self-RAG) no grafo existente - grade/rewrite/self-check
 Arquivos criados:
@@ -1388,3 +1389,48 @@ Bloqueios resolvidos: mergeados feat/ia-01-crag, feat/ia-03-eval-harness, feat/i
 Status: ✅ Concluído (código atrás de flag; cutover real depende de ATENDIMENTO_ENGINE=v2).
 Observações: Supervisor classifica domínio com gpt-4o-mini; churn crítico sobrescreve para retenção; flag MULTI_AGENT_ENABLED=false (default). Typecheck do apps/api ainda apresenta 12 erros pré-existentes em packages/queue/src/workers/message.worker.ts por imports relativos cruzados com apps/api.
 Commit: feat(ia10): multi-agente por dominio — supervisor + subgrafos (flag off).
+=======
+[2026-07-05] IA-NEXTGEN Parte 1 — Sessão IA-08 (WIP)
+Tarefa: Voz MVP fase A — organização e continuação do WIP existente (sem merge de dependências).
+Arquivos criados:
+  - apps/api/src/adapters/telephony/ulaw-converter.ts (+ .test.ts)
+  - apps/api/src/adapters/telephony/realtime-bridge.service.ts (+ .test.ts)
+  - apps/api/src/adapters/telephony/twilio-webhook.routes.ts (+ .test.ts)
+  - apps/api/src/adapters/telephony/voice-stream.routes.ts
+  - apps/api/src/adapters/telephony/ws.d.ts
+  - apps/api/src/__tests__/setup.ts
+Arquivos modificados:
+  - apps/api/src/infrastructure/config/env.validator.ts
+  - apps/api/src/server.ts
+Testes: 25 novos passando.
+Status: 🔶 Parcial / Bloqueado.
+Observações:
+  - IA-08 A1 (webhook TwiML) e A2 (bridge áudio) implementados e testados.
+  - IA-08 A3 (tools/identificação) ficou incompleta porque IA-01 (CRAG) e IA-03 (prompt registry)
+    não estão mergeados em main/branch atual. O código deixa hooks prontos para integração.
+
+---
+
+[2026-07-05] IA-NEXTGEN Parte 1 — Sessão IA-09
+Tarefa: Coleta de métricas de rede + alerta de perda de pacotes (CTO failure prediction, fase 0).
+Arquivos criados:
+  - apps/api/src/domain/rede/metrics-ingest.routes.test.ts
+Arquivos modificados:
+  - apps/api/src/infrastructure/config/env.validator.ts (CTO_ALERT_ENABLED)
+  - apps/api/src/server.ts (registro da rota /api/v2/rede/metrics)
+  - packages/queue/src/workers/cto-alert.worker.ts (Worker BullMQ + scheduling)
+  - packages/queue/src/workers/cto-alert.worker.test.ts
+Testes: 8 passando (4 worker + 4 rota).
+Status: ✅ Concluído (com ressalva: scheduling do worker depende de ponto de boot geral dos workers, fora do escopo desta sessão).
+Observações: Rota de ingestão de batch até 500 pontos testada; worker de alerta com dedupe de ticket e threshold 5% packet_loss.
+
+---
+
+[2026-07-05] IA-NEXTGEN Parte 1 — Sessão IA-10
+Tarefa: Multi-agente por domínio (GATED).
+Arquivos criados:
+  - .astrum-progress/ia-nextgen/IA-10_DESIGN.md
+Testes: 0 (design-only).
+Status: ❌ Bloqueado / design-only.
+Observações: Sessão executada por ordem explícita do Lucas apesar do gating. Plano de design escrito com arquitetura de supervisor + subgrafos (atendimento/cobranca/retencao), estado compartilhado mínimo, flags e critérios de aceite. Nenhum código de produção gerado porque ATENDIMENTO_ENGINE=v2 não está estável e dependências IA-01/IA-03/IA-07 não estão mergeadas.
+>>>>>>> feat/ia-09-cto-metrics

@@ -111,6 +111,10 @@ export async function buildServer() {
   const { evolutionWebhookRoutes } = await import('./domain/atendimento/evolution-webhook.routes');
   await app.register(evolutionWebhookRoutes);
 
+  // IA-09 — Coleta de métricas de rede (CTO failure prediction, fase 0)
+  const { metricsIngestRoutes } = await import('./domain/rede/metrics-ingest.routes');
+  await app.register(metricsIngestRoutes);
+
   // Health check com status dos serviços
   app.get('/api/v2/health', async () => {
     const { getLLMStatus } = await import('./adapters/ai/llm.adapter');
