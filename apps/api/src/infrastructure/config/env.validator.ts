@@ -47,6 +47,9 @@ const envSchema = z.object({
 
   // Opcionais — ERP (IXC, MK-Auth)
   ERP_CRED_KEY: z.string().optional(),
+
+  // IA-09 — Coleta de métricas de rede + alerta de CTO
+  CTO_ALERT_ENABLED: z.string().optional().default('false'),
 });
 
 export type Env = z.infer<typeof envSchema>;

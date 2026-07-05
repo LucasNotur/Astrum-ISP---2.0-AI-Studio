@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 const originalEnv = { ...process.env };
 
 beforeEach(() => {
+  process.env = { ...originalEnv };
   delete process.env.CTO_ALERT_ENABLED;
 });
 
@@ -12,7 +13,6 @@ afterEach(() => {
 
 describe('CTO alert flag', () => {
   it('is disabled by default', () => {
-    // Importa dinamicamente para pegar o valor atual da env
     const isEnabled = (process.env.CTO_ALERT_ENABLED ?? '').trim().toLowerCase() === 'true';
     expect(isEnabled).toBe(false);
   });
