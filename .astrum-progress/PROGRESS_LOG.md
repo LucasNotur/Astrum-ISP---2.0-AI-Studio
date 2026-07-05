@@ -1325,7 +1325,6 @@ Observações: evaluateFinalGate (10 critérios do MAPA_SESSOES: 10 ISPs, worker
 
 ---
 
-<<<<<<< HEAD
 [2026-07-05] Plano IA-NEXTGEN / Parte 1 - Sessao IA-01
 Tarefa: CRAG (Self-RAG) no grafo existente - grade/rewrite/self-check
 Arquivos criados:
@@ -1372,24 +1371,6 @@ Observações: Flag MEMORY_DECAY_ENABLED default 'false' — comportamento idên
 
 ---
 
-[2026-07-05] IA-NEXTGEN / Parte 1 — Sessão IA-10
-Tarefa: Multi-agente por domínio — supervisor LangGraph + subgrafos cobrança/retencao/atendimento.
-Arquivos criados:
-  - apps/api/src/domain/agent/multi-agent.state.ts
-  - apps/api/src/domain/agent/multi-agent.supervisor.ts
-  - apps/api/src/domain/agent/subgraphs/cobranca.subgraph.ts
-  - apps/api/src/domain/agent/subgraphs/retencao.subgraph.ts
-  - apps/api/src/domain/agent/multi-agent.service.test.ts
-Arquivos modificados:
-  - apps/api/src/infrastructure/config/engine-flags.ts (+ isMultiAgentEnabled)
-  - apps/api/src/infrastructure/config/engine-flags.test.ts (+ 3 testes)
-  - .env.example (+ MULTI_AGENT_ENABLED)
-Testes: 4 novos (flag off, cobranca, retencao churn critico, erro fatal) + 3 engine-flags = 7. Suite afetada (agent/ai/ml/config): 142 tests passed.
-Bloqueios resolvidos: mergeados feat/ia-01-crag, feat/ia-03-eval-harness, feat/ia-07-churn-prediction em feat/ia-10-multi-agent.
-Status: ✅ Concluído (código atrás de flag; cutover real depende de ATENDIMENTO_ENGINE=v2).
-Observações: Supervisor classifica domínio com gpt-4o-mini; churn crítico sobrescreve para retenção; flag MULTI_AGENT_ENABLED=false (default). Typecheck do apps/api ainda apresenta 12 erros pré-existentes em packages/queue/src/workers/message.worker.ts por imports relativos cruzados com apps/api.
-Commit: feat(ia10): multi-agente por dominio — supervisor + subgrafos (flag off).
-=======
 [2026-07-05] IA-NEXTGEN Parte 1 — Sessão IA-08 (WIP)
 Tarefa: Voz MVP fase A — organização e continuação do WIP existente (sem merge de dependências).
 Arquivos criados:
@@ -1426,11 +1407,20 @@ Observações: Rota de ingestão de batch até 500 pontos testada; worker de ale
 
 ---
 
-[2026-07-05] IA-NEXTGEN Parte 1 — Sessão IA-10
-Tarefa: Multi-agente por domínio (GATED).
+[2026-07-05] IA-NEXTGEN / Parte 1 — Sessão IA-10
+Tarefa: Multi-agente por domínio — supervisor LangGraph + subgrafos cobrança/retencao/atendimento.
 Arquivos criados:
-  - .astrum-progress/ia-nextgen/IA-10_DESIGN.md
-Testes: 0 (design-only).
-Status: ❌ Bloqueado / design-only.
-Observações: Sessão executada por ordem explícita do Lucas apesar do gating. Plano de design escrito com arquitetura de supervisor + subgrafos (atendimento/cobranca/retencao), estado compartilhado mínimo, flags e critérios de aceite. Nenhum código de produção gerado porque ATENDIMENTO_ENGINE=v2 não está estável e dependências IA-01/IA-03/IA-07 não estão mergeadas.
->>>>>>> feat/ia-09-cto-metrics
+  - apps/api/src/domain/agent/multi-agent.state.ts
+  - apps/api/src/domain/agent/multi-agent.supervisor.ts
+  - apps/api/src/domain/agent/subgraphs/cobranca.subgraph.ts
+  - apps/api/src/domain/agent/subgraphs/retencao.subgraph.ts
+  - apps/api/src/domain/agent/multi-agent.service.test.ts
+Arquivos modificados:
+  - apps/api/src/infrastructure/config/engine-flags.ts (+ isMultiAgentEnabled)
+  - apps/api/src/infrastructure/config/engine-flags.test.ts (+ 3 testes)
+  - .env.example (+ MULTI_AGENT_ENABLED)
+Testes: 4 novos (flag off, cobranca, retencao churn critico, erro fatal) + 3 engine-flags = 7. Suite afetada (agent/ai/ml/config): 142 tests passed.
+Bloqueios resolvidos: mergeados feat/ia-01-crag, feat/ia-03-eval-harness, feat/ia-07-churn-prediction em feat/ia-10-multi-agent.
+Status: ✅ Concluído (código atrás de flag; cutover real depende de ATENDIMENTO_ENGINE=v2).
+Observações: Supervisor classifica domínio com gpt-4o-mini; churn crítico sobrescreve para retenção; flag MULTI_AGENT_ENABLED=false (default). Typecheck do apps/api ainda apresenta 12 erros pré-existentes em packages/queue/src/workers/message.worker.ts por imports relativos cruzados com apps/api.
+Commit: feat(ia10): multi-agente por dominio — supervisor + subgrafos (flag off).
