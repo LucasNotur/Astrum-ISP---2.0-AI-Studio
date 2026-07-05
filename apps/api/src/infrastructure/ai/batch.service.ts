@@ -5,6 +5,7 @@ import path from 'path';
 import { infraLogger } from '../logging/logger';
 import { supabase } from '../database/supabase.client';
 import { getRedisClient } from '../cache/redis.client';
+import { resolveOpenAIKey } from '../config/openai-key';
 
 /**
  * OpenAI Batch API Service
@@ -28,7 +29,7 @@ import { getRedisClient } from '../cache/redis.client';
  * 6. Persistir no Supabase/DuckDB
  */
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'dummy-key-for-tests' });
+const openai = new OpenAI({ apiKey: resolveOpenAIKey() });
 const redis = getRedisClient();
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────

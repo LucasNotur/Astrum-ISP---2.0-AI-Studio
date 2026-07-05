@@ -311,10 +311,10 @@ export default function SubscriptionUsageWidget() {
                         {getMetricIcon(metric.type)}
                         <h4 className="font-medium text-zinc-50">{metric.name}</h4>
                         {status === 'warning' && (
-                          <AlertTriangle className="h-4 w-4 text-amber-500 ml-2" title="Cota próxima do fim" />
+                          <AlertTriangle className="h-4 w-4 text-amber-500 ml-2" aria-label="Cota próxima do fim" />
                         )}
                         {status === 'critical' && (
-                          <ShieldAlert className="h-4 w-4 text-red-500 animate-pulse ml-2" title="Gatilho de Contingência iminente!" />
+                          <ShieldAlert className="h-4 w-4 text-red-500 animate-pulse ml-2" aria-label="Gatilho de Contingência iminente!" />
                         )}
                       </div>
                       <div className="text-right">

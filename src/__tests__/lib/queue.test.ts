@@ -91,7 +91,7 @@ vi.mock('../../workers/cobraiWorker.ts', () => ({
 
 let intervalCallbacks: Function[] = [];
 const originalSetInterval = global.setInterval;
-global.setInterval = function(cb: Function, ms?: number) {
+global.setInterval = function(this: any, cb: Function, ms?: number) {
   if (ms === 30 * 60 * 1000) intervalCallbacks.push(cb);
   return originalSetInterval.apply(this, arguments as any);
 } as any;

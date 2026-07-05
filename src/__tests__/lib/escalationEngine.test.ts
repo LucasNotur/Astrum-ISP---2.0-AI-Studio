@@ -10,7 +10,7 @@ vi.mock('../../lib/firebaseAdmin', () => ({
     adminDb: {
         collection: vi.fn((path: string) => {
             return {
-                where: vi.fn(function (field, op, value) {
+                where: vi.fn(function (this: any, field: any, op: any, value: any) {
                     return {
                         where: this.where,
                         limit: vi.fn(() => this),

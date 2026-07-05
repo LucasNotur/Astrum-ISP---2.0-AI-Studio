@@ -5,7 +5,8 @@ import { getERPAdapter, IXCAdapter, MKAuthAdapter } from '../../lib/integrations
 import * as utils from '../../lib/dbAdmin';
 import * as email from '../../lib/email';
 import { planSyncWorker } from '../../workers/planSyncWorker';
-import { getMockReq, getMockRes } from '@jest-mock/express';
+const getMockReq = (opts?: any) => ({ ...opts } as any);
+const getMockRes = () => ({ res: { status: () => ({ json: () => {} }) } as any, next: () => {}, mockReset: () => {} });
 // We will test `get_plans_info` by evaluating the logic using a simulated mock call or similar
 import fs from 'fs';
 
@@ -37,7 +38,7 @@ vi.mock('../../lib/firebaseAdmin', () => {
                                             .map(k => ({ id: k.split('/').pop(), data: () => mockDb[k] }));
                                         return { docs, empty: docs.length === 0 };
                                     }),
-                                    where: vi.fn(function() {
+                                    where: vi.fn(function(this: any) {
                                         return this; // mock simplified
                                     }),
                                     doc: vi.fn((subDocId: string) => {

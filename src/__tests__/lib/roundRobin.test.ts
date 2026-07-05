@@ -3,10 +3,10 @@ import { findBestOperator, Ticket } from '../../lib/routingEngine';
 import redisClient from '../../lib/redis';
 
 const { counters, mockState } = vi.hoisted(() => ({
-  counters: {},
+  counters: {} as Record<string, number>,
   mockState: {
-    operators: [],
-    departments: {}
+    operators: [] as any[],
+    departments: {} as Record<string, any>
   }
 }));
 

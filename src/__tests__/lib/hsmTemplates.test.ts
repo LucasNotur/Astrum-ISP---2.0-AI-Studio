@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+﻿import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import { sendHSMTemplate, TemplateNotApprovedError } from '../../lib/whatsappSender';
@@ -29,42 +29,27 @@ vi.mock('../../lib/firebaseAdmin', () => ({
             collection: vi.fn((subPath: string) => {
               const colPath = `${docPath}/${subPath}`;
               return {
-                where: vi.fn(function(field, op, value) {
+                where: vi.fn(function(this: any, field: any, op: any, value: any) {
+                  if (field === 'name') mockDb['_q_name'] = value;
+                  if (field === 'status') mockDb['_q_status'] = value;
+                  const self = this;
                   return {
-                    where: this.where,
+                    where: self.where,
                     limit: vi.fn(() => ({
                       get: vi.fn(async () => {
                         const docsRefs = Object.keys(mockDb)
                           .filter(k => k.startsWith(`${colPath}/`))
                           .map(k => ({ id: k.split('/').pop(), data: () => mockDb[k] }));
-                        
-                        let matched = docsRefs.filter(d => {
-                           if (op === '==' && d.data()[field] !== value) return false;
-                           // we manually also apply the other where if any (rough mock)
-                           return true;
-                        });
-                        
-                        // the mock for `where` needs to be stateful to chain properly, but for this test we can just hardcode the results or improve the mock
-                        // Instead of building a complex where mock, we'll use a trick
-                        matched = docsRefs.filter(d => {
+                        const matched = docsRefs.filter(d => {
                             let isMatch = true;
                             if (mockDb['_q_name'] && d.data().name !== mockDb['_q_name']) isMatch = false;
                             if (mockDb['_q_status'] && d.data().status !== mockDb['_q_status']) isMatch = false;
                             return isMatch;
                         });
-                        
-                        return {
-                          empty: matched.length === 0,
-                          docs: matched
-                        };
+                        return { empty: matched.length === 0, docs: matched };
                       })
                     })),
-                    // store the filter condition so the GET block can use it
-                    _storeFilter: () => {
-                         if (field === 'name') mockDb['_q_name'] = value;
-                         if (field === 'status') mockDb['_q_status'] = value;
-                    }
-                  }._storeFilter() || this; // this won't chain correctly, we'll fix it below
+                  };
                 }),
                 get: vi.fn(async () => {
                     const docsRefs = Object.keys(mockDb)

@@ -68,7 +68,7 @@ export class GeminiAdapter implements AIProvider {
     const outputTokens = response.usageMetadata?.candidatesTokenCount || 0;
 
     return {
-      content,
+      content: content ?? '',
       toolCalls,
       provider: this.name,
       model,
@@ -89,8 +89,8 @@ export class GeminiAdapter implements AIProvider {
       contents: texts[0]
     });
     
-    const vector = response.embeddings[0].values;
-    const estimatedTokens = texts[0].length / 4;
+    const vector = response.embeddings?.[0]?.values ?? [];
+    const estimatedTokens = (texts[0]?.length ?? 0) / 4;
 
     return {
       vector,
