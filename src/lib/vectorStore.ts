@@ -1,5 +1,4 @@
-import { db } from './firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { supabase } from './supabase';
 import { QdrantClient } from '@qdrant/js-client-rest';
 
 export interface VectorDocument {
@@ -101,17 +100,16 @@ function createStoreFromEnv(): VectorStore {
 
 export async function getVectorStore(tenantId?: string): Promise<VectorStore> {
   if (tenantId && tenantId !== 'default') {
-    const tenantDoc = await getDoc(doc(db, 'tenants', tenantId));
-    if (tenantDoc.exists()) {
-      const config = tenantDoc.data()?.vector_store_config;
-      if (config?.url) {
-        return createStoreFromConfig({
-          provider: config.provider || 'qdrant',
-          url: config.url,
-          apiKey: config.apiKey,
-          collection: config.collection || 'astrum_knowledge'
-        });
-      }
+    const { data } = await supabase
+      .from('tenants').select('vector_store_config').eq('id', tenantId).maybeSingle();
+    const config = data?.vector_store_config;
+    if (config?.url) {
+      return createStoreFromConfig({
+        provider: config.provider || 'qdrant',
+        url: config.url,
+        apiKey: config.apiKey,
+        collection: config.collection || 'astrum_knowledge'
+      });
     }
   }
   return createStoreFromEnv();

@@ -10,8 +10,7 @@ import {
   ResponsiveContainer,
   Legend
 } from "recharts";
-import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
-import { db } from "../lib/firebase";
+import { supabase } from "../lib/supabase";
 import { useAppStore } from "../store/useAppStore";
 import { Activity } from "lucide-react";
 
@@ -27,25 +26,38 @@ export function SentimentMetricsCard() {
 
     const fetchData = async () => {
       try {
-        const q = query(
-          collection(db, "daily_sentiment_metrics"),
-          where("tenant_id", "==", tenantId),
-          orderBy("date", "desc"),
-          limit(7)
-        );
-        const snap = await getDocs(q);
+        // FZ-4: agrega sentimentos direto de ai_performance_logs (últimos 7 dias)
+        const since = new Date();
+        since.setDate(since.getDate() - 7);
+        const { data: logs } = await supabase
+          .from("ai_performance_logs")
+          .select("sentiment, created_at")
+          .eq("tenant_id", tenantId)
+          .gte("created_at", since.toISOString());
 
-        const fetchedData = snap.docs.map(doc => {
-          const d = doc.data();
-          const dateObj = d.date?.toDate ? d.date.toDate() : new Date(d.date);
+        const byDay: Record<string, Record<string, number>> = {};
+        (logs ?? []).forEach((l: any) => {
+          const day = (l.created_at ?? "").slice(0, 10);
+          if (!day) return;
+          byDay[day] = byDay[day] ?? { total: 0 };
+          byDay[day].total++;
+          const s = (l.sentiment ?? "neutral").toLowerCase();
+          byDay[day][s] = (byDay[day][s] ?? 0) + 1;
+        });
+
+        const pct = (n: number | undefined, total: number) =>
+          total > 0 ? ((100 * (n ?? 0)) / total).toFixed(1) : "0.0";
+
+        const fetchedData = Object.entries(byDay).map(([day, counts]) => {
+          const dateObj = new Date(day + "T12:00:00Z");
           return {
             date: dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
             timestamp: dateObj.getTime(),
-            positive: parseFloat(d.rates?.positive || 0).toFixed(1),
-            neutral: parseFloat(d.rates?.neutral || 0).toFixed(1),
-            negative: parseFloat(d.rates?.negative || 0).toFixed(1),
-            angry: parseFloat(d.rates?.angry || 0).toFixed(1),
-            urgent: parseFloat(d.rates?.urgent || 0).toFixed(1),
+            positive: pct(counts.positive ?? counts.positivo, counts.total),
+            neutral: pct(counts.neutral ?? counts.neutro, counts.total),
+            negative: pct(counts.negative ?? counts.negativo, counts.total),
+            angry: pct(counts.angry, counts.total),
+            urgent: pct(counts.urgent, counts.total),
           };
         }).sort((a, b) => a.timestamp - b.timestamp);
         

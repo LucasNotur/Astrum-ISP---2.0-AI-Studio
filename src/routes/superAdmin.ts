@@ -1,5 +1,6 @@
 import express from "express";
-import { adminAuth as auth, adminDb as db } from "../lib/firebaseAdmin.ts";
+import { adminDb as db } from "../lib/firebaseAdmin.ts";
+import { verifySupabaseToken } from "../lib/authVerify.ts";
 
 export const superAdminRouter = express.Router();
 
@@ -14,8 +15,9 @@ export const verifySuperAdmin = async (
       return res.status(401).json({ error: "Unauthorized" });
     }
     const token = authHeader.split("Bearer ")[1];
-    const decoded = await auth.verifyIdToken(token);
-    if (decoded.isSuperAdmin !== true) {
+    const decoded = await verifySupabaseToken(token);
+    // FZ-3: super admin agora é role da tabela users (era custom claim isSuperAdmin)
+    if (decoded.role !== "super_admin") {
       return res.status(403).json({ error: "Forbidden: SuperAdmin only" });
     }
     (req as any).user = decoded;

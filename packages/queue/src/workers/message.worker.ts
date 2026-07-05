@@ -18,6 +18,14 @@ export interface MessageJobData {
   channel: 'whatsapp' | 'webchat' | 'facebook';
   messageId: string;
   existingConversationId?: string;
+  // Campos de mídia (inventário F1–F3, portados na S71/S73)
+  instanceName?: string;
+  isAudio?: boolean;
+  audioUrl?: string;
+  isImage?: boolean;
+  isDocument?: boolean;
+  base64Media?: string;
+  mediaMimeType?: string;
 }
 
 async function processMessage(job: Job<MessageJobData>): Promise<void> {
@@ -92,7 +100,9 @@ async function processMessage(job: Job<MessageJobData>): Promise<void> {
 }
 
 export function createMessageWorker() {
-  const worker = new Worker<MessageJobData>('astrum:messages', processMessage, {
+  // Nome DEVE bater com a fila messageQueue ('astrum-messages'). Antes era 'astrum:messages'
+  // (dois-pontos) — mismatch que faria o worker nunca consumir os jobs. Corrigido na S71.
+  const worker = new Worker<MessageJobData>('astrum-messages', processMessage, {
     connection: connection as any,
     concurrency: 5,
   });

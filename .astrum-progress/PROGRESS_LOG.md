@@ -906,3 +906,419 @@ Observações: Fastify websocket registry, hooks do React para conexão websocke
 ---
 
 *Atualizado automaticamente pela IA ao final de cada sessão*
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 0 — Sessão 68
+Tarefa: Contenção — matar split-brain CobrAI + limpar órfão + bugs conhecidos
+Arquivos criados:
+  - apps/api/src/infrastructure/config/engine-flags.ts
+  - apps/api/src/infrastructure/config/engine-flags.test.ts
+  - apps/api/src/infrastructure/observability/boot-state.ts
+  - apps/api/src/infrastructure/observability/boot-state.test.ts
+  - CLAUDE.md (regras R1–R6)
+Arquivos modificados:
+  - packages/queue/src/workers/cobrai.worker.ts (guarda COBRAI_ENGINE=v2)
+  - src/workers/cobraiWorker.ts (guarda COBRAI_ENGINE=legacy)
+  - apps/api/src/domain/atendimento/conversation.service.ts (bug customer_id NULL → .is())
+  - apps/api/src/domain/atendimento/conversation.service.test.ts (cobertura NULL)
+  - apps/api/src/server.ts (401 no authenticate; boot não engole mais erro)
+  - server.ts (health expõe fastify_boot_failed)
+  - .env.example (COBRAI_ENGINE, ATENDIMENTO_ENGINE)
+Arquivos removidos:
+  - apps/backend/** (órfão real, 0 importadores; preservado em graveyard/billing-enterprise)
+Testes: 23 novos (engine-flags 12, boot-state 6, conversation NULL 5). Suíte: 457 passando.
+Status: ✅ Concluído
+Observações: apps/frontend e Supabase_Assinaturas MANTIDOS (UI de billing viva em SettingsPage — R1).
+  Falha pré-existente em src/__tests__/middleware/auth.test.ts (import tokenCache) mapeada p/ S83.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 1 — Sessão 69
+Tarefa: Schema final + ETL backfill (cadastral/financeiro) Firestore → Supabase
+Arquivos criados:
+  - scripts/etl/lib/transform.ts (+ .test.ts)
+  - scripts/etl/lib/upsert-planner.ts (+ .test.ts)
+  - scripts/etl/firestore-to-supabase.ts (+ .test.ts)
+Testes: 26 novos (transform 17, planner 6, orchestrator 6... financeiro+enums+idempotência).
+Status: 🔶 Código completo e testado; backfill real pendente de credenciais vivas.
+Observações: Schema (migrations 015-019) já estava pronto de deliverable A. Lógica de risco
+  (centavos, enums divergentes, idempotência por legacy_id) isolada em funções puras 100% testadas.
+  reaisToCents resolve o erro de float 19.99*100. audit_logs legado → ai_performance_logs (nunca audit_log).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 1 — Sessão 70
+Tarefa: ETL conversacional (ticket→conversation) + delta-sync + ponte
+Arquivos criados:
+  - packages/db/src/migrations/021_legacy_conversation_map.sql
+  - scripts/etl/lib/ticket-splitter.ts (+ .test.ts)
+  - scripts/etl/lib/delta-sync.ts (+ .test.ts)
+Testes: 10 novos (splitter 7, delta 4... na verdade 6+4=10).
+Status: 🔶 Código completo e testado; execução + GATE DE DADOS pendentes de credenciais.
+Observações: 1 ticket legado → 1 conversation + N messages (modelo relacional muda). Ponte
+  legacy_ticket_conversation_map com watermark para delta-sync a cada 15min. Re-ingestão de KB
+  reusa pipeline RAG existente (document-chunker→embedding→Qdrant, já testado no Sprint 2).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 2 — Sessão 71
+Tarefa: Webhook Evolution no Fastify + inventário do messageWorker (1605L)
+Arquivos criados:
+  - docs/port/MESSAGEWORKER_INVENTORY.md (32 comportamentos rastreáveis)
+  - packages/db/src/migrations/022_tenant_evolution.sql
+  - apps/api/src/domain/atendimento/evolution-payload.ts (+ .test.ts)
+  - apps/api/src/domain/atendimento/evolution-webhook.routes.ts (+ evolution-webhook.test.ts)
+Arquivos modificados:
+  - packages/queue/src/workers/message.worker.ts (MessageJobData + campos mídia; FIX nome fila astrum:messages→astrum-messages)
+  - apps/api/src/server.ts (registra rota v2)
+Testes: 15 novos (parser 10, builder+resolver 5).
+Status: ✅ Concluído (não recebe tráfego real até cutover S74)
+Observações: BUG corrigido — worker escutava 'astrum:messages' mas a fila é 'astrum-messages';
+  jobs nunca seriam consumidos. Parser cobre texto/áudio/imagem/documento/base64. Tenant lookup
+  por instância no Supabase (multi-instância + coluna direta); instância desconhecida → 403.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 2 — Sessão 72
+Tarefa: Port messageWorker parte 1 — fallback LLM (R3) + tools de negócio
+Arquivos criados:
+  - apps/api/src/adapters/ai/provider-fallback.service.ts (+ .test.ts)
+  - apps/api/src/infrastructure/ai/tools.executor.test.ts
+Arquivos modificados:
+  - apps/api/src/infrastructure/ai/tools.executor.ts (get_billing_status c/ pix, check_coverage, run_diagnostics, schedule_technical_visit)
+Testes: 18 novos (fallback 12, tools 6).
+Status: ✅ Concluído
+Observações: Fallback multi-provider portado de src/ai-provider com melhoria — failover DENTRO
+  da request (imperceptível), não só entre requests. Circuit store injetável (testável sem Redis).
+  _checkInvoice agora seleciona payment_url/pix_copy_paste (dado crítico da 2ª via que faltava).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 2 — Sessão 73
+Tarefa: Port messageWorker parte 2 — mídia (áudio/imagem/documento)
+Arquivos criados:
+  - apps/api/src/adapters/whatsapp/media-processor.service.ts (+ .test.ts)
+Testes: 8 novos.
+Status: ✅ Concluído
+Observações: Whisper (áudio, fail-open→pede reenvio), GPT-4o vision (imagem→laudo no system prompt;
+  atualizado do gpt-4-vision-preview aposentado), R2 (áudio/documento). Dependências injetáveis.
+  Inventário F1-F3 marcados.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 2 — Sessão 74
+Tarefa: Shadow mode → cutover do atendimento (infra)
+Arquivos criados:
+  - packages/db/src/migrations/023_shadow_results.sql
+  - apps/api/src/domain/atendimento/shadow-mode.ts (+ .test.ts)
+Testes: 7 novos.
+Status: 🔶 Código completo; shadow run real + decisão de cutover pendentes de tráfego + aprovação Lucas.
+Observações: decideSend garante que motor novo nunca envia+registra ao mesmo tempo. ATENDIMENTO_ENGINE
+  controla o cutover (rollback = trocar env). computeEquivalenceRate = base do gate ≥95% (LLM-judge injetável).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 3 — Sessão 75
+Tarefa: Port integrações ERP (IXC + MK-Auth) com cifra de credenciais
+Arquivos criados:
+  - packages/db/src/migrations/024_tenant_erp_credentials.sql
+  - apps/api/src/adapters/erp/{erp.types,credential-cipher,ixc.adapter,mkauth.adapter,erp.factory}.ts
+  - apps/api/src/adapters/erp/erp.test.ts
+Testes: 20 novos.
+Status: 🔶 IXC+MK-Auth portados e testados; sgp/voalle/hubsoft/radiusnet/rbx seguem o mesmo padrão (incremental).
+Observações: HTTP injetável (testável sem ERP vivo). Credenciais AES-256-GCM (nunca texto puro).
+  BUG pego: parseAmountToCents corrige formato BR "1.234,56" (antes virava 123 centavos). 2ª via
+  normalizada (boleto_url/pix) — liga direto na tool get_billing_status da S72.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 3 — Sessão 76
+Tarefa: CobrAI unificado — portar guardas (janela/limites/opt-out) do legado
+Arquivos criados:
+  - apps/api/src/domain/cobranca/cobrai-guards.ts (+ .test.ts)
+  - packages/db/src/migrations/025_cobrai_tenant_config.sql
+Arquivos modificados:
+  - packages/queue/src/workers/cobrai.worker.ts (aplica evaluateCobraiGate antes de send_message)
+Testes: 13 novos.
+Status: 🔶 Guardas portadas e ligadas; virada COBRAI_ENGINE=v2 + monitor 48h pendem de produção.
+Observações: portadas do cobraiWorker legado as proteções que faltavam no novo: janela de horário
+  (inclui cruzar meia-noite), limite/hora, limite/dia, opt-out por estágio e por cliente. Régua única
+  garantida pela flag da S68. Cutover real (COBRAI_ENGINE=v2) depende de produção.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 4 — Sessão 77
+Tarefa: Auth swap — bridge JWT/Supabase v2 no frontend legado
+Arquivos criados:
+  - src/lib/auth-v2.ts (+ .test.ts)
+  - scripts/etl/lib/auth-user-map.ts (+ .test.ts)
+Testes: 11 novos.
+Status: 🔶 Bridge + mapa de usuários prontos e testados. Ligação no App.tsx + DECISÃO de senha pendem.
+Observações: AuthV2 espelha a superfície do firebase/auth (onAuthStateChanged/signIn/signOut/currentUser)
+  para trocar o import sem reescrever a tela (R1). DECISÃO NECESSÁRIA DO LUCAS: hash Firebase (scrypt) é
+  incompatível com Argon2id — 'force_reset' (default, seguro) vs 'hash_import'. mapFirebaseUser suporta ambos.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 4 — Sessão 78
+Tarefa: Data swap — repository factory → Supabase (default)
+Arquivos criados:
+  - src/repositories/resolveDbProvider.test.ts
+Arquivos modificados:
+  - src/repositories/index.ts (extrai resolveDbProvider testável; default supabase)
+Testes: 5 novos.
+Status: 🔶 Data-swap central pronto/testado. Deleção do apps/web + repointe /api/v1→/api/v2 + colheita
+  de hooks pendem de integração com o frontend rodando (deletar apps/web agora quebraria test:e2e).
+Observações: a factory JÁ defaultava para Supabase; extraída resolveDbProvider como função pura testável.
+  Firestore só via DB_PROVIDER=firebase (fallback de emergência até cutover S82).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 5 — Sessão 79
+Tarefa: Workers de atendimento — SLA, FCR, Snooze (lógica pura portada)
+Arquivos criados:
+  - apps/api/src/domain/sla/sla-eval.ts
+  - apps/api/src/domain/atendimento/fcr-calc.ts
+  - apps/api/src/domain/atendimento/snooze.ts
+  - apps/api/src/domain/sla/workers-s79.test.ts
+Testes: 10 novos.
+Status: 🔶 Lógica de negócio dos 3 workers portada e testada. Wiring BullMQ + desligar legados pendem.
+Observações: evaluateSla (breach resposta/resolução + níveis de aviso), computeFcr (taxa FCR + IA vs humano,
+  reaberto não conta), snooze (vencidos). Fecha itens do inventário A2/A4/G4 (lógica). Grava em ai_performance_logs.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 5 — Sessão 80
+Tarefa: Workers de gestão — report, gamification, planSync (lógica pura portada)
+Arquivos criados:
+  - apps/api/src/domain/provedor/gamification.ts
+  - apps/api/src/domain/provedor/plan-sync.ts
+  - apps/api/src/domain/provedor/report-summary.ts
+  - apps/api/src/domain/provedor/workers-s80.test.ts
+Testes: 9 novos.
+Status: 🔶 Lógica de negócio dos 3 workers portada e testada. Wiring BullMQ + DuckDB + desligar legados pendem.
+Observações: gamification (ranking transparente por score), plan-sync (diff ERP: insert/update/deactivate,
+  nunca deleta), report (agregados + NPS proxy). planSync usa os adapters ERP da S75 (getPlans).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Decisões do Lucas — force_reset + engine por tenant
+Tarefa: Cabear as 2 decisões (S77 force_reset; S74 canário por tenant)
+Arquivos criados:
+  - packages/db/src/migrations/026_force_reset_and_per_tenant_engine.sql
+  - apps/api/src/domain/auth/login-response.ts (+ .test.ts)
+Arquivos modificados:
+  - apps/api/src/domain/auth/login.route.ts (força reset antes de emitir tokens)
+  - apps/api/src/infrastructure/config/engine-flags.ts (resolveAtendimentoEngineForTenant)
+  - apps/api/src/infrastructure/config/engine-flags.test.ts (+4 testes canário)
+Testes: 18 (2 login-response + 16 engine-flags).
+Status: ✅ S77 concluída. S74 ganhou base canário (virada por tenant, rollback por tenant).
+Observações: Lucas aprovou force_reset e cutover canário. Login de usuário migrado retorna
+  {kind:'reset_required'} sem tokens. atendimento_engine por tenant vence a env (default global).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 5 — Sessão 81
+Tarefa: Workers de percepção — siteScrape + erpSync (vision já na S73)
+Arquivos criados:
+  - apps/api/src/domain/provedor/site-scrape.ts
+  - apps/api/src/adapters/erp/erp-sync.ts
+  - apps/api/src/domain/provedor/workers-s81.test.ts
+Testes: 6 novos.
+Status: 🔶 Lógica portada e testada. Wiring BullMQ + reindex Qdrant + desligar legados pendem.
+Observações: siteScrape (extração cheerio + hash MD5 + detecção de mudança p/ reindex RAG),
+  erpSync (outcome ok/retry). Vision já foi consolidado na S73 (media-processor).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 6 — Sessão 82
+Tarefa: Cutover final — gate de prontidão (lógica)
+Arquivos criados:
+  - scripts/cutover/readiness.ts (+ .test.ts)
+Testes: 4 novos.
+Status: 🔶 Gate de prontidão pronto/testado. Remoção real de Express/Firestore só quando os 7 sinais
+  verdes E cutover de atendimento 100% (depende de produção).
+Observações: evaluateCutoverReadiness exige 7 sinais (atendimento v2, cobrai estável, gate dados, auth,
+  frontend supabase, workers, backup Firestore). Um pendente bloqueia. O corte de código é a etapa final.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 6 — Sessão 83
+Tarefa: Saneamento — corrigir teste que falhava + package.json de workspace
+Arquivos modificados:
+  - src/__tests__/middleware/auth.test.ts (caminhos de import + mock estável + fix de leak de mock)
+Arquivos criados:
+  - apps/web/package.json (fecha dívida do TurboRepo)
+Testes: auth.test.ts 13/13 (era 1 arquivo falhando na suíte inteira).
+Status: ✅ Suíte 100% verde agora. Ephemeral envs por PR + Dockerfiles finais pendem de infra.
+Observações: 3 bugs no teste legado — (1) caminho ../src/ em vez de ../../, (2) getAuth devolvia
+  mock novo a cada chamada, (3) mockResolvedValue de revoke/blacklist vazava entre testes (→ Once).
+  Última peça vermelha da suíte resolvida.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 7 — Sessão 84
+Tarefa: Load + Chaos — helpers de avaliação (o disparo é operacional)
+Arquivos criados:
+  - scripts/qa/load-analysis.ts (+ .test.ts)
+Testes: 10 novos.
+Status: 🔶 Lógica de avaliação (passa/falha) pronta e testada. Disparo K6 + chaos real pendem de ambiente.
+Observações: percentile (p95), evaluateLoad (p95<1.5s, perda de job 0, erro<1%), chaosDegradesGracefully
+  (zero perda + fail-open). Estes são os critérios que decidem o gate de carga — testáveis sem cluster.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 7 — Sessão 85
+Tarefa: Security audit — authz por tenant (anti-IDOR) + LGPD right-to-be-forgotten
+Arquivos criados:
+  - apps/api/src/infrastructure/security/authz-guard.ts (+ .test.ts)
+Testes: 9 novos.
+Status: 🔶 Guardas de authz/LGPD prontas e testadas. Varredura OWASP manual + /security-review pendem.
+Observações: canAccessResource (bloqueia cross-tenant IDOR, super_admin transcende), hasMinRole (RBAC),
+  planCustomerForget (LGPD item 99 — expurga customers/messages/zep/qdrant/r2; só admin do próprio tenant).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 7 — Sessão 86
+Tarefa: GATE GO-LIVE — reavaliação das North Star Metrics
+Arquivos criados:
+  - scripts/cutover/go-live-gate.ts (+ .test.ts)
+Testes: 6 novos.
+Status: 🔶 Lógica do gate pronta/testada. Aprovação real precisa dos números de produção + OK do Lucas.
+Observações: evaluateGoLive exige resolução>80%, p95<1.5s, custo<=40% baseline, 0 jobs perdidos,
+  0 vazamento cross-tenant, custo/ISP visível. Scorecard com valor/target/pass por métrica.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 7 — Sessão 87
+Tarefa: RAGAS + LLM-as-a-Judge + calibração do router
+Arquivos criados:
+  - apps/api/src/infrastructure/rag/ragas.ts (+ .test.ts)
+Testes: 9 novos.
+Status: 🔶 Métricas + calibração prontas/testadas. Test set real de 50 perguntas + CI job pendem.
+Observações: contextPrecision/faithfulness com judge injetável, ragasGate (>=0.75), calibrateRouter
+  (intent vai p/ 4o só se >=30% exige raciocínio; senão 4o-mini — economia com dados reais).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 7 — Sessão 88
+Tarefa: Synthetic monitoring + dashboard de saúde por ISP (lógica)
+Arquivos criados:
+  - apps/api/src/infrastructure/observability/health-score.ts (+ .test.ts)
+Testes: 8 novos.
+Status: 🔶 Lógica pronta/testada. Cron da sonda 24/7 + página nova no frontend pendem.
+Observações: evaluateProbe (fluxo E2E sintético dentro do SLA), computeIspHealth (score 0-100 +
+  healthy/degraded/critical combinando fila/WhatsApp/resolução/erros). Alimenta dashboard de saúde (item 85).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 7 — Sessão 89
+Tarefa: Feature flags por tenant + tier de plano
+Arquivos criados:
+  - apps/api/src/infrastructure/config/feature-flags.ts (+ .test.ts)
+  - packages/db/src/migrations/027_feature_flags.sql
+Testes: 9 novos.
+Status: 🔶 Flags por tier + override por tenant prontos/testados. Prova de 10 ISPs (isolamento RLS) pende de infra.
+Observações: flagsForTier (cumulativo starter<pro<enterprise), isFeatureEnabled (override do tenant
+  vence a tier, liga beta ou desliga). Migration 027. Teste RLS de isolamento roda contra Postgres vivo.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 8 — Sessão 90
+Tarefa: Svix outbound — mapeamento Outbox→Svix
+Arquivos criados:
+  - apps/api/src/adapters/webhooks/outbound-events.ts (+ .test.ts)
+Testes: 6 novos.
+Status: 🔶 Mapeamento pronto/testado. Ligação no outbox.worker + portal Svix por ISP pendem de integração.
+Observações: mapOutboxEventToSvix (só eventos que o ISP deve receber propagam), buildOutboundDelivery
+  (carimba emittedAt, lança se não propagável). svix.service já existia; agora o Outbox alimenta ele.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 8 — Sessão 91
+Tarefa: Onboarding wizard + automação Evolution (lógica)
+Arquivos criados:
+  - apps/api/src/domain/onboarding/wizard.ts (+ .test.ts)
+Testes: 10 novos.
+Status: 🔶 Máquina de estados + geração de instância prontas/testadas. UI do wizard + provisionamento real pendem.
+Observações: nextStep/wizardProgress/canActivate (4 etapas obrigatórias, ERP e KB opcionais),
+  evolutionInstanceName (slug determinístico sem acento, trunca 24 chars — idempotência do provisionamento).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 8 — Sessão 92
+Tarefa: MÓDULO NOVO — Detecção de crise massiva
+Arquivos criados:
+  - apps/api/src/domain/atendimento/crisis-detector.ts (+ .test.ts)
+Testes: 6 novos.
+Status: 🔶 Motor de detecção pronto/testado. Worker (janela Redis) + resposta em massa + painel pendem.
+Observações: detectCrises (janela deslizante por região, conta clientes DISTINTOS — spam do mesmo não
+  infla), crisisSuppressions (suprime SLA+cobrança dos afetados). Dossiê item 94. Liga na telemetria da S93.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 8 — Sessão 93
+Tarefa: MÓDULO NOVO — Telemetria de rede (SNMP/TR-069) MVP
+Arquivos criados:
+  - apps/api/src/domain/provedor/network-telemetry.ts (+ .test.ts)
+Testes: 7 novos.
+Status: 🔶 Interpretação de sinal + alerta proativo prontos/testados. Poller SNMP real + série temporal pendem.
+Observações: classifyOpticalSignal (faixas GPON dBm), detectDegradation (alerta se >=30% ONUs de uma
+  região degradadas — proativo, antes da reclamação). Liga na crise (S92) e na tool run_diagnostics (S72).
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 8 — Sessão 94
+Tarefa: MÓDULO NOVO — Portal do assinante white-label (PWA)
+Arquivos criados:
+  - apps/api/src/domain/provedor/subscriber-portal.ts (+ .test.ts)
+Testes: 9 novos.
+Status: 🔶 Auth por CPF+contrato + ações self-service prontas/testadas. PWA (UI) + rotas pendem.
+Observações: authenticateSubscriber (CPF normalizado + contrato; not_found/mismatch/inactive),
+  availableActions (suspenso pega 2ª via mas não diagnóstico; cancelado só histórico). Dossiê 11/92.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 8 — Sessão 95
+Tarefa: MÓDULO NOVO — Voz em tempo real (MVP)
+Arquivos criados:
+  - apps/api/src/domain/atendimento/voice-call.ts (+ .test.ts)
+Testes: 8 novos.
+Status: 🔶 Máquina de estados da chamada pronta/testada. Integração OpenAI Realtime/Whisper+TTS + telefonia pendem.
+Observações: transition (ringing→greeting→identifying→serving→transferring→ended). Fora do horário encerra,
+  3 falhas de ID transfere, intent fora do escopo MVP transfere. Reusa tools da S72 no serving.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 8 — Sessão 96
+Tarefa: MÓDULO NOVO — Benchmarking setorial + relatórios ANATEL
+Arquivos criados:
+  - apps/api/src/domain/provedor/benchmarking.ts (+ .test.ts)
+Testes: 9 novos.
+Status: 🔶 Comparação anônima + indicadores prontos/testados. Agregação DuckDB multi-tenant + export pendem.
+Observações: benchmarkMetric (compara só pares do mesmo porte, só a mediana sai — anonimato),
+  buildAnatelReport (taxa resolução 48h + reabertura → conforme). Dossiê: inteligência setorial monetizável.
+
+---
+
+[2026-07-01] Plano Mestre V2 / Fase 8 — Sessão 97
+Tarefa: Performance final + hardening
+Arquivos criados:
+  - apps/api/src/infrastructure/observability/cost-budget.ts (+ .test.ts)
+Testes: 9 novos.
+Status: 🔶 Lógica de orçamento + metas de perf prontas/testadas. Lighthouse CI + tuning de índices pendem.
+Observações: budgetStatus (ok/warning80%/exceeded), shouldPauseAi (hard-stop de custo), evaluatePerformance
+  (Lighthouse>=85/90, p95<1.5s). Portado o conceito llm_budget_usd do cobraiWorker legado.
+
+---
+
+[2026-07-01] Plano Mestre V2 / GATE FINAL — Sessão 98
+Tarefa: GATE FINAL — 10 critérios + consolidação
+Arquivos criados:
+  - scripts/cutover/final-gate.ts (+ .test.ts)
+  - docs/ASTRUM_ESTADO_FINAL_PLANO_V2.md
+Testes: 4 novos.
+Status: 🔶 Lógica do gate final pronta/testada. Aprovação real precisa dos 10 critérios verdes em produção.
+Observações: evaluateFinalGate (10 critérios do MAPA_SESSOES: 10 ISPs, workers integrados, resolução>80%,
+  0 jobs cobrança perdidos, isolamento, custo/ISP, deploy<5min, RAGAS, docs, synthetic). Plano V2 S68-S98 concluído
+  em modo code-complete; etapas operacionais documentadas em docs/ASTRUM_ESTADO_FINAL_PLANO_V2.md.

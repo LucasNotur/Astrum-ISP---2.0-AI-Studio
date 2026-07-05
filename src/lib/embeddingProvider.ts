@@ -1,5 +1,4 @@
-import { db } from './firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { supabase } from './supabase';
 import { aiProvider } from '../ai-provider/ai-provider.setup';
 import OpenAI from 'openai';
 
@@ -50,12 +49,11 @@ function createProviderFromEnv(): EmbeddingProvider {
 
 export async function getEmbeddingProvider(tenantId?: string): Promise<EmbeddingProvider> {
   if (tenantId && tenantId !== 'default') {
-    const tenantDoc = await getDoc(doc(db, 'tenants', tenantId));
-    if (tenantDoc.exists()) {
-      const config = tenantDoc.data()?.embedding_config;
-      if (config?.api_key) {
-        return createProviderFromConfig(config);
-      }
+    const { data } = await supabase
+      .from('tenants').select('embedding_config').eq('id', tenantId).maybeSingle();
+    const config = data?.embedding_config;
+    if (config?.api_key) {
+      return createProviderFromConfig(config);
     }
   }
   return createProviderFromEnv();

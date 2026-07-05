@@ -1,5 +1,5 @@
 import { adminDb as db } from './firebaseAdmin.ts';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue } from './db-compat/index.ts';
 
 export interface Subscription {
   tenant_id: string;

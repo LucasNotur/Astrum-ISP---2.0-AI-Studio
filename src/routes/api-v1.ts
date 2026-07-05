@@ -4,7 +4,7 @@ import swaggerJsDoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import admin, { adminDb as db } from "../lib/firebaseAdmin.ts";
 import { logger } from "../lib/logger.ts";
-import { firestore } from 'firebase-admin';
+import type { Query } from '../lib/db-compat';
 
 const router = express.Router();
 
@@ -112,7 +112,7 @@ router.get("/tickets", requireApiKey, async (req, res) => {
   const { status, limit = "50", offset = "0" } = req.query;
   
   try {
-    let q: firestore.Query = db.collection("tickets").where("tenantId", "==", tenantId);
+    let q: Query = db.collection("tickets").where("tenantId", "==", tenantId);
     
     if (status) {
       q = q.where("status", "==", status);
@@ -163,7 +163,7 @@ router.get("/customers", requireApiKey, async (req, res) => {
   const { limit = "50", offset = "0" } = req.query;
   
   try {
-    let q: firestore.Query = db.collection("customers").where("tenantId", "==", tenantId);
+    let q: Query = db.collection("customers").where("tenantId", "==", tenantId);
     
     // Sort by createdAt usually
     q = q.orderBy("createdAt", "desc").limit(Number(limit) || 50);

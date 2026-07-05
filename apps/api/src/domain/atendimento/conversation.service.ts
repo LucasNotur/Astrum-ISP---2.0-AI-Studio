@@ -28,17 +28,24 @@ export interface SaveMessageOptions {
 export async function getOrCreateConversation(
   opts: CreateConversationOptions
 ): Promise<string> {
-  // Buscar conversa aberta existente
-  const { data: existing } = await supabaseAdmin
+  // Buscar conversa aberta existente.
+  // IMPORTANTE: no PostgREST, `.eq('customer_id', null)` NÃO casa linhas com NULL
+  // (vira `customer_id=eq.null` literal). Para conversas sem customer usamos `.is()`.
+  let query = supabaseAdmin
     .from('conversations')
     .select('id')
     .eq('tenant_id', opts.tenantId)
     .eq('channel', opts.channel)
-    .eq('status', 'open')
-    .eq('customer_id', opts.customerId ?? null)
+    .eq('status', 'open');
+
+  query = opts.customerId
+    ? query.eq('customer_id', opts.customerId)
+    : query.is('customer_id', null);
+
+  const { data: existing } = await query
     .order('created_at', { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
 
   if (existing) return existing.id;
 

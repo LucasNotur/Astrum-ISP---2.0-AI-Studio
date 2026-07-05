@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, getDocs, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
 import { useAppStore } from '../store/useAppStore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
 import { Button } from "./ui/button";
@@ -30,13 +29,21 @@ export function EscalationRulesBuilder() {
     fetchRules();
   }, [tenantId]);
 
+  // FZ-4: regras vivem em tenants.escalation_rules (JSONB array) — mesmo storage
+  // que o backend (escalationEngine/messageWorker) lê via db-compat.
+  const persistRules = async (next: Rule[]) => {
+    const { error } = await supabase
+      .from('tenants').update({ escalation_rules: next }).eq('id', tenantId);
+    if (error) throw error;
+    setRules(next);
+  };
+
   const fetchRules = async () => {
     setLoading(true);
     try {
-      const q = query(collection(db, `escalation_rules/${tenantId}/rules`));
-      const snap = await getDocs(q);
-      const fetchedRules = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Rule));
-      setRules(fetchedRules);
+      const { data } = await supabase
+        .from('tenants').select('escalation_rules').eq('id', tenantId).maybeSingle();
+      setRules(Array.isArray(data?.escalation_rules) ? data!.escalation_rules : []);
     } catch (error) {
       console.error("Error fetching rules", error);
     }
@@ -46,14 +53,14 @@ export function EscalationRulesBuilder() {
   const addRule = async () => {
     if (!tenantId) return;
     try {
-      const newRule = {
-        condition_type: 'sentiment' as const,
+      const newRule: Rule = {
+        id: crypto.randomUUID(),
+        condition_type: 'sentiment',
         condition_value: 'ANGRY',
-        action: 'escalate_to_human' as const,
+        action: 'escalate_to_human',
         active: true
       };
-      const docRef = await addDoc(collection(db, `escalation_rules/${tenantId}/rules`), newRule);
-      setRules([...rules, { id: docRef.id, ...newRule }]);
+      await persistRules([...rules, newRule]);
       toast.success("Regra criada com sucesso.");
     } catch (error) {
       console.error("Error adding rule", error);
@@ -64,8 +71,7 @@ export function EscalationRulesBuilder() {
   const updateRule = async (id: string, updates: Partial<Rule>) => {
     if (!tenantId) return;
     try {
-      await updateDoc(doc(db, `escalation_rules/${tenantId}/rules`, id), updates as any);
-      setRules(rules.map(r => r.id === id ? { ...r, ...updates } : r));
+      await persistRules(rules.map(r => r.id === id ? { ...r, ...updates } : r));
       toast.success("Regra atualizada");
     } catch (error) {
       console.error("Error updating rule", error);
@@ -76,8 +82,7 @@ export function EscalationRulesBuilder() {
   const deleteRule = async (id: string) => {
     if (!tenantId) return;
     try {
-      await deleteDoc(doc(db, `escalation_rules/${tenantId}/rules`, id));
-      setRules(rules.filter(r => r.id !== id));
+      await persistRules(rules.filter(r => r.id !== id));
       toast.success("Regra removida");
     } catch (error) {
       console.error("Error deleting rule", error);

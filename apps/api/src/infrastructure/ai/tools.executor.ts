@@ -21,6 +21,15 @@ export class ToolsExecutor {
         return this._createTicket(args);
       case 'query_knowledge_base':
         return this._queryKnowledgeBase(args);
+      case 'get_billing_status':
+      case 'check_invoice':
+        return this._checkInvoice(args);
+      case 'check_coverage':
+        return this._checkCoverage(args);
+      case 'run_diagnostics':
+        return this._runDiagnostics(args);
+      case 'schedule_technical_visit':
+        return this._scheduleTechnicalVisit(args);
       default:
         infraLogger.warn({ toolName }, 'Unknown tool called — ignoring');
         return { error: 'Ferramenta não reconhecida' };
@@ -64,7 +73,8 @@ export class ToolsExecutor {
 
     let query = supabase
       .from('invoices')
-      .select('id, amount_cents, due_date, status, paid_at')
+      // payment_url e pix_copy_paste são CRÍTICOS: é o que a IA envia para 2ª via (S69/gap report).
+      .select('id, amount_cents, due_date, status, paid_at, payment_url, pix_copy_paste')
       .eq('customer_id', customer_id)
       .eq('tenant_id', this.tenantId)
       .order('due_date', { ascending: false })
@@ -78,6 +88,66 @@ export class ToolsExecutor {
     if (error) return { error: 'Erro ao consultar faturas' };
 
     return { invoices: data };
+  }
+
+  /** check_coverage — consulta ocupação de CTOs (rede) num raio/endereço. */
+  private async _checkCoverage(args: Record<string, unknown>) {
+    const { cto_id } = args as { cto_id?: string };
+    let query = supabase
+      .from('network_ctos')
+      .select('id, name, latitude, longitude, total_ports, used_ports, status')
+      .eq('tenant_id', this.tenantId)
+      .limit(10);
+    if (cto_id) query = query.eq('id', cto_id);
+
+    const { data, error } = await query;
+    if (error) return { error: 'Erro ao consultar cobertura' };
+
+    const ctos = (data ?? []).map((c: any) => ({
+      ...c,
+      available_ports: Math.max(0, (c.total_ports ?? 0) - (c.used_ports ?? 0)),
+      has_availability: (c.total_ports ?? 0) - (c.used_ports ?? 0) > 0,
+    }));
+    return { ctos };
+  }
+
+  /** run_diagnostics — teste de sinal/latência. Sem SNMP ainda (S93): resultado simulado marcado. */
+  private async _runDiagnostics(args: Record<string, unknown>) {
+    const { customer_id } = args as { customer_id: string };
+    const { data: customer } = await supabase
+      .from('customers')
+      .select('id, status')
+      .eq('id', customer_id)
+      .eq('tenant_id', this.tenantId)
+      .maybeSingle();
+
+    if (!customer) return { error: 'Cliente não encontrado' };
+    // Suspenso → diagnóstico aponta a causa real antes de "problema técnico".
+    if (customer.status === 'suspended') {
+      return { signal: 'no_signal', reason: 'account_suspended', simulated: true };
+    }
+    return { signal: 'ok', latency_ms: 18, packet_loss: 0, simulated: true, note: 'telemetria real chega na S93 (SNMP/TR-069)' };
+  }
+
+  /** schedule_technical_visit — cria uma OS (service_orders). */
+  private async _scheduleTechnicalVisit(args: Record<string, unknown>) {
+    const { customer_id, reason, address, scheduled_for } = args as {
+      customer_id: string; reason: string; address?: string; scheduled_for?: string;
+    };
+
+    const { data, error } = await supabase.from('service_orders').insert({
+      tenant_id: this.tenantId,
+      customer_id,
+      type: 'technical_visit',
+      status: 'open',
+      description: reason,
+      address: address ?? null,
+      scheduled_for: scheduled_for ?? null,
+      created_by: 'ai_agent',
+    }).select('id').single();
+
+    if (error) return { error: 'Erro ao agendar visita técnica' };
+    return { service_order_id: data.id, success: true };
   }
 
   private async _createTicket(args: Record<string, unknown>) {

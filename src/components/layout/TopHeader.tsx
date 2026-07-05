@@ -17,8 +17,8 @@ interface TopHeaderProps {
 }
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
-import { db } from '@/src/lib/firebase';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { supabase } from '@/src/lib/supabase';
+import { upsertTenantOperator } from '@/src/lib/supabaseDb';
 
 function OperatorStatusToggle() {
   const { userProfile, user } = useAppStore();
@@ -26,30 +26,40 @@ function OperatorStatusToggle() {
 
   useEffect(() => {
     if (!userProfile?.tenantId || !user?.uid || !userProfile?.name) return;
-    const opRef = doc(db, "tenants", userProfile.tenantId, "operators", user.uid);
-    const unsub = onSnapshot(opRef, (docSnap) => {
-      if (docSnap.exists()) {
-        setStatus(docSnap.data().status || 'offline');
+    // FZ-4: operadores vivem em tenants.operators (JSONB array) — mesmo storage do backend
+    let cancelled = false;
+    const load = async () => {
+      const { data } = await supabase
+        .from('tenants').select('operators').eq('id', userProfile.tenantId).maybeSingle();
+      const ops: any[] = Array.isArray(data?.operators) ? data!.operators : [];
+      const me = ops.find(o => o?.id === user.uid);
+      if (cancelled) return;
+      if (me) {
+        setStatus(me.status || 'offline');
       } else {
-        setDoc(opRef, { 
-           name: userProfile.name, 
-           email: userProfile.email, 
-           status: 'offline', 
-           current_chat_count: 0, 
-           max_concurrent_chats: 5,
-           department_id: userProfile.department_id || null,
-           required_skills: userProfile.skills || []
-        }, { merge: true });
+        await upsertTenantOperator(userProfile.tenantId, user.uid, {
+          name: userProfile.name,
+          email: userProfile.email,
+          status: 'offline',
+          current_chat_count: 0,
+          max_concurrent_chats: 5,
+          department_id: userProfile.department_id || null,
+          required_skills: userProfile.skills || []
+        });
       }
-    });
-    return unsub;
+    };
+    load();
+
+    const ch = supabase.channel(`operator-status:${user.uid}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tenants', filter: `id=eq.${userProfile.tenantId}` }, load)
+      .subscribe();
+    return () => { cancelled = true; supabase.removeChannel(ch); };
   }, [userProfile, user?.uid]);
 
   const handleChange = async (val: string) => {
     setStatus(val);
     if (!userProfile?.tenantId || !user?.uid) return;
-    const opRef = doc(db, "tenants", userProfile.tenantId, "operators", user.uid);
-    await setDoc(opRef, { status: val }, { merge: true });
+    await upsertTenantOperator(userProfile.tenantId, user.uid, { status: val });
   }
 
   const getStatusColor = (val: string) => {

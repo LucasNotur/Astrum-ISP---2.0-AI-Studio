@@ -7,8 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src
 import { Badge } from "@/src/components/ui/badge";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
-import { db } from '@/src/lib/firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { supabase } from '@/src/lib/supabase';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/components/ui/select";
 import { Textarea } from "@/src/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/src/components/ui/tabs";
@@ -71,19 +70,16 @@ export function KnowledgeBasePage({ knowledgeBase, handleGenerateAIArticle, hand
     }
   }, [currentTenant]);
 
+  // S99 — knowledge articles via Supabase
   const fetchKBArticles = async (tenantId: string) => {
-    const { collection, query, where, getDocs } = await import('firebase/firestore');
-    const q = query(collection(db, 'knowledge_base'), where('tenant_id', '==', tenantId));
-    const snap = await getDocs(q);
-    setKbArticles(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    const { data } = await supabase.from('knowledge_articles').select('*').eq('tenant_id', tenantId);
+    setKbArticles(data ?? []);
   };
 
   const loadConfigs = async () => {
     if (!currentTenant?.id) return;
-    const docRef = doc(db, 'tenants', currentTenant.id);
-    const snap = await getDoc(docRef);
-    if (snap.exists()) {
-      const data = snap.data();
+    const { data } = await supabase.from('tenants').select('embedding_config,vector_store_config').eq('id', currentTenant.id).maybeSingle();
+    if (data) {
       if (data.embedding_config) setEmbeddingConfig(data.embedding_config);
       if (data.vector_store_config) setVectorConfig(data.vector_store_config);
     }
@@ -91,11 +87,7 @@ export function KnowledgeBasePage({ knowledgeBase, handleGenerateAIArticle, hand
 
   const saveConfigs = async () => {
     if (!currentTenant?.id) return;
-    const docRef = doc(db, 'tenants', currentTenant.id);
-    await updateDoc(docRef, {
-      embedding_config: embeddingConfig,
-      vector_store_config: vectorConfig
-    });
+    await supabase.from('tenants').update({ embedding_config: embeddingConfig, vector_store_config: vectorConfig }).eq('id', currentTenant.id);
     alert('Configurações salvas!');
   };
 

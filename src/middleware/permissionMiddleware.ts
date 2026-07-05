@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import admin from "../lib/firebaseAdmin";
+import { verifySupabaseToken } from "../lib/authVerify";
 
 export const requirePermission = (resource: string, action: string) => {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -20,7 +21,7 @@ export const requirePermission = (resource: string, action: string) => {
       } else {
         const token = authHeader.split("Bearer ")[1];
         try {
-          const decodedToken = await admin.auth().verifyIdToken(token);
+          const decodedToken = await verifySupabaseToken(token);
           (req as any).userId = decodedToken.uid;
         } catch (e) {
           return res.status(401).json({ error: "Invalid token" });

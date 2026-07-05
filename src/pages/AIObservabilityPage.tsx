@@ -13,9 +13,7 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
-import { db } from '@/src/lib/firebase';
-import { auth } from '@/src/lib/firebase';
+import { supabase } from '@/src/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
 import { Badge } from "@/src/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
@@ -29,13 +27,15 @@ export const AIObservabilityPage = () => {
   const [tokenUsage, setTokenUsage] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [circuitData, setCircuitData] = useState<{ circuitStatus: Record<string, string>, fallbacks: any[] } | null>(null);
+  const [ragasScores, setRagasScores] = useState<any[]>([]);
+  const [guardrailBlocks, setGuardrailBlocks] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchCircuitInfo = async () => {
       try {
-        const user = auth.currentUser;
-        if (!user) return;
-        const token = await user.getIdToken();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        const token = session.access_token;
         const res = await fetch('/api/super-admin/ai-circuit', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -54,30 +54,39 @@ export const AIObservabilityPage = () => {
     fetchCircuitInfo();
     const interval = setInterval(fetchCircuitInfo, 60000); // 1 minute fresh
 
-    const qLogs = query(collection(db, 'logs'), orderBy('timestamp', 'desc'));
-    const unsubscribeLogs = onSnapshot(qLogs, (snapshot) => {
-      const logsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        timestamp: doc.data().timestamp?.toDate?.()?.toLocaleString() || new Date(doc.data().timestamp).toLocaleString()
-      }));
-      setLogs(logsData);
-    });
+    // S106 — RAGAS scores e guardrail blocks
+    supabase.from('ai_ragas_scores').select('*').order('evaluated_at', { ascending: false }).limit(200)
+      .then(({ data }) => { if (data) setRagasScores(data); });
+    supabase.from('ai_guardrail_blocks').select('*').order('blocked_at', { ascending: false }).limit(200)
+      .then(({ data }) => { if (data) setGuardrailBlocks(data); });
 
-    const qUsage = query(collection(db, 'token_usage'), orderBy('updated_at', 'desc'));
-    const unsubscribeUsage = onSnapshot(qUsage, (snapshot) => {
-      const usageData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setTokenUsage(usageData);
-      setLoading(false);
-    });
+    // S99 — lê logs de AI do Supabase (ai_performance_logs)
+    supabase
+      .from('ai_performance_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(200)
+      .then(({ data }) => {
+        if (data) {
+          setLogs(data.map(r => ({
+            ...r,
+            timestamp: r.created_at ? new Date(r.created_at).toLocaleString('pt-BR') : '',
+          })));
+          setTokenUsage(
+            data.reduce((acc: any[], r: any) => {
+              const key = r.provider || 'openai';
+              const ex = acc.find(x => x.provider === key);
+              if (ex) { ex.tokens += r.tokens_used || 0; ex.cost += r.cost_usd || 0; }
+              else acc.push({ provider: key, tokens: r.tokens_used || 0, cost: r.cost_usd || 0 });
+              return acc;
+            }, [])
+          );
+          setLoading(false);
+        }
+      });
 
     return () => {
       clearInterval(interval);
-      unsubscribeLogs();
-      unsubscribeUsage();
     };
   }, []);
 
@@ -521,6 +530,142 @@ export const AIObservabilityPage = () => {
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
                       Nenhum log registrado ainda.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+
+      {/* ── S106: RAGAS Scores ───────────────────────────────────────── */}
+      <h2 className="text-xl font-semibold mt-2">RAGAS — Qualidade das Respostas</h2>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {(['faithfulness', 'answer_relevancy', 'context_precision', 'context_recall'] as const).map(metric => {
+          const avg = ragasScores.length
+            ? ragasScores.reduce((s, r) => s + (r[metric] ?? 0), 0) / ragasScores.length
+            : null;
+          const label: Record<string, string> = {
+            faithfulness: 'Fidelidade',
+            answer_relevancy: 'Relevância',
+            context_precision: 'Precisão contexto',
+            context_recall: 'Recall contexto',
+          };
+          return (
+            <Card key={metric} className="border-none shadow-sm">
+              <CardContent className="pt-4">
+                <div className="text-xs text-zinc-500 mb-1">{label[metric]}</div>
+                <div className={`text-2xl font-bold ${avg === null ? 'text-zinc-300' : avg >= 0.8 ? 'text-green-600' : avg >= 0.6 ? 'text-yellow-500' : 'text-red-500'}`}>
+                  {avg !== null ? avg.toFixed(2) : '—'}
+                </div>
+                <div className="mt-2 h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                  {avg !== null && (
+                    <div
+                      className={`h-full rounded-full ${avg >= 0.8 ? 'bg-green-500' : avg >= 0.6 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                      style={{ width: `${avg * 100}%` }}
+                    />
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      <Card className="border-none shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Avaliações RAGAS recentes</CardTitle>
+          <CardDescription className="text-xs">{ragasScores.length} avaliações disponíveis.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-60">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Data</TableHead>
+                  <TableHead className="text-xs">Modelo</TableHead>
+                  <TableHead className="text-xs text-right">Fidelidade</TableHead>
+                  <TableHead className="text-xs text-right">Relevância</TableHead>
+                  <TableHead className="text-xs text-right">Score geral</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {ragasScores.slice(0, 50).map(r => (
+                  <TableRow key={r.id}>
+                    <TableCell className="text-xs">{new Date(r.evaluated_at).toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell className="text-xs font-mono">{r.model ?? '—'}</TableCell>
+                    <TableCell className="text-xs text-right">{r.faithfulness?.toFixed(2) ?? '—'}</TableCell>
+                    <TableCell className="text-xs text-right">{r.answer_relevancy?.toFixed(2) ?? '—'}</TableCell>
+                    <TableCell className={`text-xs text-right font-medium ${(r.overall_score ?? 0) >= 0.8 ? 'text-green-600' : 'text-yellow-500'}`}>
+                      {r.overall_score?.toFixed(2) ?? '—'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {ragasScores.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-6 text-xs text-zinc-400">
+                      Nenhuma avaliação RAGAS disponível. O sistema avalia automaticamente após cada resposta da IA.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+
+      {/* ── S106: Guardrail Blocks ───────────────────────────────────── */}
+      <h2 className="text-xl font-semibold mt-2">Guardrails — Bloqueios de Segurança</h2>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {['off_topic', 'pii_detected', 'profanity', 'competitor_mention'].map(rule => {
+          const count = guardrailBlocks.filter(b => b.rule === rule).length;
+          const label: Record<string, string> = {
+            off_topic: 'Fora do escopo',
+            pii_detected: 'PII detectado',
+            profanity: 'Linguagem inapropriada',
+            competitor_mention: 'Menção a concorrente',
+          };
+          return (
+            <Card key={rule} className="border-none shadow-sm">
+              <CardContent className="pt-4">
+                <div className="text-xs text-zinc-500 mb-1">{label[rule]}</div>
+                <div className={`text-2xl font-bold ${count > 10 ? 'text-red-500' : count > 0 ? 'text-yellow-500' : 'text-zinc-400'}`}>
+                  {count}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      <Card className="border-none shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Bloqueios recentes de guardrail</CardTitle>
+          <CardDescription className="text-xs">{guardrailBlocks.length} bloqueios registrados.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-60">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Data</TableHead>
+                  <TableHead className="text-xs">Regra</TableHead>
+                  <TableHead className="text-xs">Mensagem (truncada)</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {guardrailBlocks.slice(0, 50).map(b => (
+                  <TableRow key={b.id}>
+                    <TableCell className="text-xs whitespace-nowrap">{new Date(b.blocked_at).toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell><Badge variant="destructive" className="text-[10px]">{b.rule}</Badge></TableCell>
+                    <TableCell className="text-xs max-w-[300px] truncate text-zinc-500">{b.user_message ?? '—'}</TableCell>
+                  </TableRow>
+                ))}
+                {guardrailBlocks.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center py-6 text-xs text-zinc-400">
+                      Nenhum bloqueio de guardrail registrado.
                     </TableCell>
                   </TableRow>
                 )}

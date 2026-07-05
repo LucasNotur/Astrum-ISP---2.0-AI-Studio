@@ -1,5 +1,4 @@
-import { db } from "./firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { supabase } from "./supabase";
 
 export interface ThemeConfig {
   primary_color?: string;
@@ -60,15 +59,16 @@ export const themeManager = {
     if (themeStr) {
       theme = JSON.parse(themeStr);
     } else {
-      // Load from firestore
+      // FZ-4: tema vem de tenants.theme (Supabase)
       try {
-        const tenantDoc = await getDoc(doc(db, "tenants", tenantId));
-        if (tenantDoc && tenantDoc.exists && tenantDoc.exists() && tenantDoc.data().theme) {
-          theme = tenantDoc.data().theme;
+        const { data } = await supabase
+          .from("tenants").select("theme").eq("id", tenantId).maybeSingle();
+        if (data?.theme) {
+          theme = data.theme;
           themeCache.set(`theme:${tenantId}`, JSON.stringify(theme));
         }
       } catch (err) {
-        console.error("Failed to load theme from firestore", err);
+        console.error("Failed to load theme", err);
       }
     }
 

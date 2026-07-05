@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { adminDb as db, adminAuth as auth } from './firebaseAdmin.ts';
+import { adminDb as db } from './firebaseAdmin.ts';
+import { verifySupabaseToken } from './authVerify.ts';
 import redis from './redis.ts';
 import { PLANS, PlanFeatures, PlanFeatureLimits } from './plans.ts';
 
@@ -45,8 +46,8 @@ export const requireFeature = (feature: keyof PlanFeatures) => {
         if (authHeader && authHeader.startsWith('Bearer ')) {
           const token = authHeader.split('Bearer ')[1];
           try {
-            const decoded = await auth.verifyIdToken(token);
-            tenantId = decoded.tenantId as string;
+            const decoded = await verifySupabaseToken(token);
+            tenantId = decoded.tenantId;
           } catch (e) {
             // Ignore parse errors here
           }

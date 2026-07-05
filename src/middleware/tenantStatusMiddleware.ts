@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { adminDb as db, adminAuth as auth } from '../lib/firebaseAdmin.ts';
+import { adminDb as db } from '../lib/firebaseAdmin.ts';
+import { verifySupabaseToken } from '../lib/authVerify.ts';
 import redis from '../lib/redis.ts';
 
 export const tenantStatusMiddleware = async (req: Request, res: Response, next: NextFunction) => {
@@ -27,8 +28,8 @@ export const tenantStatusMiddleware = async (req: Request, res: Response, next: 
       if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.split('Bearer ')[1];
         try {
-          const decoded = await auth.verifyIdToken(token);
-          tenantId = decoded.tenantId as string;
+          const decoded = await verifySupabaseToken(token);
+          tenantId = decoded.tenantId;
         } catch (e) {
           // Ignore parse errors here
         }

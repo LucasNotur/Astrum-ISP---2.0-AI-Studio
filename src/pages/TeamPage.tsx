@@ -11,8 +11,7 @@ import { Badge } from "@/src/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/src/components/ui/avatar";
 import { Search, Plus, Mail, Activity, Phone, Trash2, Link2, ShieldAlert, TrendingUp } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/src/components/ui/tabs";
-import { db } from "@/src/lib/firebase";
-import { collection, onSnapshot, query, updateDoc, doc, orderBy, limit } from "firebase/firestore";
+import { supabase } from "@/src/lib/supabase";
 import { toast } from "sonner";
 
 export function TeamPage({ 
@@ -45,33 +44,26 @@ export function TeamPage({
   useEffect(() => {
     if (!tenantId) return;
 
-    const opQuery = query(collection(db, "tenants", tenantId, "operators"));
-    const unsubOps = onSnapshot(opQuery, (snap) => {
-      const opsData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setLiveOperators(opsData);
-    });
+    // S99 — operadores e gamificação via Supabase (team_members como proxy)
+    supabase.from('team_members').select('*').eq('tenant_id', tenantId)
+      .then(({ data }) => setLiveOperators(data ?? []));
 
     const currentMonth = new Date().toISOString().substring(0, 7);
-    const scoresQuery = query(collection(db, "gamification", tenantId, "scores"));
-    const unsubScores = onSnapshot(scoresQuery, (snap) => {
-       const scoresData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-       // Filter current month
-       const monthlyScores = scoresData.filter((s: any) => s.month === currentMonth);
-       monthlyScores.sort((a: any, b: any) => (b.points || 0) - (a.points || 0));
-       setRanking(monthlyScores);
-    });
+    // ranking usa tickets resolvidos pelo agente no mês
+    supabase.from('tickets')
+      .select('resolved_by,status,created_at')
+      .eq('tenant_id', tenantId)
+      .eq('status', 'resolved')
+      .gte('created_at', `${currentMonth}-01`)
+      .then(({ data }) => {
+        const scoreMap: Record<string, number> = {};
+        (data ?? []).forEach((t: any) => {
+          if (t.resolved_by) scoreMap[t.resolved_by] = (scoreMap[t.resolved_by] || 0) + 10;
+        });
+        setRanking(Object.entries(scoreMap).map(([id, points]) => ({ id, points })).sort((a, b) => b.points - a.points));
+      });
 
-    const metasQuery = query(collection(db, "tenants", tenantId, "metas"));
-    const unsubMetas = onSnapshot(metasQuery, (snap) => {
-       const metasData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-       setMetas(metasData.filter((m: any) => m.month === currentMonth));
-    });
-
-    return () => {
-      unsubOps();
-      unsubScores();
-      unsubMetas();
-    };
+    return () => {};
   }, [tenantId]);
 
   const handleRedistribute = async () => {

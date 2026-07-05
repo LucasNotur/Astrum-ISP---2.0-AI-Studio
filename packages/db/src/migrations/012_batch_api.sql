@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS ai_batch_jobs (
   completed_at TIMESTAMPTZ
 );
 
-CREATE INDEX idx_batch_jobs_tenant ON ai_batch_jobs(tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_batch_jobs_tenant ON ai_batch_jobs(tenant_id, status);
 
 -- Predições de churn
 CREATE TABLE IF NOT EXISTS churn_predictions (
@@ -22,18 +22,25 @@ CREATE TABLE IF NOT EXISTS churn_predictions (
   main_factors JSONB,
   recommended_action TEXT,
   confidence_score NUMERIC(4,3),
-  predicted_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(customer_id, DATE(predicted_at)) -- 1 predição por cliente por dia
+  predicted_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_churn_tenant_risk ON churn_predictions(tenant_id, churn_risk, predicted_at DESC);
+-- 1 predição por cliente por dia. PostgreSQL não aceita expressão em UNIQUE de tabela;
+-- usa-se UNIQUE INDEX. DATE(timestamptz) não é IMMUTABLE (depende do TZ da sessão),
+-- então normalizamos para UTC antes do cast para date (forma imutável).
+CREATE UNIQUE INDEX IF NOT EXISTS uq_churn_customer_day
+  ON churn_predictions (customer_id, ((predicted_at AT TIME ZONE 'UTC')::date));
+
+CREATE INDEX IF NOT EXISTS idx_churn_tenant_risk ON churn_predictions(tenant_id, churn_risk, predicted_at DESC);
 
 -- RLS: tenant só vê seus dados
 ALTER TABLE ai_batch_jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE churn_predictions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS batch_jobs_tenant ON ai_batch_jobs;
 CREATE POLICY batch_jobs_tenant ON ai_batch_jobs
   USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()));
 
+DROP POLICY IF EXISTS churn_predictions_tenant ON churn_predictions;
 CREATE POLICY churn_predictions_tenant ON churn_predictions
   USING (tenant_id = (SELECT tenant_id FROM users WHERE id = auth.uid()));

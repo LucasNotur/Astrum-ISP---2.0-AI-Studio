@@ -58,7 +58,8 @@ export async function buildServer() {
     try {
       await request.jwtVerify();
     } catch (err) {
-      reply.send(err);
+      // Bug S68: responder 401 explícito (antes ia sem status → virava 500 em alguns casos).
+      return reply.code(401).send({ code: 'UNAUTHORIZED', message: 'Token ausente ou inválido.' });
     }
   });
 
@@ -105,6 +106,10 @@ export async function buildServer() {
 
   const websocketRoutes = await import('./domain/realtime/websocket.routes');
   await app.register(websocketRoutes.default);
+
+  // Webhook Evolution v2 (S71) — não recebe tráfego real até o cutover S74.
+  const { evolutionWebhookRoutes } = await import('./domain/atendimento/evolution-webhook.routes');
+  await app.register(evolutionWebhookRoutes);
 
   // Health check com status dos serviços
   app.get('/api/v2/health', async () => {
@@ -229,9 +234,23 @@ export async function startFastifyServer() {
 
     // Agendar Batch Jobs
     await scheduleBatchJobs();
+
+    // Boot concluído com sucesso — registra estado saudável.
+    const { markFastifyBooted } = await import('./infrastructure/observability/boot-state');
+    markFastifyBooted();
   } catch (err: any) {
-    app.log.error({ err }, 'Erro ao iniciar Fastify, ignorando para não derrubar Express');
-    // process.exit(1);
+    // Bug S68: NÃO engolir mais o erro em silêncio. Registra como fatal no Sentry
+    // e marca a flag que o health-check do Express expõe (fastify_boot_failed).
+    // O process.exit(1) volta na S82, quando o Fastify for o processo principal.
+    app.log.fatal({ err }, 'FALHA AO INICIAR FASTIFY — motor v2 indisponível (visível em /api/health)');
+    try {
+      const { captureError } = await import('./infrastructure/observability/sentry.service');
+      captureError(err instanceof Error ? err : new Error(String(err)), { context: 'fastify_boot' });
+    } catch { /* Sentry pode não estar configurado */ }
+    try {
+      const { markFastifyBootFailed } = await import('./infrastructure/observability/boot-state');
+      markFastifyBootFailed(err);
+    } catch { /* ignore */ }
   }
 
   // Graceful Shutdown

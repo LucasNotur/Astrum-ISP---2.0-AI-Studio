@@ -10,11 +10,7 @@ vi.mock('../../lib/firebaseAdmin', () => ({
   }
 }));
 
-vi.mock('firebase-admin/firestore', () => {
-  const Timestamp = { fromDate: vi.fn((date) => ({ _mockDate: date, toDate: () => date })) };
-  const FieldValue = { serverTimestamp: vi.fn(() => 'SERVER_TIMESTAMP') };
-  return { Timestamp, FieldValue };
-});
+// FZ-5: FieldValue/Timestamp agora vêm de lib/db-compat (sentinels reais, sem mock)
 
 describe('Audit Log Tests', () => {
   const mockAdd = vi.fn();

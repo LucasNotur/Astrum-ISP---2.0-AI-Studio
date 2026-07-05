@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
-import { db } from '@/src/lib/firebase';
+import { supabase } from '@/src/lib/supabase';
 import { motion } from 'framer-motion';
 import { Button } from "@/src/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
@@ -190,81 +189,45 @@ export function AIConfigPage({
       })
       .catch(e => setVectorTestResult({ success: false, error: e.message }));
       
-    // Load config and fetch indexed count
+    // S99 — carrega config do tenant via Supabase
     const loadConfig = async () => {
-      const { getDoc, doc, collection, getDocs, query, where, onSnapshot } = await import('firebase/firestore');
-      const snap = await getDoc(doc(db, 'tenants', tenantId));
-      if (snap.exists()) {
-         const data = snap.data();
-         if (data.vector_store_config) setVectorConfig(data.vector_store_config);
+      const { data: tenant } = await supabase.from('tenants').select('*').eq('id', tenantId).maybeSingle();
+      if (tenant) {
+        if (tenant.vector_store_config) setVectorConfig(tenant.vector_store_config);
+        setTenantData(tenant);
+        if (tenant.monthly_token_limit) setTenantTokenLimit(tenant.monthly_token_limit);
+        if (tenant.worker_concurrency) setWorkerConcurrency(tenant.worker_concurrency);
+        if (tenant.plan) setTenantPlan(tenant.plan);
       }
-      
-      try {
-        const transSnap = await getDoc(doc(db, `tenants/${tenantId}/settings`, 'transcription'));
-        if (transSnap.exists()) {
-           setTranscriptionConfig(transSnap.data() as any);
-        }
-      } catch (e) { console.error("Error loading transcription config", e); }
-
-      try {
-        const kbSnap = await getDocs(query(collection(db, 'knowledge_base'), where('tenant_id', '==', tenantId), where('vector_indexed', '==', true)));
-        setIndexedCount(kbSnap.size);
-      } catch (e) { console.error(e); }
-
-      const unsub = onSnapshot(doc(db, 'tenants', tenantId), (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setTenantData(data);
-          if (data.monthly_token_limit) setTenantTokenLimit(data.monthly_token_limit);
-          if (data.worker_concurrency) setWorkerConcurrency(data.worker_concurrency);
-          if (data.plan) setTenantPlan(data.plan);
-        }
-      });
+      const { count } = await supabase
+        .from('knowledge_articles')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .eq('vector_indexed', true);
+      setIndexedCount(count ?? 0);
     };
     loadConfig();
   }, []);
 
-  const toggleCobraiEnabled = async (checked: boolean) => {
-    try {
-      const { doc, updateDoc } = await import('firebase/firestore');
-      await updateDoc(doc(db, 'tenants', tenantId), { cobrai_enabled: checked });
-      toast.success(checked ? "CobrAI ativado" : "CobrAI pausado");
-    } catch (e) {
-      toast.error('Erro ao atualizar status');
-    }
+  // S99 — tenant mutations via Supabase
+  const updateTenant = async (patch: Record<string, any>, successMsg: string) => {
+    const { error } = await supabase.from('tenants').update(patch).eq('id', tenantId);
+    if (error) { toast.error('Erro ao salvar'); return; }
+    toast.success(successMsg);
+    setTenantData((prev: any) => ({ ...prev, ...patch }));
   };
 
-  const updateCobraiLimiter = async (limitHourly: number) => {
-    try {
-      const { doc, updateDoc } = await import('firebase/firestore');
-      await updateDoc(doc(db, 'tenants', tenantId), { cobrai_hourly_limit: limitHourly });
-      toast.success("Limite atualizado");
-    } catch (e) {
-      toast.error('Erro ao atualizar limite');
-    }
-  };
+  const toggleCobraiEnabled = (checked: boolean) =>
+    updateTenant({ cobrai_enabled: checked }, checked ? "CobrAI ativado" : "CobrAI pausado");
 
-  const updateCobraiWindow = async (start: number, end: number) => {
-    try {
-      const { doc, updateDoc } = await import('firebase/firestore');
-      await updateDoc(doc(db, 'tenants', tenantId), { cobrai_window: { start, end } });
-      toast.success("Janela de disparo atualizada");
-    } catch (e) {
-      toast.error('Erro ao atualizar janela');
-    }
-  };
+  const updateCobraiLimiter = (limitHourly: number) =>
+    updateTenant({ cobrai_hourly_limit: limitHourly }, "Limite atualizado");
 
-  const toggleCobraiStage = async (stage: string, checked: boolean) => {
-    try {
-      const { doc, updateDoc } = await import('firebase/firestore');
-      await updateDoc(doc(db, 'tenants', tenantId), { 
-        [`cobrai_stages.${stage}.active`]: checked 
-      });
-      toast.success(`Etapa ${stage} ${checked ? 'ativada' : 'desativada'}`);
-    } catch (e) {
-      toast.error('Erro ao atualizar etapa');
-    }
-  };
+  const updateCobraiWindow = (start: number, end: number) =>
+    updateTenant({ cobrai_window: { start, end } }, "Janela de disparo atualizada");
+
+  const toggleCobraiStage = (stage: string, checked: boolean) =>
+    updateTenant({ cobrai_stages: { ...(tenantData?.cobrai_stages ?? {}), [stage]: { active: checked } } }, `Etapa ${stage} ${checked ? 'ativada' : 'desativada'}`);
 
   const testVectorStore = async () => {
     setVectorTestResult(null);
@@ -284,26 +247,11 @@ export function AIConfigPage({
     }
   };
 
-  const saveVectorConfig = async () => {
-    try {
-      const { doc, setDoc } = await import('firebase/firestore');
-      await setDoc(doc(db, 'tenants', tenantId), { vector_store_config: vectorConfig }, { merge: true });
-      toast.success("Configuração do Banco Vetorial salva");
-      testVectorStore();
-    } catch (e: any) {
-      toast.error("Erro ao salvar config: " + e.message);
-    }
-  };
+  const saveVectorConfig = () =>
+    updateTenant({ vector_store_config: vectorConfig }, "Configuração do Banco Vetorial salva").then(testVectorStore);
 
-  const saveTranscriptionConfig = async () => {
-    try {
-      const { doc, setDoc } = await import('firebase/firestore');
-      await setDoc(doc(db, `tenants/${tenantId}/settings`, 'transcription'), transcriptionConfig, { merge: true });
-      toast.success("Configuração de Transcrição salva");
-    } catch (e: any) {
-      toast.error("Erro ao salvar config: " + e.message);
-    }
-  };
+  const saveTranscriptionConfig = () =>
+    updateTenant({ transcription_config: transcriptionConfig }, "Configuração de Transcrição salva");
 
   const startReindex = async () => {
     toast.success("Iniciando reindexação...");
@@ -321,15 +269,8 @@ export function AIConfigPage({
     }, 500);
   };
 
-  const saveTokenLimit = async (limit: number, concurrency: number) => {
-    try {
-      const { doc, setDoc } = await import('firebase/firestore');
-      await setDoc(doc(db, 'tenants', tenantId), { monthly_token_limit: limit, worker_concurrency: concurrency }, { merge: true });
-      toast.success("Limites salvos");
-    } catch (e: any) {
-      toast.error("Erro ao salvar limites: " + e.message);
-    }
-  };
+  const saveTokenLimit = (limit: number, concurrency: number) =>
+    updateTenant({ monthly_token_limit: limit, worker_concurrency: concurrency }, "Limites salvos");
 
   const saveIntegrationKeys = async () => {
     try {
@@ -384,21 +325,19 @@ export function AIConfigPage({
     }
   };
 
+  // S99 — usage logs via Supabase ai_performance_logs
   useEffect(() => {
-    const fetchAiUsage = async () => {
-      setLoadingAiUsage(true);
-      try {
-        const q = query(collection(db, "ai_usage"), orderBy("createdAt", "desc"), limit(100));
-        const snap = await getDocs(q);
-        const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setAiUsageLogs(data);
-      } catch (e) {
-        console.error(e);
-      } finally {
+    setLoadingAiUsage(true);
+    supabase
+      .from('ai_performance_logs')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+      .limit(100)
+      .then(({ data }) => {
+        setAiUsageLogs(data ?? []);
         setLoadingAiUsage(false);
-      }
-    };
-    fetchAiUsage();
+      });
   }, []);
 
   return (

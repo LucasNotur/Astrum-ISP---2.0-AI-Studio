@@ -6,6 +6,7 @@ import { supabaseAdmin } from '../../../apps/api/src/infrastructure/database/sup
 import { cobrancaLogger } from '../../../apps/api/src/infrastructure/logging/logger';
 import { addSentryToWorker } from '../../../apps/api/src/infrastructure/observability/sentry-worker.helper';
 import { svixEvents } from '../../../apps/api/src/adapters/webhooks/svix.service';
+import { shouldBootWorker } from '../../../apps/api/src/infrastructure/config/engine-flags';
 
 export interface CobraiJobData {
   tenantId: string;
@@ -62,6 +63,37 @@ async function executeCobraiAction(job: Job<CobraiJobData>): Promise<void> {
   if (invoice.status === 'cancelled') {
     cobrancaLogger.info({ tenantId, invoiceId }, 'CobrAI job cancelado — fatura cancelada');
     return;
+  }
+
+  // Guardas portadas do legado (S76): janela de horário, limites, opt-out.
+  if (action === 'send_message') {
+    const { evaluateCobraiGate } = await import('../../../apps/api/src/domain/cobranca/cobrai-guards');
+    const { data: tenantCfg } = await supabaseAdmin
+      .from('tenants')
+      .select('cobrai_window, cobrai_hourly_limit, cobrai_daily_limit, cobrai_stages')
+      .eq('id', tenantId)
+      .maybeSingle();
+    const { count: sentThisHour } = await supabaseAdmin
+      .from('cobrai_jobs')
+      .select('*', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .eq('status', 'sent')
+      .gte('executed_at', new Date(Date.now() - 3600_000).toISOString());
+
+    const gate = evaluateCobraiGate({
+      hour: new Date().getHours(),
+      window: tenantCfg?.cobrai_window ?? null,
+      sentThisHour: sentThisHour ?? 0,
+      hourlyLimit: tenantCfg?.cobrai_hourly_limit ?? 30,
+      sentToday: 0,
+      dailyLimit: tenantCfg?.cobrai_daily_limit ?? null,
+      stage: (action as string) ?? 'lembrete',
+      stagesConfig: tenantCfg?.cobrai_stages ?? null,
+    });
+    if (!gate.allowed) {
+      cobrancaLogger.warn({ tenantId, invoiceId, reason: gate.reason }, 'CobrAI bloqueado por guarda');
+      return;
+    }
   }
 
   cobrancaLogger.info({ tenantId, invoiceId, action }, `Executando CobrAI action: ${action}`);
@@ -142,6 +174,11 @@ async function executeCobraiAction(job: Job<CobraiJobData>): Promise<void> {
 }
 
 export function createCobraiWorker() {
+  // Guarda R6: só sobe se COBRAI_ENGINE=v2. Evita disparo duplo com o worker legado.
+  if (!shouldBootWorker('cobrai', 'v2', (m) => cobrancaLogger.warn(m))) {
+    return null;
+  }
+
   const worker = new Worker<CobraiJobData>(
     'astrum:cobranca',
     executeCobraiAction,

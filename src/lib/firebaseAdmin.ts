@@ -1,97 +1,64 @@
-import { initializeApp, getApps, cert, App, applicationDefault } from "firebase-admin/app";
-import { getFirestore, Firestore, Timestamp, FieldValue } from "firebase-admin/firestore";
-import { getAuth, Auth } from "firebase-admin/auth";
-import { getStorage } from "firebase-admin/storage";
-import * as adminNamespace from "firebase-admin";
-import fs from "fs";
+/**
+ * FZ-2 — SEAM DO BACKEND: este módulo mantém o NOME e os EXPORTS históricos
+ * (adminDb, default admin) mas persiste 100% no SUPABASE via src/lib/db-compat/.
+ * O Firestore foi removido do projeto (Plano FIRESTORE-ZERO, 2026-07-03).
+ *
+ * ~50 arquivos do backend legado importam daqui e NÃO foram editados — a API
+ * (collection/doc/get/set/update/where/orderBy/batch/runTransaction/FieldValue/
+ * Timestamp) é servida pela camada de compatibilidade.
+ *
+ * Rollback: git revert do commit FZ-2.
+ */
+import {
+  CompatFirestore,
+  FieldValue,
+  CompatTimestamp as Timestamp,
+} from './db-compat';
 
-let app: App | null = null;
+const compatDb = new CompatFirestore();
 
-function ensureInitialized(): App {
-  if (getApps().length > 0) {
-    return getApps()[0];
-  }
+export const adminDb = compatDb;
 
-  if (app) return app;
-
-  try {
-    if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-      app = initializeApp({
-        credential: cert(serviceAccount),
-      });
-      console.log("[FirebaseAdmin] Status: Initialized using FIREBASE_SERVICE_ACCOUNT_JSON from environment");
-      return app;
-    } else {
-      console.log("[FirebaseAdmin] Status: Trying applicationDefault()...");
-      try {
-        app = initializeApp({
-          credential: applicationDefault(),
-        });
-        return app;
-      } catch (err: any) {
-        throw new Error(
-          "FIREBASE_SERVICE_ACCOUNT_JSON não configurada. " +
-          "Por favor, adicione o JSON da conta de serviço do Firebase " +
-          "no menu Configurações (Settings) -> Secrets do AI Studio."
-        );
-      }
-    }
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("FIREBASE_SERVICE_ACCOUNT_JSON")) {
-      throw error;
-    }
-    console.error("[FirebaseAdmin] Initialization error:", error);
-    throw new Error(`Falha ao inicializar Firebase Admin: ${error instanceof Error ? error.message : String(error)}`);
-  }
-}
-
-let dbIdFromConfig: string | undefined;
-try {
-  if (fs.existsSync('./firebase-applet-config.json')) {
-    const config = JSON.parse(fs.readFileSync('./firebase-applet-config.json', 'utf8'));
-    dbIdFromConfig = config.firestoreDatabaseId;
-  }
-} catch (e) {}
-
-const dbProxy = new Proxy({} as Firestore, {
+/**
+ * adminAuth: o Firebase Auth foi desativado (FZ-3 — verificação de JWT Supabase
+ * em src/lib/authVerify.ts). Nenhum código deve chegar aqui; erro claro se chegar.
+ */
+export const adminAuth = new Proxy({} as any, {
   get(_, prop) {
-    const db = getFirestore(ensureInitialized(), dbIdFromConfig);
-    const value = (db as any)[prop];
-    return typeof value === 'function' ? value.bind(db) : value;
-  }
+    throw new Error(
+      `[firebaseAdmin] adminAuth.${String(prop)} não existe mais — ` +
+      'use verifySupabaseToken() de src/lib/authVerify.ts (Plano FZ-3).'
+    );
+  },
 });
 
-const authProxy = new Proxy({} as Auth, {
+/** adminStorage: uploads agora vão para o Supabase Storage (bucket "uploads"). */
+export const adminStorage = new Proxy({} as any, {
   get(_, prop) {
-    const auth = getAuth(ensureInitialized());
-    const value = (auth as any)[prop];
-    return typeof value === 'function' ? value.bind(auth) : value;
-  }
+    throw new Error(
+      `[firebaseAdmin] adminStorage.${String(prop)} não existe mais — ` +
+      'use supabaseAdmin.storage.from("uploads") (Plano FZ, migration 032).'
+    );
+  },
 });
 
-const storageProxy = new Proxy({} as any, {
-  get(_, prop) {
-    const storage = getStorage(ensureInitialized());
-    const value = (storage as any)[prop];
-    return typeof value === 'function' ? value.bind(storage) : value;
-  }
-});
+// ─── Namespace compat (admin.firestore() / admin.auth()) ─────────────────────
 
-export { dbProxy as adminDb, authProxy as adminAuth, storageProxy as adminStorage };
-
-const firestoreApi = function() {
-  return getFirestore(ensureInitialized(), dbIdFromConfig);
+const firestoreApi = function () {
+  return compatDb;
 };
 firestoreApi.Timestamp = Timestamp;
 firestoreApi.FieldValue = FieldValue;
 
 const customAdmin = {
-  ...adminNamespace,
   firestore: firestoreApi,
-  auth: function() {
-    return getAuth(ensureInitialized());
-  }
+  auth: function (): never {
+    throw new Error(
+      '[firebaseAdmin] admin.auth() não existe mais — ' +
+      'use verifySupabaseToken() de src/lib/authVerify.ts ou a tabela users (Plano FZ-3).'
+    );
+  },
 };
 
+export { FieldValue, Timestamp };
 export default customAdmin;

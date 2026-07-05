@@ -130,34 +130,10 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { auth, db } from "./lib/firebase";
 import { Skeleton } from "./components/Skeleton";
 import { cn } from "./lib/utils";
-import {
-  signInWithPopup,
-  GoogleAuthProvider,
-  signOut,
-  onAuthStateChanged,
-  multiFactor,
-  getMultiFactorResolver,
-  TotpMultiFactorGenerator,
-} from "firebase/auth";
-import {
-  collection,
-  query,
-  onSnapshot,
-  doc,
-  updateDoc,
-  addDoc,
-  deleteDoc,
-  orderBy,
-  limit,
-  Timestamp,
-  serverTimestamp,
-  getDocs,
-  where,
-  setDoc,
-} from "firebase/firestore";
+// FZ-4: autenticação e dados 100% Supabase (Firestore removido).
+import { supabase } from "./lib/supabase";
 import {
   Dialog,
   DialogContent,
@@ -207,6 +183,24 @@ import {
   createTechnician,
   seedServiceOrdersAndTechnicians,
 } from "./lib/db";
+// S99 — Supabase real-time subscriptions (substituem os onSnapshot do Firestore)
+import {
+  getCustomers as sbGetCustomers,
+  getTickets as sbGetTickets,
+  getInvoices as sbGetInvoices,
+  getNetworkCTOs as sbGetNetworkCTOs,
+  getAuditLogs as sbGetAuditLogs,
+  getInventory as sbGetInventory,
+  getServiceOrders as sbGetServiceOrders,
+  getTechnicians as sbGetTechnicians,
+  getTeamMembers as sbGetTeamMembers,
+  getKnowledgeBase as sbGetKnowledgeBase,
+  getNotifications as sbGetNotifications,
+  getRolePermissions as sbGetRolePermissions,
+  getTenantSettings as sbGetTenantSettings,
+  getIntegrationKeys as sbGetIntegrationKeys,
+  upsertTenantOperator,
+} from "./lib/supabaseDb";
 import { seedPopularAstrum, wipeSystemData } from "./lib/seedAstrum";
 import { uploadAttachment } from "./lib/storage";
 import {
@@ -239,6 +233,11 @@ import { MonitoringPage } from "./pages/MonitoringPage";
 import { CobrAIPage } from "./pages/CobrAIPage";
 import { InventoryPage } from "./pages/InventoryPage";
 import { AIObservabilityPage } from "./pages/AIObservabilityPage";
+import { AICostsPage } from "./pages/AICostsPage";
+import { ERPIntegrationsPage } from "./pages/ERPIntegrationsPage";
+import { WebhooksPage } from "./pages/WebhooksPage";
+import { SecurityPage } from "./pages/SecurityPage";
+import { SignupPage } from "./pages/SignupPage";
 import TechnicianAppPage from "./pages/TechnicianAppPage";
 import { BIPage } from "./pages/BIPage";
 
@@ -266,9 +265,6 @@ import {
 // --- App Component ---
 import { WhatsAppConnectionsPage } from "./pages/WhatsAppPage";
 import { MaskedSensitiveData } from "./components/MaskedSensitiveData";
-import { MfaRequirement } from "./components/MfaRequirement";
-import { MfaLoginResolver } from "./components/MfaLoginResolver";
-import { MultiFactorResolver } from "firebase/auth";
 
 import WebchatPage from "./pages/WebchatPage";
 import OperatorMobilePage from "./pages/OperatorMobilePage";
@@ -282,6 +278,14 @@ export default function App() {
           <Routes>
              <Route path="/webchat" element={<WebchatPage />} />
              <Route path="/operador-mobile" element={<OperatorMobilePage />} />
+          </Routes>
+      );
+  }
+
+  if (routerLocation.pathname === '/register') {
+      return (
+          <Routes>
+              <Route path="/register" element={<SignupPage />} />
           </Routes>
       );
   }
@@ -698,9 +702,9 @@ export default function App() {
   const [isMiningDialogOpen, setIsMiningDialogOpen] = useState(false);
   const [miningResult, setMiningResult] = useState<any>(null);
   const [isPdfDialogOpen, setIsPdfDialogOpen] = useState(false);
-  const [mfaResolver, setMfaResolver] = useState<MultiFactorResolver | null>(null);
   const [needsMfaEnrollment, setNeedsMfaEnrollment] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [pdfSummary, setPdfSummary] = useState<string | null>(null);
   const [isProcessingPdf, setIsProcessingPdf] = useState(false);
   const { isTicketDetailOpen, setIsTicketDetailOpen } = useAppStore();
@@ -750,7 +754,8 @@ export default function App() {
         "Tem certeza que deseja remover este colaborador? Esta ação não pode ser desfeita.",
       onConfirm: async () => {
         try {
-          await deleteDoc(doc(db, "team_members", id));
+          const { error } = await supabase.from("team_members").delete().eq("id", id);
+          if (error) throw error;
           toast.success("Colaborador removido com sucesso!");
         } catch (error: any) {
           toast.error("Erro ao remover colaborador: " + error.message);
@@ -768,23 +773,25 @@ export default function App() {
           customers[Math.floor(Math.random() * customers.length)];
         if (!customer) continue;
 
-        const ticketRef = await addDoc(collection(db, "tickets"), {
-          customerId: customer.id,
-          subject: `Problema de conexão #${i}`,
-          status: Math.random() > 0.5 ? "resolved" : "open",
-          priority: ["low", "medium", "high", "urgent"][
-            Math.floor(Math.random() * 4)
-          ],
-          aiHandled: Math.random() > 0.3,
-          createdAt: serverTimestamp(),
-        });
+        const { data: ticketRef, error: seedTicketErr } = await supabase
+          .from("tickets")
+          .insert({
+            customer_id: customer.id,
+            subject: `Problema de conexão #${i}`,
+            status: Math.random() > 0.5 ? "resolved" : "open",
+            priority: ["low", "medium", "high", "urgent"][
+              Math.floor(Math.random() * 4)
+            ],
+          })
+          .select()
+          .single();
+        if (seedTicketErr || !ticketRef) continue;
 
         // Seed some messages
-        await addDoc(collection(db, `tickets/${ticketRef.id}/messages`), {
-          ticketId: ticketRef.id,
-          senderType: "customer",
-          text: "Minha internet está caindo muito hoje.",
-          createdAt: serverTimestamp(),
+        await supabase.from("messages").insert({
+          ticket_id: ticketRef.id,
+          sender_type: "customer",
+          body: "Minha internet está caindo muito hoje.",
         });
 
         // Seed some audit logs
@@ -940,11 +947,11 @@ export default function App() {
       return;
     }
     try {
-      await addDoc(collection(db, "team_members"), {
+      const { error } = await supabase.from("team_members").insert({
         ...newTeamMember,
         status: "Ativo",
-        createdAt: serverTimestamp(),
       });
+      if (error) throw error;
       setIsTeamMemberDialogOpen(false);
       setNewTeamMember({ name: "", email: "", role: "Suporte Técnico" });
       toast.success("Membro adicionado à equipe!");
@@ -1323,9 +1330,8 @@ export default function App() {
 
   const handleSimulatePayment = async (invoiceId: string) => {
     try {
-      await updateDoc(doc(db, "billing_invoices", invoiceId), {
-        status: "paid",
-      });
+      const { error } = await supabase.from("invoices").update({ status: "paid" }).eq("id", invoiceId);
+      if (error) throw error;
       await logAction("INVOICE_PAID", { invoiceId });
       toast.success("Pagamento simulado com sucesso!");
     } catch (error) {
@@ -1527,154 +1533,55 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      setUser(u);
-      if (u) {
-        let finalRole = "";
-        // Check if user is the super admin (Astrum)
-        if (
-          u.email?.toLowerCase() === "lucaspferraz123@gmail.com" ||
-          u.email?.toLowerCase() === "noturcursos1@gmail.com"
-        ) {
-          finalRole = "admin";
-          setCurrentUserRole("admin");
-          // Ensure super admin exists in users collection for rules
-          await setDoc(
-            doc(db, "users", u.uid),
-            {
-              email: u.email,
-              role: "admin",
-              name: u.displayName || "Astrum",
-            },
-            { merge: true },
-          );
-          
-          if (Notification.permission === 'default') {
-             Notification.requestPermission().then(async (perm) => {
-                if (perm === 'granted') {
-                   const mockToken = "mock-fcm-token-" + u.uid;
-                   // Default tenant for admin might be DEFAULT_TENANT
-                   await setDoc(doc(db, "tenants", "DEFAULT_TENANT", "operators", u.uid), { fcmToken: mockToken }, { merge: true });
-                }
-             });
-          }
-        } else {
-          // Fetch role from team_members
-          const q = query(
-            collection(db, "team_members"),
-            where("email", "==", u.email),
-          );
-          const snapshot = await getDocs(q);
-          if (!snapshot.empty) {
-            const memberDoc = snapshot.docs[0];
-            const memberData = memberDoc.data();
-            const role = memberData.role?.toLowerCase();
-
-            let mappedRole: "owner" | "support" | "tecnico" = "support";
-            if (role === "admin" || role === "owner") mappedRole = "owner";
-            else if (role === "support" || role === "atendente")
-              mappedRole = "support";
-            else if (role === "tecnico") mappedRole = "tecnico";
-
-            finalRole = mappedRole;
-            setCurrentUserRole(mappedRole as any);
-            setUserProfile(memberData);
-
-            // Sync to users collection for security rules
-            await setDoc(
-              doc(db, "users", u.uid),
-              {
-                email: u.email,
-                role: mappedRole,
-                name: memberData.name,
-              },
-              { merge: true },
-            );
-            
-            // Request push notification permission and generate mock FCM token if none exists (since we don't have VAPID key)
-            if (Notification.permission === 'default' && memberData.tenantId) {
-               Notification.requestPermission().then(async (perm) => {
-                  if (perm === 'granted') {
-                     // Since we don't have VAPID key, let's just save a standard mock token to indicate capability, or use a real token if we can
-                     const mockToken = "mock-fcm-token-" + u.uid;
-                     await setDoc(doc(db, "tenants", memberData.tenantId, "operators", u.uid), { fcmToken: mockToken }, { merge: true });
-                  }
-               });
-            }
-          } else if (u.email) {
-            // Check for SSO domain auto-provisioning
-            const domain = u.email.split('@')[1];
-            if (domain) {
-              const tenantsQuery = query(collection(db, "tenants"), where("sso_config.domain", "==", domain));
-              const tenantsSnap = await getDocs(tenantsQuery);
-              
-              if (!tenantsSnap.empty) {
-                 const tenantDoc = tenantsSnap.docs[0];
-                 const tenantId = tenantDoc.id;
-                 
-                 // Auto-provision as support
-                 const newMemberData = {
-                    name: u.displayName || u.email.split('@')[0],
-                    email: u.email,
-                    role: "support",
-                    status: "offline",
-                    tenantId: tenantId,
-                    createdAt: new Date().toISOString()
-                 };
-                 await setDoc(doc(collection(db, "team_members")), newMemberData);
-                 
-                 // Also create the user doc
-                 await setDoc(doc(db, "users", u.uid), {
-                    email: u.email,
-                    role: "support",
-                    name: newMemberData.name,
-                    tenantId: tenantId
-                 }, { merge: true });
-                 
-                 finalRole = "support";
-                 setCurrentUserRole("support");
-                 setUserProfile(newMemberData);
-                 toast.success(`Conta provisionada via SSO pelo domínio ${domain}`);
-              } else {
-                 toast.error("Acesso negado. Domínio não configurado ou email não listado na equipe.");
-                 auth.signOut();
-                 setCurrentUserRole("support");
-              }
-            } else {
-              toast.error("Acesso negado. Email inválido.");
-              auth.signOut();
-              setCurrentUserRole("support");
-            }
+    // --- Auth v2 (S77): sessão via Supabase ---
+    let mounted = true;
+    const applySession = async (session: any) => {
+      const su = session?.user ?? null;
+      if (!su) { if (mounted) { setUser(null); setLoading(false); } return; }
+      const appUser: any = {
+        uid: su.id,
+        email: su.email,
+        displayName: su.user_metadata?.name || (su.email ? su.email.split('@')[0] : 'Usuário'),
+      };
+      if (!mounted) return;
+      setUser(appUser);
+      const superEmails = ['lucaspferraz123@gmail.com', 'noturcursos1@gmail.com'];
+      if (superEmails.includes((appUser.email || '').toLowerCase())) {
+        setCurrentUserRole('admin');
+        setUserProfile({ email: appUser.email, role: 'admin', name: appUser.displayName, tenantId: 'DEFAULT_TENANT' });
+      } else {
+        try {
+          const { data } = await supabase
+            .from('users')
+            .select('role, tenant_id, name, email')
+            .eq('email', appUser.email)
+            .maybeSingle();
+          if (data) {
+            const r = ((data as any).role || 'support').toLowerCase();
+            const mapped = (r === 'admin' || r === 'owner') ? 'owner' : (r === 'tecnico' ? 'tecnico' : 'support');
+            setCurrentUserRole(mapped as any);
+            setUserProfile({ ...(data as any), tenantId: (data as any).tenant_id });
           } else {
-            toast.error("Acesso negado. Seu email não foi fornecido.");
-            auth.signOut();
-            setCurrentUserRole("support");
+            setCurrentUserRole('support');
+            setUserProfile({ email: appUser.email, role: 'support', tenantId: null });
           }
-        }
-        
-        // MFA Temporariamente opcional/desabilitado por padrão para evitar o erro auth/operation-not-allowed
-        // if (finalRole === 'admin' || finalRole === 'owner') {
-        //    const enrolledFactors = multiFactor(u).enrolledFactors;
-        //    if (!enrolledFactors || enrolledFactors.length === 0) {
-        //       setNeedsMfaEnrollment(true);
-        //    } else {
-        //       setNeedsMfaEnrollment(false);
-        //    }
-        // } else {
-           setNeedsMfaEnrollment(false);
-        // }
+        } catch { setCurrentUserRole('support'); }
       }
+      setNeedsMfaEnrollment(false);
       setLoading(false);
-    });
-    return () => unsubscribe();
+    };
+    supabase.auth.getSession().then(({ data }: any) => applySession(data.session));
+    const { data: authSub } = supabase.auth.onAuthStateChange((_e: any, session: any) => applySession(session));
+
+
+    return () => { mounted = false; authSub?.subscription?.unsubscribe?.(); };
   }, []);
 
   useEffect(() => {
     if (!userProfile?.tenantId) return;
-    const unsub = onSnapshot(doc(db, "tenants", userProfile.tenantId, "settings", "theme"), (docSnap) => {
-      if (docSnap.exists()) {
-        applyTheme(docSnap.data());
-      }
+    // S99 — lê configurações de tema do tenant no Supabase
+    const unsub = sbGetTenantSettings(userProfile.tenantId, (settings) => {
+      if (settings?.theme) applyTheme(settings.theme);
     });
     return () => unsub();
   }, [userProfile?.tenantId]);
@@ -1702,113 +1609,31 @@ export default function App() {
     }
   };
 
+  // S99 — Data loading via Supabase real-time (substituiu onSnapshot do Firestore)
   useEffect(() => {
     if (!user) return;
-    const currentTenant = companySettings?.tenant_id || "default";
+    const tid = companySettings?.tenant_id || userProfile?.tenantId || "default";
 
-    // Check if user is trying to read but has no tenant. Super admins can read everything but usually we want to fetch the correct one
-
-    const unsubCustomers = getCustomers(setCustomers);
-    const unsubTickets = getTickets(setTickets);
-    const unsubInvoices = getInvoices(setInvoices);
-    const unsubCtos = getNetworkCTOs(setCtos, currentTenant);
-
-    const qKB =
-      currentTenant && currentTenant !== "default"
-        ? query(
-            collection(db, "knowledge_base"),
-            where("tenant_id", "==", currentTenant),
-          )
-        : query(collection(db, "knowledge_base"));
-    const unsubKB = onSnapshot(qKB, (snapshot) => {
-      setKnowledgeBase(
-        snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
-      );
+    const unsubCustomers    = sbGetCustomers(setCustomers, tid);
+    const unsubTickets      = sbGetTickets(setTickets, tid);
+    const unsubInvoices     = sbGetInvoices(setInvoices, tid);
+    const unsubCtos         = sbGetNetworkCTOs(setCtos, tid);
+    const unsubKB           = sbGetKnowledgeBase(setKnowledgeBase, tid);
+    const unsubAudit        = sbGetAuditLogs(setAuditLogs, tid);
+    const unsubInventory    = sbGetInventory(setInventory, tid);
+    const unsubServiceOrders = sbGetServiceOrders(setServiceOrders, tid);
+    const unsubTechnicians  = sbGetTechnicians(setTechnicians, tid);
+    const unsubTeam         = sbGetTeamMembers(setTeamMembers, tid);
+    const unsubNotifications = sbGetNotifications(setNotifications, tid);
+    const unsubRoles        = sbGetRolePermissions((rolesData) => {
+      useAppStore.getState().setRolePermissions(rolesData);
     });
 
-    const unsubAudit = getAuditLogs(setAuditLogs, currentTenant);
-    const unsubInventory = getInventory(setInventory, currentTenant);
-    const unsubServiceOrders = getServiceOrders(
-      setServiceOrders,
-      currentTenant,
-    );
-    const unsubTechnicians = getTechnicians(setTechnicians, currentTenant);
-
-    const teamQ =
-      currentTenant && currentTenant !== "default"
-        ? query(
-            collection(db, "team_members"),
-            where("tenant_id", "==", currentTenant),
-          )
-        : query(collection(db, "team_members"));
-    const unsubTeam = onSnapshot(teamQ, (snapshot) => {
-      setTeamMembers(
-        snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
-      );
+    // Integration keys e system prompts (async one-shot)
+    sbGetIntegrationKeys(tid).then((keys) => setIntegrationKeys(keys || {}));
+    getSystemPrompts(tid).then((prompts) => {
+      if (prompts) setAiPrompts((prev) => ({ ...prev, ...prompts }));
     });
-
-    // Fetch integration keys
-    getIntegrationKeys().then((keys) => setIntegrationKeys(keys || {}));
-
-    // Load System Prompts
-    getSystemPrompts(currentTenant).then((prompts) => {
-      if (prompts) {
-        setAiPrompts((prev) => ({ ...prev, ...prompts }));
-      }
-    });
-
-    // Notifications Listener
-    const notificationsQuery =
-      currentTenant && currentTenant !== "default"
-        ? query(
-            collection(db, "notifications"),
-            where("tenant_id", "==", currentTenant),
-            orderBy("timestamp", "desc"),
-            limit(20),
-          )
-        : query(
-            collection(db, "notifications"),
-            orderBy("timestamp", "desc"),
-            limit(20),
-          );
-
-    const unsubNotifications = onSnapshot(notificationsQuery, (snapshot) => {
-      setNotifications(
-        snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
-      );
-    });
-
-    const unsubSettings = onSnapshot(
-      doc(db, "settings", "company"),
-      (docSnap) => {
-        if (docSnap.exists()) {
-          setCompanySettings((prev) => ({ ...prev, ...docSnap.data() }));
-        }
-      },
-    );
-
-    const unsubRoles = onSnapshot(
-      collection(db, "role_permissions"),
-      (snapshot) => {
-        const rolesData: Record<string, any> = {};
-        snapshot.forEach((doc) => {
-          const d = doc.data();
-          if (d.role_name && d.permissions) {
-            rolesData[d.role_name] = d.permissions;
-          }
-        });
-        useAppStore.getState().setRolePermissions(rolesData);
-      },
-    );
-
-    const unsubResources = onSnapshot(
-      collection(db, "resource_permissions"),
-      (snapshot) => {
-        const perms: any[] = [];
-        snapshot.forEach((doc) => perms.push(doc.data()));
-        useAppStore.getState().setResourcePermissions(perms);
-      },
-    );
 
     return () => {
       unsubCustomers();
@@ -1818,15 +1643,13 @@ export default function App() {
       unsubKB();
       unsubAudit();
       unsubInventory();
-      unsubTeam();
-      unsubNotifications();
       unsubServiceOrders();
       unsubTechnicians();
-      unsubSettings();
+      unsubTeam();
+      unsubNotifications();
       unsubRoles();
-      unsubResources();
     };
-  }, [user, companySettings?.tenant_id]);
+  }, [user, companySettings?.tenant_id, userProfile?.tenantId]);
 
   const handleSeedKB = async () => {
     setIsSeeding(true);
@@ -1933,7 +1756,7 @@ export default function App() {
 
   const handleMarkNotificationRead = async (id: string) => {
     try {
-      await updateDoc(doc(db, "notifications", id), { read: true });
+      await supabase.from("notifications").update({ read: true }).eq("id", id);
     } catch (err) {
       console.error(err);
     }
@@ -1941,8 +1764,9 @@ export default function App() {
 
   const clearNotifications = async () => {
     try {
-      for (const n of notifications) {
-        await deleteDoc(doc(db, "notifications", n.id));
+      const ids = notifications.map((n) => n.id);
+      if (ids.length > 0) {
+        await supabase.from("notifications").delete().in("id", ids);
       }
     } catch (err) {
       console.error(err);
@@ -2094,14 +1918,14 @@ export default function App() {
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + 5);
 
-      await addDoc(collection(db, "billing_invoices"), {
-        customerId: selectedCustomerDetails.id,
-        customerName: selectedCustomerDetails.name,
+      const { error } = await supabase.from("invoices").insert({
+        customer_id: selectedCustomerDetails.id,
+        customer_name: selectedCustomerDetails.name,
         amount,
         status: "pending",
-        dueDate: Timestamp.fromDate(dueDate),
-        createdAt: serverTimestamp(),
+        due_date: dueDate.toISOString(),
       });
+      if (error) throw error;
 
       toast.success("Fatura gerada com sucesso!");
     } catch (error) {
@@ -2115,13 +1939,13 @@ export default function App() {
 
     try {
       const activeTenant = userProfile?.tenantId || "DEFAULT_TENANT";
-      const docRef = await addDoc(collection(db, "team_members"), {
+      const { data: memberRow, error } = await supabase.from("team_members").insert({
         ...newTeamMember,
-        createdAt: serverTimestamp(),
-        tenantId: activeTenant,
-      });
+        tenant_id: activeTenant,
+      }).select().single();
+      if (error) throw error;
       if (newTeamMember.role === "Atendente" || newTeamMember.role === "support") {
-        await setDoc(doc(db, "tenants", activeTenant, "operators", docRef.id), {
+        await upsertTenantOperator(activeTenant, memberRow.id, {
           name: newTeamMember.name,
           email: newTeamMember.email,
           status: "online",
@@ -2225,34 +2049,36 @@ export default function App() {
     try {
       const activeTenant = userProfile?.tenantId || "DEFAULT_TENANT";
       if (selectedTeamMember.id) {
-        await updateDoc(doc(db, "team_members", selectedTeamMember.id), {
+        const { error } = await supabase.from("team_members").update({
           name: selectedTeamMember.name,
           email: selectedTeamMember.email,
           role: selectedTeamMember.role,
           status: selectedTeamMember.status,
-          tenantId: activeTenant
-        });
+          tenant_id: activeTenant
+        }).eq("id", selectedTeamMember.id);
+        if (error) throw error;
         if (selectedTeamMember.role === "support") {
-          await setDoc(doc(db, "tenants", activeTenant, "operators", selectedTeamMember.id), {
+          await upsertTenantOperator(activeTenant, selectedTeamMember.id, {
             name: selectedTeamMember.name,
             email: selectedTeamMember.email,
             status: selectedTeamMember.status === "active" ? "online" : "offline",
             skills: selectedTeamMember.skills || ["SAC_GERAL"],
             max_concurrent_chats: selectedTeamMember.max_concurrent_chats || 5,
             current_chat_count: 0
-          }, { merge: true });
+          });
         }
         toast.success("Colaborador atualizado com sucesso!");
       } else {
-        const docRef = await addDoc(collection(db, "team_members"), {
+        const { data: memberRow, error } = await supabase.from("team_members").insert({
           name: selectedTeamMember.name,
           email: selectedTeamMember.email,
           role: selectedTeamMember.role,
           status: selectedTeamMember.status,
-          tenantId: activeTenant
-        });
+          tenant_id: activeTenant
+        }).select().single();
+        if (error) throw error;
         if (selectedTeamMember.role === "support") {
-          await setDoc(doc(db, "tenants", activeTenant, "operators", docRef.id), {
+          await upsertTenantOperator(activeTenant, memberRow.id, {
             name: selectedTeamMember.name,
             email: selectedTeamMember.email,
             status: selectedTeamMember.status === "active" ? "online" : "offline",
@@ -2279,23 +2105,30 @@ export default function App() {
 
   const handleLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const provider = new GoogleAuthProvider();
-    if (loginEmail) {
-      provider.setCustomParameters({ login_hint: loginEmail });
+    if (!loginEmail || !loginPassword) {
+      toast.error("Informe e-mail e senha.");
+      return;
     }
     try {
-      await signInWithPopup(auth, provider);
+      const { error } = await supabase.auth.signInWithPassword({
+        email: loginEmail.trim(),
+        password: loginPassword,
+      });
+      if (error) {
+        toast.error("Erro ao fazer login: " + error.message);
+        return;
+      }
       toast.success("Bem-vindo ao Astrum!");
     } catch (error: any) {
-      if (error.code === 'auth/multi-factor-auth-required') {
-         setMfaResolver(getMultiFactorResolver(auth, error));
-      } else {
-         toast.error("Erro ao fazer login: " + error.message);
-      }
+      toast.error("Erro ao fazer login: " + (error?.message ?? "falha desconhecida"));
     }
   };
 
-  const handleLogout = () => signOut(auth);
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setCurrentUserRole("" as any);
+  };
 
   const handleEditCustomer = (customer: any) => {
     setEditingCustomer({ ...customer });
@@ -2353,15 +2186,15 @@ export default function App() {
     const priority = formData.get("priority") as string;
 
     try {
-      const docRef = await addDoc(collection(db, "tickets"), {
-        customerId,
+      const { data: docRef, error } = await supabase.from("tickets").insert({
+        customer_id: customerId,
         subject,
         priority,
         status: "open",
-        aiEnabled: true,
-        aiAttempts: 0,
-        createdAt: serverTimestamp(),
-      });
+        ai_enabled: true,
+        ai_attempts: 0,
+      }).select().single();
+      if (error) throw error;
 
       await logAction("TICKET_CREATED", {
         ticketId: docRef.id,
@@ -2536,7 +2369,7 @@ export default function App() {
            toast.error("Erro ao enviar mensagem pelo WhatsApp.");
         } else if (msgRefId && (resData?.key?.id || resData?.message?.key?.id)) {
            const evoId = resData?.key?.id || resData?.message?.key?.id;
-           await updateDoc(msgRefId, { evoMsgIds: [evoId] });
+           await supabase.from("messages").update({ evo_msg_ids: [evoId] }).eq("id", (msgRefId as any).id ?? msgRefId);
         }
       } catch (err) {
          console.error("Falha requisição Evolution:", err);
@@ -2547,7 +2380,7 @@ export default function App() {
     // Disable AI for this ticket so it doesn't interfere.
     if (selectedTicket.aiEnabled !== false) {
       // Mark ticket as answered by human
-      await updateDoc(doc(db, "tickets", selectedTicket.id), { human_responded: true });
+      await supabase.from("tickets").update({ human_responded: true }).eq("id", selectedTicket.id);
       await toggleTicketAI(selectedTicket.id, false);
       await sendMessage(
         selectedTicket.id,
@@ -2770,7 +2603,7 @@ export default function App() {
             .map((v) => v.replace(/^"|"$/g, "").trim());
 
           if (values.length >= 2) {
-            await addDoc(collection(db, "customers"), {
+            await supabase.from("customers").insert({
               name: values[0] || "Sem Nome",
               email: values[1] || "",
               phone: values[2] || "",
@@ -2780,7 +2613,6 @@ export default function App() {
               status:
                 values[6]?.toLowerCase() === "inativo" ? "inactive" : "active",
               tags: [],
-              createdAt: serverTimestamp(),
             });
             importedCount++;
           }
@@ -2826,13 +2658,12 @@ export default function App() {
             .map((v) => v.replace(/^"|"$/g, "").trim());
 
           if (values.length >= 2) {
-            await addDoc(collection(db, "inventory"), {
+            await supabase.from("inventory").insert({
               name: values[0] || "Item sem nome",
               category: values[1] || "Geral",
               stock: parseInt(values[2]) || 0,
-              minStock: parseInt(values[3]) || 5,
+              min_stock: parseInt(values[3]) || 5,
               price: parseFloat(values[4]) || 0,
-              updatedAt: serverTimestamp(),
             });
             importedCount++;
           }
@@ -2992,13 +2823,6 @@ export default function App() {
   if (!user) {
     return (
       <div className="flex h-screen flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-950 font-sans transition-colors duration-300">
-        {mfaResolver && (
-           <MfaLoginResolver 
-             resolver={mfaResolver} 
-             onResolved={() => setMfaResolver(null)} 
-             onCancel={() => setMfaResolver(null)} 
-           />
-        )}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -3025,18 +2849,22 @@ export default function App() {
                 className="py-6 text-lg"
               />
             </div>
+            <div>
+              <Input
+                type="password"
+                placeholder="Sua senha"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                className="py-6 text-lg"
+              />
+            </div>
             <Button
               type="submit"
               className="w-full py-6 text-lg"
               size="lg"
             >
-              Continuar
+              Entrar
             </Button>
-            {loginEmail && (
-               <p className="text-xs text-center text-zinc-500 mt-2">
-                 Você será redirecionado para o Google.
-               </p>
-            )}
           </form>
         </motion.div>
       </div>
@@ -3049,7 +2877,7 @@ export default function App() {
       clearNotifications={clearNotifications}
       handleMarkNotificationRead={handleMarkNotificationRead}
     >
-      {needsMfaEnrollment && <MfaRequirement onEnrolled={() => setNeedsMfaEnrollment(false)} />}
+      {/* FZ-4: enrollment de MFA agora é 100% Supabase na SettingsPage (S101) */}
       <UpgradePrompt />
       <Toaster position="top-right" />
 
@@ -3306,6 +3134,58 @@ export default function App() {
                   animate={{ opacity: 1, x: 0 }}
                 >
                   <AIObservabilityPage />
+                </motion.div>
+              }
+            />
+
+            <Route
+              path="/ai-costs"
+              element={
+                <motion.div
+                  key="ai-costs"
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                >
+                  <AICostsPage />
+                </motion.div>
+              }
+            />
+
+            <Route
+              path="/integrations"
+              element={
+                <motion.div
+                  key="integrations"
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                >
+                  <ERPIntegrationsPage />
+                </motion.div>
+              }
+            />
+
+            <Route
+              path="/webhooks"
+              element={
+                <motion.div
+                  key="webhooks"
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                >
+                  <WebhooksPage />
+                </motion.div>
+              }
+            />
+
+            <Route
+              path="/security"
+              element={
+                <motion.div
+                  key="security"
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                >
+                  <SecurityPage />
                 </motion.div>
               }
             />

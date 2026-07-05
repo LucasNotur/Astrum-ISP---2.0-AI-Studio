@@ -16,12 +16,7 @@ import {
   Bot,
   BellRing
 } from "lucide-react";
-import {
-  addDoc,
-  collection,
-  serverTimestamp,
-} from "firebase/firestore";
-import { db } from "@/src/lib/firebase";
+import { supabase } from "@/src/lib/supabase";
 import { updateTicketStatus, toggleTicketAI } from "@/src/lib/db";
 import { cn } from "@/src/lib/utils";
 
@@ -72,12 +67,7 @@ export default function OperatorMobilePage() {
     if (!inputText.trim() || !selectedTicketId) return;
 
     try {
-      const msgData = {
-        role: "agent",
-        content: inputText,
-        created_at: serverTimestamp(),
-      };
-      await addDoc(collection(db, "tenants", tenantId, "tickets", selectedTicketId, "messages"), msgData);
+      await supabase.from('messages').insert({ ticket_id: selectedTicketId, body: inputText, sender_type: 'human' });
       setInputText("");
     } catch (e: any) {
       toast.error("Erro ao enviar: " + e.message);
@@ -87,7 +77,7 @@ export default function OperatorMobilePage() {
   const handleToggleAgent = async () => {
     if (!selectedTicket) return;
     try {
-      await toggleTicketAI(tenantId, selectedTicket.id, !selectedTicket.ai_enabled);
+      await toggleTicketAI(selectedTicket.id, !selectedTicket.ai_enabled);
       toast.success(selectedTicket.ai_enabled ? "IA desligada neste ticket (Modo Humano)" : "IA ligada neste ticket");
     } catch (e: any) {
       toast.error("Erro: " + e.message);
@@ -97,7 +87,7 @@ export default function OperatorMobilePage() {
   const handleFinish = async () => {
      if (!selectedTicket) return;
      try {
-       await updateTicketStatus(tenantId, selectedTicket.id, "closed");
+       await updateTicketStatus(selectedTicket.id, "closed");
        setSelectedTicketId(null);
        toast.success("Atendimento finalizado");
      } catch (e: any) {

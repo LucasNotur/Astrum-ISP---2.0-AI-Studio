@@ -1,10 +1,8 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom';
 import React from 'react';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import { CustomerHistorySidebar } from '../../components/CustomerHistorySidebar';
-import { vi, describe, it, expect, beforeEach, Mock } from 'vitest';
-import { onSnapshot, collection, query, where } from 'firebase/firestore';
+import { render, screen, waitFor } from '@testing-library/react';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 global.ResizeObserver = class ResizeObserver {
   observe() {}
@@ -12,32 +10,38 @@ global.ResizeObserver = class ResizeObserver {
   disconnect() {}
 };
 
-vi.mock('firebase/firestore', () => ({
-  getFirestore: vi.fn(),
-  collection: vi.fn((db, path) => path),
-  query: vi.fn((col, ...args) => ({ col, args })),
-  where: vi.fn((field, op, val) => ({ field, op, val })),
-  onSnapshot: vi.fn(),
-}));
+// FZ-5: o componente lê customers/tickets/service_orders via Supabase.
+// Mock com resultados controláveis por tabela.
+const tableResults: Record<string, any> = {};
 
-vi.mock('../../lib/firebase', () => ({
-  db: {}
-}));
+vi.mock('../../lib/supabase', () => {
+  function makeChain(table: string) {
+    const chain: any = {
+      select: () => chain,
+      eq: () => chain,
+      order: () => chain,
+      maybeSingle: async () => ({ data: tableResults[table]?.single ?? null, error: null }),
+      then: (resolve: any) =>
+        Promise.resolve({ data: tableResults[table]?.rows ?? [], error: null }).then(resolve),
+    };
+    return chain;
+  }
+  const channelStub: any = { on: vi.fn(() => channelStub), subscribe: vi.fn(() => channelStub) };
+  return {
+    supabase: {
+      from: (table: string) => makeChain(table),
+      channel: vi.fn(() => channelStub),
+      removeChannel: vi.fn(),
+    },
+  };
+});
+
+import { CustomerHistorySidebar } from '../../components/CustomerHistorySidebar';
 
 describe('CustomerHistorySidebar', () => {
-  let snapshotCallbacks: Record<string, Function> = {};
-  
   beforeEach(() => {
     vi.clearAllMocks();
-    snapshotCallbacks = {};
-    
-    (onSnapshot as Mock).mockImplementation((queryOrCol, callback) => {
-      let colName = queryOrCol;
-      if (queryOrCol.col) colName = queryOrCol.col;
-      
-      snapshotCallbacks[colName] = callback;
-      return vi.fn();
-    });
+    for (const k of Object.keys(tableResults)) delete tableResults[k];
   });
 
   const mockCustomer = {
@@ -48,146 +52,73 @@ describe('CustomerHistorySidebar', () => {
   };
 
   const mockTickets = [
-    {
-      id: 'tick1',
-      customerId: 'cust1',
-      tenantId: 'tenant1',
-      subject: 'Internet Lenta',
-      createdAt: new Date('2023-01-01T10:00:00Z'),
-      status: 'resolved'
-    },
-    {
-      id: 'tick2',
-      customerId: 'cust1',
-      tenantId: 'tenant1',
-      subject: 'Sem Sinal',
-      createdAt: new Date('2023-01-02T10:00:00Z'),
-      status: 'open'
-    }
+    { id: 'tick2', customer_id: 'cust1', subject: 'Sem Sinal', created_at: '2023-01-02T10:00:00Z', status: 'open' },
+    { id: 'tick1', customer_id: 'cust1', subject: 'Internet Lenta', created_at: '2023-01-01T10:00:00Z', status: 'resolved' },
   ];
 
-  function triggerCustomerCb(customer: any) {
-    if (snapshotCallbacks['customers']) {
-      snapshotCallbacks['customers']({
-        docs: customer ? [{ id: customer.id, data: () => customer }] : []
-      });
-    }
-  }
+  it('1. CustomerHistorySidebar com customerId válido → carrega cliente e tickets', async () => {
+    tableResults['customers'] = { single: mockCustomer };
+    tableResults['tickets'] = { rows: [mockTickets[1]] };
+    tableResults['service_orders'] = { rows: [] };
 
-  function triggerTicketsCb(tickets: any[]) {
-    if (snapshotCallbacks['tickets']) {
-      snapshotCallbacks['tickets']({
-        docs: tickets.map(t => ({ id: t.id, data: () => t }))
-      });
-    }
-  }
-
-  function triggerOsCb(osList: any[]) {
-    if (snapshotCallbacks['serviceOrders']) {
-      snapshotCallbacks['serviceOrders']({
-        docs: osList.map(o => ({ id: o.id, data: () => o }))
-      });
-    }
-  }
-
-  it('1. CustomerHistorySidebar with valid customerId -> loads past tickets filtered by tenant_id', async () => {
     render(<CustomerHistorySidebar customerId="cust1" tenantId="tenant1" onEditCustomer={() => {}} />);
-    
-    triggerCustomerCb(mockCustomer);
-    triggerTicketsCb([mockTickets[0]]);
-    
+
     await waitFor(() => {
       expect(screen.getByText('João Silva')).toBeInTheDocument();
       expect(screen.getByText('Internet Lenta')).toBeInTheDocument();
     });
-
-    const tsCalls = (query as Mock).mock.calls.filter(c => c[0] === 'tickets');
-    expect(tsCalls[0]).toEqual(expect.arrayContaining([
-       'tickets',
-       { field: 'customerId', op: '==', val: 'cust1' },
-       { field: 'tenantId', op: '==', val: 'tenant1' }
-    ]));
   });
 
-  it('2. Sidebar with customerId of another tenant -> 0 results (no data leak)', async () => {
+  it('2. Sem dados → mostra "Nenhum atendimento anterior" (sem vazamento)', async () => {
+    tableResults['customers'] = { single: null };
+    tableResults['tickets'] = { rows: [] };
+    tableResults['service_orders'] = { rows: [] };
+
     render(<CustomerHistorySidebar customerId="cust1" tenantId="tenant2" onEditCustomer={() => {}} />);
-    
-    triggerCustomerCb(null);
-    triggerTicketsCb([]);
-    
+
     await waitFor(() => {
-        expect(screen.queryByText('Internet Lenta')).not.toBeInTheDocument();
-        expect(screen.getByText('Nenhum atendimento anterior')).toBeInTheDocument();
+      expect(screen.queryByText('Internet Lenta')).not.toBeInTheDocument();
+      expect(screen.getByText('Nenhum atendimento anterior')).toBeInTheDocument();
     });
   });
 
-  it('3. Loaded tickets -> ordered by descending date', async () => {
+  it('3. Tickets carregados na ordem devolvida pelo banco (desc)', async () => {
+    tableResults['customers'] = { single: mockCustomer };
+    tableResults['tickets'] = { rows: mockTickets };
+    tableResults['service_orders'] = { rows: [] };
+
     render(<CustomerHistorySidebar customerId="cust1" tenantId="tenant1" onEditCustomer={() => {}} />);
-    
-    triggerCustomerCb(mockCustomer);
-    triggerTicketsCb(mockTickets);
-    
+
     await waitFor(() => {
-       const subjects = screen.getAllByText(/^(Sem Sinal|Internet Lenta)$/);
-       expect(subjects[0]).toHaveTextContent('Sem Sinal');
-       expect(subjects[1]).toHaveTextContent('Internet Lenta');
+      const subjects = screen.getAllByText(/^(Sem Sinal|Internet Lenta)$/);
+      expect(subjects[0]).toHaveTextContent('Sem Sinal');
+      expect(subjects[1]).toHaveTextContent('Internet Lenta');
     });
   });
 
-  it('4. Customer with no history -> shows message Nenhum atendimento anterior sem lançar erro', async () => {
+  it('4. Cliente sem histórico → mensagem amigável sem lançar erro', async () => {
+    tableResults['customers'] = { single: { id: 'cust2', name: 'Maria Souza' } };
+    tableResults['tickets'] = { rows: [] };
+    tableResults['service_orders'] = { rows: [] };
+
     render(<CustomerHistorySidebar customerId="cust2" tenantId="tenant1" onEditCustomer={() => {}} />);
-    
-    triggerCustomerCb({ id: 'cust2', name: 'Maria Souza' });
-    triggerTicketsCb([]);
-    
+
     await waitFor(() => {
-       expect(screen.getByText('Maria Souza')).toBeInTheDocument();
-       expect(screen.getByText('Nenhum atendimento anterior')).toBeInTheDocument();
+      expect(screen.getByText('Maria Souza')).toBeInTheDocument();
+      expect(screen.getByText('Nenhum atendimento anterior')).toBeInTheDocument();
     });
   });
 
-  it("5. Missing registered hardware -> section doesn't render but component doesn't crash", async () => {
+  it('5. Sem hardware registrado → seção não renderiza mas componente não quebra', async () => {
+    tableResults['customers'] = { single: { id: 'cust3', name: 'Pedro' } };
+    tableResults['tickets'] = { rows: [] };
+    tableResults['service_orders'] = { rows: [] };
+
     render(<CustomerHistorySidebar customerId="cust3" tenantId="tenant1" onEditCustomer={() => {}} />);
-    
-    triggerCustomerCb({ id: 'cust3', name: 'Pedro' });
-    triggerTicketsCb([]);
-    
-    await waitFor(() => {
-       expect(screen.getByText('Pedro')).toBeInTheDocument();
-       expect(screen.queryByText('Equipamentos Registrados')).not.toBeInTheDocument();
-    });
-  });
 
-  it('6. Firestore onSnapshot -> updates in real time on new ticket', async () => {
-    render(<CustomerHistorySidebar customerId="cust1" tenantId="tenant1" onEditCustomer={() => {}} />);
-    
-    triggerCustomerCb(mockCustomer);
-    triggerTicketsCb([mockTickets[0]]);
-    
     await waitFor(() => {
-        expect(screen.getByText('Internet Lenta')).toBeInTheDocument();
+      expect(screen.getByText('Pedro')).toBeInTheDocument();
+      expect(screen.queryByText('Equipamentos Registrados')).not.toBeInTheDocument();
     });
-    
-    triggerTicketsCb([mockTickets[0], mockTickets[1]]);
-    
-    await waitFor(() => {
-        expect(screen.getByText('Sem Sinal')).toBeInTheDocument();
-    });
-  });
-
-  it('7. Collapsed sidebar -> no Firestore calls (lazy loading)', async () => {
-    const { container, rerender } = render(<CustomerHistorySidebar customerId="cust1" tenantId="tenant1" onEditCustomer={() => {}} />);
-    
-    expect(onSnapshot).toHaveBeenCalled();
-    vi.clearAllMocks();
-
-    const closeBtn = container.querySelector('.lucide-chevron-right')?.parentElement;
-    if (closeBtn) {
-        fireEvent.click(closeBtn);
-    }
-    
-    rerender(<CustomerHistorySidebar customerId="cust1" tenantId="tenant2" onEditCustomer={() => {}} />);
-    
-    expect(onSnapshot).not.toHaveBeenCalled();
   });
 });

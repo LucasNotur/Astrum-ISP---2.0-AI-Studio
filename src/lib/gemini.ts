@@ -1,6 +1,4 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { db } from "./firebase";
-import { collection, addDoc, serverTimestamp, doc, updateDoc, getDoc, runTransaction } from "firebase/firestore";
 import { logger } from "./logger";
 
 export interface CircuitBreaker {

@@ -1,28 +1,67 @@
-import {
-  collection,
-  addDoc,
-  updateDoc,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-  serverTimestamp,
-  Timestamp,
-  increment,
-  limit,
-  setDoc,
-  deleteDoc,
-  arrayUnion,
-  deleteField,
-  writeBatch,
-  runTransaction,
-} from "firebase/firestore";
-import { db, auth } from "./firebase.ts";
-
+/**
+ * FZ-4 — Camada de dados do frontend legado, 100% SUPABASE.
+ * Este módulo mantém o NOME e as ASSINATURAS históricas (era Firestore client SDK)
+ * para que App.tsx e as páginas continuem importando de "./lib/db" sem mudanças.
+ * As leituras real-time vivem em ./supabaseDb.ts (re-exportadas aqui).
+ * Plano: .astrum-progress/PLANO_FIRESTORE_ZERO.md (FZ-4).
+ */
 import forge from "node-forge";
+import { supabase } from "./supabase.ts";
+import {
+  getCustomers,
+  updateCustomer,
+  createCustomer,
+  deleteCustomer,
+  createInvoice,
+  getTickets,
+  toggleTicketAI,
+  deleteTicket,
+  getMessages,
+  sendMessage,
+  getInvoices,
+  getNetworkCTOs,
+  logAudit,
+  getAuditLogs,
+  getTechnicians,
+  createTechnician,
+  getServiceOrders,
+  createServiceOrder,
+  getInventory,
+  updateTechnician as sbUpdateTechnician,
+  updateServiceOrder as sbUpdateServiceOrder,
+} from "./supabaseDb.ts";
+
+// ─── Re-exports (assinaturas idênticas) ──────────────────────────────────────
+export {
+  getCustomers,
+  updateCustomer,
+  createCustomer,
+  deleteCustomer,
+  createInvoice,
+  getTickets,
+  toggleTicketAI,
+  deleteTicket,
+  getMessages,
+  sendMessage,
+  getInvoices,
+  getNetworkCTOs,
+  logAudit,
+  getAuditLogs,
+  getTechnicians,
+  createTechnician,
+  getServiceOrders,
+  createServiceOrder,
+  getInventory,
+};
+
+// Assinaturas legadas aceitavam um 3º parâmetro tenantId (ignorado no Supabase — RLS resolve)
+export const updateTechnician = async (id: string, data: any, _tenantId: string = "default") =>
+  sbUpdateTechnician(id, data);
+
+export const updateServiceOrder = async (id: string, data: any) =>
+  sbUpdateServiceOrder(id, data);
+
+// ─── Criptografia de CPF (pura — sem banco) ──────────────────────────────────
 
 export const encryptCpf = (cpf: string): string => {
   if (!cpf) return cpf;
@@ -53,11 +92,7 @@ export const encryptCpf = (cpf: string): string => {
 };
 
 export const decryptCpf = (encryptedCpf: string): string => {
-  if (
-    !encryptedCpf ||
-    typeof encryptedCpf !== "string" ||
-    !encryptedCpf.includes(":")
-  )
+  if (!encryptedCpf || typeof encryptedCpf !== "string" || !encryptedCpf.includes(":"))
     return encryptedCpf;
   const keyHex =
     ((typeof import.meta !== "undefined" && (import.meta as any).env && (import.meta as any).env.VITE_CPF_ENCRYPTION_KEY) ||
@@ -72,15 +107,10 @@ export const decryptCpf = (encryptedCpf: string): string => {
     const tag = forge.util.decode64(parts[1]);
     const encrypted = forge.util.decode64(parts[2]);
     const decipher = forge.cipher.createDecipher("AES-GCM", key);
-    decipher.start({
-      iv: iv,
-      tag: forge.util.createBuffer(tag),
-    });
+    decipher.start({ iv: iv, tag: forge.util.createBuffer(tag) });
     decipher.update(forge.util.createBuffer(encrypted));
     const pass = decipher.finish();
-    if (pass) {
-      return decipher.output.toString();
-    }
+    if (pass) return decipher.output.toString();
     return encryptedCpf;
   } catch (err) {
     return encryptedCpf;
@@ -105,241 +135,82 @@ export const OperationType = {
 
 export type OperationType = (typeof OperationType)[keyof typeof OperationType];
 
-export interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: any;
+function logDbError(err: unknown, op: OperationType, path: string | null) {
+  const msg = err instanceof Error ? err.message : String(err);
+  console.error(`[db] ${op} ${path ?? ""}: ${msg}`);
 }
 
-function handleFirestoreError(
-  error: unknown,
-  operationType: OperationType,
-  path: string | null,
-) {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid || "",
-      email: auth.currentUser?.email || "",
-      emailVerified: auth.currentUser?.emailVerified || false,
-      isAnonymous: auth.currentUser?.isAnonymous || false,
-      tenantId: auth.currentUser?.tenantId || "",
-      providerInfo:
-        auth.currentUser?.providerData.map((provider) => ({
-          providerId: provider.providerId,
-          displayName: provider.displayName || "",
-          email: provider.email || "",
-          photoUrl: provider.photoURL || "",
-        })) || [],
-    },
-    operationType,
-    path,
-  };
-  console.error("Firestore Error: ", JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+// ─── Helpers de sessão/tenant ────────────────────────────────────────────────
+
+async function currentTenantId(): Promise<string | null> {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const uid = session?.user?.id;
+    if (!uid) return null;
+    const metaTenant = (session!.user!.user_metadata as any)?.tenant_id
+      ?? (session!.user!.app_metadata as any)?.tenant_id;
+    if (metaTenant) return metaTenant;
+    const { data } = await supabase.from("users").select("tenant_id").eq("id", uid).maybeSingle();
+    return data?.tenant_id ?? null;
+  } catch {
+    return null;
+  }
 }
 
-// Customers
-export const getCustomers = (callback: (customers: any[]) => void, tenantId: string = 'default') => {
-  const baseQuery = tenantId && tenantId !== 'default'
-    ? [where("tenant_id", "==", tenantId)]
-    : [];
-  const q = query(
-    collection(db, "customers"),
-    ...baseQuery,
-    orderBy("createdAt", "desc"),
-    limit(150),
-  );
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      callback(
-        snapshot.docs.map((doc) => {
-          const data = doc.data();
-          if (data.cpf) {
-            data.cpf = decryptCpf(data.cpf);
-          }
-          return { id: doc.id, ...data };
-        }),
-      );
-    },
-    (err) => handleFirestoreError(err, OperationType.LIST, "customers"),
-  );
-};
-
-export const updateCustomer = async (customerId: string, data: any) => {
-  try {
-    const payload = { ...data };
-    if (payload.cpf) {
-      payload.cpf = encryptCpf(payload.cpf);
-    }
-    
-    // Check for status change to trigger reactivation flow
-    if (payload.status === 'ativo') {
-      const existingDoc = await getDoc(doc(db, "customers", customerId));
-      if (existingDoc.exists() && existingDoc.data().status === 'cancelado') {
-        const tenantId = existingDoc.data().tenant_id || 'default';
-        await handleCustomerReactivation(customerId, tenantId);
-        // Avoid overwriting the reactivation fields we just set.
-        delete payload.status;
-      }
-    }
-    
-    if (Object.keys(payload).length > 0) {
-      await updateDoc(doc(db, "customers", customerId), payload);
-    }
-  } catch (err) {
-    handleFirestoreError(err, OperationType.UPDATE, `customers/${customerId}`);
-  }
-};
-
-export const createCustomer = async (data: any) => {
-  try {
-    const payload = { ...data };
-    if (payload.cpf) {
-      payload.cpf = encryptCpf(payload.cpf);
-    }
-    const docRef = await addDoc(collection(db, "customers"), {
-      ...payload,
-      openTicketsCount: 0,
-      overdueInvoicesCount: 0,
-      riskScore: 0,
-      createdAt: serverTimestamp(),
-    });
-    return docRef.id;
-  } catch (err) {
-    handleFirestoreError(err, OperationType.CREATE, "customers");
-  }
-};
-
-export const deleteCustomer = async (id: string) => {
-  try {
-    await deleteDoc(doc(db, "customers", id));
-  } catch (err) {
-    handleFirestoreError(err, OperationType.DELETE, `customers/${id}`);
-  }
-};
-
-export const createInvoice = async (data: any) => {
-  try {
-    const docRef = await addDoc(collection(db, "invoices"), {
-      ...data,
-      createdAt: serverTimestamp(),
-    });
-    return docRef.id;
-  } catch (err) {
-    handleFirestoreError(err, OperationType.CREATE, "invoices");
-  }
-};
-
-export const getTickets = (callback: (tickets: any[]) => void, tenantId: string = 'default') => {
-  const baseQuery = tenantId && tenantId !== 'default'
-    ? [where("tenant_id", "==", tenantId)]
-    : [];
-  const q = query(
-    collection(db, "tickets"),
-    ...baseQuery,
-    orderBy("createdAt", "desc"),
-    limit(200),
-  );
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      callback(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-    },
-    (err) => handleFirestoreError(err, OperationType.LIST, "tickets"),
-  );
-};
+// ─── Tickets ─────────────────────────────────────────────────────────────────
 
 export const createTicket = async (customerId: string, subject: string) => {
   try {
-    return await addDoc(collection(db, "tickets"), {
-      customerId,
-      subject,
-      status: "open",
-      priority: "medium",
-      aiHandled: true,
-      createdAt: serverTimestamp(),
-    });
+    const { data, error } = await supabase
+      .from("tickets")
+      .insert({
+        customer_id: customerId,
+        subject,
+        status: "open",
+        priority: "medium",
+        ai_enabled: true,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
   } catch (err) {
-    handleFirestoreError(err, OperationType.CREATE, "tickets");
+    logDbError(err, OperationType.CREATE, "tickets");
+    throw err;
   }
 };
 
-export const createContract = async (immutableContract: any) => {
+export const updateTicketSessionState = async (ticketId: string, newSessionState: any) => {
   try {
-    const docRef = await addDoc(collection(db, "contracts"), immutableContract);
-    return docRef.id;
+    const { data } = await supabase
+      .from("tickets").select("session_state").eq("id", ticketId).maybeSingle();
+    const current = data?.session_state ?? { active_flow: "IDLE" };
+    const merged = { ...current };
+    for (const k of ["active_flow", "step", "agent", "lead_stage"]) {
+      if (newSessionState[k] !== undefined) merged[k] = newSessionState[k];
+    }
+    await supabase.from("tickets").update({ session_state: merged }).eq("id", ticketId);
   } catch (err) {
-    handleFirestoreError(err, OperationType.CREATE, "contracts");
-  }
-};
-
-export const updateTicketSessionState = async (
-  ticketId: string,
-  newSessionState: any,
-) => {
-  try {
-    await runTransaction(db, async (transaction) => {
-      const ticketRef = doc(db, "tickets", ticketId);
-      const ticketSnap = await transaction.get(ticketRef);
-      const currentState = ticketSnap.data()?.session_state ?? {
-        active_flow: "IDLE",
-      };
-
-      const updates: any = {};
-      if (newSessionState.active_flow !== undefined)
-        updates["session_state.active_flow"] = newSessionState.active_flow;
-      if (newSessionState.step !== undefined)
-        updates["session_state.step"] = newSessionState.step;
-      if (newSessionState.agent !== undefined)
-        updates["session_state.agent"] = newSessionState.agent;
-      if (newSessionState.lead_stage !== undefined)
-        updates["session_state.lead_stage"] = newSessionState.lead_stage;
-
-      if (Object.keys(updates).length > 0) {
-        transaction.update(ticketRef, updates);
-      }
-    });
-  } catch (err) {
-    handleFirestoreError(err, OperationType.UPDATE, `tickets/${ticketId}`);
-  }
-};
-
-export const deleteTicket = async (id: string) => {
-  try {
-    await deleteDoc(doc(db, "tickets", id));
-  } catch (err) {
-    handleFirestoreError(err, OperationType.DELETE, `tickets/${id}`);
+    logDbError(err, OperationType.UPDATE, `tickets/${ticketId}`);
   }
 };
 
 export const updateCustomerStats = async (customerId: string) => {
   try {
-    const tq = query(
-      collection(db, "tickets"),
-      where("customerId", "==", customerId),
-      where("status", "!=", "resolved"),
-    );
-    const tSnap = await getDocs(tq);
-    const openTicketsCount = tSnap.size;
-
-    const iq = query(
-      collection(db, "billing_invoices"),
-      where("customerId", "==", customerId),
-      where("status", "==", "overdue"),
-    );
-    const iSnap = await getDocs(iq);
-    const overdueInvoicesCount = iSnap.size;
-
+    const [tRes, iRes] = await Promise.all([
+      supabase.from("tickets").select("*", { count: "exact", head: true })
+        .eq("customer_id", customerId).neq("status", "resolved"),
+      supabase.from("invoices").select("*", { count: "exact", head: true })
+        .eq("customer_id", customerId).eq("status", "overdue"),
+    ]);
+    const openTicketsCount = tRes.count ?? 0;
+    const overdueInvoicesCount = iRes.count ?? 0;
     const riskScore = openTicketsCount * 20 + overdueInvoicesCount * 40;
-
-    await updateDoc(doc(db, "customers", customerId), {
-      openTicketsCount,
-      overdueInvoicesCount,
-      riskScore,
-    });
+    await supabase.from("customers").update({
+      open_tickets_count: openTicketsCount,
+      overdue_invoices_count: overdueInvoicesCount,
+      risk_score: riskScore,
+    }).eq("id", customerId);
   } catch (err) {
     console.error("Failed to update customer stats:", err);
   }
@@ -347,589 +218,197 @@ export const updateCustomerStats = async (customerId: string) => {
 
 export const updateTicketStatus = async (ticketId: string, status: string) => {
   try {
-    const ticketSnap = await getDoc(doc(db, "tickets", ticketId));
+    const { data: tData } = await supabase
+      .from("tickets").select("*").eq("id", ticketId).maybeSingle();
 
     const updateData: any = { status };
-    const tData = ticketSnap.exists() ? ticketSnap.data() : null;
-    
     if (status === "resolved") {
-      updateData.resolvedAt = serverTimestamp();
-      if (tData && tData.customerId) {
+      updateData.resolved_at = new Date().toISOString();
+      if (tData?.customer_id) {
         fetch("/api/jobs/schedule-csat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             ticketId,
-            tenantId: tData.tenantId || 'default',
-            customerId: tData.customerId,
-            category: tData.session_state?.agent || 'SAC_GERAL',
-            resolved_by: tData.human_responded ? 'human' : 'bot'
-          })
+            tenantId: tData.tenant_id || "default",
+            customerId: tData.customer_id,
+            category: tData.session_state?.agent || "SAC_GERAL",
+            resolved_by: tData.human_responded ? "human" : "bot",
+          }),
         }).catch(e => console.error("Falha ao agendar CSAT:", e));
       }
-
-      // Decrement operator active chat count
-      if (tData && tData.assignedOperatorId && tData.status !== "resolved") {
-          const tenantId = tData.tenantId || "default";
-          const opRef = doc(db, "tenants", tenantId, "operators", tData.assignedOperatorId);
-          updateDoc(opRef, { current_chat_count: increment(-1) }).catch(console.error);
-      }
     }
-    await updateDoc(doc(db, "tickets", ticketId), updateData);
+    await supabase.from("tickets").update(updateData).eq("id", ticketId);
 
-    if (ticketSnap.exists() && ticketSnap.data().customerId) {
-      await updateCustomerStats(ticketSnap.data().customerId);
+    if (tData?.customer_id) {
+      await updateCustomerStats(tData.customer_id);
     }
   } catch (err) {
-    handleFirestoreError(err, OperationType.UPDATE, `tickets/${ticketId}`);
-  }
-};
-
-export const toggleTicketAI = async (ticketId: string, enabled: boolean) => {
-  try {
-    await updateDoc(doc(db, "tickets", ticketId), { aiEnabled: enabled });
-  } catch (err) {
-    handleFirestoreError(err, OperationType.UPDATE, `tickets/${ticketId}`);
+    logDbError(err, OperationType.UPDATE, `tickets/${ticketId}`);
   }
 };
 
 export const incrementAiAttempts = async (ticketId: string) => {
   try {
-    await updateDoc(doc(db, "tickets", ticketId), {
-      aiAttempts: increment(1),
-    });
+    const { data } = await supabase
+      .from("tickets").select("ai_attempts").eq("id", ticketId).maybeSingle();
+    await supabase.from("tickets")
+      .update({ ai_attempts: (data?.ai_attempts ?? 0) + 1 })
+      .eq("id", ticketId);
   } catch (err) {
-    handleFirestoreError(err, OperationType.UPDATE, `tickets/${ticketId}`);
+    logDbError(err, OperationType.UPDATE, `tickets/${ticketId}`);
   }
 };
 
-// Messages
-export const getMessages = (
-  ticketId: string,
-  callback: (messages: any[]) => void,
-) => {
-  const q = query(
-    collection(db, `tickets/${ticketId}/messages`),
-    orderBy("createdAt", "asc"),
-  );
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      callback(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-    },
-    (err) =>
-      handleFirestoreError(
-        err,
-        OperationType.LIST,
-        `tickets/${ticketId}/messages`,
-      ),
-  );
-};
-
-export const sendMessage = async (
-  ticketId: string,
-  text: string,
-  senderType: "customer" | "ai" | "human" | "system",
-  category?: string,
-  attachment?: { url: string; type: string; base64?: string },
-) => {
+export const createContract = async (immutableContract: any) => {
   try {
-    const docRef = await addDoc(collection(db, `tickets/${ticketId}/messages`), {
-      ticketId,
-      senderId: auth.currentUser?.uid || "anonymous",
-      senderType,
-      text,
-      category: category || null,
-      attachment: attachment || null,
-      createdAt: serverTimestamp(),
-    });
-    return docRef;
+    const { data, error } = await supabase
+      .from("contracts").insert(immutableContract).select().single();
+    if (error) throw error;
+    return data.id;
   } catch (err) {
-    handleFirestoreError(
-      err,
-      OperationType.CREATE,
-      `tickets/${ticketId}/messages`,
-    );
+    logDbError(err, OperationType.CREATE, "contracts");
     return null;
   }
 };
 
-// Billing
-export const getInvoices = (callback: (invoices: any[]) => void, tenantId: string = 'default') => {
-  const baseQuery = tenantId && tenantId !== 'default'
-    ? [where("tenant_id", "==", tenantId)]
-    : [];
-  const q = query(
-    collection(db, "billing_invoices"),
-    ...baseQuery,
-    orderBy("createdAt", "desc"),
-    limit(300),
-  );
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      callback(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-    },
-    (err) => handleFirestoreError(err, OperationType.LIST, "billing_invoices"),
-  );
-};
+// ─── Integrações / Prompts (armazenados na linha do tenant) ─────────────────
 
-// Network
-export const getNetworkCTOs = (callback: (ctos: any[]) => void, tenantId: string = 'default') => {
-  const q = tenantId && tenantId !== 'default' 
-    ? query(collection(db, "network_ctos"), where("tenant_id", "==", tenantId))
-    : collection(db, "network_ctos");
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      callback(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-    },
-    (err) => handleFirestoreError(err, OperationType.LIST, "network_ctos"),
-  );
-};
-
-// Audit Logs
-export const logAudit = async (action: string, details: any, tenantId: string = 'default') => {
-  try {
-    await addDoc(collection(db, "audit_logs"), {
-      action,
-      details,
-      tenant_id: tenantId,
-      user: auth.currentUser?.email || "system",
-      timestamp: serverTimestamp(),
-    });
-  } catch (err) {
-    handleFirestoreError(err, OperationType.CREATE, "audit_logs");
-  }
-};
-
-export const getAuditLogs = (callback: (logs: any[]) => void, tenantId: string = 'default') => {
-  const baseQuery = tenantId && tenantId !== 'default'
-    ? [where("tenant_id", "==", tenantId)]
-    : [];
-  const q = query(
-    collection(db, "audit_logs"),
-    ...baseQuery,
-    orderBy("timestamp", "desc"),
-    limit(50),
-  );
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      callback(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-    },
-    (err) => handleFirestoreError(err, OperationType.LIST, "audit_logs"),
-  );
-};
-
-// --- Technicians ---
-export const getTechnicians = (callback: (techs: any[]) => void, tenantId: string = 'default') => {
-  const q = query(collection(db, `technicians/${tenantId}/list`));
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      callback(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-    },
-    (error) => {
-      handleFirestoreError(error, OperationType.LIST, `technicians/${tenantId}/list`);
-    },
-  );
-};
-
-export const createTechnician = async (data: any, tenantId: string = 'default') => {
-  try {
-    const docRef = await addDoc(collection(db, `technicians/${tenantId}/list`), {
-      ...data,
-      createdAt: serverTimestamp(),
-    });
-    return docRef.id;
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, `technicians/${tenantId}/list`);
-    throw error;
-  }
-};
-
-export const updateTechnician = async (id: string, data: any, tenantId: string = 'default') => {
-  try {
-    const docRef = doc(db, `technicians/${tenantId}/list`, id);
-    await updateDoc(docRef, data);
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, `technicians/${tenantId}/list/${id}`);
-    throw error;
-  }
-};
-
-// --- Service Orders ---
-export const getServiceOrders = (callback: (orders: any[]) => void, tenantId: string = 'default') => {
-  const baseQuery = tenantId && tenantId !== 'default'
-    ? [where("tenant_id", "==", tenantId)]
-    : [];
-  const q = query(
-    collection(db, "service_orders"),
-    ...baseQuery,
-    orderBy("createdAt", "desc"),
-  );
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      callback(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-    },
-    (error) => {
-      handleFirestoreError(error, OperationType.LIST, "service_orders");
-    },
-  );
-};
-
-export const createServiceOrder = async (data: any) => {
-  try {
-    const docRef = await addDoc(collection(db, "service_orders"), {
-      ...data,
-      createdAt: serverTimestamp(),
-    });
-    if (data.tenantId || data.tenant_id) {
-       await incrementShardedCounter('os_today', data.tenantId || data.tenant_id);
-    }
-    return docRef.id;
-  } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, "service_orders");
-    throw error;
-  }
-};
-
-export const updateServiceOrder = async (id: string, data: any) => {
-  try {
-    const docRef = doc(db, "service_orders", id);
-    const existingSnap = await getDoc(docRef);
-    const oldStatus = existingSnap.exists() ? existingSnap.data().status : null;
-
-    let updatePayload = { ...data };
-
-    // Auto-record status history if status is being updated
-    if (data.status) {
-      updatePayload.statusHistory = arrayUnion({
-        status: data.status,
-        timestamp: new Date().toISOString(),
-        technician: data.updaterName || data.assignedTo || "Sistema",
-      });
-      delete updatePayload.updaterName;
-    }
-
-    await updateDoc(docRef, updatePayload);
-
-    if (data.status === 'concluida' && oldStatus !== 'concluida') {
-      const osData = existingSnap.data() || {};
-      fetch("/api/jobs/schedule-pos-install", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customerId: data.customer_id || data.customerId || osData.customer_id || osData.customerId,
-          tenantId: data.tenant_id || data.tenantId || osData.tenant_id || osData.tenantId || "default",
-          osId: id,
-          installedPlan: data.plan_name || data.planName || osData.plan_name || osData.planName || "Convencional"
-        })
-      }).catch(console.error);
-    }
-  } catch (error) {
-    handleFirestoreError(error, OperationType.UPDATE, `service_orders/${id}`);
-    throw error;
-  }
-};
-
-export const seedServiceOrdersAndTechnicians = async () => {
-  const techs = [
-    {
-      name: "Técnico Alpha",
-      phone: "5511999999991",
-      status: "offline",
-      currentTask: null,
-      coverage_regions: ["Sul", "Leste"],
-      active: true,
-    },
-    {
-      name: "Técnico Bravo",
-      phone: "5511999999992",
-      status: "offline",
-      currentTask: null,
-      coverage_regions: ["Norte", "Oeste"],
-      active: true,
-    },
-    {
-      name: "Técnico Charlie",
-      phone: "5511999999993",
-      status: "offline",
-      currentTask: null,
-      coverage_regions: ["Sul", "Centro"],
-      active: true,
-    },
-    {
-      name: "Técnico Delta",
-      phone: "5511999999994",
-      status: "offline",
-      currentTask: null,
-      coverage_regions: ["Norte", "Leste"],
-      active: true,
-    },
-  ];
-
-  for (const tech of techs) {
-    await addDoc(collection(db, "technicians/default/list"), {
-      ...tech,
-      createdAt: serverTimestamp(),
-    });
-  }
-
-  const os = {
-    customerId: "CUST-001",
-    customerName: "João Silva",
-    address: "Rua das Flores, 123 - Centro",
-    lat: -23.5505,
-    lng: -46.6333,
-    status: "pendente",
-    type: "manutencao",
-    description:
-      "Cabo rompido na rua, sinal -40dBm. Necessário verificar roteador e possível troca de drop.",
-    cto: "CTO-01",
-    port: 4,
-    materials: ["100m Cabo Drop", "1 ONU Nova", "Conectores APC"],
-    assignedTo: null,
-    aiSummary:
-      "Resumo da IA: Cliente relatou falta de internet há 2 horas. Diagnóstico remoto indica atenuação severa (-40dBm). Reinicialização não surtiu efeito. Provável rompimento físico.",
-  };
-
-  await addDoc(collection(db, "service_orders"), {
-    ...os,
-    createdAt: serverTimestamp(),
-  });
-};
-
-// Inventory
-export const getInventory = (callback: (inventory: any[]) => void, tenantId: string = 'default') => {
-  const q = tenantId && tenantId !== 'default'
-    ? query(collection(db, "inventory"), where("tenant_id", "==", tenantId))
-    : collection(db, "inventory");
-  return onSnapshot(
-    q,
-    (snapshot) => {
-      callback(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-    },
-    (err) => handleFirestoreError(err, OperationType.LIST, "inventory"),
-  );
-};
-
-export const updateInventoryItem = async (id: string, data: any) => {
-  try {
-    await updateDoc(doc(db, "inventory", id), data);
-  } catch (err) {
-    handleFirestoreError(err, OperationType.UPDATE, `inventory/${id}`);
-  }
-};
-
-export const createInventoryItem = async (data: any) => {
-  try {
-    const docRef = await addDoc(collection(db, "inventory"), data);
-    return docRef.id;
-  } catch (err) {
-    handleFirestoreError(err, OperationType.CREATE, "inventory");
-  }
-};
-
-export const deleteInventoryItem = async (id: string) => {
-  try {
-    await deleteDoc(doc(db, "inventory", id));
-  } catch (err) {
-    handleFirestoreError(err, OperationType.DELETE, `inventory/${id}`);
-  }
-};
-
-// Settings & Integrations
 export const getIntegrationKeys = async (): Promise<any> => {
   try {
-    const { safeFirestoreGet } = await import("./dbSafe");
-    const { data: snapshot, degraded } = await safeFirestoreGet(
-      () => getDoc(doc(db, "settings", "integrations")),
-      { exists: () => false, data: () => ({}) } as any,
-      'integration_keys'
-    );
-    if (snapshot.exists()) {
-      const data = snapshot.data();
-      if (data && data.evolutionUrl && data.evolutionUrl.includes("trycloudflare")) {
-         data.evolutionUrl = "";
-      }
-      return data;
+    const tenantId = await currentTenantId();
+    if (!tenantId) return {};
+    const { data } = await supabase
+      .from("tenants").select("integration_keys").eq("id", tenantId).maybeSingle();
+    const keys = (data?.integration_keys as Record<string, string>) ?? {};
+    if (keys.evolutionUrl && keys.evolutionUrl.includes("trycloudflare")) {
+      keys.evolutionUrl = "";
     }
-    return {};
-  } catch (err: any) {
-    if (
-      err.code === "permission-denied" ||
-      (err.message &&
-        err.message.includes("Missing or insufficient permissions"))
-    ) {
-      console.warn(
-        "Aviso: Sem permissão para ler integration keys (provável Webhook sem auth anônima).",
-      );
-    } else {
-      console.error("Error fetching integration keys:", err);
-    }
+    return keys;
+  } catch (err) {
+    console.error("Error fetching integration keys:", err);
     return {};
   }
 };
 
 export const saveIntegrationKeys = async (keys: Record<string, string>) => {
   try {
-    const docRef = doc(db, "settings", "integrations");
-    await setDoc(docRef, keys, { merge: true });
+    const tenantId = await currentTenantId();
+    if (!tenantId) throw new Error("Sem tenant na sessão");
+    const { data } = await supabase
+      .from("tenants").select("integration_keys").eq("id", tenantId).maybeSingle();
+    const merged = { ...((data?.integration_keys as Record<string, string>) ?? {}), ...keys };
+    const { error } = await supabase
+      .from("tenants").update({ integration_keys: merged }).eq("id", tenantId);
+    if (error) throw error;
   } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, "settings/integrations");
+    logDbError(err, OperationType.WRITE, "tenants.integration_keys");
+    throw err;
   }
 };
 
-// System Prompts
-export const getSystemPrompts = async (tenantId: string = 'default') => {
+export const getSystemPrompts = async (tenantId: string = "default") => {
   try {
-    const versionsRef = collection(db, 'prompts', tenantId, 'versions');
-    const snapshot = await getDocs(query(versionsRef, where('active', '==', true)));
-    
-    if (!snapshot.empty) {
-      const prompts: Record<string, string> = {};
-      snapshot.docs.forEach(d => {
-        prompts[d.data().agent] = d.data().content;
-      });
-      return prompts;
-    }
-    
-    // Fallback to legacy path if no versions found (for backward compatibility during migration)
-    const legacyDocRef = doc(db, 'prompts', tenantId);
-    const legacySnapshot = await getDoc(legacyDocRef);
-    if (legacySnapshot.exists()) {
-      return legacySnapshot.data();
-    }
-    return null;
-  } catch (err: any) {
-    if (
-      err.code === "permission-denied" ||
-      (err.message &&
-        err.message.includes("Missing or insufficient permissions"))
-    ) {
-      console.warn("Aviso: Sem permissão para ler system prompts.");
-    } else {
-      console.error("Error fetching system prompts:", err);
-    }
+    const tid = tenantId !== "default" ? tenantId : await currentTenantId();
+    if (!tid) return null;
+    const { data } = await supabase
+      .from("tenants").select("extra").eq("id", tid).maybeSingle();
+    return (data?.extra as any)?.system_prompts ?? null;
+  } catch (err) {
+    console.error("Error fetching system prompts:", err);
     return null;
   }
 };
 
-export const saveSystemPrompts = async (prompts: Record<string, string>, tenantId: string = 'default') => {
+export const saveSystemPrompts = async (prompts: Record<string, string>, tenantId: string = "default") => {
   try {
-    const batch = writeBatch(db);
-    const versionsRef = collection(db, 'prompts', tenantId, 'versions');
-    const author = auth.currentUser?.email || 'system';
-
-    for (const [agentName, content] of Object.entries(prompts)) {
-      if (!content) continue;
-      
-      // Desativar versão atual
-      const current = await getDocs(query(versionsRef, where('agent', '==', agentName), where('active', '==', true)));
-      current.docs.forEach(d => batch.update(d.ref, { active: false }));
-
-      // Criar nova versão
-      const newVersion = doc(versionsRef);
-      batch.set(newVersion, {
-        agent: agentName,
-        content,
-        active: true,
-        version: Date.now(),
-        created_at: serverTimestamp(),
-        created_by: author,
-        tenant_id: tenantId
-      });
-    }
-
-    await batch.commit();
-
-    try {
-      if (typeof window === 'undefined') {
-        const mod = "./redis";
-        const redisModule = await import(/* @vite-ignore */ mod);
-        const redisClient = redisModule.default;
-        if (redisClient && typeof redisClient.del === 'function') {
-          await redisClient.del(`prompts:${tenantId}`);
-        }
-      }
-    } catch(e) {}
+    const tid = tenantId !== "default" ? tenantId : await currentTenantId();
+    if (!tid) throw new Error("Sem tenant na sessão");
+    const { data } = await supabase
+      .from("tenants").select("extra").eq("id", tid).maybeSingle();
+    const extra = { ...((data?.extra as any) ?? {}) };
+    extra.system_prompts = { ...(extra.system_prompts ?? {}), ...prompts };
+    extra.system_prompts_updated_at = new Date().toISOString();
+    const { error } = await supabase.from("tenants").update({ extra }).eq("id", tid);
+    if (error) throw error;
   } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, `prompts/${tenantId}/versions`);
+    logDbError(err, OperationType.WRITE, "tenants.extra.system_prompts");
+    throw err;
   }
 };
 
+// Contadores (eram shards para contornar limite de writes do Firestore — Postgres não precisa)
 export async function incrementShardedCounter(metricName: string, tenantId: string) {
   try {
-    const shardId = Math.floor(Math.random() * 10);
-    const shardRef = doc(db, 'metrics_shards', `${tenantId}_${metricName}_${shardId}`);
-    await setDoc(shardRef, { count: increment(1), tenant_id: tenantId, metric: metricName },
-      { merge: true });
+    const { data } = await supabase
+      .from("tenants").select("extra").eq("id", tenantId).maybeSingle();
+    const extra = { ...((data?.extra as any) ?? {}) };
+    const metrics = { ...(extra.metrics ?? {}) };
+    metrics[metricName] = (metrics[metricName] ?? 0) + 1;
+    extra.metrics = metrics;
+    await supabase.from("tenants").update({ extra }).eq("id", tenantId);
   } catch (err: any) {
-    console.error("Error incrementing shard:", err.message);
+    console.error("Error incrementing counter:", err.message);
   }
 }
 
 export async function getShardedCount(metricName: string, tenantId: string): Promise<number> {
   try {
-    const shards = await getDocs(query(collection(db, 'metrics_shards'), where('tenant_id', '==', tenantId), where('metric', '==', metricName)));
-    return shards.docs.reduce((sum, d) => sum + (d.data().count ?? 0), 0);
-  } catch (err: any) {
-    console.error("Error getting sharded count:", err.message);
+    const { data } = await supabase
+      .from("tenants").select("extra").eq("id", tenantId).maybeSingle();
+    return ((data?.extra as any)?.metrics?.[metricName] as number) ?? 0;
+  } catch {
     return 0;
   }
 }
 
-// Knowledge Base (RAG)
+// ─── Knowledge Base ──────────────────────────────────────────────────────────
+
 export const createKBArticle = async (article: any) => {
   try {
-    await addDoc(collection(db, "knowledge_base"), {
-      ...article,
-      createdAt: serverTimestamp(),
-    });
+    const { error } = await supabase.from("knowledge_articles").insert(article);
+    if (error) throw error;
   } catch (err) {
-    handleFirestoreError(err, OperationType.CREATE, "knowledge_base");
+    logDbError(err, OperationType.CREATE, "knowledge_articles");
+    throw err;
   }
 };
 
 export const updateKBArticle = async (id: string, article: any) => {
   try {
-    await updateDoc(doc(db, "knowledge_base", id), article);
+    const { error } = await supabase.from("knowledge_articles").update(article).eq("id", id);
+    if (error) throw error;
   } catch (err) {
-    handleFirestoreError(err, OperationType.UPDATE, `knowledge_base/${id}`);
+    logDbError(err, OperationType.UPDATE, `knowledge_articles/${id}`);
+    throw err;
   }
 };
 
 export const deleteKBArticle = async (id: string) => {
   try {
-    await deleteDoc(doc(db, "knowledge_base", id));
+    const { error } = await supabase.from("knowledge_articles").delete().eq("id", id);
+    if (error) throw error;
   } catch (err) {
-    handleFirestoreError(err, OperationType.DELETE, `knowledge_base/${id}`);
+    logDbError(err, OperationType.DELETE, `knowledge_articles/${id}`);
+    throw err;
   }
 };
 
-// Real Tools Logic
+// ─── Ferramentas "reais" da IA ───────────────────────────────────────────────
+
 export const checkCoverageReal = async (cep: string) => {
   try {
     const keys = await getIntegrationKeys();
-    const mapsKey = keys.googleMapsKey;
-
-    if (!mapsKey) {
+    if (!keys.googleMapsKey) {
       return {
         status: "manual_check_required",
         message:
           "A consulta de viabilidade técnica integrada (CTOs) está desativada ou restrita pela empresa mãe. Por favor, verifique a viabilidade manualmente nos mapas de rede internos da sua região.",
       };
     }
-
-    const q = query(collection(db, "network_ctos"), where("cep", "==", cep));
-    const snapshot = await getDocs(q);
-    const ctos = snapshot.docs.map((doc) => doc.data());
-
-    // Simple logic: if any CTO has ports available, say yes
-    const available = ctos.some((cto) => cto.usedPorts < cto.totalPorts);
+    const { data } = await supabase.from("network_ctos").select("*").eq("cep", cep);
+    const ctos = data ?? [];
+    const available = ctos.some((cto: any) => (cto.used_ports ?? cto.usedPorts ?? 0) < (cto.total_ports ?? cto.totalPorts ?? 0));
     return {
       status: available ? "available" : "unavailable",
       message: available
@@ -944,37 +423,14 @@ export const checkCoverageReal = async (cep: string) => {
 export const getBillingStatusReal = async (cpf: string) => {
   try {
     const keys = await getIntegrationKeys();
-    const billingKey = keys.billingApi;
-
-    if (!billingKey) {
+    if (!keys.billingApi) {
       return {
         status: "manual_check_required",
         message:
           "O sistema de consulta financeira automática não está integrado no momento (Operação White-label). Por favor, informe ao cliente que você irá consultar manualmente os registros de faturamento da central e peça um momento.",
       };
     }
-
-    // Exemplo de integração real (comentado para referência)
-    /*
-    // Exemplo Asaas:
-    const response = await fetch(`https://api.asaas.com/v3/customers?cpfCnpj=${cpf}`, {
-      headers: { 'access_token': billingKey }
-    });
-    const customerData = await response.json();
-    if (customerData.data.length > 0) {
-      const customerId = customerData.data[0].id;
-      const chargesResponse = await fetch(`https://api.asaas.com/v3/payments?customer=${customerId}&status=OVERDUE`, {
-        headers: { 'access_token': billingKey }
-      });
-      const chargesData = await chargesResponse.json();
-      // Retornar chargesData...
-    }
-    */
-
-    // Simulação de resposta da API do Banco baseada no CPF
-    // Na vida real, isso viria do fetch acima.
     const cleanCpf = cpf.replace(/\D/g, "");
-
     if (cleanCpf.startsWith("123")) {
       return {
         status: "pending",
@@ -989,21 +445,17 @@ export const getBillingStatusReal = async (cpf: string) => {
         },
       };
     }
-
     return {
       status: "up_to_date",
       message: "Não encontramos faturas pendentes para este CPF. Tudo em dia!",
     };
   } catch (err) {
     console.error("Erro ao consultar financeiro:", err);
-    return {
-      status: "error",
-      message: "Erro de comunicação com a API do Banco.",
-    };
+    return { status: "error", message: "Erro de comunicação com a API do Banco." };
   }
 };
 
-export const runDiagnosticsReal = async (customerId: string) => {
+export const runDiagnosticsReal = async (_customerId: string) => {
   return {
     status: "locked",
     message:
@@ -1011,22 +463,99 @@ export const runDiagnosticsReal = async (customerId: string) => {
   };
 };
 
-// Notifications (Telegram/Alerts)
+// ─── Notificações ────────────────────────────────────────────────────────────
+
 export const notifyTeam = async (
   type: "SLA_BREACH" | "CRITICAL_ESCALATION" | "SYSTEM_ERROR",
   message: string,
   ticketId?: string,
 ) => {
   try {
-    await addDoc(collection(db, "notifications"), {
+    await supabase.from("notifications").insert({
       type,
       message,
-      ticketId: ticketId || null,
-      timestamp: serverTimestamp(),
+      ticket_id: ticketId || null,
     });
     console.log(`[Notification] ${type}: ${message}`);
   } catch (err) {
     console.error("Notification Error:", err);
+  }
+};
+
+// ─── Reativação de cliente ───────────────────────────────────────────────────
+
+export async function handleCustomerReactivation(customerId: string, tenantId: string) {
+  await supabase.from("customers").update({
+    status: "ativo",
+    financial_status: "em_dia",
+    reactivated_at: new Date().toISOString(),
+    retention_discount_used_at: null,
+    retention_discount_value: null,
+    churn_risk: false,
+  }).eq("id", customerId);
+
+  await logAudit("CUSTOMER_REACTIVATED", {
+    customer_id: customerId,
+    previous_status: "cancelado",
+  }, tenantId);
+}
+
+// ─── Seeds (dev/demo) ────────────────────────────────────────────────────────
+
+export const seedServiceOrdersAndTechnicians = async () => {
+  const techs = [
+    { name: "Técnico Alpha", phone: "5511999999991", status: "offline", coverage_regions: ["Sul", "Leste"], active: true },
+    { name: "Técnico Bravo", phone: "5511999999992", status: "offline", coverage_regions: ["Norte", "Oeste"], active: true },
+    { name: "Técnico Charlie", phone: "5511999999993", status: "offline", coverage_regions: ["Sul", "Centro"], active: true },
+    { name: "Técnico Delta", phone: "5511999999994", status: "offline", coverage_regions: ["Norte", "Leste"], active: true },
+  ];
+  await supabase.from("technicians").insert(techs);
+
+  await supabase.from("service_orders").insert({
+    customer_name: "João Silva",
+    address: "Rua das Flores, 123 - Centro",
+    lat: -23.5505,
+    lng: -46.6333,
+    status: "pendente",
+    type: "manutencao",
+    description:
+      "Cabo rompido na rua, sinal -40dBm. Necessário verificar roteador e possível troca de drop.",
+    cto: "CTO-01",
+    port: 4,
+    materials: ["100m Cabo Drop", "1 ONU Nova", "Conectores APC"],
+    ai_summary:
+      "Resumo da IA: Cliente relatou falta de internet há 2 horas. Diagnóstico remoto indica atenuação severa (-40dBm). Reinicialização não surtiu efeito. Provável rompimento físico.",
+  });
+};
+
+export const updateInventoryItem = async (id: string, data: any) => {
+  try {
+    const { error } = await supabase.from("inventory").update(data).eq("id", id);
+    if (error) throw error;
+  } catch (err) {
+    logDbError(err, OperationType.UPDATE, `inventory/${id}`);
+    throw err;
+  }
+};
+
+export const createInventoryItem = async (data: any) => {
+  try {
+    const { data: row, error } = await supabase.from("inventory").insert(data).select().single();
+    if (error) throw error;
+    return row.id;
+  } catch (err) {
+    logDbError(err, OperationType.CREATE, "inventory");
+    return undefined;
+  }
+};
+
+export const deleteInventoryItem = async (id: string) => {
+  try {
+    const { error } = await supabase.from("inventory").delete().eq("id", id);
+    if (error) throw error;
+  } catch (err) {
+    logDbError(err, OperationType.DELETE, `inventory/${id}`);
+    throw err;
   }
 };
 
@@ -1054,76 +583,33 @@ export const seedKnowledgeBase = async () => {
       category: "Vendas",
     },
   ];
+  await supabase.from("knowledge_articles").insert(articles);
+};
 
-  for (const article of articles) {
-    await addDoc(collection(db, "knowledge_base"), article);
-  }
+export const seedInventory = async () => {
+  const items = [
+    { name: "ONU Huawei HG8245H", category: "ONU", stock: 45, min_stock: 10, unit: "un", price: 180 },
+    { name: "Roteador TP-Link Archer C6", category: "Roteador", stock: 12, min_stock: 15, unit: "un", price: 220 },
+    { name: "Cabo Drop Flat (km)", category: "Cabo", stock: 4.5, min_stock: 2, unit: "km", price: 450 },
+    { name: "Conector Fast SC/APC", category: "Acessório", stock: 500, min_stock: 100, unit: "un", price: 1.5 },
+  ];
+  await supabase.from("inventory").insert(items);
 };
 
 export const seedSystem = async () => {
   const plans = ["100 Mega", "300 Mega", "600 Mega", "1 Giga"];
-  const statuses = ["active", "active", "active", "inactive"]; // 75% active
-  const firstNames = [
-    "Lucas",
-    "Ana",
-    "Bruno",
-    "Carla",
-    "Diego",
-    "Elena",
-    "Fabio",
-    "Gisele",
-    "Hugo",
-    "Iris",
-    "Joao",
-    "Kelly",
-    "Luis",
-    "Mara",
-    "Nuno",
-    "Olivia",
-    "Paulo",
-    "Quiteria",
-    "Raul",
-    "Sonia",
-  ];
-  const lastNames = [
-    "Silva",
-    "Santos",
-    "Oliveira",
-    "Souza",
-    "Rodrigues",
-    "Ferreira",
-    "Alves",
-    "Pereira",
-    "Lima",
-    "Gomes",
-    "Costa",
-    "Ribeiro",
-    "Martins",
-    "Carvalho",
-    "Almeida",
-    "Lopes",
-    "Soares",
-    "Fernandes",
-    "Vieira",
-    "Barbosa",
-  ];
+  const statuses = ["active", "active", "active", "inactive"];
+  const firstNames = ["Lucas", "Ana", "Bruno", "Carla", "Diego", "Elena", "Fabio", "Gisele", "Hugo", "Iris", "Joao", "Kelly", "Luis", "Mara", "Nuno", "Olivia", "Paulo", "Quiteria", "Raul", "Sonia"];
+  const lastNames = ["Silva", "Santos", "Oliveira", "Souza", "Rodrigues", "Ferreira", "Alves", "Pereira", "Lima", "Gomes", "Costa", "Ribeiro", "Martins", "Carvalho", "Almeida", "Lopes", "Soares", "Fernandes", "Vieira", "Barbosa"];
 
   console.log("Starting massive seed...");
 
-  // 1. Seed 100 Customers
   for (let i = 0; i < 100; i++) {
     const name = `${firstNames[Math.floor(Math.random() * firstNames.length)]} ${lastNames[Math.floor(Math.random() * lastNames.length)]} ${i}`;
     const plan = plans[Math.floor(Math.random() * plans.length)];
-    const mrr =
-      plan === "100 Mega"
-        ? 62.99
-        : plan === "300 Mega"
-          ? 82.99
-          : plan === "600 Mega"
-            ? 99.99
-            : 119.99;
+    const mrr = plan === "100 Mega" ? 62.99 : plan === "300 Mega" ? 82.99 : plan === "600 Mega" ? 99.99 : 119.99;
 
-    const customerRef = await addDoc(collection(db, "customers"), {
+    const { data: customer, error } = await supabase.from("customers").insert({
       name,
       email: `user${i}@example.com`,
       phone: `(11) 9${Math.floor(10000000 + Math.random() * 90000000)}`,
@@ -1131,133 +617,59 @@ export const seedSystem = async () => {
       plan,
       mrr,
       status: statuses[Math.floor(Math.random() * statuses.length)],
-      createdAt: serverTimestamp(),
-    });
+    }).select().single();
+    if (error || !customer) continue;
 
-    // 2. Seed 1-3 Invoices per customer
     const numInvoices = Math.floor(Math.random() * 3) + 1;
     for (let j = 0; j < numInvoices; j++) {
       const isOverdue = Math.random() > 0.8;
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() - j * 30 + (isOverdue ? -5 : 5));
-
-      await addDoc(collection(db, "billing_invoices"), {
-        customerId: customerRef.id,
+      await supabase.from("invoices").insert({
+        customer_id: customer.id,
         amount: mrr,
         status: isOverdue ? "overdue" : "paid",
-        dueDate: Timestamp.fromDate(dueDate),
-        createdAt: serverTimestamp(),
+        due_date: dueDate.toISOString(),
       });
     }
 
-    // 3. Seed 1-2 Tickets per customer
     if (Math.random() > 0.5) {
       const numTickets = Math.floor(Math.random() * 2) + 1;
       for (let k = 0; k < numTickets; k++) {
         const status = Math.random() > 0.7 ? "resolved" : "open";
-        const ticketRef = await addDoc(collection(db, "tickets"), {
-          customerId: customerRef.id,
+        const { data: ticket } = await supabase.from("tickets").insert({
+          customer_id: customer.id,
           subject: k === 0 ? "Sem conexão com a internet" : "Lentidão no Wi-Fi",
           status,
           priority: Math.random() > 0.8 ? "high" : "medium",
-          aiHandled: Math.random() > 0.3,
-          createdAt: serverTimestamp(),
-          resolvedAt: status === "resolved" ? serverTimestamp() : null,
-        });
+          resolved_at: status === "resolved" ? new Date().toISOString() : null,
+        }).select().single();
+        if (!ticket) continue;
 
-        // Add 1-3 messages per ticket
         const numMessages = Math.floor(Math.random() * 3) + 1;
         for (let m = 0; m < numMessages; m++) {
-          await addDoc(collection(db, `tickets/${ticketRef.id}/messages`), {
-            ticketId: ticketRef.id,
-            senderId: m % 2 === 0 ? "customer" : "ai",
-            senderType: m % 2 === 0 ? "customer" : "ai",
-            text:
-              m === 0
-                ? "Olá, estou sem internet."
-                : "Olá! Vou verificar seu sinal agora mesmo.",
-            createdAt: serverTimestamp(),
+          await supabase.from("messages").insert({
+            ticket_id: ticket.id,
+            sender_type: m % 2 === 0 ? "customer" : "ai",
+            body: m === 0 ? "Olá, estou sem internet." : "Olá! Vou verificar seu sinal agora mesmo.",
           });
         }
       }
     }
   }
 
-  // 4. Seed 10 CTOs
   for (let i = 0; i < 10; i++) {
     const totalPorts = 16;
     const usedPorts = Math.floor(Math.random() * 17);
-    await addDoc(collection(db, "network_ctos"), {
+    await supabase.from("network_ctos").insert({
       name: `CTO-SP-${i.toString().padStart(3, "0")}`,
       latitude: -23.5505 + (Math.random() - 0.5) * 0.1,
       longitude: -46.6333 + (Math.random() - 0.5) * 0.1,
-      totalPorts,
-      usedPorts,
+      total_ports: totalPorts,
+      used_ports: usedPorts,
       status: usedPorts === totalPorts ? "full" : "active",
     });
   }
 
   console.log("Massive seed completed!");
 };
-
-export const seedInventory = async () => {
-  const items = [
-    {
-      name: "ONU Huawei HG8245H",
-      category: "ONU",
-      stock: 45,
-      minStock: 10,
-      unit: "un",
-      price: 180,
-    },
-    {
-      name: "Roteador TP-Link Archer C6",
-      category: "Roteador",
-      stock: 12,
-      minStock: 15,
-      unit: "un",
-      price: 220,
-    },
-    {
-      name: "Cabo Drop Flat (km)",
-      category: "Cabo",
-      stock: 4.5,
-      minStock: 2,
-      unit: "km",
-      price: 450,
-    },
-    {
-      name: "Conector Fast SC/APC",
-      category: "Acessório",
-      stock: 500,
-      minStock: 100,
-      unit: "un",
-      price: 1.5,
-    },
-  ];
-
-  for (const item of items) {
-    await addDoc(collection(db, "inventory"), item);
-  }
-};
-
-export async function handleCustomerReactivation(customerId: string, tenantId: string) {
-  await updateDoc(doc(db, 'customers', customerId), {
-    status: 'ativo',
-    financial_status: 'em_dia',
-    reactivated_at: serverTimestamp(),
-    // Reset campos de retenção para cliente ser elegível novamente
-    retention_discount_used_at: deleteField(),
-    retention_discount_value: deleteField(),
-    churn_risk: false,
-    // Manter histórico em subcoleção
-  });
-
-  // Gravar histórico de reativação
-  await addDoc(collection(doc(db, 'customers', customerId), 'status_history'), {
-    event: 'REACTIVATED',
-    previous_status: 'cancelado',
-    timestamp: serverTimestamp()
-  });
-}
-

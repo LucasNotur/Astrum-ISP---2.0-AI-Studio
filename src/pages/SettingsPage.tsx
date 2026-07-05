@@ -16,9 +16,7 @@ import { Label } from "@/src/components/ui/label";
 import { Switch } from "@/src/components/ui/switch";
 import { Save, Bug, Database, BellRing, LogOut, Copy, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { db, auth } from '@/src/lib/firebase';
-import { collection, query, getDocs, orderBy, limit, doc, setDoc, deleteDoc, updateDoc, onSnapshot, addDoc } from 'firebase/firestore';
-import { signOut, multiFactor, TotpMultiFactorGenerator, TotpSecret } from 'firebase/auth';
+import { supabase } from '@/src/lib/supabase';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAppStore } from '../store/useAppStore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
@@ -116,7 +114,8 @@ export function SettingsPage(props: any) {
 
   const [editingRolePermissions, setEditingRolePermissions] = useState<Record<string, Record<string, any>>>({});
 
-  const [totpSecret, setTotpSecret] = useState<TotpSecret | null>(null);
+  const [totpFactorId, setTotpFactorId] = useState<string | null>(null);
+  const [totpSecret, setTotpSecret] = useState<string | null>(null);
   const [totpUrl, setTotpUrl] = useState<string | null>(null);
   const [totpPin, setTotpPin] = useState('');
   const [isEnrollingMfa, setIsEnrollingMfa] = useState(false);
@@ -170,15 +169,11 @@ export function SettingsPage(props: any) {
     setIsEnrollingMfa(true);
     setMfaError('');
     try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error('Usuário não autenticado');
-      
-      const multiFactorSession = await multiFactor(currentUser).getSession();
-      const secret = await TotpMultiFactorGenerator.generateSecret(multiFactorSession);
-      const url = secret.generateQrCodeUrl(currentUser.email || 'user', 'Astrum AI');
-      
-      setTotpSecret(secret);
-      setTotpUrl(url);
+      const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' });
+      if (error) throw error;
+      setTotpFactorId(data.id);
+      setTotpSecret(data.totp.secret);
+      setTotpUrl(data.totp.uri);
     } catch (e: any) {
       setMfaError(e.message || 'Erro ao iniciar MFA');
       setIsEnrollingMfa(false);
@@ -186,21 +181,24 @@ export function SettingsPage(props: any) {
   };
 
   const confirmMfaEnrollment = async () => {
-    if (!totpSecret || !totpPin) return;
+    if (!totpFactorId || !totpPin) return;
     try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error('Usuário não autenticado');
-      
-      const totpAssertion = TotpMultiFactorGenerator.assertionForEnrollment(totpSecret, totpPin);
-      await multiFactor(currentUser).enroll(totpAssertion, 'Autenticador');
-      
+      const { data: challenge, error: challengeErr } = await supabase.auth.mfa.challenge({ factorId: totpFactorId });
+      if (challengeErr) throw challengeErr;
+      const { error: verifyErr } = await supabase.auth.mfa.verify({
+        factorId: totpFactorId,
+        challengeId: challenge.id,
+        code: totpPin,
+      });
+      if (verifyErr) throw verifyErr;
       toast.success('MFA ativado com sucesso!');
       setIsEnrollingMfa(false);
+      setTotpFactorId(null);
       setTotpSecret(null);
       setTotpUrl(null);
       setTotpPin('');
     } catch (e: any) {
-       toast.error(e.message || 'Código inválido');
+      toast.error(e.message || 'Código inválido');
     }
   };
 
@@ -217,16 +215,12 @@ export function SettingsPage(props: any) {
       const promises = Object.keys(editingRolePermissions).map(async (role) => {
          const perms = editingRolePermissions[role];
          // Search by tenant_id and role_name
-         const q = query(collection(db, "role_permissions"), orderBy('role_name'));
-         // Just to be safe, query using where. But we don't have composite index maybe?
-         // Let's just use doc ID like `tenant_id_role_name`
-         const docId = `${tenantId}_${role}`;
-         await setDoc(doc(db, 'role_permissions', docId), {
+         // S99 — role_permissions via Supabase
+         await supabase.from('role_permissions').upsert({
             tenant_id: tenantId,
             role_name: role,
             permissions: perms,
-            updatedAt: new Date()
-         }, { merge: true });
+         }, { onConflict: 'tenant_id,role_name' });
       });
       
       await Promise.all(promises);
@@ -294,8 +288,7 @@ export function SettingsPage(props: any) {
     
     setIsSavingSso(true);
     try {
-      const docRef = doc(db, 'tenants', tenantId);
-      await setDoc(docRef, { sso_config: { domain: ssoDomain.trim() } }, { merge: true });
+      await supabase.from('tenants').update({ sso_config: { domain: ssoDomain.trim() } }).eq('id', tenantId);
       toast.success('Configurações de SSO salvas com sucesso!');
     } catch (e: any) {
       toast.error('Erro ao salvar as configurações: ' + e.message);
@@ -321,32 +314,25 @@ export function SettingsPage(props: any) {
 
   useEffect(() => {
     if (!tenantId || tenantId === 'DEFAULT_TENANT') return;
-    const unsub = onSnapshot(doc(db, "tenants", tenantId, "settings", "theme"), (snap) => {
-       if (snap.exists()) {
-           setThemeConfig(prev => ({ ...prev, ...snap.data() }));
-       }
-    });
-    return () => unsub();
+    // S99 — theme from tenants table
+    supabase.from('tenants').select('theme').eq('id', tenantId).maybeSingle()
+      .then(({ data }) => { if (data?.theme) setThemeConfig((prev: any) => ({ ...prev, ...data.theme })); });
+    return () => {};
   }, [tenantId]);
 
   const saveThemeConfig = async () => {
      setIsSavingTheme(true);
-     try {
-        await setDoc(doc(db, "tenants", tenantId, "settings", "theme"), themeConfig, { merge: true });
-        toast.success("Tema salvo com sucesso!");
-     } catch(e) {
-        toast.error("Erro ao salvar tema.");
-     } finally {
-        setIsSavingTheme(false);
-     }
+     const { error } = await supabase.from('tenants').update({ theme: themeConfig }).eq('id', tenantId);
+     if (error) toast.error("Erro ao salvar tema."); else toast.success("Tema salvo com sucesso!");
+     setIsSavingTheme(false);
   };
 
   useEffect(() => {
     if (!tenantId || tenantId === 'DEFAULT_TENANT') return;
-    const unsub = onSnapshot(collection(db, "tenants", tenantId, "departments"), (snap) => {
-      setDepartments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-    return () => { unsub(); };
+    // S99 — departments from tenants JSONB column
+    supabase.from('tenants').select('departments').eq('id', tenantId).maybeSingle()
+      .then(({ data }) => setDepartments(data?.departments ?? []));
+    return () => {};
   }, [tenantId]);
 
   useEffect(() => {
@@ -359,24 +345,13 @@ export function SettingsPage(props: any) {
       })
       .catch(e => setVectorTestResult({ success: false, error: e.message }));
       
-    // Load config and fetch indexed count
+    // S99 — load config from Supabase
     const loadConfig = async () => {
-      const { getDoc, doc, collection, getDocs, query, where } = await import('firebase/firestore');
-      const snap = await getDoc(doc(db, 'tenants', tenantId));
-      if (snap.exists()) {
-        const d = snap.data();
-        if (d.vector_store_config) {
-          setVectorConfig(d.vector_store_config);
-        }
-        if (d.sso_config?.domain) {
-          setSsoDomain(d.sso_config.domain);
-        }
-      }
-
-      try {
-        const kbSnap = await getDocs(query(collection(db, 'knowledge_base'), where('tenant_id', '==', tenantId), where('vector_indexed', '==', true)));
-        setIndexedCount(kbSnap.size);
-      } catch (e) { console.error(e); }
+      const { data } = await supabase.from('tenants').select('vector_store_config,sso_config').eq('id', tenantId).maybeSingle();
+      if (data?.vector_store_config) setVectorConfig(data.vector_store_config);
+      if (data?.sso_config?.domain) setSsoDomain(data.sso_config.domain);
+      const { count } = await supabase.from('knowledge_articles').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('vector_indexed', true);
+      setIndexedCount(count ?? 0);
     };
     loadConfig();
   }, [tenantId]);
@@ -400,14 +375,8 @@ export function SettingsPage(props: any) {
   };
 
   const saveVectorConfig = async () => {
-    try {
-      const { doc, setDoc } = await import('firebase/firestore');
-      await setDoc(doc(db, 'tenants', tenantId), { vector_store_config: vectorConfig }, { merge: true });
-      toast.success("Configuração do Banco Vetorial salva");
-      testVectorStore();
-    } catch (e: any) {
-      toast.error("Erro ao salvar config: " + e.message);
-    }
+    const { error } = await supabase.from('tenants').update({ vector_store_config: vectorConfig }).eq('id', tenantId);
+    if (error) toast.error("Erro ao salvar config"); else { toast.success("Configuração do Banco Vetorial salva"); testVectorStore(); }
   };
 
   const startReindex = async () => {
@@ -428,37 +397,29 @@ export function SettingsPage(props: any) {
 
   
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'tenants', tenantId), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data.monthly_token_limit) setTenantTokenLimit(data.monthly_token_limit);
-        if (data.worker_concurrency) setWorkerConcurrency(data.worker_concurrency);
-        setBackupConfig({
-          backup_enabled: data.backup_enabled || false,
-          backup_bucket_name: data.backup_bucket_name || '',
-          gcp_project_id: data.gcp_project_id || '',
-          backup_hour: data.backup_hour || '02h',
-          backup_retention_days: data.backup_retention_days || 30,
-          last_backup_at: data.last_backup_at ? data.last_backup_at.toDate().toLocaleString() : null,
-          last_backup_status: data.last_backup_status || null,
-          last_backup_size_mb: data.last_backup_size_mb || null,
-          last_backup_error: data.last_backup_error || null
-        });
-      }
+    // S99 — tenant limits & backup config via Supabase
+    supabase.from('tenants').select('monthly_token_limit,worker_concurrency,backup_enabled,backup_bucket_name,gcp_project_id,backup_hour,backup_retention_days,last_backup_at,last_backup_status,last_backup_size_mb,last_backup_error').eq('id', tenantId).maybeSingle().then(({ data }) => {
+      if (!data) return;
+      if (data.monthly_token_limit) setTenantTokenLimit(data.monthly_token_limit);
+      if (data.worker_concurrency) setWorkerConcurrency(data.worker_concurrency);
+      setBackupConfig({
+        backup_enabled: data.backup_enabled || false,
+        backup_bucket_name: data.backup_bucket_name || '',
+        gcp_project_id: data.gcp_project_id || '',
+        backup_hour: data.backup_hour || '02h',
+        backup_retention_days: data.backup_retention_days || 30,
+        last_backup_at: data.last_backup_at ? new Date(data.last_backup_at).toLocaleString('pt-BR') : null,
+        last_backup_status: data.last_backup_status || null,
+        last_backup_size_mb: data.last_backup_size_mb || null,
+        last_backup_error: data.last_backup_error || null
+      });
     });
-    return () => unsub();
+    return () => {};
   }, [tenantId]);
 
   const saveTokenLimit = async (val: number, conc: number) => {
-    try {
-      await updateDoc(doc(db, 'tenants', tenantId), { 
-        monthly_token_limit: val,
-        worker_concurrency: conc 
-      });
-      toast.success("Limites salvos com sucesso!");
-    } catch (e) {
-      toast.error("Erro ao salvar limites");
-    }
+    const { error } = await supabase.from('tenants').update({ monthly_token_limit: val, worker_concurrency: conc }).eq('id', tenantId);
+    if (error) toast.error("Erro ao salvar limites"); else toast.success("Limites salvos com sucesso!");
   };
 
   const [webhookUrlDisplay, setWebhookUrlDisplay] = useState(`${window.location.origin}/api/webhook/evolution`);
@@ -470,12 +431,10 @@ export function SettingsPage(props: any) {
 
   useEffect(() => {
      if (!tenantId || tenantId === 'DEFAULT_TENANT') return;
-     const unsub = onSnapshot(collection(db, "holidays", tenantId, "dates"), (snap) => {
-        const list = snap.docs.map(doc => doc.data());
-        list.sort((a,b) => a.date.localeCompare(b.date));
-        setHolidays(list);
-     });
-     return () => unsub();
+     // S99 — holidays stored in tenants.holidays JSONB
+     supabase.from('tenants').select('holidays').eq('id', tenantId).maybeSingle()
+       .then(({ data }) => { const list = data?.holidays ?? []; setHolidays([...list].sort((a: any, b: any) => a.date.localeCompare(b.date))); });
+     return () => {};
   }, [tenantId]);
 
   const handleFetchHolidays = async () => {
@@ -505,8 +464,9 @@ export function SettingsPage(props: any) {
           return;
       }
       try {
-          const ref = doc(db, "holidays", tenantId, "dates", newHoliday.date);
-          await setDoc(ref, newHoliday, { merge: true });
+          const updated = [...holidays.filter((h: any) => h.date !== newHoliday.date), newHoliday];
+          await supabase.from('tenants').update({ holidays: updated }).eq('id', tenantId);
+          setHolidays(updated.sort((a: any, b: any) => a.date.localeCompare(b.date)));
           toast.success("Feriado adicionado!");
           setNewHoliday({ date: '', name: '', type: 'municipal' });
       } catch(e) {
@@ -516,7 +476,9 @@ export function SettingsPage(props: any) {
 
   const handleDeleteHoliday = async (date: string) => {
       try {
-          await deleteDoc(doc(db, "holidays", tenantId, "dates", date));
+          const updated = holidays.filter((h: any) => h.date !== date);
+          await supabase.from('tenants').update({ holidays: updated }).eq('id', tenantId);
+          setHolidays(updated);
           toast.success("Feriado removido");
       } catch(e) {
           toast.error("Erro ao remover");
@@ -796,7 +758,7 @@ export function SettingsPage(props: any) {
 
   const saveBackupConfig = async (key: string, value: any) => {
     try {
-      await updateDoc(doc(db, 'tenants', tenantId), { [key]: value });
+      await supabase.from('tenants').update({ [key]: value }).eq('id', tenantId);
       toast.success(`Configuração de backup atualizada!`);
     } catch (e) {
       toast.error("Erro ao salvar configuração.");
@@ -888,7 +850,7 @@ export function SettingsPage(props: any) {
       toast.info('Salvando configurações...', { id: 'save-settings' });
       // Clean object to ensure no functions are passed to setDoc
       const cleanSettings = JSON.parse(JSON.stringify(companySettings));
-      await setDoc(doc(db, 'settings', 'company'), cleanSettings, { merge: true });
+      await supabase.from('tenants').update(cleanSettings).eq('id', tenantId);
       toast.success('Configurações salvas no banco de dados com sucesso!', { id: 'save-settings' });
     } catch (error) {
       console.error(error);
@@ -911,10 +873,12 @@ export function SettingsPage(props: any) {
   const handleSaveDepartment = async () => {
     if (!deptForm.name) return toast.error("Nome do departamento é obrigatório");
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? '';
       if (editingDeptId && editingDeptId !== 'new') {
         const res = await fetch(`/api/departments/${editingDeptId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await auth.currentUser?.getIdToken()}` },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify(deptForm)
         });
         if (!res.ok) throw new Error(await res.text());
@@ -922,7 +886,7 @@ export function SettingsPage(props: any) {
       } else {
         const res = await fetch(`/api/departments`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await auth.currentUser?.getIdToken()}` },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify(deptForm)
         });
         if (!res.ok) throw new Error(await res.text());
@@ -937,9 +901,11 @@ export function SettingsPage(props: any) {
   const handleDeleteDepartment = async (id: string) => {
     if (!confirm("Tem certeza que deseja excluir?")) return;
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? '';
       const res = await fetch(`/api/departments/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${await auth.currentUser?.getIdToken()}` }
+        headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) throw new Error(await res.text());
       toast.success("Departamento removido");
@@ -1077,7 +1043,7 @@ export function SettingsPage(props: any) {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
                            toast.success('Configurações MK-Auth salvas com sucesso!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
@@ -1249,7 +1215,7 @@ export function SettingsPage(props: any) {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
                            toast.success('Configurações RD Station salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
@@ -1274,7 +1240,7 @@ export function SettingsPage(props: any) {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
                            toast.success('Configurações Pipedrive salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
@@ -1299,7 +1265,7 @@ export function SettingsPage(props: any) {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
                            toast.success('Configurações HubSpot salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
@@ -1332,7 +1298,7 @@ export function SettingsPage(props: any) {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
                            toast.success('Configurações salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
@@ -1365,7 +1331,7 @@ export function SettingsPage(props: any) {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
                            toast.success('Configurações salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
@@ -1388,7 +1354,7 @@ export function SettingsPage(props: any) {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
                            toast.success('Configurações salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
@@ -1420,7 +1386,7 @@ export function SettingsPage(props: any) {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
                            toast.success('Configurações salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
@@ -1443,7 +1409,7 @@ export function SettingsPage(props: any) {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
                            toast.success('Configurações salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
@@ -1466,7 +1432,7 @@ export function SettingsPage(props: any) {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
                            toast.success('Configurações salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
@@ -1489,7 +1455,7 @@ export function SettingsPage(props: any) {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
                            toast.success('Configurações salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
@@ -1520,7 +1486,7 @@ export function SettingsPage(props: any) {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
                            toast.success('Configurações salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
@@ -1543,7 +1509,7 @@ export function SettingsPage(props: any) {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
                            toast.success('Configurações salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
@@ -1566,7 +1532,7 @@ export function SettingsPage(props: any) {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await setDoc(doc(db, 'tenants', tenantId), { integrations: integrationKeys }, { merge: true });
+                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
                            toast.success('Configurações salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
@@ -2134,14 +2100,14 @@ export function SettingsPage(props: any) {
                             <h3 className="text-sm font-semibold">Autenticação de Dois Fatores (2FA)</h3>
                             <p className="text-xs text-zinc-500">Adicione uma camada extra de segurança utilizando o Google Authenticator ou similar.</p>
                           </div>
-                          {!totpSecret && (
+                          {!totpFactorId && (
                              <Button onClick={startMfaEnrollment} disabled={isEnrollingMfa}>
                                Ativar 2FA
                              </Button>
                           )}
                         </div>
 
-                        {totpSecret && totpUrl && (
+                        {totpFactorId && totpUrl && (
                            <div className="p-4 bg-zinc-50 dark:bg-zinc-800 rounded-md flex flex-col items-center gap-4">
                              <p className="text-sm">Escaneie o QR Code abaixo com seu aplicativo de autenticação (ex: Google Authenticator)</p>
                              <div className="bg-white p-2 rounded-md">
@@ -2159,6 +2125,7 @@ export function SettingsPage(props: any) {
                              {mfaError && <p className="text-xs text-red-500">{mfaError}</p>}
                              <div className="flex gap-2 w-full max-w-sm">
                                <Button variant="outline" className="flex-1" onClick={() => {
+                                 setTotpFactorId(null);
                                  setTotpSecret(null);
                                  setTotpUrl(null);
                                  setIsEnrollingMfa(false);

@@ -16,8 +16,7 @@ import { Avatar, AvatarFallback } from '@/src/components/ui/avatar';
 import { cn } from '@/src/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/src/components/ui/dialog";
 import { useAppStore } from '@/src/store/useAppStore';
-import { db } from '@/src/lib/firebase';
-import { doc, updateDoc, setDoc, deleteDoc, collection } from 'firebase/firestore';
+import { supabase } from '@/src/lib/supabase';
 
 export function WhatsAppConnectionsPage({
   integrationKeys,
@@ -86,19 +85,17 @@ export function WhatsAppConnectionsPage({
     if (tId && tId !== 'default') {
       const instanceNames = newConnections.map(c => c.instanceName);
       try {
-        await updateDoc(doc(db, 'tenants', tId), { evolution_instances: instanceNames });
-        
-        await setDoc(doc(db, 'whatsapp_instances', tId), { tenantId: tId }, { merge: true });
+        // S99 — salva instâncias na tabela tenant_evolution_instances (migration 022)
+        await supabase.from('tenants').update({ evolution_instances: instanceNames }).eq('id', tId);
         for (const conn of newConnections) {
-          await setDoc(doc(db, 'whatsapp_instances', tId, 'instances', conn.instanceName), {
-            instance_id: conn.instanceName,
+          await supabase.from('tenant_evolution_instances').upsert({
+            tenant_id: tId,
+            instance_name: conn.instanceName,
             label: conn.alias,
-            phone_number: conn.phoneNumber || '',
+            phone_number: conn.phoneNumber || null,
             status: connStates[conn.id]?.status || 'disconnected',
             ai_enabled: true,
-            ai_persona_id: null,
-            department_id: null
-          }, { merge: true });
+          }, { onConflict: 'tenant_id,instance_name' });
         }
       } catch(e) {
         console.warn("Could not update tenants evolution_instances", e);
@@ -128,7 +125,7 @@ export function WhatsAppConnectionsPage({
     const tId = companySettings?.tenant_id || user?.tenantId;
     if (tId && tId !== 'default' && instanceName) {
        try {
-         await deleteDoc(doc(db, 'whatsapp_instances', tId, 'instances', instanceName));
+         await supabase.from('tenant_evolution_instances').delete().eq('tenant_id', tId).eq('instance_name', instanceName);
        } catch (e) {
          console.warn("Failed to delete instance doc", e);
        }

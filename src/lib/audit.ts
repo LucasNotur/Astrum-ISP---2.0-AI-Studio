@@ -1,5 +1,5 @@
 import { adminDb as db } from './firebaseAdmin';
-import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { FieldValue, CompatTimestamp as Timestamp } from './db-compat';
 
 export type AuditEventType = 
   | 'DATA_ACCESS' 

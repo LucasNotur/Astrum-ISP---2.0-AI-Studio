@@ -31,13 +31,24 @@ async function startServer() {
 
   app.get("/api/test", (req, res) => res.send("TEST SUCCESS"));
 
-  app.get("/api/health", (req, res) => {
-    res.json({
-      status: "ok",
+  app.get("/api/health", async (req, res) => {
+    // Bug S68: expor o estado de boot do Fastify v2 (antes falhas eram invisíveis).
+    let fastify = { booted: false, bootFailed: false, lastError: null as string | null };
+    try {
+      const { getBootState } = await import("./apps/api/src/infrastructure/observability/boot-state.ts");
+      const s = getBootState();
+      fastify = { booted: s.fastifyBooted, bootFailed: s.fastifyBootFailed, lastError: s.lastError };
+    } catch { /* módulo pode não ter carregado */ }
+
+    res.status(fastify.bootFailed ? 503 : 200).json({
+      status: fastify.bootFailed ? "degraded" : "ok",
       timestamp: new Date().toISOString(),
       services: {
         openai_circuit: getLLMStatus().openai,
         llm_router: getLLMStatus().router,
+        fastify_boot_failed: fastify.bootFailed,
+        fastify_booted: fastify.booted,
+        fastify_boot_error: fastify.lastError,
       }
     });
   });
@@ -68,8 +79,7 @@ async function startServer() {
 
   const distPath = path.join(process.cwd(), 'dist/client');
   app.use(express.static(distPath));
-  app.use('/app/applet', express.static(distPath + '/app/applet'));
-  
+
   let vite: any;
   if (process.env.NODE_ENV !== "production") {
     const { createServer: createViteServer } = await import("vite");
@@ -89,12 +99,10 @@ async function startServer() {
       }
       
       const distIndex = path.join(process.cwd(), 'dist/client/index.html');
-      const distAppletIndex = path.join(process.cwd(), 'dist/client/app/applet/index.html');
       const rootIndex = path.join(process.cwd(), 'index.html');
-      
+
       let finalIndex = '';
       if (fs.existsSync(distIndex)) finalIndex = distIndex;
-      else if (fs.existsSync(distAppletIndex)) finalIndex = distAppletIndex;
       else if (fs.existsSync(rootIndex)) finalIndex = rootIndex;
       else {
          return res.status(404).send("No index.html found anywhere.");

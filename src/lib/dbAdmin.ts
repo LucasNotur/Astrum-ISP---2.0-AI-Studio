@@ -1,4 +1,4 @@
-import { adminDb as db, adminAuth as auth } from "./firebaseAdmin";
+import { adminDb as db } from "./firebaseAdmin";
 import admin from "./firebaseAdmin";
 import { logger } from "./logger";
 import forge from "node-forge";

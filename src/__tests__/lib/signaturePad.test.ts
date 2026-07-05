@@ -3,19 +3,18 @@ import '@testing-library/jest-dom';
 import { createElement } from 'react';
 import { render, fireEvent } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
+
+// FZ-5: uploads agora vão para o Supabase Storage via lib/storage.uploadTenantFile
+const mockUploadTenantFile = vi.fn(
+  async (_tenantId: string, category: string, filename: string) =>
+    `https://mock.url/tenants/t1/${category}/${filename}`,
+);
+vi.mock('../../lib/storage', () => ({
+  uploadTenantFile: (...args: any[]) => mockUploadTenantFile(...(args as [string, string, string])),
+}));
+
 import { SignaturePad } from '../../components/SignaturePad';
 import { processSignatureAndPdf } from '../../lib/signaturePad';
-import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-
-vi.mock('firebase/storage', () => ({
-  ref: vi.fn((storage, path) => path),
-  uploadString: vi.fn(),
-  getDownloadURL: vi.fn().mockResolvedValue('https://mock.url')
-}));
-
-vi.mock('../../lib/firebase', () => ({
-  storage: {}
-}));
 
 const validPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
@@ -25,8 +24,10 @@ describe('SignaturePad and PDF generation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     toDataURLMock = vi.fn().mockReturnValue(validPng);
-    
-    // Mock HTMLCanvasElement.prototype.toDataURL
+
+    // data_url → Blob usa fetch; jsdom não implementa fetch de data URLs
+    (global.fetch as any) = vi.fn().mockResolvedValue({ blob: async () => new Blob(['x']) });
+
     window.HTMLCanvasElement.prototype.toDataURL = toDataURLMock;
     window.HTMLCanvasElement.prototype.getContext = vi.fn().mockReturnValue({
       fillStyle: '',
@@ -47,8 +48,7 @@ describe('SignaturePad and PDF generation', () => {
         className: ""
       })
     );
-    
-    // Simula uma assinatura no the canvas
+
     const btn = getByText('Confirmar Assinatura');
     fireEvent.click(btn);
 
@@ -64,9 +64,8 @@ describe('SignaturePad and PDF generation', () => {
       selectedOs: { client: 'A', address: 'B' },
       signatureData: validPng
     });
-    
-    expect(ref).toHaveBeenCalledWith(expect.anything(), 'tenants/t1/signatures/os1.png');
-    expect(uploadString).toHaveBeenCalledWith('tenants/t1/signatures/os1.png', validPng, 'data_url');
+
+    expect(mockUploadTenantFile).toHaveBeenCalledWith('t1', 'signatures', 'os1.png', expect.anything());
   });
 
   it('3. PDF gerado → contém signature_url não nulo no documento da OS', async () => {
@@ -76,26 +75,24 @@ describe('SignaturePad and PDF generation', () => {
       selectedOs: { client: 'A', address: 'B' },
       signatureData: validPng
     });
-    
+
     expect(res.signature_url).not.toBeNull();
-    expect(res.signature_url).toBe('https://mock.url');
+    expect(res.signature_url).toContain('signatures/os1.png');
   });
 
   it('4. PDF salvo → path correto: tenants/{tenantId}/contracts/{osId}.pdf', async () => {
-    await processSignatureAndPdf({
+    const res = await processSignatureAndPdf({
       tenantId: 't1',
       osId: 'os1',
       selectedOs: { client: 'A', address: 'B' },
       signatureData: validPng
     });
-    
-    expect(ref).toHaveBeenCalledWith(expect.anything(), 'tenants/t1/contracts/os1.pdf');
-    // Ensure uploadString was called for PDF
-    expect(uploadString).toHaveBeenCalledWith('tenants/t1/contracts/os1.pdf', expect.stringContaining('data:application/pdf'), 'data_url');
+
+    expect(mockUploadTenantFile).toHaveBeenCalledWith('t1', 'contracts', 'os1.pdf', expect.anything());
+    expect(res.contract_url).toContain('contracts/os1.pdf');
   });
 
   it('5. Canvas vazio → botão Confirmar bloqueado ou PDF não gerado', async () => {
-    // Para testar "PDF não gerado"
     await expect(processSignatureAndPdf({
       tenantId: 't1',
       osId: 'os1',
@@ -105,7 +102,7 @@ describe('SignaturePad and PDF generation', () => {
   });
 
   it('6. Falha no upload → OS não marcada como concluída', async () => {
-    (uploadString as any).mockRejectedValueOnce(new Error('Upload error'));
+    mockUploadTenantFile.mockRejectedValueOnce(new Error('Upload error'));
 
     let err: Error | null = null;
     try {
@@ -118,10 +115,7 @@ describe('SignaturePad and PDF generation', () => {
     } catch (e: any) {
       err = e;
     }
-
-    expect(err).toBeDefined();
-    expect(err?.message).toBe('Upload error');
-    // Em TecnichianAppPage, se isso dá throw, o updateOsStatus chamará o reject antes de atualizar.
-    // Garantimos que a Exception é propagada para não marcar a OS como concluída.
+    expect(err).not.toBeNull();
+    expect(err!.message).toContain('Upload error');
   });
 });

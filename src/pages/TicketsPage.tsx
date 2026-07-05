@@ -11,8 +11,7 @@ import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger }
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
 
-import { db } from '@/src/lib/firebase';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { supabase } from '@/src/lib/supabase';
 import { useTenantDate } from '@/src/hooks/useTenantDate';
 
 export function TicketsPage({ onNewTicketClick }: { onNewTicketClick: () => void }) {
@@ -25,12 +24,21 @@ export function TicketsPage({ onNewTicketClick }: { onNewTicketClick: () => void
 
   const [departments, setDepartments] = useState<any[]>([]);
 
+  // S99 — departamentos via Supabase (coluna department_id nos tickets)
   React.useEffect(() => {
     if (!userProfile?.tenantId) return;
-    const unsub = onSnapshot(collection(db, "tenants", userProfile.tenantId, "departments"), (snap) => {
-      setDepartments(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-    return () => unsub();
+    supabase
+      .from('tickets')
+      .select('department_id')
+      .eq('tenant_id', userProfile.tenantId)
+      .not('department_id', 'is', null)
+      .then(({ data }) => {
+        if (data) {
+          const unique = [...new Set(data.map((r: any) => r.department_id))]
+            .map((id) => ({ id, name: id }));
+          setDepartments(unique);
+        }
+      });
   }, [userProfile?.tenantId]);
 
   const getSLAStatus = (ticket: any) => {
