@@ -1,26 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { makeNodeGenerate } from './generate.node';
+import { initialState } from '../agent.state';
 
 async function* makeTextStream(chunks: string[]) {
   for (const c of chunks) yield c;
 }
 
-const { mockStreamWithTools, mockExecute } = vi.hoisted(() => ({
-  mockStreamWithTools: vi.fn(),
-  mockExecute: vi.fn(),
-}));
+const mockStreamWithTools = vi.fn();
+const mockExecute = vi.fn();
+const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
-vi.mock('../../../infrastructure/ai/vercel-ai.service', () => ({
-  vercelAIService: { streamWithTools: mockStreamWithTools },
-}));
-
-vi.mock('../../../infrastructure/ai/tools.executor', () => ({
-  ToolsExecutor: function ToolsExecutor(this: any) {
-    this.execute = mockExecute;
-  },
-}));
-
-import { nodeGenerate } from './generate.node';
-import { initialState } from '../agent.state';
+const nodeGenerate = makeNodeGenerate({
+  ai: { streamWithTools: mockStreamWithTools },
+  createTools: () => ({ execute: mockExecute }),
+  logger,
+});
 
 function makeState(overrides: Record<string, any> = {}) {
   return {
@@ -58,13 +52,13 @@ describe('nodeGenerate', () => {
     );
   });
 
-  it('contextos ausentes não geram separadores extras', async () => {
+  it('contextos ausentes → systemContext vazio', async () => {
     await nodeGenerate(makeState({ ragContext: '', dbContext: '', zepContext: '' }));
     const callArgs = mockStreamWithTools.mock.calls[0];
     expect(callArgs?.[1]).toBe('');
   });
 
-  it('tool callback invocado executa ToolsExecutor e registra em toolsExecuted', async () => {
+  it('tool callback registra em toolsExecuted', async () => {
     mockExecute.mockResolvedValue({ status: 'ok' });
     let capturedCallback: Function | undefined;
 

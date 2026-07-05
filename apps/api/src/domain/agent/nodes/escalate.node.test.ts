@@ -1,15 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-
-const mockInsert = vi.fn().mockResolvedValue({ data: null, error: null });
-
-vi.mock('../../../infrastructure/database/supabase.client', () => ({
-  supabase: {
-    from: vi.fn(() => ({ insert: mockInsert })),
-  },
-}));
-
-import { nodeEscalate } from './escalate.node';
+import { makeNodeEscalate } from './escalate.node';
 import { initialState } from '../agent.state';
+
+const mockCreateTicket = vi.fn().mockResolvedValue(undefined);
+const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+const nodeEscalate = makeNodeEscalate({ db: { fetchCustomer: vi.fn(), createTicket: mockCreateTicket }, logger });
 
 function makeState(overrides: Record<string, any> = {}) {
   return {
@@ -21,9 +16,9 @@ function makeState(overrides: Record<string, any> = {}) {
 describe('nodeEscalate', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
-  it('cria ticket no Supabase com tenant e customerId corretos', async () => {
+  it('cria ticket com tenant e customerId corretos', async () => {
     await nodeEscalate(makeState({ validationIssue: 'Alucinação detectada' }));
-    expect(mockInsert).toHaveBeenCalledWith(
+    expect(mockCreateTicket).toHaveBeenCalledWith(
       expect.objectContaining({ tenant_id: 't1', customer_id: 'c1' })
     );
   });
@@ -35,28 +30,28 @@ describe('nodeEscalate', () => {
     expect((r.response as string).length).toBeGreaterThan(10);
   });
 
-  it('usa validationIssue como razão quando disponível', async () => {
+  it('usa validationIssue no título do ticket', async () => {
     await nodeEscalate(makeState({ validationIssue: 'Resposta fora do contexto ISP' }));
-    const insertCall = mockInsert.mock.calls[0]?.[0];
-    expect(insertCall?.title).toContain('Resposta fora do contexto ISP');
+    const call = mockCreateTicket.mock.calls[0]?.[0];
+    expect(call?.title).toContain('Resposta fora do contexto ISP');
   });
 
   it('usa escalationReason quando validationIssue é ausente', async () => {
     await nodeEscalate(makeState({ escalationReason: 'Cliente solicitou humano' }));
-    const insertCall = mockInsert.mock.calls[0]?.[0];
-    expect(insertCall?.title).toContain('Cliente solicitou humano');
+    const call = mockCreateTicket.mock.calls[0]?.[0];
+    expect(call?.title).toContain('Cliente solicitou humano');
   });
 
-  it('urgência high → prioridade urgent no ticket', async () => {
+  it('urgência high → prioridade urgent', async () => {
     await nodeEscalate(makeState({ urgency: 'high' }));
-    const insertCall = mockInsert.mock.calls[0]?.[0];
-    expect(insertCall?.priority).toBe('urgent');
+    const call = mockCreateTicket.mock.calls[0]?.[0];
+    expect(call?.priority).toBe('urgent');
   });
 
-  it('urgência normal → prioridade high no ticket', async () => {
+  it('urgência normal → prioridade high', async () => {
     await nodeEscalate(makeState({ urgency: 'normal' }));
-    const insertCall = mockInsert.mock.calls[0]?.[0];
-    expect(insertCall?.priority).toBe('high');
+    const call = mockCreateTicket.mock.calls[0]?.[0];
+    expect(call?.priority).toBe('high');
   });
 
   it('adiciona "escalate" ao array steps', async () => {
