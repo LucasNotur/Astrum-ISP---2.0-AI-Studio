@@ -36,6 +36,15 @@ export const AgentStateSchema = z.object({
   dbContext: z.string().optional(),
   zepContext: z.string().optional(),
 
+  // CRAG (nós: grade_context, rewrite_query, self_check) — IA-01
+  contextGrade: z.enum(['relevant', 'ambiguous', 'irrelevant']).optional(),
+  contextConfidence: z.number().min(0).max(1).optional(),
+  retrievalAttempts: z.number().default(0),
+  rewrittenQuery: z.string().optional(),
+  selfCheckPassed: z.boolean().optional(),
+  selfCheckIssues: z.array(z.string()).optional(),
+  regenerationAttempts: z.number().default(0),
+
   // Ferramentas executadas (Function Calling)
   toolsExecuted: z.array(z.object({
     name: z.string(),
@@ -75,4 +84,6 @@ export const initialState = (input: {
   startedAt: new Date().toISOString(),
   tokensUsed: 0,
   toolsExecuted: [],
+  retrievalAttempts: 0,
+  regenerationAttempts: 0,
 });

@@ -9,9 +9,13 @@ import {
   nodeValidate,
   nodeEscalate,
   nodeBlock,
+  nodeGradeContext,
+  nodeRewriteQuery,
+  nodeSelfCheck,
 } from './agent.nodes';
 import type { ILoggerPort } from '../ports/logger.port';
 import { infraLogger } from '../../infrastructure/logging/logger';
+import { isCragEnabled } from '../ports/crag.port';
 
 /**
  * LangGraph Agent Service
@@ -44,6 +48,14 @@ function buildAgentGraph() {
       ragContext: { value: (x, y) => y ?? x },
       dbContext: { value: (x, y) => y ?? x },
       zepContext: { value: (x, y) => y ?? x },
+      // CRAG — IA-01 (campo novo SEM channel = patch descartado silenciosamente)
+      contextGrade: { value: (x, y) => y ?? x },
+      contextConfidence: { value: (x, y) => y ?? x },
+      retrievalAttempts: { value: (x, y) => y ?? x, default: () => 0 },
+      rewrittenQuery: { value: (x, y) => y ?? x },
+      selfCheckPassed: { value: (x, y) => y ?? x },
+      selfCheckIssues: { value: (x, y) => y ?? x },
+      regenerationAttempts: { value: (x, y) => y ?? x, default: () => 0 },
       toolsExecuted: { value: (x, y) => y ?? x, default: () => [] },
       response: { value: (x, y) => y ?? x },
       streamTokens: { value: (x, y) => y ?? x },
@@ -68,13 +80,21 @@ function buildAgentGraph() {
   graph.addNode('validate', nodeValidate as any);
   graph.addNode('escalate', nodeEscalate as any);
   graph.addNode('block', nodeBlock as any);
+  // CRAG — IA-01
+  graph.addNode('grade_context', nodeGradeContext as any);
+  graph.addNode('rewrite_query', nodeRewriteQuery as any);
+  graph.addNode('self_check', nodeSelfCheck as any);
 
   // ─── Edges lineares ──────────────────────────────────────────────────────
   graph.addEdge(START, 'classify' as any);
   graph.addEdge('classify' as any, 'guardrails' as any);
   graph.addEdge('decide_source' as any, 'fetch_context' as any);
-  graph.addEdge('fetch_context' as any, 'generate' as any);
-  graph.addEdge('generate' as any, 'validate' as any);
+  // CRAG: fetch_context → grade_context (em vez de → generate direto)
+  graph.addEdge('fetch_context' as any, 'grade_context' as any);
+  // CRAG: rewrite rebate de volta em fetch_context (loop corretivo máx 1×)
+  graph.addEdge('rewrite_query' as any, 'fetch_context' as any);
+  // CRAG: generate → self_check (em vez de → validate direto)
+  graph.addEdge('generate' as any, 'self_check' as any);
   graph.addEdge('escalate' as any, END);
   graph.addEdge('block' as any, END);
 
@@ -82,6 +102,23 @@ function buildAgentGraph() {
   graph.addConditionalEdges('guardrails' as any, (state: AgentState) => {
     if (!state.guardPassed) return 'block';
     return 'decide_source';
+  });
+
+  // CRAG — IA-01: roteia conforme a qualidade do contexto recuperado.
+  // Flag lida DENTRO do edge (não no import do singleton) p/ não congelar no boot.
+  graph.addConditionalEdges('grade_context' as any, (state: AgentState) => {
+    if (!isCragEnabled()) return 'generate';
+    if (state.contextGrade === 'relevant') return 'generate';
+    if (state.retrievalAttempts >= 1) return 'generate'; // máx 1 loop corretivo
+    return 'rewrite_query';
+  });
+
+  // CRAG — IA-01: resposta não-fundamentada NUNCA vai pro cliente — vira escalação.
+  // Flag off → straight to validate (comportamento atual preservado).
+  graph.addConditionalEdges('self_check' as any, (state: AgentState) => {
+    if (!isCragEnabled()) return 'validate';
+    if (state.selfCheckPassed) return 'validate';
+    return 'escalate';
   });
 
   graph.addConditionalEdges('validate' as any, (state: AgentState) => {

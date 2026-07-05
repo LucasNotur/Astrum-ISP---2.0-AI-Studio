@@ -162,6 +162,10 @@ describe('LangGraphService.processMessage — grafo completo', () => {
       }),
       nodeEscalate: async () => ({ response: 'escalado-humano', requiresHuman: true }),
       nodeBlock:    async () => ({ response: 'mensagem-bloqueada', requiresHuman: true }),
+      // CRAG — IA-01: pass-through p/ os caminhos herdados não acionarem LLM.
+      nodeGradeContext: async (state: any = { steps: [] }) => ({ steps: [...state.steps, 'grade_context'] }),
+      nodeRewriteQuery: async (state: any = { steps: [] }) => ({ steps: [...state.steps, 'rewrite_query'] }),
+      nodeSelfCheck:   async (state: any = { steps: [] }) => ({ steps: [...state.steps, 'self_check'] }),
     }));
   });
 
@@ -202,5 +206,125 @@ describe('LangGraphService.processMessage — grafo completo', () => {
     const out = await langGraphService.processMessage(input);
     expect(out.requiresHuman).toBe(true);
     expect(out.response).toContain('erro interno');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CRAG — IA-01: novos caminhos do grafo (grade_context / rewrite / self_check).
+// Mocka ./agent.nodes com controle dos retornos dos novos nós CRAG.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('CRAG — IA-01 caminhos', () => {
+  const input = {
+    tenantId: 't1', customerId: 'c1', conversationId: 'conv1',
+    userMessage: 'Qual o intervalo PPPoE do meu roteador?',
+  };
+
+  // Estado mutável compartilhado entre os mocks de cada nó.
+  const cragState = {
+    flag: 'false' as string,
+    grade: 'relevant' as 'relevant' | 'ambiguous' | 'irrelevant',
+    grounded: true as boolean,
+    fetchCalls: 0 as number,
+    rewriteCalled: false as boolean,
+  };
+
+  beforeEach(() => {
+    cragState.flag = 'false';
+    cragState.grade = 'relevant';
+    cragState.grounded = true;
+    cragState.fetchCalls = 0;
+    cragState.rewriteCalled = false;
+    vi.resetModules();
+    vi.stubEnv('CRAG_ENABLED', cragState.flag);
+    vi.doMock('./agent.nodes', () => ({
+      nodeClassify:     async () => ({ intent: 'support_technical' }),
+      nodeGuardrails:   async () => ({ guardPassed: true }),
+      nodeDecideSource: async () => ({ dataSource: 'qdrant' }),
+      nodeFetchContext: async () => {
+        cragState.fetchCalls += 1;
+        return { ragContext: 'contexto-fake', rewrittenQuery: cragState.rewriteCalled ? 'query-rewritten' : undefined };
+      },
+      nodeGenerate:     async () => ({ response: 'resposta-gerada' }),
+      nodeValidate:     async () => ({ validationPassed: true, requiresHuman: false }),
+      nodeEscalate:     async () => ({ response: 'escalado-humano', requiresHuman: true }),
+      nodeBlock:        async () => ({ response: 'mensagem-bloqueada', requiresHuman: true }),
+      nodeGradeContext: async (state: any) => ({
+        contextGrade: cragState.grade,
+        contextConfidence: 0.7,
+        steps: [...state.steps, 'grade_context'],
+      }),
+      nodeRewriteQuery: async (state: any) => {
+        cragState.rewriteCalled = true;
+        return {
+          rewrittenQuery: 'query-rewritten',
+          retrievalAttempts: (state.retrievalAttempts ?? 0) + 1,
+          steps: [...state.steps, 'rewrite_query'],
+        };
+      },
+      nodeSelfCheck: async (state: any) => ({
+        selfCheckPassed: cragState.grounded,
+        steps: [...state.steps, 'self_check'],
+      }),
+    }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it('flag off → geç钊 identidade byte-a-byte com o de hoje (resposta final = generate)', async () => {
+    cragState.flag = 'false';
+    vi.stubEnv('CRAG_ENABLED', 'false');
+    const { langGraphService } = await import('./langgraph.service');
+    const out = await langGraphService.processMessage(input);
+    expect(out.response).toBe('resposta-gerada');
+    expect(out.requiresHuman).toBe(false);
+    // grade_context irrelevant NÃO dispara rewrite quando flag off.
+    expect(cragState.rewriteCalled).toBe(false);
+  });
+
+  it('flag on + grade relevante → segue para generate sem rewrite', async () => {
+    cragState.flag = 'true';
+    vi.stubEnv('CRAG_ENABLED', 'true');
+    cragState.grade = 'relevant';
+    const { langGraphService } = await import('./langgraph.service');
+    const out = await langGraphService.processMessage(input);
+    expect(out.response).toBe('resposta-gerada');
+    expect(cragState.rewriteCalled).toBe(false);
+    expect(cragState.fetchCalls).toBe(1);
+  });
+
+  it('flag on + grade irrelevant → dispara 1 rewrite + re-fetch; depois gera', async () => {
+    cragState.flag = 'true';
+    vi.stubEnv('CRAG_ENABLED', 'true');
+    cragState.grade = 'irrelevant';
+    const { langGraphService } = await import('./langgraph.service');
+    const out = await langGraphService.processMessage(input);
+    expect(cragState.rewriteCalled).toBe(true);
+    expect(cragState.fetchCalls).toBe(2); // 1ª busca + 1 re-busca após rewrite
+    expect(out.response).toBe('resposta-gerada');
+  });
+
+  it('flag on + selfCheck reprova → termina em escalate (resposta NUNCA ao cliente)', async () => {
+    cragState.flag = 'true';
+    vi.stubEnv('CRAG_ENABLED', 'true');
+    cragState.grounded = false;
+    const { langGraphService } = await import('./langgraph.service');
+    const out = await langGraphService.processMessage(input);
+    expect(out.response).toBe('escalado-humano');
+    expect(out.requiresHuman).toBe(true);
+  });
+
+  it('loop nunca excede 1 rewrite (grade irrelevant persiste → gera mesmo assim)', async () => {
+    cragState.flag = 'true';
+    vi.stubEnv('CRAG_ENABLED', 'true');
+    cragState.grade = 'irrelevant'; // persiste para sempre
+    const { langGraphService } = await import('./langgraph.service');
+    const out = await langGraphService.processMessage(input);
+    // retrievalAttempts capitalize em 1: depois do 1º rewrite, grade irrelevant
+    // encontra retrievalAttempts>=1 → generate direto.
+    expect(cragState.fetchCalls).toBe(2);
+    expect(out.response).toBe('resposta-gerada');
   });
 });
