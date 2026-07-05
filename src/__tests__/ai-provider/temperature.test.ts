@@ -86,7 +86,7 @@ describe('Temperature settings in AI-Provider', () => {
   it('1. Persona com temperature=0.1 → chamada OpenAI usa { temperature: 0.1 }', async () => {
     const service = getTestService('openai');
     const adapter = new OpenAIAdapter();
-    service.adapters['openai'] = adapter;
+    (service as any).adapters['openai'] = adapter;
 
     await service.chat('chat', [{ role: 'user', content: 'hello' }], 'tenant123', { temperature: 0.1 });
 
@@ -100,7 +100,7 @@ describe('Temperature settings in AI-Provider', () => {
   it('2. Persona com temperature=0.9 → chamada Gemini usa generationConfig: { temperature: 0.9 }', async () => {
     const service = getTestService('gemini');
     const adapter = new GeminiAdapter();
-    service.adapters['gemini'] = adapter;
+    (service as any).adapters['gemini'] = adapter;
 
     await service.chat('chat', [{ role: 'user', content: 'hello' }], 'tenant123', { temperature: 0.9 });
 
@@ -116,7 +116,7 @@ describe('Temperature settings in AI-Provider', () => {
   it('3. Anthropic com qualquer temperature → usa 0.7 fixo sem lançar erro', async () => {
     const service = getTestService('anthropic');
     const adapter = new AnthropicAdapter();
-    service.adapters['anthropic'] = adapter;
+    (service as any).adapters['anthropic'] = adapter;
 
     await service.chat('chat', [{ role: 'user', content: 'hello' }], 'tenant123', { temperature: 0.9 });
 
@@ -130,7 +130,7 @@ describe('Temperature settings in AI-Provider', () => {
   it('4. Persona sem temperature definido → usa padrão 0.7 (não undefined)', async () => {
     const service = getTestService('openai');
     const adapter = new OpenAIAdapter();
-    service.adapters['openai'] = adapter;
+    (service as any).adapters['openai'] = adapter;
 
     // Call without temperature in options OR config
     await service.chat('chat', [{ role: 'user', content: 'hello' }], 'tenant123');

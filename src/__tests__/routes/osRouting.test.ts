@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import express from 'express';
 import request from 'supertest';
-import { osRoutingRouter, optimizeRoute, JSData, dbMock, getOSStatus, OS } from '../../routes/osRouting';
+import { osRoutingRouter, optimizeRoute, dbMock, getOSStatus, OS } from '../../routes/osRouting';
 
 const app = express();
 app.use(express.json());

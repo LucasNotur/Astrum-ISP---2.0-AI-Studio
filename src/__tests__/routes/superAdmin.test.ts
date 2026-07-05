@@ -32,7 +32,7 @@ const mockCollection = vi.fn(() => ({
 vi.mock('../../lib/firebaseAdmin.ts', () => {
   return {
     adminDb: {
-      collection: (...args: [any]) => mockCollection(...args),
+      collection: (...args: [any]) => (mockCollection as any)(...args),
     },
   };
 });

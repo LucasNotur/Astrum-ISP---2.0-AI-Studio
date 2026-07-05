@@ -89,7 +89,7 @@ vi.mock('../../../../apps/api/src/infrastructure/security/hmac.service', () => (
 describe('Multi Instance Tests', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
-    mockCollection.mockImplementation((path: string) => {
+    (mockCollection as any).mockImplementation((path: string) => {
       const getMock = vi.fn().mockResolvedValue({
           empty: false, exists: true, docs: [{ id: 'mock', data: () => ({ avatar: 'pic' }) }],
           data: () => ({ plan: 'PRO', evolution_api_url: 'http://test', evolution_api_key: 'test', bot_default_agent: true, tts_enabled: true })
@@ -130,7 +130,7 @@ describe('Multi Instance Tests', () => {
       }
     };
     
-    mockCollection.mockImplementation((path: string) => {
+    (mockCollection as any).mockImplementation((path: string) => {
       const getMock = vi.fn().mockResolvedValue({
           empty: false, exists: true, docs: [{ id: 'mock', data: () => ({ avatar: 'pic' }) }],
           data: () => ({ plan: 'PRO', evolution_api_url: 'http://test', evolution_api_key: 'test', bot_default_agent: true })
