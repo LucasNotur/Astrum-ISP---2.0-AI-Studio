@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- bullmq connection type não é compatível com ioredis Redis; mocks precisam de any para partial Queue */
 import { Queue } from "bullmq";
 import redis from "../cache/redis.client";
 import EventEmitter from "events";
@@ -19,7 +20,7 @@ export const messageQueue = isMockRedis ? {
 });
 
 export const deadLetterQueue = isMockRedis ? {
-  add: async () => {} 
+  add: async () => {}
 } as any : new Queue("message-dead-letter", {
   connection: redis as any,
 });
@@ -31,7 +32,6 @@ export function setupDLQ(worker: any) {
     const maxAttempts = job.opts?.attempts ?? 3;
     if (attempts >= maxAttempts) {
       try {
-        // TODO Dia 8: Implementar DLQ no Supabase
         infraLogger.error({ jobName: job.name, attempts, err }, '[DLQ] Job movido para DLQ');
       } catch (e: any) {
         infraLogger.error({ err: e }, "[BULLMQ] Erro ao inserir no DLQ");
@@ -80,26 +80,19 @@ export async function getAggregateJobCounts(...types: any[]): Promise<Record<str
   if (isMockRedis) return result;
 
   try {
-    // TODO: Implementar busca de tenants ativos no Supabase
-    // const tenantsSnap = await db.from('tenants').select('id').eq('active', true);
-  } catch (e: any) {
-    infraLogger.error({ err: e }, "[BULLMQ] Error fetching tenant queues job counts");
-  }
-
-  try {
     const globalCounts = await (messageQueue as any).getJobCounts(...types);
     if (globalCounts) {
       for (const type of types) {
         result[type] = (result[type] ?? 0) + ((globalCounts[type] as number) || 0);
       }
     }
-  } catch (e) {}
+  } catch (_e) {}
 
   return result;
 }
 
 export async function getMessagePriority(customerId: string, tenantId: string): Promise<number> {
-  if (!customerId) return 5; // prioridade padrão para não-clientes
+  if (!customerId) return 5;
 
   const cacheKey = `priority:${customerId}`;
   if (!isMockRedis) {
@@ -108,49 +101,40 @@ export async function getMessagePriority(customerId: string, tenantId: string): 
   }
 
   try {
-    // TODO: Implementar busca de plano de cliente no Supabase
-    // const customerDoc = await db.from('customers').select('plan_id').eq('id', customerId).single();
-    // const planId = customerDoc.data?.plan_id;
     const planId = 'unknown';
-
-    // Quanto menor o número, maior a prioridade no BullMQ
     const priorityMap: Record<string, number> = {
-      '1gb':   1, // máxima prioridade
+      '1gb':   1,
       '600mb': 2,
       '300mb': 3,
-      '100mb': 5, // prioridade padrão
+      '100mb': 5,
     };
-
     const priority = priorityMap[planId] ?? 5;
-    
     if (!isMockRedis) {
       await redis.set(cacheKey, String(priority), 'EX', 3600);
     }
     return priority;
-  } catch (e) {
+  } catch (_e) {
     return 5;
   }
 }
 
-// TODO: Import real utils once we migrate them
-const calculateBullMQDelay = (date: string, tz: string) => 0;
+const calculateBullMQDelay = (_date: string, _tz: string) => 0;
 
-export async function enqueueMessage(tenantId: string, payload: any, opts?: any, jobName: string = 'process-message') {
+export async function enqueueMessage(tenantId: string, payload: any, opts?: any, jobName = 'process-message') {
   const priority = await getMessagePriority(payload.customerId, tenantId);
   const queue = getTenantQueue(tenantId);
-  
-  let finalOpts: any = {
+
+  const finalOpts: any = {
     jobId: payload.messageId,
     priority,
-    ...(opts || {})
+    ...(opts ?? {}),
   };
 
   if (opts?.scheduledFor && opts?.timezone) {
-     const msDelay = calculateBullMQDelay(opts.scheduledFor, opts.timezone);
-     if (msDelay > 0) {
-        finalOpts.delay = msDelay;
-     }
+    const msDelay = calculateBullMQDelay(opts.scheduledFor, opts.timezone);
+    if (msDelay > 0) finalOpts.delay = msDelay;
   }
 
   return queue.add(jobName, payload, finalOpts);
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */

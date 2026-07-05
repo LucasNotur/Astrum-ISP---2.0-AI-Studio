@@ -58,7 +58,8 @@ function buildAgentGraph() {
     },
   });
 
-  // ─── Adicionar nós ────────────────────────────────────────────────────────
+  /* eslint-disable @typescript-eslint/no-explicit-any -- LangGraph SDK exige node names como string genérica; tipos incompatíveis por design da lib */
+  // ─── Adicionar nós ───────────────────────────────────────────────────────
   graph.addNode('classify', nodeClassify as any);
   graph.addNode('guardrails', nodeGuardrails as any);
   graph.addNode('decide_source', nodeDecideSource as any);
@@ -68,29 +69,26 @@ function buildAgentGraph() {
   graph.addNode('escalate', nodeEscalate as any);
   graph.addNode('block', nodeBlock as any);
 
-  // ─── Edges lineares ───────────────────────────────────────────────────────
+  // ─── Edges lineares ──────────────────────────────────────────────────────
   graph.addEdge(START, 'classify' as any);
   graph.addEdge('classify' as any, 'guardrails' as any);
   graph.addEdge('decide_source' as any, 'fetch_context' as any);
   graph.addEdge('fetch_context' as any, 'generate' as any);
   graph.addEdge('generate' as any, 'validate' as any);
-  // escalate e block terminam a state machine
   graph.addEdge('escalate' as any, END);
   graph.addEdge('block' as any, END);
 
-  // ─── Edges condicionais ───────────────────────────────────────────────────
-
-  // Após guardrails: bloquear OU continuar
+  // ─── Edges condicionais ──────────────────────────────────────────────────
   graph.addConditionalEdges('guardrails' as any, (state: AgentState) => {
     if (!state.guardPassed) return 'block';
     return 'decide_source';
   });
 
-  // Após validate: escalar OU finalizar
   graph.addConditionalEdges('validate' as any, (state: AgentState) => {
     if (!state.validationPassed || state.requiresHuman) return 'escalate';
     return END;
   });
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 
   return graph.compile();
 }
