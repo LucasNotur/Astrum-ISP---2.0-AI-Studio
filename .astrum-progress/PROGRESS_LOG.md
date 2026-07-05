@@ -1424,3 +1424,75 @@ Bloqueios resolvidos: mergeados feat/ia-01-crag, feat/ia-03-eval-harness, feat/i
 Status: ✅ Concluído (código atrás de flag; cutover real depende de ATENDIMENTO_ENGINE=v2).
 Observações: Supervisor classifica domínio com gpt-4o-mini; churn crítico sobrescreve para retenção; flag MULTI_AGENT_ENABLED=false (default). Typecheck do apps/api ainda apresenta 12 erros pré-existentes em packages/queue/src/workers/message.worker.ts por imports relativos cruzados com apps/api.
 Commit: feat(ia10): multi-agente por dominio — supervisor + subgrafos (flag off).
+
+---
+
+[2026-07-05] IA-NEXTGEN Parte 2 — Sessão IA-11
+Tarefa: Fundação UI — Central de Inteligência, flags públicas no client, tokens Astrum-IA.
+Arquivos criados:
+  - apps/api/src/infrastructure/config/public-flags.ts (+ .test.ts)
+  - apps/api/src/domain/ia/flags.routes.ts (+ .test.ts)
+  - src/lib/feature-flags.ts
+  - src/hooks/useFeatureFlags.ts (+ .test.tsx)
+  - src/lib/i18n/pt-br.ts
+  - src/components/intelligence/{RiskBadge,RiskStripeCard,ConfidenceMeter,EmptyState,DataTablePro,TimelineList,StatCard}.tsx (+ RiskBadge/ConfidenceMeter/DataTablePro testes)
+  - src/pages/intelligence/IntelligenceHubPage.tsx (+ .test.tsx)
+  - src/components/layout/Sidebar.test.tsx
+Arquivos modificados:
+  - apps/api/src/server.ts (registro de flagsRoutes)
+  - src/index.css (tokens --color-astrum-* e --font-display)
+  - index.html (Google Fonts Space Grotesk)
+  - src/components/layout/Sidebar.tsx (seção Inteligência com Sparkles + Alt+I)
+  - src/App.tsx (lazy route /intelligence)
+  - src/store/useAppStore.ts (permissão 'intelligence' para admin/owner)
+  - vitest.config.ts (alias @/ + jsdom + setup correto — fix de config pré-existente)
+  - .env.example (+ INTELLIGENCE_HUB_ENABLED)
+Testes: 8 backend (public-flags + flags.routes) + 17 frontend (hook, componentes, hub, sidebar) = 25 passando.
+Typecheck: meus arquivos sem erros novos; erros pré-existentes na raiz (App.tsx, chart.tsx, etc.) e em packages/queue/message.worker.ts não tocados.
+Status: ✅ Concluído (flag INTELLIGENCE_HUB_ENABLED default false; sem tráfego real até ligada).
+Observações:
+  - apps/api/src/domain/ia/index.ts está vazio; rotas IA são registradas diretamente em server.ts (padrão real do repo).
+  - Base URL do fetchPublicFlags usa import.meta.env.VITE_API_URL ?? 'http://localhost:3001' (padrão do apps/web).
+  - RN8: hub renderiza EmptyState quando nenhuma flag ligada; com flag hub renderiza cards filtrados.
+  - RN11: useFeatureFlags fail-closed (erro/loading → {}); flag off = seção fora do DOM.
+  - RN12: rota /intelligence e nav sob seção "Inteligência".
+Rollback: INTELLIGENCE_HUB_ENABLED=false.
+Commit: feat(ia11): fundação UI — hub Inteligência, flags públicas, tokens astrum.
+
+[2026-07-05] IA-NEXTGEN / Fase 1 - Sessao IA-19
+Tarefa: Tool registry dinamico por tenant + catalogo unificado (8 tools).
+Arquivos criados:
+  - packages/db/src/migrations/037_agent_tool_settings.sql (agent_tool_settings + tool_usage_daily + RLS tenant_isolation)
+  - apps/api/src/infrastructure/ai/tool-registry.ts (getEnabledTools cache Redis 60s + fail-open; setToolEnabled + invalidacao; listToolCatalog 7d; recordToolUsage fire-and-forget)
+  - apps/api/src/infrastructure/ai/tool-registry.test.ts (9 testes: flag off, cache hit/miss, fail-open Redis/Supabase, upsert, invalidate, recordToolUsage)
+  - apps/api/src/domain/ia/tools-admin.routes.ts (GET /api/v2/ia/tools + PATCH /api/v2/ia/tools/:name; RBAC ai_config)
+  - apps/api/src/domain/ia/tools-admin.routes.test.ts (3 testes: GET catalogo, PATCH ok, PATCH 404)
+  - src/pages/intelligence/ToolsPage.tsx (DataTablePro + Switch + ConfirmDialog p/ suspend_signal; toasts; optimistic rollback)
+  - src/pages/intelligence/ToolsPage.test.tsx (3 testes: render, PATCH direto, dialog suspend_signal)
+Arquivos modificados:
+  - apps/api/src/infrastructure/ai/vercel-ai.service.ts (4 defs Zod faltantes no agentTools: check_coverage, run_diagnostics, schedule_technical_visit, get_billing_status; streamWithTools(opts.tools))
+  - apps/api/src/infrastructure/ai/tools.executor.ts (FIX D1: case check_invoice duplicado removido; defesa em profundidade: tool desabilitada -> {error:'Ferramenta desativada pelo provedor'}; recordToolUsage fire-and-forget)
+  - apps/api/src/infrastructure/ai/tools.executor.test.ts (10 testes: inclui fix D1 + tool desabilitada + contadores)
+  - apps/api/src/infrastructure/config/public-flags.ts (+ 'toolreg' : 'TOOL_REGISTRY_ENABLED')
+  - apps/api/src/infrastructure/config/public-flags.test.ts (+ 1 teste)
+  - apps/api/src/domain/ia/flags.routes.test.ts (atualizado p/ 2 chaves)
+  - apps/api/src/domain/ports/ai.port.ts (opts.tools no streamWithTools)
+  - apps/api/src/domain/agent/nodes/generate.node.ts (resolve getEnabledTools(tenantId) e injeta em opts.tools)
+  - apps/api/src/domain/agent/nodes/generate.node.test.ts (+ 1 teste IA-19: injeta tools)
+  - apps/api/src/server.ts (registro toolsAdminRoutes)
+  - src/lib/i18n/pt-br.ts (+ bloco intelligence.tools com title/subtitle/columns/toasts/confirm/statusLabels)
+  - src/App.tsx (lazy route /intelligence/tools)
+  - .env.example (+ TOOL_REGISTRY_ENABLED=false)
+Testes: 34 passando na suite IA-19 (6 arquivos: tool-registry 9, tools.executor 10, tools-admin.routes 3, public-flags 6, flags.routes 3, ToolsPage 3). 0 errors. 0 falhas relacionadas a IA-19.
+Typecheck: limpo nos arquivos tocados.
+Lint: 0 errors, ~20 warnings de s any (padrao pre-existente no repo).
+Status: CONCLUIDO. Flag TOOL_REGISTRY_ENABLED default 'false' - comportamento identico ao atual (agentTools completo de 8 tools oferecido como hoje).
+Observacoes / DESVIO do plano:
+  - Ap�ndice D2 do PARTE2: 4 tools (check_coverage, run_diagnostics, schedule_technical_visit, get_billing_status) ja estavam implementadas no tools.executor (S72) mas faltavam no catalogo agentTools - IA-19 completou o catalogo em vercel-ai.service.ts.
+  - Fix D1 commitado: case 'check_invoice' duplicado no switch do executor. Alias get_billing_status agora cai no mesmo case (consolida��o de chaves).
+  - Defesa em profundidade: mesmo com tool desabilitada, o executor recusa (RN contra prompt injection ou cache stale).
+  - Migracao 037 = 2 tabelas (settings + usage) com RLS padrao 023. contadores 7d sao agregados na query do GET (somam calls/errors por dia).
+  - Sem mock: a tela /intelligence/tools consome direto GET/PATCH /api/v2/ia/tools (RBAC ai_config).
+  - Switch da tool financeira suspend_signal exige ConfirmDialog (microcopia exata do plano).
+Rollback: TOOL_REGISTRY_ENABLED=false (volta ao comportamento atual).
+Commit: feat(ia19): tool registry por tenant + catalogo unificado (flag off).

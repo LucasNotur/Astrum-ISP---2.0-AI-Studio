@@ -9,7 +9,10 @@ function builder(table: string) {
     _table: table,
     select: vi.fn((cols: string) => { lastSelect[table] = cols; return b; }),
     insert: vi.fn(() => b),
+    upsert: vi.fn(() => Promise.resolve({ error: null })),
+    rpc: vi.fn(() => Promise.resolve({ error: null })),
     eq: vi.fn(() => b),
+    gte: vi.fn(() => b),
     order: vi.fn(() => b),
     limit: vi.fn(() => Promise.resolve(results[table] ?? { data: [], error: null })),
     maybeSingle: vi.fn(() => Promise.resolve(results[table] ?? { data: null, error: null })),
@@ -25,10 +28,23 @@ vi.mock('../../../../../packages/queue/src/queues', () => ({
   suspensionQueue: { add: vi.fn().mockResolvedValue({ id: 'job1' }) },
 }));
 
+// Mock do tool-registry: enabledTools pode ser configurado por teste.
+let enabledToolsOverride: Record<string, any> | null = null;
+let recordUsageCalls = 0;
+vi.mock('./tool-registry', () => ({
+  getEnabledTools: vi.fn(async () => enabledToolsOverride ?? {
+    suspend_signal: {}, check_invoice: {}, get_billing_status: {}, create_ticket: {},
+    query_knowledge_base: {}, check_coverage: {}, run_diagnostics: {}, schedule_technical_visit: {},
+  }),
+  recordToolUsage: vi.fn(() => { recordUsageCalls++; }),
+}));
+
 describe('ToolsExecutor', () => {
   beforeEach(() => {
     for (const k of Object.keys(results)) delete results[k];
     for (const k of Object.keys(lastSelect)) delete lastSelect[k];
+    enabledToolsOverride = null;
+    recordUsageCalls = 0;
   });
 
   it('get_billing_status SELECIONA payment_url e pix_copy_paste (2ª via)', async () => {
@@ -39,6 +55,39 @@ describe('ToolsExecutor', () => {
     expect(r.invoices[0].payment_url).toBe('https://p/1');
     expect(lastSelect['invoices']).toContain('pix_copy_paste');
     expect(lastSelect['invoices']).toContain('payment_url');
+  });
+
+  it('IA-19 (fix D1): check_invoice E get_billing_status caem no MESMO case (não duplicado)', async () => {
+    results['invoices'] = { data: [{ id: 'i1' }], error: null };
+    const { ToolsExecutor } = await import('./tools.executor');
+    const exec = new ToolsExecutor('t1');
+    // Não deve lançar nem duplicar — o switch de tools.executor.ts cobre as duas chaves no mesmo case.
+    const r1: any = await exec.execute('check_invoice', { customer_id: 'c1' });
+    const r2: any = await exec.execute('get_billing_status', { customer_id: 'c1' });
+    expect(r1.invoices).toBeDefined();
+    expect(r2.invoices).toBeDefined();
+  });
+
+  it('IA-19: tool desabilitada pelo registry é recusada com mensagem específica', async () => {
+    enabledToolsOverride = { check_invoice: {}, get_billing_status: {} }; // check_coverage fora
+    const { ToolsExecutor } = await import('./tools.executor');
+    const r: any = await new ToolsExecutor('t1').execute('check_coverage', {});
+    expect(r.error).toBe('Ferramenta desativada pelo provedor');
+    // IA-19: tool desabilitada CONTA como erro
+    expect(recordUsageCalls).toBe(1);
+  });
+
+  it('IA-19: tool executada com sucesso chama recordToolUsage', async () => {
+    results['invoices'] = { data: [{ id: 'i1' }], error: null };
+    const { ToolsExecutor } = await import('./tools.executor');
+    await new ToolsExecutor('t1').execute('check_invoice', { customer_id: 'c1' });
+    expect(recordUsageCalls).toBe(1);
+  });
+
+  it('IA-19: tool que retorna {error} também chama recordToolUsage', async () => {
+    const { ToolsExecutor } = await import('./tools.executor');
+    await new ToolsExecutor('t1').execute('foo_bar', {});
+    expect(recordUsageCalls).toBe(1);
   });
 
   it('check_coverage calcula portas disponíveis e disponibilidade', async () => {

@@ -1,6 +1,7 @@
 import supabase from '../database/supabase.client';
 import { suspensionQueue } from '../../../../../packages/queue/src/queues';
 import { infraLogger } from '../logging/logger';
+import { getEnabledTools, recordToolUsage } from './tool-registry';
 
 /**
  * Executor de ferramentas do Function Calling.
@@ -12,28 +13,57 @@ export class ToolsExecutor {
   async execute(toolName: string, args: Record<string, unknown>): Promise<unknown> {
     infraLogger.info({ toolName, args, tenantId: this.tenantId }, 'Executing tool');
 
+    // IA-19 — defesa em profundidade: se a tool foi desabilitada pelo provedor
+    // na tela /intelligence/tools, o modelo não deveria nem vê-la, mas se
+    // vier por cache stale ou prompt injection, recusamos aqui.
+    try {
+      const enabled = await getEnabledTools(this.tenantId);
+      if (!(toolName in enabled)) {
+        infraLogger.warn(
+          { toolName, tenantId: this.tenantId },
+          'Tool desabilitada pelo provedor — recusada no executor',
+        );
+        const result = { error: 'Ferramenta desativada pelo provedor' };
+        recordToolUsage(this.tenantId, toolName, result);
+        return result;
+      }
+    } catch (err) {
+      // Fail-open do registry: se o registry falhar, prosseguimos.
+      infraLogger.warn({ err: (err as Error).message }, 'tool-registry indisponível no executor');
+    }
+
+    let result: unknown;
     switch (toolName) {
       case 'suspend_signal':
-        return this._suspendSignal(args);
+        result = await this._suspendSignal(args);
+        break;
       case 'check_invoice':
-        return this._checkInvoice(args);
+      case 'get_billing_status': // alias documentado (S72)
+        result = await this._checkInvoice(args);
+        break;
       case 'create_ticket':
-        return this._createTicket(args);
+        result = await this._createTicket(args);
+        break;
       case 'query_knowledge_base':
-        return this._queryKnowledgeBase(args);
-      case 'get_billing_status':
-      case 'check_invoice':
-        return this._checkInvoice(args);
+        result = await this._queryKnowledgeBase(args);
+        break;
       case 'check_coverage':
-        return this._checkCoverage(args);
+        result = await this._checkCoverage(args);
+        break;
       case 'run_diagnostics':
-        return this._runDiagnostics(args);
+        result = await this._runDiagnostics(args);
+        break;
       case 'schedule_technical_visit':
-        return this._scheduleTechnicalVisit(args);
+        result = await this._scheduleTechnicalVisit(args);
+        break;
       default:
         infraLogger.warn({ toolName }, 'Unknown tool called — ignoring');
-        return { error: 'Ferramenta não reconhecida' };
+        result = { error: 'Ferramenta não reconhecida' };
     }
+
+    // IA-19 — fire-and-forget: contador de uso 7d. Erros do contador não afetam a resposta.
+    recordToolUsage(this.tenantId, toolName, result);
+    return result;
   }
 
   private async _suspendSignal(args: Record<string, unknown>) {
