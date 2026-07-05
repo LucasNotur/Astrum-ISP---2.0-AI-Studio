@@ -337,7 +337,7 @@ cd apps/api; npx vitest run src/domain/agent
 
 ---
 
-# ⬜ IA-02 — Cache semântico + cascata de modelos
+# ✅ IA-02 — Cache semântico + cascata de modelos
 
 **Objetivo:** (a) perguntas técnicas recorrentes respondidas do cache Redis por similaridade
 de embedding (custo ~0, latência ms); (b) intents conversacionais gerados com `gpt-4o-mini`
@@ -391,7 +391,7 @@ em vez de `gpt-4o` (hoje `streamWithTools` usa SEMPRE `heavyModel`, linha 215).
 
 ---
 
-# ⬜ IA-03 — Eval harness + prompt registry (pré-requisito do cutover v2)
+# ✅ IA-03 — Eval harness + prompt registry (pré-requisito do cutover v2)
 
 **Objetivo:** (a) suite de cenários que roda o grafo com LLM mockado E um modo online com
 LLM-as-judge; (b) prompts versionados em um registry único com hash, rastreável no Helicone.
@@ -560,7 +560,7 @@ for usado em produção hoje, proteger com `MEMORY_DECAY_ENABLED` default `false
 
 ---
 
-# ⬜ IA-06 — Audit trail imutável de decisões de IA
+# ✅ IA-06 — Audit trail imutável de decisões de IA
 
 **Objetivo:** toda passada do grafo gera um registro append-only com hash-chain por tenant
 (LGPD/ANATEL, venda enterprise). UPDATE/DELETE bloqueados no banco.
@@ -619,7 +619,7 @@ e o objetivo é tamper-evidence, não consenso. Documentar isso no comentário d
 
 ---
 
-# ⬜ IA-07 — Churn prediction (fase 1: features + score heurístico servido)
+# ✅ IA-07 — Churn prediction (fase 1: features + score heurístico servido)
 
 **Objetivo:** score de churn 0-100 por cliente, recalculado toda noite, exposto por rota e
 gravado em tabela. Fase 1 usa modelo LINEAR interpretável (pesos fixos auditáveis); o
@@ -741,7 +741,7 @@ pipeline Twilio `<Gather>`+Whisper+TTS, mais lento porém estável).
 
 ---
 
-# ⬜ IA-09 — CTO failure prediction (fase 0: coleta)
+# ✅ IA-09 — CTO failure prediction (fase 0: coleta)
 
 **Sem dados de telemetria não há modelo.** Esta sessão SÓ constrói a coleta; o modelo
 (Isolation Forest / sazonalidade) é sessão futura quando houver ≥ 30 dias de métricas.

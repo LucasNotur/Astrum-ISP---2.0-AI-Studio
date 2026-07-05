@@ -136,7 +136,7 @@ migrations; a ordem de execução real define os números). Padrão RLS canônic
 
 # FASE 1 — SESSÕES EM DENSIDADE TOTAL
 
-# ⬜ IA-11 — Fundação: Central de Inteligência + flags no client + tokens Astrum-IA
+# ✅ IA-11 — Fundação: Central de Inteligência + flags no client + tokens Astrum-IA
 
 **Objetivo:** o chão dos galhos: (a) endpoint público de flags com whitelist; (b) hook
 `useFeatureFlags()` fail-closed; (c) tokens + fonte display; (d) componentes §1.6;
@@ -224,7 +224,7 @@ Inteligência')` null; on+acesso → navega. RiskBadge: renderiza o TEXTO do ní
 
 ---
 
-# ⬜ IA-19 — Tool registry dinâmico
+# ✅ IA-19 — Tool registry dinâmico
 
 **Objetivo:** catálogo ÚNICO de tools (hoje `agentTools` tem 4 defs Zod mas o executor
 implementa 8 — 4 tools são inalcançáveis pelo modelo, ver Apêndice D2) + liga/desliga por
