@@ -1,6 +1,7 @@
 import { QdrantClient } from '@qdrant/js-client-rest';
 import OpenAI from 'openai';
 import { infraLogger } from '../logging/logger';
+import { resolveOpenAIKey } from '../config/openai-key';
 
 /**
  * Hybrid Search: Semântica (Dense) + BM25 (Sparse)
@@ -21,7 +22,7 @@ import { infraLogger } from '../logging/logger';
  * - Resultado: busca muito mais precisa para queries vagas
  */
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'dummy_key' });
+const openai = new OpenAI({ apiKey: resolveOpenAIKey() });
 
 export interface HybridSearchResult {
   id: string;

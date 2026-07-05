@@ -18,16 +18,35 @@ const envSchema = z.object({
 
   ALLOWED_ORIGINS: z.string().default('http://localhost:5173'),
 
-  // Opcionais — adicionados nos próximos sprints
+  // Opcionais — integrações de canal / observabilidade
   EVOLUTION_API_URL: z.string().url().optional(),
   EVOLUTION_API_KEY: z.string().optional(),
+  EVOLUTION_WEBHOOK_SECRET: z.string().optional(),
   HELICONE_API_KEY: z.string().optional(),
   SENTRY_DSN: z.string().url().optional(),
   LANGCHAIN_API_KEY: z.string().optional(),
-  R2_ACCOUNT_ID: z.string().optional(),
+
+  // Opcionais — armazenamento Cloudflare R2
+  CLOUDFLARE_ACCOUNT_ID: z.string().optional(),
   R2_ACCESS_KEY_ID: z.string().optional(),
   R2_SECRET_ACCESS_KEY: z.string().optional(),
   R2_BUCKET_NAME: z.string().default('astrum-documents'),
+  R2_PUBLIC_URL: z.string().url().optional(),
+
+  // Opcionais — busca vetorial e memória
+  QDRANT_URL: z.string().url().optional(),
+  QDRANT_API_KEY: z.string().optional(),
+  ZEP_API_URL: z.string().url().optional(),
+  ZEP_API_KEY: z.string().optional(),
+
+  // Opcionais — webhooks de saída (Svix) e segurança
+  SVIX_API_KEY: z.string().optional(),
+  WEBHOOK_HMAC_SECRET: z.string().optional(),
+  FACEBOOK_APP_SECRET: z.string().optional(),
+  PAYMENT_WEBHOOK_SECRET: z.string().optional(),
+
+  // Opcionais — ERP (IXC, MK-Auth)
+  ERP_CRED_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
