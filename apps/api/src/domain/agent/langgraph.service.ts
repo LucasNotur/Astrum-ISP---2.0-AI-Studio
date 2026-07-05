@@ -12,6 +12,7 @@ import {
 } from './agent.nodes';
 import type { ILoggerPort } from '../ports/logger.port';
 import { infraLogger } from '../../infrastructure/logging/logger';
+import { aiAuditService } from '../../infrastructure/audit/ai-audit.service';
 
 /**
  * LangGraph Agent Service
@@ -133,6 +134,29 @@ export class LangGraphService {
         toolsUsed: finalState.toolsExecuted?.length ?? 0,
         dataSource: finalState.dataSource,
       }, 'LangGraph: complete');
+
+      // IA-06 — Audit trail (fire-and-forget, fail-open)
+      const decisionType = finalState.requiresHuman
+        ? 'escalation'
+        : (finalState.steps ?? []).includes('block')
+          ? 'block'
+          : 'agent_response';
+      aiAuditService.recordDecision({
+        tenantId: input.tenantId,
+        conversationId: input.conversationId,
+        customerId: input.customerId,
+        decisionType,
+        payload: {
+          userMessage: input.userMessage,
+          steps: finalState.steps ?? [],
+          intent: finalState.intent,
+          dataSource: finalState.dataSource,
+          toolsExecuted: finalState.toolsExecuted?.map(t => t.name) ?? [],
+          validated: finalState.validationPassed,
+          requiresHuman: finalState.requiresHuman ?? false,
+          tokensUsed: finalState.tokensUsed ?? 0,
+        },
+      }).catch(() => { /* fire-and-forget */ });
 
       return {
         response: finalState.response ?? 'Não foi possível gerar uma resposta.',
