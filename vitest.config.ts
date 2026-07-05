@@ -1,9 +1,16 @@
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from 'vitest/config';
+import path from 'path';
+
 export default defineConfig({
+  resolve: {
+    alias: [
+      { find: /^@\/(.*)/, replacement: path.resolve(__dirname, '$1') }
+    ]
+  },
   test: {
-    environment: 'node',
+    environment: 'jsdom',
     globals: true,
-    setupFiles: ['./src/__tests__/setup.ts'],
+    setupFiles: ['./vitest.setup.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**', '**/playwright/**', '**/.stryker-tmp/**'],
     coverage: {
       provider: 'v8',

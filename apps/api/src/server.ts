@@ -104,6 +104,10 @@ export async function buildServer() {
   const { etlRoutes } = await import('./domain/ia/etl.routes');
   await app.register(etlRoutes);
 
+  // IA-11 — flags públicas para o frontend legado (sem autenticação).
+  const { flagsRoutes } = await import('./domain/ia/flags.routes');
+  await app.register(flagsRoutes);
+
   const websocketRoutes = await import('./domain/realtime/websocket.routes');
   await app.register(websocketRoutes.default);
 

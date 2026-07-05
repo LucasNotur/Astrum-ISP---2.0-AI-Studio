@@ -1424,3 +1424,37 @@ Bloqueios resolvidos: mergeados feat/ia-01-crag, feat/ia-03-eval-harness, feat/i
 Status: ✅ Concluído (código atrás de flag; cutover real depende de ATENDIMENTO_ENGINE=v2).
 Observações: Supervisor classifica domínio com gpt-4o-mini; churn crítico sobrescreve para retenção; flag MULTI_AGENT_ENABLED=false (default). Typecheck do apps/api ainda apresenta 12 erros pré-existentes em packages/queue/src/workers/message.worker.ts por imports relativos cruzados com apps/api.
 Commit: feat(ia10): multi-agente por dominio — supervisor + subgrafos (flag off).
+
+---
+
+[2026-07-05] IA-NEXTGEN Parte 2 — Sessão IA-11
+Tarefa: Fundação UI — Central de Inteligência, flags públicas no client, tokens Astrum-IA.
+Arquivos criados:
+  - apps/api/src/infrastructure/config/public-flags.ts (+ .test.ts)
+  - apps/api/src/domain/ia/flags.routes.ts (+ .test.ts)
+  - src/lib/feature-flags.ts
+  - src/hooks/useFeatureFlags.ts (+ .test.tsx)
+  - src/lib/i18n/pt-br.ts
+  - src/components/intelligence/{RiskBadge,RiskStripeCard,ConfidenceMeter,EmptyState,DataTablePro,TimelineList,StatCard}.tsx (+ RiskBadge/ConfidenceMeter/DataTablePro testes)
+  - src/pages/intelligence/IntelligenceHubPage.tsx (+ .test.tsx)
+  - src/components/layout/Sidebar.test.tsx
+Arquivos modificados:
+  - apps/api/src/server.ts (registro de flagsRoutes)
+  - src/index.css (tokens --color-astrum-* e --font-display)
+  - index.html (Google Fonts Space Grotesk)
+  - src/components/layout/Sidebar.tsx (seção Inteligência com Sparkles + Alt+I)
+  - src/App.tsx (lazy route /intelligence)
+  - src/store/useAppStore.ts (permissão 'intelligence' para admin/owner)
+  - vitest.config.ts (alias @/ + jsdom + setup correto — fix de config pré-existente)
+  - .env.example (+ INTELLIGENCE_HUB_ENABLED)
+Testes: 8 backend (public-flags + flags.routes) + 17 frontend (hook, componentes, hub, sidebar) = 25 passando.
+Typecheck: meus arquivos sem erros novos; erros pré-existentes na raiz (App.tsx, chart.tsx, etc.) e em packages/queue/message.worker.ts não tocados.
+Status: ✅ Concluído (flag INTELLIGENCE_HUB_ENABLED default false; sem tráfego real até ligada).
+Observações:
+  - apps/api/src/domain/ia/index.ts está vazio; rotas IA são registradas diretamente em server.ts (padrão real do repo).
+  - Base URL do fetchPublicFlags usa import.meta.env.VITE_API_URL ?? 'http://localhost:3001' (padrão do apps/web).
+  - RN8: hub renderiza EmptyState quando nenhuma flag ligada; com flag hub renderiza cards filtrados.
+  - RN11: useFeatureFlags fail-closed (erro/loading → {}); flag off = seção fora do DOM.
+  - RN12: rota /intelligence e nav sob seção "Inteligência".
+Rollback: INTELLIGENCE_HUB_ENABLED=false.
+Commit: feat(ia11): fundação UI — hub Inteligência, flags públicas, tokens astrum.

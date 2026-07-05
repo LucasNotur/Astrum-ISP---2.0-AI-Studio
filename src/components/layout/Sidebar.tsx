@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { useAppStore, canAccess } from '@/src/store/useAppStore';
+import { useFeatureFlags } from '@/src/hooks/useFeatureFlags';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/src/components/ui/avatar';
 import { Button } from '@/src/components/ui/button';
@@ -123,6 +124,7 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
   }, [user?.tenantId]);
 
   const hasAccess = (tab: string) => canAccess(currentUserRole, tab, rolePermissions && Object.keys(rolePermissions).length > 0 ? rolePermissions : companySettings?.rolePermissions);
+  const { flags } = useFeatureFlags();
   const isDeveloper = user?.email?.toLowerCase() === 'lucaspferraz123@gmail.com' || user?.email?.toLowerCase() === 'noturcursos1@gmail.com';
   const isProvedorAdmin = currentUserRole === 'admin' || currentUserRole === 'owner';
   const handleLogout = () => supabase.auth.signOut();
@@ -301,6 +303,21 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
                 collapsed={isSidebarCollapsed}
               />
             )}
+          </>
+        )}
+
+        {flags.hub && hasAccess('intelligence') && (
+          <>
+            {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Inteligência</div>}
+            {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2"></div>}
+            <NavItem
+              active={currentPath === 'intelligence'}
+              onClick={() => navigate('/intelligence')}
+              icon={<Sparkles size={24} />}
+              label="Central de Inteligência"
+              collapsed={isSidebarCollapsed}
+              shortcut="Alt+I"
+            />
           </>
         )}
 

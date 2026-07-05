@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { applyTheme } from "./lib/themeManager";
 import {
@@ -240,6 +240,8 @@ import { SecurityPage } from "./pages/SecurityPage";
 import { SignupPage } from "./pages/SignupPage";
 import TechnicianAppPage from "./pages/TechnicianAppPage";
 import { BIPage } from "./pages/BIPage";
+
+const IntelligenceHubPage = lazy(() => import("./pages/intelligence/IntelligenceHubPage"));
 
 import {
   Bell,
@@ -2956,6 +2958,14 @@ export default function App() {
               }
             />
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route
+              path="/intelligence"
+              element={
+                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
+                  <IntelligenceHubPage />
+                </Suspense>
+              }
+            />
             <Route
               path="/"
               element={
