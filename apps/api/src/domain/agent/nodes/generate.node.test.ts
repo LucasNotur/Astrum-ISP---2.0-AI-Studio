@@ -2,6 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { makeNodeGenerate } from './generate.node';
 import { initialState } from '../agent.state';
 
+vi.mock('../../../infrastructure/ai/tool-registry', () => ({
+  getEnabledTools: vi.fn(async () => ({
+    suspend_signal: {}, check_invoice: {}, get_billing_status: {},
+  })),
+}));
+
 async function* makeTextStream(chunks: string[]) {
   for (const c of chunks) yield c;
 }
@@ -49,7 +55,20 @@ describe('nodeGenerate', () => {
       expect.stringContaining('Doc: manual PPPoE'),
       't1',
       expect.any(Function),
-      { tier: 'full' },
+      expect.objectContaining({ tier: 'full' }),
+    );
+  });
+
+  it('IA-19: injeta tools do registry no opts.tools', async () => {
+    await nodeGenerate(makeState());
+    expect(mockStreamWithTools).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.any(String),
+      't1',
+      expect.any(Function),
+      expect.objectContaining({
+        tools: expect.objectContaining({ suspend_signal: expect.any(Object) }),
+      }),
     );
   });
 

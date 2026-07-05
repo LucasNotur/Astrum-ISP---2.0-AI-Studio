@@ -1,7 +1,8 @@
 import { AgentState } from '../agent.state';
 import { IAIPort, IToolsPortFactory } from '../../ports/ai.port';
 import { ILoggerPort } from '../../ports/logger.port';
-import { findCachedResponse, storeCachedResponse, isEligibleForCache, isSemanticCacheEnabled } from '../../../infrastructure/cache/semantic-cache.service';
+import { findCachedResponse, storeCachedResponse, isEligibleForCache } from '../../../infrastructure/cache/semantic-cache.service';
+import { getEnabledTools } from '../../../infrastructure/ai/tool-registry';
 
 export function makeNodeGenerate(deps: {
   ai: Pick<IAIPort, 'streamWithTools'>;
@@ -39,6 +40,13 @@ export function makeNodeGenerate(deps: {
     // IA-02: Cascata de modelos — mini para conversacional, full para raciocínio
     const tier = (intent === 'other' || dataSource === 'none') ? 'mini' : 'full';
 
+    // IA-19: resolver o subconjunto de tools habilitado pelo registry (fail-open).
+    const enabledTools = await getEnabledTools(tenantId);
+    deps.logger.info(
+      { tenantId, toolsOffered: Object.keys(enabledTools).length },
+      'Agent: tools resolvidas via registry',
+    );
+
     const streamResult = await deps.ai.streamWithTools(
       [{ role: 'user', content: userMessage }],
       systemContext,
@@ -49,7 +57,7 @@ export function makeNodeGenerate(deps: {
         toolsExecuted!.push({ name: toolName, args: safeArgs, result });
         return result;
       },
-      { tier },
+      { tier, tools: enabledTools },
     );
 
     let fullResponse = '';

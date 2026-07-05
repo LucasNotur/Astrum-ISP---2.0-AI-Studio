@@ -111,6 +111,36 @@ export const agentTools = {
       max_results: z.number().min(1).max(5).default(3),
     }),
   },
+  // IA-19 — 4 tools antes inalcançáveis (Apêndice D2): registradas aqui com
+  // descrições em pt-BR no mesmo padrão das demais. O executor já as implementa.
+  check_coverage: {
+    description: 'Consulta a ocupação de CTOs (rede) para identificar se há portas livres numa região. Use quando o cliente perguntar sobre viabilidade de instalação, cobertura ou expansão.',
+    parameters: z.object({
+      cto_id: z.string().optional().describe('ID específico de uma CTO. Se omitido, retorna as 10 primeiras do provedor.'),
+    }),
+  },
+  run_diagnostics: {
+    description: 'Executa um diagnóstico remoto de sinal/latência para um cliente. Use ao investigar queda de conexão, lentidão ou intermitência.',
+    parameters: z.object({
+      customer_id: z.string().describe('ID único do cliente no Supabase'),
+    }),
+  },
+  schedule_technical_visit: {
+    description: 'Abre uma ordem de serviço para visita técnica presencial. Use quando o problema não pode ser resolvido remotamente.',
+    parameters: z.object({
+      customer_id: z.string().describe('ID único do cliente no Supabase'),
+      reason: z.string().min(5).max(500).describe('Motivo da visita (ex.: "sem sinal após reboot")'),
+      address: z.string().optional().describe('Endereço de atendimento (se diferente do cadastro)'),
+      scheduled_for: z.string().datetime().optional().describe('Data/hora ISO 8601 da visita. Null = agendar agora.'),
+    }),
+  },
+  get_billing_status: {
+    description: 'Alias semântico de check_invoice. Consulta faturas em aberto, vencidas ou pagas. Retorna payment_url e pix_copy_paste para 2ª via.',
+    parameters: z.object({
+      customer_id: z.string(),
+      include_overdue_only: z.boolean().default(false),
+    }),
+  },
 };
 
 // ─── Service ─────────────────────────────────────────────────────────────────
@@ -222,17 +252,20 @@ export class VercelAIService {
     systemContext: string,
     tenantId: string,
     onToolCall?: (toolName: string, args: unknown) => Promise<unknown>,
-    opts?: { tier?: 'mini' | 'full' },
+    opts?: { tier?: 'mini' | 'full'; tools?: typeof agentTools },
   ) {
     const prompt = this._resolvePrompt('chat');
     const useMini = isModelCascadeEnabled() && opts?.tier === 'mini';
     const selectedModel = useMini ? this.model : this.heavyModel;
+    // IA-19: o caller (nodeGenerate) injeta o subconjunto habilitado por tenant
+    // (default = catálogo completo se nenhum for passado).
+    const tools = (opts?.tools ?? agentTools) as any;
 
     const result = streamText({
       model: selectedModel as any,
       system: `${prompt.text}\n\n${systemContext}`,
       messages,
-      tools: agentTools as any,
+      tools,
       stopWhen: stepCountIs(5), // máximo de tool calls em sequência (ai-sdk v6)
       onStepFinish: async (step) => {
         if (step.toolCalls && onToolCall) {

@@ -108,6 +108,10 @@ export async function buildServer() {
   const { flagsRoutes } = await import('./domain/ia/flags.routes');
   await app.register(flagsRoutes);
 
+  // IA-19 — tool registry: listar/ligar/desligar tools do agente por tenant.
+  const { toolsAdminRoutes } = await import('./domain/ia/tools-admin.routes');
+  await app.register(toolsAdminRoutes);
+
   const websocketRoutes = await import('./domain/realtime/websocket.routes');
   await app.register(websocketRoutes.default);
 
