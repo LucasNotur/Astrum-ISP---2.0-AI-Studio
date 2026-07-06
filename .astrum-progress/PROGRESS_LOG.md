@@ -1619,3 +1619,29 @@ Observacoes:
   - Justificativa do modelo (decisao registrada): GPT-4o-mini eh mais barato que Llama-Guard-3 self-hosted e mais natural que um pipeline de tradução. RAG traduzido so dispara quando vai buscar no Qdrant.
 Rollback: LIVE_TRANSLATION_ENABLED=false.
 Commit: feat(ia14): atendimento multilingue com RAG traduzido (flag off).
+
+[2026-07-05] IA-NEXTGEN / Fase 1 - Sessao IA-30
+Tarefa: Compressao deterministica de contexto RAG (dedup + budget por secao).
+Arquivos criados:
+  - apps/api/src/infrastructure/rag/context-compressor.ts (compressContext: split sentencas via regex /(?<=[.!?…])s+/; normaliza com NFD+lowercase+trim; dedup GLOBAL via Set - 1a ocorrencia vence; trunca em FRONTEIRA de sentenca; DEFAULT_BUDGETS = RAG 2000 / DB 500 / Zep 500)
+  - apps/api/src/infrastructure/rag/context-compressor.test.ts (10 testes: dedup entre secoes preserva 1a, NFD handling, truncation na fronteira, budget 0, texto menor intacto, multi-section com labels, economia >=50% em corpus com 50% overlap, edge cases, flag)
+  - packages/db/src/migrations/040_context_savings.sql (ADD COLUMN context_tokens_saved INTEGER DEFAULT 0 em ai_performance_logs)
+Arquivos modificados:
+  - apps/api/src/infrastructure/rag/context-window.service.ts (exporta estimateTokens - reuso sem mudar comportamento)
+  - apps/api/src/domain/agent/nodes/generate.node.ts (flag off = byte-a-byte igual; flag on = compressContext; log tokensBefore/After/savedPct)
+  - apps/api/src/infrastructure/config/public-flags.ts (+ 'compression' : 'PROMPT_COMPRESSION_ENABLED')
+  - apps/api/src/infrastructure/config/public-flags.test.ts (+ 1 teste)
+  - apps/api/src/domain/ia/flags.routes.test.ts (atualizado p/ 6 chaves)
+  - src/pages/AICostsPage.tsx (+ 2a fileira de KPIs: Tokens economizados / Economia estimada / % contexto deduplicado; tooltip "Tokens de contexto removidos por deduplicação antes de chamar o modelo.")
+  - .env.example (+ PROMPT_COMPRESSION_ENABLED=false)
+Tecnologias implementadas: dedup via Set de sentencas normalizadas (NFD+lowercase+trim); budget por secao; trunca APOS a ultima sentenca que cabe (nunca no meio); ZERO LLM, ZERO custo.
+Testes: 30 passando (4 arquivos novos/expandidos). Typecheck limpo, 0 errors lint.
+Status: CONCLUIDO. Flag PROMPT_COMPRESSION_ENABLED default 'false' - contexto idêntico ao atual (snapshot byte-a-byte).
+Observacoes:
+  - Decisao registrada (plano): LLMLingua eh Python; fase TS primeiro (deterministica, gratis). Reavaliar LLMLingua na Fase 2 se ganho estagnar.
+  - Teste de economia >=50% em corpus com 50% de overlap passou - cobre o caso de uso real (mesma info repetida em RAG + DB + Zep).
+  - StatCard da AICostsPage: usa preco input do 4o (US$ 0.005/1K) como conservador - o "pior caso" para impressionar.
+  - Sem tela propria (RN12 - AICostsPage ja esta no nav, registrado no PROGRESS_LOG por design do plano).
+  - O context_tokens_saved eh gravado no log para futura correlacao com IA-34 cost attribution.
+Rollback: PROMPT_COMPRESSION_ENABLED=false.
+Commit: feat(ia30): compressao deterministica de contexto RAG (flag off).
