@@ -193,6 +193,78 @@ export const ptBR = {
         body: 'Crie a primeira variante para que o bandit comece a explorar e convergir.',
       },
     },
+    drift: {
+      title: 'Drift do Modelo',
+      subtitle: 'A conversa dos clientes mudou? O modelo continua calibrado?',
+      cards: {
+        intents: 'Intents',
+        sentimentos: 'Sentimentos',
+        psi: (v: number) => v.toFixed(3),
+      },
+      chart: {
+        distribution: 'Distribuição 7d × baseline 28d',
+        baseline: 'Baseline 28d',
+        actual: 'Últimos 7 dias',
+        history: 'PSI diário (30 dias)',
+        cutoffMedio: '0.10 — drift moderado',
+        cutoffAlto: '0.25 — drift alto',
+        xIntent: 'Intent',
+        xSentiment: 'Sentimento',
+        xDate: 'Data',
+      },
+      empty: {
+        title: 'Coletando a linha de base.',
+        body: 'O primeiro relatório de drift sai com 7 dias de conversas classificadas.',
+      },
+      windows: (actual: number, baseline: number) => `${actual}d × ${baseline}d`,
+    },
+    aiCosts: {
+      tabs: {
+        overview: 'Visão geral',
+        byCustomer: 'Por cliente',
+        byFeature: 'Por feature',
+      },
+      byCustomer: {
+        title: 'Custo por cliente',
+        subtitle: 'Top clientes que consumiram tokens. Drill-down: conversas do cliente.',
+        columns: {
+          customer: 'Cliente',
+          conversations: 'Conversas',
+          tokens: 'Tokens',
+          cost: 'Custo (USD)',
+          share: '% do total',
+        },
+        empty: {
+          title: 'Sem dados de atribuição ainda.',
+          body: 'Os custos passam a ser atribuídos por cliente a partir da ativação desta versão — os dados antigos não são reprocessados.',
+        },
+      },
+      byFeature: {
+        title: 'Custo por feature',
+        subtitle: 'Custo agregado por caso de uso (agent_response, classify-intent, …).',
+        columns: {
+          feature: 'Feature',
+          conversations: 'Conversas',
+          tokens: 'Tokens',
+          cost: 'Custo (USD)',
+          share: '% do total',
+        },
+        empty: {
+          title: 'Sem dados de atribuição ainda.',
+          body: 'Os custos passam a ser atribuídos por feature a partir da ativação desta versão — os dados antigos não são reprocessados.',
+        },
+      },
+      drill: {
+        title: 'Conversas do cliente',
+        subtitle: 'Cada linha = 1 conversa com custo atribuído.',
+        columns: {
+          conversation: 'Conversa',
+          cost: 'Custo',
+          open: 'Abrir',
+        },
+        close: 'Fechar',
+      },
+    },
   },
 } as const;
 

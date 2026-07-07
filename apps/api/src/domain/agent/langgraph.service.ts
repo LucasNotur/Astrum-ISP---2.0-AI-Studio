@@ -18,6 +18,7 @@ import type { ILoggerPort } from '../ports/logger.port';
 import { infraLogger } from '../../infrastructure/logging/logger';
 import { isCragEnabled } from '../ports/crag.port';
 import { aiAuditService } from '../../infrastructure/audit/ai-audit.service';
+import { recordMessageCost } from '../../infrastructure/observability/cost-recorder';
 
 /**
  * LangGraph Agent Service
@@ -210,6 +211,31 @@ export class LangGraphService {
           tokensUsed: finalState.tokensUsed ?? 0,
         },
       }).catch(() => { /* fire-and-forget */ });
+
+      // IA-34 — Cost attribution: 1 linha agregada por mensagem.
+      // O `model` é derivado do mesmo tier que nodeGenerate resolveu:
+      // (intent === 'other' || dataSource === 'none') → 'mini', senão 'full'.
+      // O split input/output aqui é heurístico (70/30) — o contador exato
+      // fica dentro do nó generate e o state não carrega inputTokens/outputTokens
+      // separados. Quando o estado for estendido, trocar por leitura direta.
+      const totalTokens = finalState.tokensUsed ?? 0;
+      const tokensIn = Math.floor(totalTokens * 0.7);
+      const tokensOut = totalTokens - tokensIn;
+      const tier = (finalState.intent === 'other' || finalState.dataSource === 'none')
+        ? 'mini'
+        : 'full';
+      const model = tier === 'mini' ? 'gpt-4o-mini' : 'gpt-4o';
+      recordMessageCost({
+        tenantId: input.tenantId,
+        customerId: input.customerId,
+        conversationId: input.conversationId,
+        model,
+        tokensIn,
+        tokensOut,
+        useCase: 'agent_response',
+      }).catch((err) => {
+        this.logger.warn({ err, tenantId: input.tenantId }, 'cost-record-failed');
+      });
 
       return {
         response: finalState.response ?? 'Não foi possível gerar uma resposta.',

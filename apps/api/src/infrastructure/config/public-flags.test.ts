@@ -6,6 +6,7 @@ describe('public-flags', () => {
 
   beforeEach(() => {
     process.env = { ...originalEnv };
+    delete process.env.DRIFT_DETECTION_ENABLED;
   });
 
   afterEach(() => {
@@ -15,29 +16,48 @@ describe('public-flags', () => {
   it('retorna false quando a env está ausente', () => {
     delete process.env.INTELLIGENCE_HUB_ENABLED;
     delete process.env.TOOL_REGISTRY_ENABLED;
+<<<<<<< HEAD
     delete process.env.SAFETY_CLASSIFIER_ENABLED;
     delete process.env.GRAPHRAG_ENABLED;
     delete process.env.LIVE_TRANSLATION_ENABLED;
     delete process.env.PROMPT_COMPRESSION_ENABLED;
     expect(getPublicFlags()).toEqual({ hub: false, toolreg: false, safety: false, graphrag: false, translate: false, compression: false });
+=======
+    expect(getPublicFlags()).toEqual({ hub: false, toolreg: false, drift: false, costdrill: true });
+>>>>>>> feat/ia33-drift-detection
   });
 
   it('retorna true para "true"', () => {
     process.env.INTELLIGENCE_HUB_ENABLED = 'true';
+<<<<<<< HEAD
     expect(getPublicFlags()).toEqual({ hub: true, toolreg: false, safety: false, graphrag: false, translate: false, compression: false });
+=======
+    expect(getPublicFlags()).toEqual({ hub: true, toolreg: false, drift: false, costdrill: true });
+>>>>>>> feat/ia33-drift-detection
   });
 
   it('retorna true para "TRUE " (case/whitespace insensível)', () => {
     process.env.INTELLIGENCE_HUB_ENABLED = 'TRUE ';
+<<<<<<< HEAD
     expect(getPublicFlags()).toEqual({ hub: true, toolreg: false, safety: false, graphrag: false, translate: false, compression: false });
+=======
+    expect(getPublicFlags()).toEqual({ hub: true, toolreg: false, drift: false, costdrill: true });
+>>>>>>> feat/ia33-drift-detection
   });
 
   it('retorna false para qualquer outro valor', () => {
     process.env.INTELLIGENCE_HUB_ENABLED = 'false';
+<<<<<<< HEAD
     expect(getPublicFlags()).toEqual({ hub: false, toolreg: false, safety: false, graphrag: false, translate: false, compression: false });
 
     process.env.INTELLIGENCE_HUB_ENABLED = '1';
     expect(getPublicFlags()).toEqual({ hub: false, toolreg: false, safety: false, graphrag: false, translate: false, compression: false });
+=======
+    expect(getPublicFlags()).toEqual({ hub: false, toolreg: false, drift: false, costdrill: true });
+
+    process.env.INTELLIGENCE_HUB_ENABLED = '1';
+    expect(getPublicFlags()).toEqual({ hub: false, toolreg: false, drift: false, costdrill: true });
+>>>>>>> feat/ia33-drift-detection
   });
 
   it('IA-19: TOOL_REGISTRY_ENABLED controla a chave toolreg', () => {
@@ -47,6 +67,7 @@ describe('public-flags', () => {
     delete process.env.LIVE_TRANSLATION_ENABLED;
     delete process.env.PROMPT_COMPRESSION_ENABLED;
     process.env.TOOL_REGISTRY_ENABLED = 'true';
+<<<<<<< HEAD
     expect(getPublicFlags()).toEqual({ hub: false, toolreg: true, safety: false, graphrag: false, translate: false, compression: false });
   });
 
@@ -88,6 +109,20 @@ describe('public-flags', () => {
     delete process.env.LIVE_TRANSLATION_ENABLED;
     process.env.PROMPT_COMPRESSION_ENABLED = 'true';
     expect(getPublicFlags()).toEqual({ hub: false, toolreg: false, safety: false, graphrag: false, translate: false, compression: true });
+=======
+    expect(getPublicFlags()).toEqual({ hub: false, toolreg: true, drift: false, costdrill: true });
+  });
+
+  it('IA-33: DRIFT_DETECTION_ENABLED controla a chave drift', () => {
+    delete process.env.INTELLIGENCE_HUB_ENABLED;
+    delete process.env.TOOL_REGISTRY_ENABLED;
+    process.env.DRIFT_DETECTION_ENABLED = 'true';
+    expect(getPublicFlags()).toEqual({ hub: false, toolreg: false, drift: true, costdrill: true });
+  });
+
+  it('IA-34: costdrill é client-only (sem env server), sempre true', () => {
+    expect(getPublicFlags().costdrill).toBe(true);
+>>>>>>> feat/ia33-drift-detection
   });
 
   it('não vaza env fora do mapa de flags', () => {

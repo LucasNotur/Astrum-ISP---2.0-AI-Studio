@@ -17,7 +17,12 @@ vi.mock('../../infrastructure/ai/tools.executor', () => ({
   ToolsExecutor: class {}
 }));
 vi.mock('../../infrastructure/database/supabase.client', () => ({
-  supabase: {}
+  supabase: {},
+  // IA-34: supabaseAdmin também é exportado pelo módulo real e usado pelo
+  // cost-recorder. Mock mínimo (fail-open no recorder) para não poluir logs.
+  supabaseAdmin: {
+    from: vi.fn().mockReturnValue({ insert: vi.fn().mockResolvedValue({ error: null }) }),
+  },
 }));
 
 describe('AgentState', () => {

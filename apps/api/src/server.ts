@@ -132,6 +132,13 @@ export async function buildServer() {
   const { campaignsRoutes } = await import('./domain/ia/campaigns.routes');
   await app.register(campaignsRoutes);
 
+  // IA-33 — drift detection: PSI histórico + atual (intents/sentimentos).
+  // Flag DRIFT_DETECTION_ENABLED default false. Rota fica exposta mesmo
+  // com flag off para permitir inspeção dos dados que o worker já tenha
+  // produzido em rodadas anteriores.
+  const { driftRoutes } = await import('./domain/ia/drift.routes');
+  await app.register(driftRoutes);
+
   const websocketRoutes = await import('./domain/realtime/websocket.routes');
   await app.register(websocketRoutes.default);
 

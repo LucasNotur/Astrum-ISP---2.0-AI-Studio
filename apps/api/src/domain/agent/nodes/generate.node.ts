@@ -101,12 +101,28 @@ export function makeNodeGenerate(deps: {
       fullResponse += chunk;
     }
 
+    // IA-34 / FIX D4: capturar usage do AI SDK v6.
+    // totalUsage é a soma de TODOS os steps (incluindo tool calls) — é o
+    // que importa para billing. usage (sem "total") é só do último step.
+    // totalTokens pode vir undefined em provedores que não reportam; nesse
+    // caso caímos na soma input+output. totalUsage pode ser undefined em
+    // adapters legados — nesse caso, estimamos 0.
+    const totalUsage = (await streamResult.totalUsage) ?? { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
+    const tokensUsed = totalUsage.totalTokens
+      ?? ((totalUsage.inputTokens ?? 0) + (totalUsage.outputTokens ?? 0));
+
     deps.logger.info({
       step: 'generate',
       responseLength: fullResponse.length,
       toolsUsed: toolsExecuted.length,
       tier,
+<<<<<<< HEAD
       language: detectedLanguage,
+=======
+      tokensUsed,
+      tokensIn: totalUsage.inputTokens,
+      tokensOut: totalUsage.outputTokens,
+>>>>>>> feat/ia33-drift-detection
     }, 'Agent: generate');
 
     // IA-02: Armazenar resposta no cache semântico (fire-and-forget) — só pt
@@ -118,6 +134,7 @@ export function makeNodeGenerate(deps: {
       response: fullResponse,
       toolsExecuted,
       steps: [...state.steps, 'generate'],
+      tokensUsed,
     };
   };
 }
