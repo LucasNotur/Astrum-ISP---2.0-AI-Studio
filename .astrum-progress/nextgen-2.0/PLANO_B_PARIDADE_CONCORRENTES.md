@@ -1,0 +1,233 @@
+# NEXTGEN 2.0 — PLANO B — PARIDADE COM A CONCORRÊNCIA + ESTRATÉGIA DE ENTRADA
+# "Igualar no que eles vendem hoje, entrar pela porta do ERP, e subir a escada"
+
+> **Para a IA executora e para o Lucas.** Escrito em 2026-07-07 pela sessão NG2-PLAN.
+> Pesquisa de mercado feita em julho/2026 via Google e páginas públicas de
+> Instagram (Facebook/Instagram detalhados exigem login — ver §6 limitações e a
+> recomendação de monitoramento contínuo). Fontes em §6.
+>
+> **Estratégia confirmada pelo Lucas:** a Astrum entra como BRAÇO DE INTELIGÊNCIA
+> ("cérebro operacional do provedor") SOBRE o ERP que o ISP já usa e confia —
+> barra de entrada zero. Conforme gera valor e acumula carga, substitui módulos
+> passo a passo dentro do ciclo Astrum no cliente (§2). Este plano existe para:
+> (a) eliminar os gaps que fazem um concorrente ganhar o deal hoje; (b) construir
+> a porta de entrada (conectores). O distanciamento vem do PLANO_A.
+
+---
+
+## §0 — PROTOCOLO
+- Herda §0 do `PLANO_MESTRE_V2.md` (R1–R6), RN1–RN16 dos planos IA-NEXTGEN e
+  RN17/RN18 do PLANO_A. Sessões P-XX são GALHOS: expansão em densidade §4 só via
+  sessão de planejamento dedicada auditando o código do dia (RN17).
+- **RN19 — Paridade é integração, não reconstrução.** Onde o concorrente é um ERP
+  maduro (fiscal, radius, OLT), a paridade se cumpre INTEGRANDO (P0/P6), nunca
+  reimplementando nesta fase. Reimplementar módulo de ERP é decisão da fase de
+  SUBSTITUIÇÃO (§2, degraus 4-5) e exige plano próprio.
+- **RN20 — Todo item de paridade nasce com número de venda.** Cada sessão P-XX
+  define a métrica que o comercial vai usar (ex.: "-X% inadimplência provada",
+  "Y% resolvido sem humano") e instrumenta a medição desde o dia 1. Os concorrentes
+  vendem com números (Mundiale: "-30% inadimplência", "84% auto") — a Astrum vai
+  vender com números MEDIDOS.
+
+---
+
+## §1 — QUADRO COMPETITIVO (pesquisa julho/2026)
+
+### 1a. Os dois anéis de concorrência
+**Anel 1 — ERPs incumbentes** (donos da relação e do dado operacional):
+| Concorrente | O que têm (verificado) | Sinal de IA |
+|---|---|---|
+| **IXC Soft** | Ecossistema completo (ERP + Opa! Suite omnichannel + IXC ACS/TR-069 + IXC Oner/nova Central do Assinante + IXC Assina); parceria Banco do Brasil; 25 países, 700 colaboradores; evento próprio (IXC Experience) | **IA real em produção interna**: assistentes "Lia + Manuel" no próprio suporte (90% de acurácia de transferência, −27k chamados humanos); IA no ACS para diagnóstico de CPE. É o incumbente MAIS perigoso em IA |
+| **Voalle (Elleven)** | Plataforma nova com jornadas CORE (Vender→Entregar→Faturar→Cobrar→Atender); análise de capacidade de pagamento; viabilidade em segundos (inclui redes neutras); OS automática por região/habilidade; fatura Anatel 765; identificação de intenção de pagamento; desbloqueio automático; MWC 2026; parceria Telecall (MVNO) | IA embutida em jornadas (scoring/roteamento). Discurso forte de "workflow inteligente" |
+| **MK Solutions** | R$30M de investimento anunciado; novo workspace do ERP; posicionamento de "maior ecossistema" | Blog com categoria IA; sem feature de agente publicada |
+| **Hubsoft** | 100% web + app mobile forte; discurso "Panorama 2026" (IA como diferencial, operação previsível) | IA genérica no discurso; nada específico publicado |
+| **SGP/TSMX** | Integrações OLT, gateways de pagamento, sistema responsivo | Sem IA própria publicada |
+
+**Anel 2 — camada de IA/atendimento plugada nos ERPs** (concorrentes DIRETOS do
+posicionamento Astrum):
+| Concorrente | O que vendem (verificado) |
+|---|---|
+| **Mundiale.ai (WitHub)** | Atendimento (2ª via, abertura de OS, **religue por confiança**, notificação de falha, resumo p/ humano, 24/7), cobrança (lembretes, Pix, **negociação automatizada**, promessa "−30% inadimplência"), vendas (oferta, **viabilidade**, coleta, fechamento; "84% resolvido automaticamente"). Integra **Voalle, MK, IXC, SGP/TSMX, Hubsoft, MK-Auth** |
+| **Talqui** | Balcão financeiro 24/7 no WhatsApp com IXC — busca fatura no ERP e **recalcula juros conforme a regra do IXC** |
+| **Opa! Suite** (da própria IXC), **Chatlabs, Zapisp, PliQ** | Omnichannel WhatsApp + cobrança integrada aos ERPs |
+| **Meta Business Agent** (global desde jun/2026) | IA nativa do WhatsApp/Instagram para PMEs — **commoditiza o atendimento básico**. Quem só "responde WhatsApp" morre; quem opera o ERP com dados, não |
+
+### 1b. Leitura estratégica
+1. O Anel 2 provou o modelo de entrada da Astrum (plugar no ERP) — mas todos são
+   RASOS: scripts + consulta ao ERP. Nenhum tem eval/replay/guardrails/custo por
+   cliente/voz/rede. A Astrum entra pela mesma porta com um motor 10× mais fundo.
+2. A IXC é a única com IA séria — e vai empurrá-la para o produto. A janela para
+   se posicionar como "o cérebro que funciona com QUALQUER ERP" é AGORA: é a
+   defesa contra cada ERP fazer a sua IA fechada.
+3. O Meta Business Agent mata o bot burro, não a Astrum — mas OBRIGA a Astrum a
+   nunca se vender como "chatbot": vende-se OPERAÇÃO (agir no ERP, na rede, na
+   cobrança), que o Meta não alcança.
+
+---
+
+## §2 — A ESCADA DE ENTRADA (o ciclo Astrum dentro do cliente)
+
+```
+Degrau 0 — CONECTAR   (30 min, read-only): credenciais do ERP → sync inicial →
+                       primeiro insight gratuito ("você tem R$ X vencido há >30d
+                       concentrado no bairro Y"). Barra de entrada ZERO.
+Degrau 1 — ENXERGAR   (semana 1): dashboards de valor + churn + saúde da rede.
+                       Astrum ainda não fala com cliente final. Confiança nasce.
+Degrau 2 — FALAR      (mês 1): atendimento + cobrança IA agindo VIA ERP
+                       (2ª via, Pix, religue, OS). O ERP continua sendo o registro.
+Degrau 3 — OPERAR     (mês 2-3): vendas, campo, NOC preventivo, voz.
+Degrau 4 — SUBSTITUIR (mês 6+): módulo a módulo onde a Astrum já é melhor
+                       (atendimento→cobrança→OS/campo→estoque), no ritmo do cliente.
+Degrau 5 — ERP ASTRUM (decisão futura): fiscal/radius/financeiro — só quando a
+                       carga justificar (RN19; plano próprio).
+```
+Cada degrau tem critério de subida MEDIDO (RN20) — o comercial vende o próximo
+degrau com o número do degrau atual.
+
+---
+
+## §3 — BLOCOS DE PARIDADE (sessões P-XX)
+
+### BLOCO P0 — Conectores ERP profundos (A PORTA DE ENTRADA — prioridade absoluta)
+**Gap:** Mundiale integra 7 ERPs; a Astrum tem `tenant_erp_credentials` (024) e
+adapters embrionários IXC/MK-Auth (`ERP_CRED_KEY` no env.validator). Sem P0 não
+existe estratégia de entrada.
+**Arquitetura (auditada):** seguir o padrão do `src/ai-provider/` portado na IA-43
+(política + adapters intercambiáveis): `IErpPort` único (clientes, contratos,
+faturas+juros, desbloqueio, OS, viabilidade, planos) + 1 adapter por ERP + sync
+incremental (webhooks onde houver; polling onde não) + cache Redis + circuito.
+- **P0-01 — IErpPort + conector IXC** (maior base instalada; API documentada) —
+  inclui o "conecte em 15 minutos": wizard (reusar `onboarding/wizard.ts`) +
+  validador de credencial + teste de sanidade com 5 leituras reais.
+- **P0-02 — Conector Voalle/Elleven** (API do Elleven é nova — auditar no dia).
+- **P0-03 — Conector MK Solutions** (evoluir o adapter MK-Auth existente).
+- **P0-04 — Conector SGP/TSMX** · **P0-05 — Conector Hubsoft**.
+- **P0-06 — Camada de AÇÃO via ERP:** as tools do agente (IA-19) ganham variante
+  "via ERP": `check_invoice`/`suspend_signal`/`schedule_technical_visit` operam o
+  ERP do tenant quando conectado (o catálogo IA-19 já permite trocar implementação
+  por tenant). **Teste de paridade Talqui:** 2ª via com juros recalculados pela
+  regra do ERP.
+**Métrica de venda (RN20):** tempo de go-live (meta: <1 dia vs semanas dos
+concorrentes); nº de ações executadas via ERP/mês.
+
+### BLOCO P1 — Ações operacionais que o Anel 2 já vende
+**Gap:** religue por confiança, notificação de falha, negociação simples — feitos
+pelos bots concorrentes hoje.
+- **P1-01 — Religue por confiança** com política por tenant (limite de vezes/ano,
+  valor máximo) — auditável (IA-06), 1 clique de config.
+- **P1-02 — Notificação proativa de falha em massa** (versão paridade do D-04 do
+  PLANO_A: detecção manual/semiautomática + lista de afetados via IA-16 + envio;
+  o autônomo completo fica no PLANO_A).
+- **P1-03 — Negociação guiada** (menu de opções parametrizado pelo dono — paridade
+  com Mundiale; o negociador com alçada real é D-03 do PLANO_A).
+- **P1-04 — Resumo para transferência humana** aprimorado + fila com contexto
+  (paridade WitHub) — o `TicketReportSchema` já estrutura; falta a UX do operador.
+**Métrica:** % resolvido sem humano (meta inicial: ≥84%, o número da Mundiale).
+
+### BLOCO P2 — Omnichannel de verdade
+**Gap:** Astrum é WhatsApp (Evolution). Concorrentes cobrem Instagram/Messenger/
+e-mail/telefone; a Meta empurra IA nativa nesses canais.
+- **P2-01 — Instagram DM + Messenger** (Meta Graph API; reusar o pipeline do
+  message.worker — canal é adapter, o grafo é o mesmo).
+- **P2-02 — E-mail** (entrada no mesmo funil, com threading).
+- **P2-03 — Telefonia** = Bloco D da Fase 2 (IA-08/13) — já planejado; aqui só a
+  unificação da fila.
+- **P2-04 — Inbox unificada do operador** (evolução da ChatPage: uma fila, todos
+  os canais, com o resumo do P1-04). *Este é também um item de UI/UX — coordenar
+  com o plano de UI/UX (fase seguinte).*
+**Métrica:** canais ativos por tenant; tempo de primeira resposta por canal.
+
+### BLOCO P3 — Vendas (o funil que Elleven e Mundiale já têm)
+**Gap:** a Astrum não vende — só atende e cobra. Elleven tem a jornada "Vender"
+completa; Mundiale fecha venda no WhatsApp.
+- **P3-01 — Funil conversacional de venda:** lead → viabilidade (IA-16 `capacidade`
+  + dados do ERP via P0) → apresentação de planos (do ERP) → coleta de dados →
+  pré-cadastro NO ERP → agendamento de instalação.
+- **P3-02 — Subgrafo `vendas` no multi-agente** (IA-10 — o domínio já foi previsto
+  na arquitetura; `AgentDomainSchema` hoje tem atendimento/cobranca/retencao/
+  escalation — adicionar `vendas` é channel novo + subgrafo).
+- **P3-03 — Contrato digital**: paridade mínima via integração (assinatura do
+  próprio ERP quando existir; senão Clicksign/D4Sign API).
+**Métrica:** % de leads convertidos sem humano; tempo lead→instalação agendada.
+
+### BLOCO P4 — Experiência do assinante
+**Gap:** IXC Oner tem nova Central do Assinante; todos têm app/central. A Astrum
+tem o embrião `subscriber-portal.ts` (auth por CPF, ações por status — real,
+auditado).
+- **P4-01 — Central do assinante white-label (PWA)**: 2ª via, diagnóstico
+  (`run_diagnostics` já existe como tool), status da OS, histórico — mesmo backend
+  do agente, casca web instalável. PWA primeiro, loja depois (decisão registrada:
+  app nativo só com demanda).
+- **P4-02 — Diagnóstico self-service** ("minha internet está lenta" → roda o
+  diagnóstico real → mostra o resultado → abre OS se preciso).
+**Métrica:** % de autoatendimento no portal; nota de app/loja quando houver.
+
+### BLOCO P5 — Prova de valor e confiança (o que faz o deal fechar)
+**Gap:** concorrentes vendem com números e a IXC vende confiança institucional
+(Banco do Brasil, eventos). A Astrum precisa de artilharia de prova.
+- **P5-01 — Dashboard "Valor Gerado"** (a tela que o DONO vê): R$ recuperado pela
+  cobrança IA, atendimentos resolvidos sem humano, horas economizadas, tickets
+  evitados — com metodologia aberta (nada de número inventado; RN20). Fonte:
+  IA-34 (custo) + variant_sends (IA-26) + tickets. *Item de UI/UX coordenado.*
+- **P5-02 — Status page pública + SLA publicado** (uptime do motor; transparência
+  vende para técnico).
+- **P5-03 — Kit de compliance:** DPA/LGPD formal, política de dados por tenant,
+  resposta padrão a due diligence (as práticas já existem no código — RLS por
+  tenant, PII masking, audit trail; falta EMPACOTAR como documento comercial).
+- **P5-04 — Case engine:** todo tenant piloto gera case com número auditado
+  (backtesting D-02 do PLANO_A vira a máquina de cases quando existir).
+**Métrica:** ciclo de venda (dias); % de deals ganhos vs Anel 2.
+
+### BLOCO P6 — Rede/CPE via parceria (não construir)
+**Gap:** IXC ACS gerencia CPE com IA (TR-069). Construir ACS = anos (RN19).
+- **P6-01 — Integração de telemetria CPE** (Anlix/Flashman ou o ACS do próprio
+  ERP via P0): leituras de sinal/reboot/wifi alimentam `network_metrics` (IA-09)
+  e turbinam IA-24/D-04 sem construir o ACS.
+- **P6-02 — Integração OZmap** (documentação de planta → alimenta o grafo IA-16 e
+  o futuro gêmeo digital D-01).
+**Métrica:** % de tenants com telemetria de CPE fluindo.
+
+---
+
+## §4 — METAS DE PARIDADE (checklist de "igual a igual")
+
+| Capacidade do concorrente | Sessão | Meta medida (RN20) |
+|---|---|---|
+| Integra os 6 grandes ERPs (Mundiale) | P0-01..05 | 5 conectores; go-live <1 dia |
+| 2ª via com juros do ERP (Talqui) | P0-06 | 100% de exatidão vs ERP em 50 casos |
+| Religue por confiança (Mundiale) | P1-01 | Ativo em 100% dos pilotos |
+| "84% resolvido automaticamente" (Mundiale) | P1-* | ≥84% medido em produção |
+| "−30% inadimplência" (Mundiale, sem prova) | IA-26 + P5-04 | Δ inadimplência MEDIDO por coorte (e depois PROVADO por backtesting D-02) |
+| Funil de venda (Elleven "Vender") | P3-01..03 | Venda ponta a ponta sem humano em piloto |
+| Omnichannel (Opa!/Chatlabs) | P2-01..04 | WhatsApp+IG+e-mail na mesma fila |
+| Central do assinante (IXC Oner) | P4-01..02 | ≥30% de autoatendimento no portal |
+| IA institucional (IXC Lia/Manuel) | já superado pelo motor (eval/guardrails/replay) | manter: eval nightly verde (IA-42) |
+
+## §5 — ORDEM E INTERCALAÇÃO COM OS PLANOS EXISTENTES
+1. **P0 é o desbloqueador universal** — pode e deve intercalar com a Fase 2 do
+   IA-NEXTGEN (não conflita: P0 é domínio `provedor/erp`, Fase 2 é `ia/*`).
+   Sugestão: P0-01 (IXC) logo após IA-38/IA-23 (Bloco A da Fase 2).
+2. P1/P2 dependem de P0 + cutover do atendimento (S74) para agir em produção.
+3. P3 depende de P0 + IA-10 (subgrafo). P4 depende de P0. P5-01 depende de IA-34
+   (já em main). P6 é independente (parceria comercial primeiro).
+4. O PLANO_A consome P0/P3 como combustível (RN18) — a paridade alimenta o
+   diferencial, nunca o contrário.
+
+## §6 — FONTES DA PESQUISA (julho/2026) E LIMITAÇÕES
+- Mundiale.ai — IA para provedores: https://www.mundiale.ai/ia-para-provedores-de-internet/
+- Talqui × IXC (balcão financeiro WhatsApp): https://talqui.chat/integracoes/com/ixc
+- IXC — assistentes Lia/Manuel: https://wiki-erp.ixcsoft.com.br/artigos/assistente-inteligente---lia
+- IXC ACS — IA: https://central-ixcacs.ixcsoft.com.br/es/documentacion/articulos/inteligencia-artificial-do-acs.html
+- IXC Oner — nova Central do Assinante: https://central-ixconer.ixcsoft.com.br/
+- Voalle Elleven: https://grupovoalle.com.br/elleven · MVNO/Telecall: https://inforchannel.com.br/2025/09/30/telecall-e-voalle-fecham-parceria-para-integrar-o-erp-elleven-ao-mercado-mvno/
+- Hubsoft — Panorama 2026: https://hubsoft.io/2025/12/04/panorama-2026-a-nova-era-dos-provedores-de-internet/
+- MK Solutions — investimento R$30M: https://ipnews.com.br/especialista-em-telecomunicacoes-mk-solutions-anuncia-investimentos-de-r-30-milhoes/ · categoria IA: https://www.mksolutions.com.br/categoria/inteligencia-artificial/
+- Meta Business Agent (jun/2026): https://exame.com/tecnologia/meta-amplia-business-agent-no-whatsapp-inclui-instagram-e-prepara-cobranca-para-pmes/
+- Ecossistema de bots: https://www.chatlabs.com.br/whatsapp-api-para-provedores-de-internet-suporte-cobranca-e-os · https://wiki.opasuite.com.br/integracoes/erp-ixc/cobranca-whatsapp · https://zapisp.com.br/integracoes · https://www.pliq.io/integracoes/
+- Instagram público: @ixcsoft (18k, APTC Cumbre Lima 2026, parceria BB) · @hubsoftoficial · @grupovoalle.
+
+**Limitações registradas:** Facebook/Instagram exigem login para o feed completo —
+a leitura foi de posts indexados publicamente. **Recomendação:** monitoramento
+mensal recorrente (sessão curta: 6 buscas fixas + 3 perfis) com registro num
+`RADAR_CONCORRENCIA.md` nesta pasta; a primeira execução pode ser agendada quando
+o Lucas quiser.

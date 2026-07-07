@@ -24,6 +24,35 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-07] NEXTGEN 2.0 — Sessão NG2-PLAN (estratégia: diferencial + paridade)
+Tarefa: criar a pasta .astrum-progress/nextgen-2.0/ com 2 planos estratégicos,
+  com pesquisa de concorrência de julho/2026 (Google + Instagram público; FB/IG
+  completos exigem login — limitação registrada no §6 do Plano B).
+Arquivos criados:
+  - .astrum-progress/nextgen-2.0/PLANO_A_DIFERENCIAL_TECNOLOGIAS_INEDITAS.md
+    (12 tecnologias inéditas D-01..D-12 ancoradas no código real + mapa de upgrade
+    dos ativos existentes + RN17/RN18: gate de expansão e regra de combustível)
+  - .astrum-progress/nextgen-2.0/PLANO_B_PARIDADE_CONCORRENTES.md
+    (quadro competitivo em 2 anéis: ERPs incumbentes × camada de IA; escada de
+    entrada em 6 degraus via ERP; blocos P0-P6 com metas medidas RN19/RN20; fontes)
+Achados da pesquisa (julho/2026):
+  - Concorrentes diretos reais = camada de bots sobre ERPs (Mundiale.ai integra 7
+    ERPs e vende "-30% inadimplência"/"84% auto"; Talqui recalcula juros no IXC).
+  - IXC é o incumbente mais perigoso em IA (Lia+Manuel em produção interna: 90%
+    acurácia de transferência, -27k chamados; IA no ACS).
+  - Voalle lançou plataforma Elleven (jornadas Vender→Entregar→Faturar→Cobrar→
+    Atender; viabilidade em segundos; desbloqueio automático). MK: R$30M investidos.
+  - Meta Business Agent global (jun/2026) commoditiza o bot básico de WhatsApp —
+    reforça o posicionamento "operação via ERP", não "chatbot".
+Decisão estratégica confirmada pelo Lucas: entrada como braço de inteligência
+  sobre o ERP existente (barra zero), substituição módulo a módulo (escada §2).
+  P0 (conectores ERP) = prioridade absoluta, intercala com a Fase 2 do IA-NEXTGEN.
+Próximo (definido pelo Lucas): plano de UI/UX da Astrum (responsividade, níveis de
+  acesso, eficiência de uso diário, manutenibilidade dev) — a criar nesta pasta.
+Status: ✅ Concluído (planejamento; nenhuma sessão executada).
+
+---
+
 [2026-07-07] IA-NEXTGEN — Sessão IA-F2-PLAN (planejamento; gate RN16 cumprido)
 Tarefa: expandir os 21 galhos da Fase 2 para o template §4 em densidade total,
   auditando o código REAL mergeado em main (git log até 64303fa, PROGRESS_LOG de
