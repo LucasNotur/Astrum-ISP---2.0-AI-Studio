@@ -1553,3 +1553,38 @@ Observacoes:
   - BRANCH_REGISTRY ja tinha 'safety' (IA-11) - GuardrailsPage preenche o destino /intelligence/guardrails.
 Rollback: SAFETY_CLASSIFIER_ENABLED=false (no vira no-op).
 Commit: feat(ia21): classificador de seguranca dedicado + fila de revisao (flag off).
+
+[2026-07-05] IA-NEXTGEN / Fase 1 - Sessao IA-16
+Tarefa: GraphRAG leve - tool de grafo de rede (clientes<->CTOs<->tickets) + tela de consulta.
+Arquivos criados:
+  - packages/db/src/migrations/039_customers_cto_link.sql (ADD COLUMN cto_id UUID FK network_ctos + idx tenant+cto)
+  - apps/api/src/domain/rede/network-graph.service.ts (NetworkGraphPort deps injetaveis; impactoCto soma MRR em CENTAVOS + conta tickets abertos; reincidencia top10 ordenado + risco por quartil; capacidade filtra >0.85 + risco pela ocupacao)
+  - apps/api/src/domain/rede/network-graph.service.test.ts (8 testes: CTO nao encontrada, soma MRR cents com null=0, ordenacao reincidencia, filtro capacidade)
+  - apps/api/src/domain/rede/graph.routes.ts (GET /api/v2/rede/graph/impacto/:ctoId + /reincidencia?days + /capacidade; RBAC reports:read)
+  - apps/api/src/domain/rede/graph.routes.test.ts (4 testes: impacto 200, 404, reincidencia com days, capacidade)
+  - src/pages/intelligence/NetworkGraphPage.tsx (3 abas: Impacto com Select CTO + StatCards + DataTablePro; Reincidencia com select de janela 7/30/90d; Capacidade com RiskStripeCard + botao Ver no mapa)
+  - src/pages/intelligence/NetworkGraphPage.test.tsx (1 teste de render)
+Arquivos modificados:
+  - apps/api/src/infrastructure/ai/vercel-ai.service.ts (+ query_network_graph no catalogo agentTools)
+  - apps/api/src/infrastructure/ai/tools.executor.ts (+ case query_network_graph + _queryNetworkGraph despachando para o service)
+  - apps/api/src/infrastructure/ai/tools.executor.test.ts (+ 2 testes IA-16: despacha impacto, sem cto_id -> erro)
+  - apps/api/src/infrastructure/config/public-flags.ts (+ 'graphrag' : 'GRAPHRAG_ENABLED')
+  - apps/api/src/infrastructure/config/public-flags.test.ts (+ 1 teste)
+  - apps/api/src/domain/ia/flags.routes.test.ts (atualizado p/ 4 chaves)
+  - apps/api/src/server.ts (registro graphRoutes)
+  - src/App.tsx (lazy route /intelligence/graph)
+  - src/lib/i18n/pt-br.ts (+ intelligence.graphrag)
+  - .env.example (+ GRAPHRAG_ENABLED=false)
+Tecnologias implementadas: 3 consultas SQL nomeadas (impacto/reincidencia/capacidade) sem banco de grafo novo; grafo = juncao customers.cto_id <-> network_ctos.id + tickets.
+Testes: 37 passando na suite IA-16. Typecheck limpo, 0 errors lint.
+Status: CONCLUIDO. Flag GRAPHRAG_ENABLED default 'false' - tool entra no catalogo (IA-19 ja permite) e tela fora do hub/DOM ate a flag ligar.
+Observacoes:
+  - AUDITORIA FEITA: customers (005) NAO tinha cto_id - criado migration 039. service_orders (015) ja tinha cto_id via ETL.
+  - DESVIO: coluna usada para MRR e mrr_cents (019), NAO monthly_value_cents (que o agentDbAdapter usa mas nao existe). network-graph.service usa o campo real (mrr_cents) - base SQL e testada.
+  - Defensiva: impacto_cto sem cto_id -> {error}; mode invalido -> {error}.
+  - Risco de reincidencia por QUARTIL (nao abs): max=10 tickets -> critico; 7-9 = alto; 5-6 = medio; <=4 = baixo (do top 10 ordenado).
+  - Risco de capacidade pela ocupacao: >=0.95 critico, >=0.90 alto, >0.85 medio.
+  - Tool do agente (query_network_graph) entra pelo catalogo IA-19 - sem duplicar defs.
+  - Tela com 3 abas Tabs shadcn; botao Ver no mapa -> navigate('/map') (a MapPage ja existe).
+Rollback: GRAPHRAG_ENABLED=false.
+Commit: feat(ia16): graphrag leve - tool de grafo de rede + tela (flag off).

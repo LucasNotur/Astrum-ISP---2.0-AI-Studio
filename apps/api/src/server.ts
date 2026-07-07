@@ -119,6 +119,10 @@ export async function buildServer() {
   const { safetyRoutes } = await import('./domain/ia/safety.routes');
   await app.register(safetyRoutes);
 
+  // IA-16 — Grafo de rede (impacto, reincidência, capacidade).
+  const { graphRoutes } = await import('./domain/rede/graph.routes');
+  await app.register(graphRoutes);
+
   const websocketRoutes = await import('./domain/realtime/websocket.routes');
   await app.register(websocketRoutes.default);
 

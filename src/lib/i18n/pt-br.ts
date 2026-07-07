@@ -69,6 +69,54 @@ export const ptBR = {
       loadError: 'Não foi possível carregar os vetos. Recarregue a página.',
       reload: 'Recarregar',
     },
+    graphrag: {
+      title: 'Grafo da Rede',
+      subtitle: 'Impacto de falhas, reincidência e capacidade por CTO.',
+      tabs: {
+        impact: 'Impacto',
+        recurrence: 'Reincidência',
+        capacity: 'Capacidade',
+      },
+      impact: {
+        ctoLabel: 'CTO',
+        selectPlaceholder: 'Escolha uma CTO',
+        calculate: 'Calcular impacto',
+        emptyState: 'Escolha uma CTO para simular o impacto de uma falha.',
+        stats: {
+          customersAffected: 'Clientes afetados',
+          withOpenTicket: 'Com ticket aberto',
+          mrrAtRisk: 'MRR em risco',
+        },
+        customersTitle: 'Clientes na CTO',
+      },
+      recurrence: {
+        daysLabel: 'Janela (dias)',
+        daysOptions: [7, 30, 90],
+        columns: {
+          cto: 'CTO',
+          tickets: 'Tickets',
+          risk: 'Risco',
+        },
+      },
+      capacity: {
+        columns: {
+          cto: 'CTO',
+          occupancy: 'Ocupação',
+          ports: 'Portas',
+          risk: 'Risco',
+        },
+        viewOnMap: 'Ver no mapa',
+        emptyState: 'Nenhuma CTO acima de 85% de ocupação.',
+      },
+      risk: {
+        baixo: 'Baixo',
+        medio: 'Médio',
+        alto: 'Alto',
+        critico: 'Crítico',
+      },
+      loadError: 'Não foi possível carregar o grafo. Tente novamente.',
+      retry: 'Tentar novamente',
+    },
     risk: {
       baixo: 'Baixo',
       medio: 'Médio',
