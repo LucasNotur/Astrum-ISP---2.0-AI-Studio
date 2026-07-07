@@ -10,6 +10,7 @@ import { guardrailsAdapter }  from '../../infrastructure/adapters/guardrails.ada
 import { searchAdapter }      from '../../infrastructure/adapters/search.adapter';
 import { agentDbAdapter }     from '../../infrastructure/adapters/agent-db.adapter';
 import { cragAdapter }        from '../../infrastructure/adapters/crag.adapter';
+import { supabaseAdmin }      from '../../infrastructure/database/supabase.client';
 
 import { makeNodeClassify }     from './nodes/classify.node';
 import { makeNodeGuardrails }   from './nodes/guardrails.node';
@@ -23,7 +24,7 @@ import { makeNodeGradeContext } from './nodes/grade-context.node';
 import { makeNodeRewriteQuery } from './nodes/rewrite-query.node';
 import { makeNodeSelfCheck }    from './nodes/self-check.node';
 
-export const nodeClassify     = makeNodeClassify({ ai: vercelAIService, logger: infraLogger });
+export const nodeClassify     = makeNodeClassify({ ai: vercelAIService, logger: infraLogger, db: supabaseAdmin });
 export const nodeGuardrails   = makeNodeGuardrails({ guardrails: guardrailsAdapter, logger: infraLogger });
 export const nodeDecideSource = makeNodeDecideSource(infraLogger);
 export const nodeFetchContext = makeNodeFetchContext({ search: searchAdapter, db: agentDbAdapter, logger: infraLogger });

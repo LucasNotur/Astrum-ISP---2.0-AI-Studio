@@ -6,6 +6,11 @@ export interface IClassifyResult {
 
 export interface IStreamResult {
   textStream: AsyncIterable<string>;
+  // IA-34: usage do AI SDK v6 — usage = último step, totalUsage = soma (todos steps).
+  // Ambos são PromiseLike<{inputTokens, outputTokens, totalTokens}> (campos opcionais).
+  // Mantemos opcionais para preservar compat com adapters legados.
+  usage?: PromiseLike<{ inputTokens?: number; outputTokens?: number; totalTokens?: number }>;
+  totalUsage?: PromiseLike<{ inputTokens?: number; outputTokens?: number; totalTokens?: number }>;
 }
 
 export type IToolCallback = (toolName: string, args: unknown) => Promise<unknown>;

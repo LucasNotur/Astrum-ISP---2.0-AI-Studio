@@ -243,6 +243,7 @@ import { BIPage } from "./pages/BIPage";
 
 const IntelligenceHubPage = lazy(() => import("./pages/intelligence/IntelligenceHubPage"));
 const ToolsPage = lazy(() => import("./pages/intelligence/ToolsPage"));
+const DriftPage = lazy(() => import("./pages/intelligence/DriftPage"));
 
 import {
   Bell,
@@ -2972,6 +2973,14 @@ export default function App() {
               element={
                 <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
                   <ToolsPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/intelligence/drift"
+              element={
+                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
+                  <DriftPage />
                 </Suspense>
               }
             />

@@ -5,6 +5,8 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   ResponsiveContainer, Legend,
 } from 'recharts';
+import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
 import { Badge } from "@/src/components/ui/badge";
@@ -14,10 +16,17 @@ import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import { Switch } from "@/src/components/ui/switch";
 import { ScrollArea } from "@/src/components/ui/scroll-area";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/src/components/ui/tabs";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/src/components/ui/dialog";
+import { DataTablePro } from "@/src/components/intelligence/DataTablePro";
 import { useAppStore } from '../store/useAppStore';
+import { useFeatureFlags } from '@/src/hooks/useFeatureFlags';
+import { ptBR } from '@/src/lib/i18n/pt-br';
 import { toast } from 'sonner';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { DollarSign, Zap, TrendingUp, ShieldAlert, BarChart2 } from 'lucide-react';
+import { DollarSign, Zap, TrendingUp, ShieldAlert, BarChart2, ExternalLink } from 'lucide-react';
 
 // Cost per 1K tokens by model (USD, approximate)
 const MODEL_COSTS: Record<string, { in: number; out: number }> = {
@@ -51,6 +60,10 @@ interface LogRow {
   cost_usd: number | null;
   created_at: string;
   category: string | null;
+  // IA-34: dimensões de atribuição (migration 041). null = log legado.
+  customer_id: string | null;
+  conversation_id: string | null;
+  use_case: string | null;
 }
 
 interface TenantBudget {
@@ -58,15 +71,228 @@ interface TenantBudget {
   ai_budget_hard_stop: boolean;
 }
 
+// ─── IA-34: agregações para cost drill-down ────────────────────────────────
+
+interface AttributionRow {
+  id: string;
+  customer_id: string | null;
+  conversation_id: string | null;
+  use_case: string | null;
+  tokens_in: number;
+  tokens_out: number;
+  cost_usd: number;
+  created_at: string;
+}
+
+interface CustomerAgg {
+  customerId: string;
+  conversations: number;
+  tokensIn: number;
+  tokensOut: number;
+  costUsd: number;
+  conversationIds: string[];
+}
+
+interface FeatureAgg {
+  useCase: string;
+  conversations: number;
+  tokensIn: number;
+  tokensOut: number;
+  costUsd: number;
+}
+
+interface ConversationAgg {
+  conversationId: string;
+  costUsd: number;
+  tokensIn: number;
+  tokensOut: number;
+}
+
+const ATTRIBUTION_LIMIT = 1000;
+
+async function fetchAttribution(tenantId: string, accessToken: string): Promise<AttributionRow[]> {
+  // 1000 últimas linhas com dimensões — o backend grava cost_usd sempre
+  // (incluindo zero) então o filtro .not('cost_usd','is',null) só exclui
+  // linhas legadas (pré-IA-34) e nunca custa performance significativa.
+  const { data, error } = await supabase
+    .from('ai_performance_logs')
+    .select('id,customer_id,conversation_id,use_case,tokens_in,tokens_out,cost_usd,created_at')
+    .eq('tenant_id', tenantId)
+    .not('cost_usd', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(ATTRIBUTION_LIMIT);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as AttributionRow[];
+}
+
+function groupByCustomer(rows: AttributionRow[]): CustomerAgg[] {
+  const map = new Map<string, CustomerAgg>();
+  for (const r of rows) {
+    if (!r.customer_id) continue;
+    const cur = map.get(r.customer_id) ?? {
+      customerId: r.customer_id,
+      conversations: 0,
+      tokensIn: 0,
+      tokensOut: 0,
+      costUsd: 0,
+      conversationIds: [],
+    };
+    cur.tokensIn += r.tokens_in;
+    cur.tokensOut += r.tokens_out;
+    cur.costUsd += r.cost_usd;
+    if (r.conversation_id && !cur.conversationIds.includes(r.conversation_id)) {
+      cur.conversationIds.push(r.conversation_id);
+    }
+    map.set(r.customer_id, cur);
+  }
+  const arr = Array.from(map.values()).map(a => ({
+    ...a,
+    conversations: a.conversationIds.length || countDistinctConv(rows, a.customerId),
+  }));
+  return arr.sort((a, b) => b.costUsd - a.costUsd);
+}
+
+function countDistinctConv(rows: AttributionRow[], customerId: string): number {
+  const set = new Set<string>();
+  for (const r of rows) {
+    if (r.customer_id === customerId && r.conversation_id) set.add(r.conversation_id);
+  }
+  return set.size;
+}
+
+function groupByFeature(rows: AttributionRow[]): FeatureAgg[] {
+  const map = new Map<string, FeatureAgg>();
+  const convSets = new Map<string, Set<string>>();
+  for (const r of rows) {
+    const key = r.use_case ?? '(sem use_case)';
+    const cur = map.get(key) ?? {
+      useCase: key,
+      conversations: 0,
+      tokensIn: 0,
+      tokensOut: 0,
+      costUsd: 0,
+    };
+    cur.tokensIn += r.tokens_in;
+    cur.tokensOut += r.tokens_out;
+    cur.costUsd += r.cost_usd;
+    map.set(key, cur);
+    if (!convSets.has(key)) convSets.set(key, new Set());
+    if (r.conversation_id) convSets.get(key)!.add(r.conversation_id);
+  }
+  return Array.from(map.values())
+    .map(a => ({ ...a, conversations: convSets.get(a.useCase)?.size ?? 0 }))
+    .sort((a, b) => b.costUsd - a.costUsd);
+}
+
+function groupByConversationForCustomer(rows: AttributionRow[], customerId: string): ConversationAgg[] {
+  const map = new Map<string, ConversationAgg>();
+  for (const r of rows) {
+    if (r.customer_id !== customerId || !r.conversation_id) continue;
+    const cur = map.get(r.conversation_id) ?? {
+      conversationId: r.conversation_id,
+      costUsd: 0,
+      tokensIn: 0,
+      tokensOut: 0,
+    };
+    cur.tokensIn += r.tokens_in;
+    cur.tokensOut += r.tokens_out;
+    cur.costUsd += r.cost_usd;
+    map.set(r.conversation_id, cur);
+  }
+  return Array.from(map.values()).sort((a, b) => b.costUsd - a.costUsd);
+}
+
+function fmtUsd6(v: number) {
+  return v.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 6,
+    maximumFractionDigits: 6,
+  });
+}
+
+// Linhas materializadas para DataTablePro (compartilhamento entre byCustomer e byFeature).
+interface CustomerRow {
+  customerId: string;
+  conversations: number;
+  tokensIn: number;
+  tokensOut: number;
+  costUsd: number;
+  share: number;
+}
+
+interface FeatureRow {
+  useCase: string;
+  conversations: number;
+  tokensIn: number;
+  tokensOut: number;
+  costUsd: number;
+  share: number;
+}
+
 export function AICostsPage() {
+  const navigate = useNavigate();
   const { user } = useAppStore();
   const tenantId: string = user?.tenantId ?? 'default';
+  const { flags } = useFeatureFlags();
+  const costdrill = !!flags.costdrill;
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [budget, setBudget] = useState<TenantBudget>({ ai_budget_usd_monthly: null, ai_budget_hard_stop: false });
   const [budgetInput, setBudgetInput] = useState('');
   const [hardStop, setHardStop] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // IA-34: drill-down por cliente / por feature.
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setAccessToken(data.session?.access_token ?? null);
+    });
+  }, []);
+
+  const attributionEnabled = !!accessToken && !!tenantId && tenantId !== 'default' && costdrill;
+  const attributionQ = useQuery({
+    queryKey: ['ai-costs-attribution', tenantId, accessToken, costdrill],
+    queryFn: () => fetchAttribution(tenantId, accessToken!),
+    enabled: attributionEnabled,
+    staleTime: 60_000,
+  });
+
+  const byCustomer = useMemo(
+    () => (attributionQ.data ? groupByCustomer(attributionQ.data) : []),
+    [attributionQ.data],
+  );
+  const byFeature = useMemo(
+    () => (attributionQ.data ? groupByFeature(attributionQ.data) : []),
+    [attributionQ.data],
+  );
+  const totalAttributedCost = useMemo(
+    () => byCustomer.reduce((s, r) => s + r.costUsd, 0),
+    [byCustomer],
+  );
+
+  // Drill-down: cliente selecionado → lista de conversas.
+  const [drillCustomerId, setDrillCustomerId] = useState<string | null>(null);
+  const drillConversations = useMemo(
+    () => (drillCustomerId && attributionQ.data
+      ? groupByConversationForCustomer(attributionQ.data, drillCustomerId)
+      : []),
+    [drillCustomerId, attributionQ.data],
+  );
+
+  function openConversationInChat(conversationId: string, customerId: string | null) {
+    const setSelectedTicket = useAppStore.getState().setSelectedTicket;
+    const setIsTicketDetailOpen = useAppStore.getState().setIsTicketDetailOpen;
+    setSelectedTicket({
+      id: conversationId,
+      conversationId,
+      customerId,
+    });
+    setIsTicketDetailOpen(true);
+    setDrillCustomerId(null);
+    navigate('/chat');
+  }
 
   useEffect(() => {
     if (!tenantId || tenantId === 'default') return;
@@ -177,6 +403,19 @@ export function AICostsPage() {
         <h1 className="text-2xl font-bold">Custos & IA</h1>
         <p className="text-sm text-zinc-500 mt-1">Custo de tokens por conversa, modelo e dia. Configure orçamento e hard-stop.</p>
       </div>
+
+      <Tabs defaultValue="overview" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="overview">{ptBR.intelligence.aiCosts.tabs.overview}</TabsTrigger>
+          {costdrill && (
+            <TabsTrigger value="byCustomer">{ptBR.intelligence.aiCosts.tabs.byCustomer}</TabsTrigger>
+          )}
+          {costdrill && (
+            <TabsTrigger value="byFeature">{ptBR.intelligence.aiCosts.tabs.byFeature}</TabsTrigger>
+          )}
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-6">
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -370,6 +609,231 @@ export function AICostsPage() {
           </ScrollArea>
         </CardContent>
       </Card>
+
+        </TabsContent>
+
+        {costdrill && (
+          <TabsContent value="byCustomer" className="space-y-4">
+            <Card className="border-none shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">{ptBR.intelligence.aiCosts.byCustomer.title}</CardTitle>
+                <CardDescription>{ptBR.intelligence.aiCosts.byCustomer.subtitle}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <DataTablePro<CustomerRow>
+                  pageSize={15}
+                  emptyState={
+                    <p className="py-8 text-center text-sm text-muted-foreground">
+                      {ptBR.intelligence.aiCosts.byCustomer.empty.title}
+                      <br />
+                      <span className="text-xs text-zinc-400">
+                        {ptBR.intelligence.aiCosts.byCustomer.empty.body}
+                      </span>
+                    </p>
+                  }
+                  columns={[
+                    {
+                      key: 'customer',
+                      header: ptBR.intelligence.aiCosts.byCustomer.columns.customer,
+                      accessor: (r) => (
+                        <span className="font-mono text-xs">{r.customerId.slice(0, 8) + '…'}</span>
+                      ),
+                    },
+                    {
+                      key: 'conversations',
+                      header: ptBR.intelligence.aiCosts.byCustomer.columns.conversations,
+                      className: 'text-right font-mono text-xs',
+                      accessor: (r) => r.conversations.toLocaleString('pt-BR'),
+                    },
+                    {
+                      key: 'tokens',
+                      header: ptBR.intelligence.aiCosts.byCustomer.columns.tokens,
+                      className: 'text-right font-mono text-xs',
+                      accessor: (r) => (r.tokensIn + r.tokensOut).toLocaleString('pt-BR'),
+                    },
+                    {
+                      key: 'cost',
+                      header: ptBR.intelligence.aiCosts.byCustomer.columns.cost,
+                      className: 'text-right font-mono text-xs text-green-600',
+                      accessor: (r) => fmtUsd6(r.costUsd),
+                    },
+                    {
+                      key: 'share',
+                      header: ptBR.intelligence.aiCosts.byCustomer.columns.share,
+                      className: 'text-right',
+                      accessor: (r) => (
+                        <div className="flex items-center justify-end gap-2">
+                          <div className="h-1.5 w-20 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-green-500 transition-all"
+                              style={{ width: `${Math.min(100, r.share)}%` }}
+                            />
+                          </div>
+                          <span className="text-xs tabular-nums w-10 text-right">
+                            {r.share.toFixed(1)}%
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => setDrillCustomerId(r.customerId)}
+                          >
+                            <ExternalLink size={12} />
+                          </Button>
+                        </div>
+                      ),
+                    },
+                  ]}
+                  data={byCustomer.map(c => ({
+                    customerId: c.customerId,
+                    conversations: c.conversations,
+                    tokensIn: c.tokensIn,
+                    tokensOut: c.tokensOut,
+                    costUsd: c.costUsd,
+                    share: totalAttributedCost > 0 ? (c.costUsd / totalAttributedCost) * 100 : 0,
+                  }))}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {costdrill && (
+          <TabsContent value="byFeature" className="space-y-4">
+            <Card className="border-none shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">{ptBR.intelligence.aiCosts.byFeature.title}</CardTitle>
+                <CardDescription>{ptBR.intelligence.aiCosts.byFeature.subtitle}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <DataTablePro<FeatureRow>
+                  pageSize={15}
+                  emptyState={
+                    <p className="py-8 text-center text-sm text-muted-foreground">
+                      {ptBR.intelligence.aiCosts.byFeature.empty.title}
+                      <br />
+                      <span className="text-xs text-zinc-400">
+                        {ptBR.intelligence.aiCosts.byFeature.empty.body}
+                      </span>
+                    </p>
+                  }
+                  columns={[
+                    {
+                      key: 'feature',
+                      header: ptBR.intelligence.aiCosts.byFeature.columns.feature,
+                      accessor: (r) => <span className="font-mono text-xs">{r.useCase}</span>,
+                    },
+                    {
+                      key: 'conversations',
+                      header: ptBR.intelligence.aiCosts.byFeature.columns.conversations,
+                      className: 'text-right font-mono text-xs',
+                      accessor: (r) => r.conversations.toLocaleString('pt-BR'),
+                    },
+                    {
+                      key: 'tokens',
+                      header: ptBR.intelligence.aiCosts.byFeature.columns.tokens,
+                      className: 'text-right font-mono text-xs',
+                      accessor: (r) => (r.tokensIn + r.tokensOut).toLocaleString('pt-BR'),
+                    },
+                    {
+                      key: 'cost',
+                      header: ptBR.intelligence.aiCosts.byFeature.columns.cost,
+                      className: 'text-right font-mono text-xs text-green-600',
+                      accessor: (r) => fmtUsd6(r.costUsd),
+                    },
+                    {
+                      key: 'share',
+                      header: ptBR.intelligence.aiCosts.byFeature.columns.share,
+                      className: 'text-right',
+                      accessor: (r) => (
+                        <div className="flex items-center justify-end gap-2">
+                          <div className="h-1.5 w-20 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-indigo-500 transition-all"
+                              style={{ width: `${Math.min(100, r.share)}%` }}
+                            />
+                          </div>
+                          <span className="text-xs tabular-nums w-10 text-right">
+                            {r.share.toFixed(1)}%
+                          </span>
+                        </div>
+                      ),
+                    },
+                  ]}
+                  data={(() => {
+                    const total = byFeature.reduce((s, r) => s + r.costUsd, 0);
+                    return byFeature.map(f => ({
+                      useCase: f.useCase,
+                      conversations: f.conversations,
+                      tokensIn: f.tokensIn,
+                      tokensOut: f.tokensOut,
+                      costUsd: f.costUsd,
+                      share: total > 0 ? (f.costUsd / total) * 100 : 0,
+                    }));
+                  })()}
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+      </Tabs>
+
+      {/* Drill-down: conversas de um cliente. Usamos Dialog porque não há
+          componente Sheet no projeto; visualmente serve como painel modal. */}
+      <Dialog
+        open={drillCustomerId !== null}
+        onOpenChange={(o) => { if (!o) setDrillCustomerId(null); }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{ptBR.intelligence.aiCosts.drill.title}</DialogTitle>
+            <DialogDescription>
+              {drillCustomerId && (
+                <span className="font-mono text-xs">{drillCustomerId}</span>
+              )}
+              {' · '}
+              {ptBR.intelligence.aiCosts.drill.subtitle}
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60dvh]">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">{ptBR.intelligence.aiCosts.drill.columns.conversation}</TableHead>
+                  <TableHead className="text-xs text-right">{ptBR.intelligence.aiCosts.drill.columns.cost}</TableHead>
+                  <TableHead className="text-xs text-right">{ptBR.intelligence.aiCosts.drill.columns.open}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {drillConversations.map(c => (
+                  <TableRow key={c.conversationId}>
+                    <TableCell className="font-mono text-xs">{c.conversationId.slice(0, 8) + '…'}</TableCell>
+                    <TableCell className="text-right font-mono text-xs text-green-600">{fmtUsd6(c.costUsd)}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs gap-1"
+                        onClick={() => openConversationInChat(c.conversationId, drillCustomerId)}
+                      >
+                        <ExternalLink size={12} />
+                        Chat
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {drillConversations.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center text-xs text-zinc-400 py-8">
+                      Nenhuma conversa com custo atribuído.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }
