@@ -15,6 +15,7 @@ import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger }
 import { Switch } from "@/src/components/ui/switch";
 import { WorkflowVisualizer } from '@/src/components/WorkflowVisualizer';
 import { EscalationRulesBuilder } from '@/src/components/EscalationRulesBuilder';
+import { ProviderFallbackOrderCard } from '@/src/components/intelligence/ProviderFallbackOrderCard';
 import { cn } from '@/src/lib/utils';
 import { jsPDF } from 'jspdf';
 import { toast } from 'sonner';
@@ -435,10 +436,14 @@ export function AIConfigPage({
                     value="ai_usage" 
                     className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
                   >Custos & Uso de Tokens</TabsTrigger>
-                  <TabsTrigger 
-                    value="sandbox" 
+                  <TabsTrigger
+                    value="sandbox"
                     className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
                   >Sandbox (Testes)</TabsTrigger>
+                  <TabsTrigger
+                    value="providers"
+                    className="w-full justify-start px-4 py-2 border-b-2 md:border-b-0 md:border-r-2 border-transparent data-[state=active]:border-indigo-600 dark:data-[state=active]:border-indigo-500 data-[state=active]:bg-indigo-50 dark:data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-700 dark:data-[state=active]:text-indigo-400 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800/50 rounded-none rounded-t-md md:rounded-l-md md:rounded-t-none whitespace-nowrap transition-colors"
+                  >Providers (IA-43)</TabsTrigger>
                 </TabsList>
                 
                 <div className="flex-1 w-full min-w-0 md:mt-0">
@@ -1694,6 +1699,25 @@ export function AIConfigPage({
                             </div>
                           </div>
                         )}
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  {/* ── IA-43: Ordem de fallback (read-only) ────────────── */}
+                  <TabsContent value="providers" className="mt-6 space-y-4">
+                    <Card className="border-none shadow-sm">
+                      <CardHeader>
+                        <CardTitle>Ordem de fallback</CardTitle>
+                        <CardDescription>
+                          Ordem em que os providers LLM são tentados quando o primário falha.
+                          {' '}
+                          <span className="text-muted-foreground">
+                            Definida pelo ambiente (PROVIDER_ORDER). Contate o administrador para alterar.
+                          </span>
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <ProviderFallbackOrderCard />
                       </CardContent>
                     </Card>
                   </TabsContent>

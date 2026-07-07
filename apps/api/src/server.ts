@@ -120,6 +120,10 @@ export async function buildServer() {
   const { syntheticRoutes } = await import('./domain/ia/synthetic.routes');
   await app.register(syntheticRoutes);
 
+  // IA-43 — status dos providers (chave, circuito, latência 24h) p/ painel IA.
+  const { providersRoutes } = await import('./domain/ia/providers.routes');
+  await app.register(providersRoutes);
+
   const websocketRoutes = await import('./domain/realtime/websocket.routes');
   await app.register(websocketRoutes.default);
 

@@ -24,11 +24,14 @@ describe('flags.routes', () => {
     process.env.TOOL_REGISTRY_ENABLED = 'true';
     process.env.AGENT_SANDBOX_ENABLED = 'true';
     process.env.SYNTH_DATA_ENABLED = 'true';
+    process.env.PROVIDER_FAILOVER_ENABLED = 'true';
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: '/api/v2/flags/public' });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
-    expect(body).toEqual({ flags: { hub: true, toolreg: true, sandbox: true, synthdata: true } });
+    expect(body).toEqual({
+      flags: { hub: true, toolreg: true, sandbox: true, synthdata: true, failover: true },
+    });
   });
 
   it('flag off retorna false', async () => {
@@ -36,11 +39,14 @@ describe('flags.routes', () => {
     delete process.env.TOOL_REGISTRY_ENABLED;
     delete process.env.AGENT_SANDBOX_ENABLED;
     delete process.env.SYNTH_DATA_ENABLED;
+    delete process.env.PROVIDER_FAILOVER_ENABLED;
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: '/api/v2/flags/public' });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
-    expect(body).toEqual({ flags: { hub: false, toolreg: false, sandbox: false, synthdata: false } });
+    expect(body).toEqual({
+      flags: { hub: false, toolreg: false, sandbox: false, synthdata: false, failover: false },
+    });
   });
 
   it('define Cache-Control publico de 60s', async () => {

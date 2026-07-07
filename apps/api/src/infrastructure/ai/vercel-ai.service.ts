@@ -1,9 +1,9 @@
 import { generateObject, generateText, streamText, stepCountIs } from 'ai';
-import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
 import { infraLogger } from '../logging/logger';
 import { resolvePrompt, type PromptVersion } from './prompt-registry';
 import { isModelCascadeEnabled } from '../cache/semantic-cache.service';
+import { getModel, withFailover } from './providers/model-router';
 
 /**
  * Vercel AI SDK Service
@@ -146,12 +146,10 @@ export const agentTools = {
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 export class VercelAIService {
-  private readonly model = openai('gpt-4o-mini');
-  private readonly heavyModel = openai('gpt-4o');
-
   /**
    * Classifica a intenção do cliente com saída estruturada (Zod).
    * BLOCO 2: generateObject → zero risco de JSON mal-formado.
+   * IA-43: tier='mini' (4o-mini) — passa por withFailover se flag on.
    */
   async classifyIntent(
     message: string,
@@ -159,22 +157,25 @@ export class VercelAIService {
     tenantId: string,
   ): Promise<CustomerIntent> {
     const prompt = resolvePrompt('classification');
-    const { object } = await generateObject({
-      model: this.model as any,
-      schema: CustomerIntentSchema,
-      system: prompt.text,
-      messages: [
-        {
-          role: 'user',
-          content: `Histórico:\n${conversationHistory}\n\nMensagem atual: "${message}"`,
+    const { object } = await withFailover('mini', (model) =>
+      generateObject({
+        model: model as any,
+        schema: CustomerIntentSchema,
+        system: prompt.text,
+        messages: [
+          {
+            role: 'user',
+            content: `Histórico:\n${conversationHistory}\n\nMensagem atual: "${message}"`,
+          },
+        ],
+        headers: {
+          'Helicone-Property-TenantId': tenantId,
+          'Helicone-Property-UseCase': 'classify-intent',
+          'Helicone-Property-PromptVersion': prompt.version,
         },
-      ],
-      headers: {
-        'Helicone-Property-TenantId': tenantId,
-        'Helicone-Property-UseCase': 'classify-intent',
-        'Helicone-Property-PromptVersion': prompt.version,
-      },
-    });
+      }),
+      tenantId,
+    );
 
     infraLogger.info({ intent: object.intent, urgency: object.urgency }, 'Intent classified');
     return object;
@@ -183,6 +184,7 @@ export class VercelAIService {
   /**
    * Gera diagnóstico técnico estruturado.
    * CoT ativado: "Pense passo a passo" no system prompt.
+   * IA-43: tier='full' (4o) — passa por withFailover se flag on.
    */
   async generateNetworkDiagnostic(
     customerMessage: string,
@@ -190,28 +192,32 @@ export class VercelAIService {
     tenantId: string,
   ): Promise<NetworkDiagnostic> {
     const prompt = resolvePrompt('technical_diagnostic');
-    const { object } = await generateObject({
-      model: this.heavyModel as any, // GPT-4o para diagnósticos técnicos
-      schema: NetworkDiagnosticSchema,
-      system: prompt.text,
-      messages: [
-        {
-          role: 'user',
-          content: `Contexto técnico dos manuais:\n${ragContext}\n\nQueixa do cliente: "${customerMessage}"`,
+    const { object } = await withFailover('full', (model) =>
+      generateObject({
+        model: model as any, // tier 'full' para diagnósticos técnicos
+        schema: NetworkDiagnosticSchema,
+        system: prompt.text,
+        messages: [
+          {
+            role: 'user',
+            content: `Contexto técnico dos manuais:\n${ragContext}\n\nQueixa do cliente: "${customerMessage}"`,
+          },
+        ],
+        headers: {
+          'Helicone-Property-TenantId': tenantId,
+          'Helicone-Property-UseCase': 'network-diagnostic',
+          'Helicone-Property-PromptVersion': prompt.version,
         },
-      ],
-      headers: {
-        'Helicone-Property-TenantId': tenantId,
-        'Helicone-Property-UseCase': 'network-diagnostic',
-        'Helicone-Property-PromptVersion': prompt.version,
-      },
-    });
+      }),
+      tenantId,
+    );
 
     return object;
   }
 
   /**
    * Gera relatório de ticket estruturado ao encerrar atendimento.
+   * IA-43: tier='mini' — passa por withFailover se flag on.
    */
   async generateTicketReport(
     conversationSummary: string,
@@ -219,22 +225,25 @@ export class VercelAIService {
     tenantId: string,
   ): Promise<TicketReport> {
     const prompt = resolvePrompt('ticket_report');
-    const { object } = await generateObject({
-      model: this.model as any,
-      schema: TicketReportSchema,
-      system: prompt.text,
-      messages: [
-        {
-          role: 'user',
-          content: `Resumo da conversa:\n${conversationSummary}\n\nResolução:\n${resolution}`,
+    const { object } = await withFailover('mini', (model) =>
+      generateObject({
+        model: model as any,
+        schema: TicketReportSchema,
+        system: prompt.text,
+        messages: [
+          {
+            role: 'user',
+            content: `Resumo da conversa:\n${conversationSummary}\n\nResolução:\n${resolution}`,
+          },
+        ],
+        headers: {
+          'Helicone-Property-TenantId': tenantId,
+          'Helicone-Property-UseCase': 'ticket-report',
+          'Helicone-Property-PromptVersion': prompt.version,
         },
-      ],
-      headers: {
-        'Helicone-Property-TenantId': tenantId,
-        'Helicone-Property-UseCase': 'ticket-report',
-        'Helicone-Property-PromptVersion': prompt.version,
-      },
-    });
+      }),
+      tenantId,
+    );
 
     return object;
   }
@@ -255,8 +264,11 @@ export class VercelAIService {
     opts?: { tier?: 'mini' | 'full'; tools?: typeof agentTools },
   ) {
     const prompt = this._resolvePrompt('chat');
+    // IA-43: failover pré-stream via getModel. Stream iniciado é commitment —
+    // se o modelo cair no meio do stream, o cliente recebe o erro honesto
+    // (regra de UX: nunca trocar de modelo depois do 1º token).
     const useMini = isModelCascadeEnabled() && opts?.tier === 'mini';
-    const selectedModel = useMini ? this.model : this.heavyModel;
+    const selectedModel = getModel(useMini ? 'mini' : 'full');
     // IA-19: o caller (nodeGenerate) injeta o subconjunto habilitado por tenant
     // (default = catálogo completo se nenhum for passado).
     const tools = (opts?.tools ?? agentTools) as any;

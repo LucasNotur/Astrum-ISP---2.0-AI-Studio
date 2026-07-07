@@ -12,6 +12,8 @@ const PUBLIC_FLAGS: Record<string, string> = {
   toolreg: 'TOOL_REGISTRY_ENABLED',
   sandbox: 'AGENT_SANDBOX_ENABLED',
   synthdata: 'SYNTH_DATA_ENABLED',
+  // IA-43 — flag de failover multi-provider (off por padrão).
+  failover: 'PROVIDER_FAILOVER_ENABLED',
 };
 
 export function getPublicFlags(): Record<string, boolean> {

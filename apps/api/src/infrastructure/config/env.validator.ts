@@ -14,6 +14,14 @@ const envSchema = z.object({
 
   OPENAI_API_KEY: z.string().startsWith('sk-', 'OPENAI_API_KEY deve começar com sk-'),
 
+  // IA-43 — Multi-provider failover (R3). Opcionais — a presença habilita
+  // o provider correspondente em PROVIDER_ORDER.
+  ANTHROPIC_API_KEY: z.string().optional(),
+  GOOGLE_API_KEY: z.string().optional(),
+  // Ordem de tentativa do failover: csv de 'openai' | 'anthropic' | 'google'.
+  PROVIDER_ORDER: z.string().optional(),
+  PROVIDER_FAILOVER_ENABLED: z.string().optional().default('false'),
+
   JWT_SECRET: z.string().min(32, 'JWT_SECRET deve ter no mínimo 32 caracteres'),
 
   ALLOWED_ORIGINS: z.string().default('http://localhost:5173'),
