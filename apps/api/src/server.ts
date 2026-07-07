@@ -139,6 +139,18 @@ export async function buildServer() {
   const { driftRoutes } = await import('./domain/ia/drift.routes');
   await app.register(driftRoutes);
 
+  // IA-44 — Sandbox SQL do agente (somente leitura, defesa dupla).
+  const { sandboxRoutes } = await import('./domain/ia/sandbox.routes');
+  await app.register(sandboxRoutes);
+
+  // IA-45 — Gerador de dados sintéticos (apenas tenants de teste).
+  const { syntheticRoutes } = await import('./domain/ia/synthetic.routes');
+  await app.register(syntheticRoutes);
+
+  // IA-43 — status dos providers (chave, circuito, latência 24h) p/ painel IA.
+  const { providersRoutes } = await import('./domain/ia/providers.routes');
+  await app.register(providersRoutes);
+
   const websocketRoutes = await import('./domain/realtime/websocket.routes');
   await app.register(websocketRoutes.default);
 

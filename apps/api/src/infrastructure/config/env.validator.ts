@@ -14,6 +14,14 @@ const envSchema = z.object({
 
   OPENAI_API_KEY: z.string().startsWith('sk-', 'OPENAI_API_KEY deve começar com sk-'),
 
+  // IA-43 — Multi-provider failover (R3). Opcionais — a presença habilita
+  // o provider correspondente em PROVIDER_ORDER.
+  ANTHROPIC_API_KEY: z.string().optional(),
+  GOOGLE_API_KEY: z.string().optional(),
+  // Ordem de tentativa do failover: csv de 'openai' | 'anthropic' | 'google'.
+  PROVIDER_ORDER: z.string().optional(),
+  PROVIDER_FAILOVER_ENABLED: z.string().optional().default('false'),
+
   JWT_SECRET: z.string().min(32, 'JWT_SECRET deve ter no mínimo 32 caracteres'),
 
   ALLOWED_ORIGINS: z.string().default('http://localhost:5173'),
@@ -58,6 +66,11 @@ const envSchema = z.object({
   TWILIO_PHONE_NUMBER: z.string().optional(),
   OPENAI_REALTIME_MODEL: z.string().optional().default('gpt-4o-realtime-preview'),
   VOICE_HUMAN_QUEUE_NUMBER: z.string().optional(),
+
+  // IA-44 — Sandbox SQL do agente (somente leitura). Opcional: se
+  // ausente, o endpoint /api/v2/ia/sandbox/query responde 503
+  // (fail-open: backend não cai).
+  SANDBOX_DB_URL: z.string().url().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

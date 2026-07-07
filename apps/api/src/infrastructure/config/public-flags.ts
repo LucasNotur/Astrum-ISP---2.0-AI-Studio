@@ -14,20 +14,18 @@
 const PUBLIC_FLAGS: Record<string, string | undefined> = {
   hub: 'INTELLIGENCE_HUB_ENABLED',
   toolreg: 'TOOL_REGISTRY_ENABLED',
-<<<<<<< HEAD
-<<<<<<< HEAD
   safety: 'SAFETY_CLASSIFIER_ENABLED',
   graphrag: 'GRAPHRAG_ENABLED',
   translate: 'LIVE_TRANSLATION_ENABLED',
   compression: 'PROMPT_COMPRESSION_ENABLED',
-=======
   features: 'FEATURE_STORE_ENABLED',
   bandit: 'BANDIT_ENABLED',
->>>>>>> feat/ia26-bandit
-=======
   drift: 'DRIFT_DETECTION_ENABLED',
   costdrill: undefined, // IA-34: client-only, sem env server (gravação inócua).
->>>>>>> feat/ia33-drift-detection
+  sandbox: 'AGENT_SANDBOX_ENABLED',
+  synthdata: 'SYNTH_DATA_ENABLED',
+  // IA-43 — flag de failover multi-provider (off por padrão).
+  failover: 'PROVIDER_FAILOVER_ENABLED',
 };
 
 export function getPublicFlags(): Record<string, boolean> {

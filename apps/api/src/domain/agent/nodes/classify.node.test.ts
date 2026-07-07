@@ -22,11 +22,8 @@ function makeState(userMessage = 'Minha internet está lenta') {
 describe('nodeClassify', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-<<<<<<< HEAD
     delete process.env.LIVE_TRANSLATION_ENABLED;
-=======
     delete process.env.DRIFT_DETECTION_ENABLED;
->>>>>>> feat/ia33-drift-detection
   });
 
   it('mapeia retorno do service para o estado do agente', async () => {
@@ -65,19 +62,21 @@ describe('nodeClassify', () => {
     expect(r.intent).toBe('support_billing');
   });
 
-<<<<<<< HEAD
   it('IA-14: flag off → não seta detectedLanguage', async () => {
     mockClassifyIntent.mockResolvedValue({ intent: 'other', urgency: 'low', sentiment: 'neutral' });
-    const r = await nodeClassify(makeState('Hi, my internet is down.'));
+    const node = makeNodeClassifyWith('false');
+    const r = await node(makeState('Hi, my internet is down.'));
     expect(r.detectedLanguage).toBeUndefined();
   });
 
   it('IA-14: flag on + msg EN → detectedLanguage=en', async () => {
     process.env.LIVE_TRANSLATION_ENABLED = 'true';
     mockClassifyIntent.mockResolvedValue({ intent: 'support_technical', urgency: 'high', sentiment: 'frustrated' });
-    const r = await nodeClassify(makeState('Hi, my internet is down since yesterday.'));
+    const node = makeNodeClassifyWith('false');
+    const r = await node(makeState('Hi, my internet is down since yesterday.'));
     expect(r.detectedLanguage).toBe('en');
-=======
+  });
+
   describe('IA-33 — drift upsert fire-and-forget', () => {
     it('DRIFT_DETECTION_ENABLED=true → chama db.from(ai_intent_daily).upsert(...)', async () => {
       process.env.DRIFT_DETECTION_ENABLED = 'true';
@@ -165,6 +164,5 @@ describe('nodeClassify', () => {
       expect(fromMock).not.toHaveBeenCalled();
       expect(upsertMock).not.toHaveBeenCalled();
     });
->>>>>>> feat/ia33-drift-detection
   });
 });

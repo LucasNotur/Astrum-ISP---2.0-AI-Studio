@@ -32,6 +32,8 @@
     "start": "node dist/server.cjs"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.68",
+    "@ai-sdk/google": "^3.0.68",
     "@ai-sdk/openai": "^3.0.68",
     "@anthropic-ai/sdk": "^0.100.1",
     "@aws-sdk/client-s3": "^3.1062.0",

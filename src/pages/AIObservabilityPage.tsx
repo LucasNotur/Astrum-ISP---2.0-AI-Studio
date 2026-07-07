@@ -1,24 +1,61 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip as RechartsTooltip, 
-  Legend, 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  Legend,
   ResponsiveContainer,
   PieChart,
   Pie,
   Cell
 } from 'recharts';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
 import { Badge } from "@/src/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
 import { ScrollArea } from "@/src/components/ui/scroll-area";
-import { Activity, AlertTriangle, Cpu, TrendingUp, ServerCrash } from 'lucide-react';
+import { Activity, AlertTriangle, Cpu, TrendingUp, ServerCrash, KeyRound } from 'lucide-react';
+import { ptBR } from '@/src/lib/i18n/pt-br';
+import { RiskBadge, type RiskLevel } from '@/src/components/intelligence/RiskBadge';
+
+const API_BASE_URL =
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) ||
+  'http://localhost:3001';
+
+type ProviderName = 'openai' | 'anthropic' | 'google';
+type CircuitState = 'closed' | 'open' | 'half-open';
+
+interface ProviderStatus {
+  name: ProviderName;
+  keyPresent: boolean;
+  circuit: CircuitState;
+  avgLatency24h: number | null;
+}
+
+interface ProvidersStatusResponse {
+  failoverEnabled: boolean;
+  providerOrder: string[];
+  providers: ProviderStatus[];
+}
+
+async function fetchProvidersStatus(token: string): Promise<ProvidersStatusResponse> {
+  const res = await fetch(`${API_BASE_URL}/api/v2/ia/providers/status`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()) as ProvidersStatusResponse;
+}
+
+function circuitToRisk(circuit: CircuitState): { level: RiskLevel; label: string } {
+  if (circuit === 'closed') return { level: 'baixo', label: `${ptBR.intelligence.risk.baixo} · operando` };
+  if (circuit === 'half-open') return { level: 'medio', label: `${ptBR.intelligence.risk.medio} · instável` };
+  return { level: 'alto', label: `${ptBR.intelligence.risk.alto} · fora` };
+}
 
 const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6'];
 
@@ -29,6 +66,25 @@ export const AIObservabilityPage = () => {
   const [circuitData, setCircuitData] = useState<{ circuitStatus: Record<string, string>, fallbacks: any[] } | null>(null);
   const [ragasScores, setRagasScores] = useState<any[]>([]);
   const [guardrailBlocks, setGuardrailBlocks] = useState<any[]>([]);
+  const [token, setToken] = useState<string | null>(null);
+
+  // IA-43 — Providers (TanStack Query, polling 30s)
+  useEffect(() => {
+    let mounted = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (mounted) setToken(data.session?.access_token ?? null);
+    });
+    return () => { mounted = false; };
+  }, []);
+
+  const providersQuery = useQuery({
+    queryKey: ['ia-providers-status', token],
+    queryFn: () => fetchProvidersStatus(token!),
+    enabled: !!token,
+    refetchInterval: 30_000, // 30s polling
+    refetchIntervalInBackground: false,
+    staleTime: 25_000,
+  });
 
   useEffect(() => {
     const fetchCircuitInfo = async () => {
@@ -220,6 +276,68 @@ export const AIObservabilityPage = () => {
           <h1 className="text-2xl font-bold tracking-tight">Observabilidade IA</h1>
           <p className="text-muted-foreground">Monitore o desempenho, erros e funil dos agentes no Firestore.</p>
         </div>
+      </div>
+
+      {/* ── IA-43: Providers ─────────────────────────────────────────── */}
+      <h2 className="text-xl font-semibold mt-8 mb-4 flex items-center gap-2">
+        <ServerCrash className="h-5 w-5 text-muted-foreground" />
+        Providers
+        {providersQuery.data?.failoverEnabled && (
+          <Badge className="bg-blue-100 text-blue-700 border-none hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300 text-[10px]">failover on</Badge>
+        )}
+      </h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {(providersQuery.data?.providers ?? []).map((p) => {
+          const orderIndex = providersQuery.data?.providerOrder.indexOf(p.name);
+          return (
+            <Card key={p.name}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium capitalize">{p.name}</CardTitle>
+                {!p.keyPresent ? (
+                  <Badge variant="outline" className="text-slate-500 border-slate-300 dark:border-slate-700 text-[10px] gap-1">
+                    <KeyRound className="h-3 w-3" /> sem chave
+                  </Badge>
+                ) : (
+                  (() => {
+                    const risk = circuitToRisk(p.circuit);
+                    return <RiskBadge level={risk.level} label={risk.label} />;
+                  })()
+                )}
+              </CardHeader>
+              <CardContent>
+                {p.keyPresent ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2.5 h-2.5 rounded-full ${
+                        p.circuit === 'closed' ? 'bg-emerald-500' :
+                        p.circuit === 'half-open' ? 'bg-amber-500 animate-pulse' :
+                        'bg-red-500 animate-pulse'
+                      }`} />
+                      <span className="text-xs text-muted-foreground font-mono uppercase tracking-wide">{p.circuit}</span>
+                    </div>
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-xs text-muted-foreground">Latência média 24h</span>
+                      <span className="text-sm font-mono font-semibold">
+                        {p.avgLatency24h === null ? '—' : `${Math.round(p.avgLatency24h)} ms`}
+                      </span>
+                    </div>
+                    {typeof orderIndex === 'number' && orderIndex >= 0 && (
+                      <p className="text-[10px] text-muted-foreground">Posição na ordem: #{orderIndex + 1}</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Defina a API key correspondente para ativar este provider.</p>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+        {providersQuery.isLoading && !providersQuery.data && (
+          <p className="col-span-3 text-xs text-muted-foreground">Carregando status dos providers…</p>
+        )}
+        {providersQuery.isError && (
+          <p className="col-span-3 text-xs text-red-500">Falha ao consultar /api/v2/ia/providers/status.</p>
+        )}
       </div>
 
       {/* COST METER SECTION */}

@@ -116,13 +116,10 @@ export function makeNodeGenerate(deps: {
       responseLength: fullResponse.length,
       toolsUsed: toolsExecuted.length,
       tier,
-<<<<<<< HEAD
       language: detectedLanguage,
-=======
       tokensUsed,
       tokensIn: totalUsage.inputTokens,
       tokensOut: totalUsage.outputTokens,
->>>>>>> feat/ia33-drift-detection
     }, 'Agent: generate');
 
     // IA-02: Armazenar resposta no cache semântico (fire-and-forget) — só pt
