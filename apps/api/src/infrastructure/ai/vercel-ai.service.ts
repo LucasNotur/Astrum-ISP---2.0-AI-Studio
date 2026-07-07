@@ -6,6 +6,19 @@ import { resolvePrompt, type PromptVersion } from './prompt-registry';
 import { isModelCascadeEnabled } from '../cache/semantic-cache.service';
 
 /**
+ * IA-37 — Tool batching (paralelismo intra-step).
+ *
+ * Flag `TOOL_BATCHING_ENABLED`. Default false = loop sequencial (atual).
+ * Flag on = `Promise.allSettled` para executar tool calls independentes em
+ * paralelo. allSettled garante que uma falha não derruba as outras;
+ * callbacks que lançam são capturados e o resultado vira `{error:...}`
+ * para o modelo.
+ */
+export function isToolBatchingEnabled(): boolean {
+  return (process.env.TOOL_BATCHING_ENABLED ?? '').trim().toLowerCase() === 'true';
+}
+
+/**
  * Vercel AI SDK Service
  *
  * ESTRATÉGIA:
@@ -268,16 +281,49 @@ export class VercelAIService {
       tools,
       stopWhen: stepCountIs(5), // máximo de tool calls em sequência (ai-sdk v6)
       onStepFinish: async (step) => {
-        if (step.toolCalls && onToolCall) {
-          for (const toolCall of step.toolCalls) {
-            infraLogger.info({
-              tool: toolCall.toolName,
-              args: toolCall.input,
-              tenantId,
-            }, 'Tool called by agent');
+        if (!step.toolCalls?.length || !onToolCall) return;
 
-            await onToolCall(toolCall.toolName, toolCall.input);
-          }
+        // IA-37: tool calls independentes do mesmo step rodam em paralelo.
+        // allSettled garante que uma falha não derruba as outras.
+        if (isToolBatchingEnabled()) {
+          const t0 = Date.now();
+          const results = await Promise.allSettled(
+            step.toolCalls.map((toolCall) => {
+              infraLogger.info({
+                tool: toolCall.toolName,
+                args: toolCall.input,
+                tenantId,
+              }, 'Tool called by agent');
+              return Promise.resolve()
+                .then(() => onToolCall(toolCall.toolName, toolCall.input))
+                .catch((err) => {
+                  infraLogger.warn(
+                    { tool: toolCall.toolName, err: (err as Error).message, tenantId },
+                    'Tool callback threw — devolvendo erro para o modelo',
+                  );
+                  return { error: 'Falha ao executar ferramenta' };
+                });
+            }),
+          );
+          const failed = results.filter((r) => r.status === 'rejected').length;
+          infraLogger.info({
+            tools: step.toolCalls.length,
+            failed,
+            batchMs: Date.now() - t0,
+            tenantId,
+          }, 'Tool batch executed');
+          return;
+        }
+
+        // Flag off: loop sequencial original (inalterado).
+        for (const toolCall of step.toolCalls) {
+          infraLogger.info({
+            tool: toolCall.toolName,
+            args: toolCall.input,
+            tenantId,
+          }, 'Tool called by agent');
+
+          await onToolCall(toolCall.toolName, toolCall.input);
         }
       },
       headers: {

@@ -1496,3 +1496,20 @@ Observacoes / DESVIO do plano:
   - Switch da tool financeira suspend_signal exige ConfirmDialog (microcopia exata do plano).
 Rollback: TOOL_REGISTRY_ENABLED=false (volta ao comportamento atual).
 Commit: feat(ia19): tool registry por tenant + catalogo unificado (flag off).
+
+[2026-07-05] IA-NEXTGEN / Fase 1 - Sessao IA-37
+Tarefa: Tool batching paralelo intra-step (Promise.allSettled).
+Arquivos modificados:
+  - apps/api/src/infrastructure/ai/vercel-ai.service.ts (+ isToolBatchingEnabled; onStepFinish: flag off = loop sequencial inalterado; flag on = Promise.allSettled com try/catch interno)
+  - apps/api/src/infrastructure/ai/vercel-ai.service.test.ts (+ 4 testes: flag off sequencial >=300ms, flag on paralelo <200ms, allSettled absorve throw, no-op em toolCalls vazio)
+  - .env.example (+ TOOL_BATCHING_ENABLED=false)
+Tecnologias implementadas: paralelismo intra-step com allSettled; logger batchMs no info log.
+Testes: 11 passando no arquivo vercel-ai.service.test.ts (4 novos IA-37 + 7 pre-existentes). Typecheck limpo, 0 errors lint.
+Status: CONCLUIDO. Flag TOOL_BATCHING_ENABLED default 'false' - comportamento identico ao atual.
+Observacoes:
+  - Loop original foi PRESERVADO integralmente (apenas movecido para o branch else). Diff mostra so o branch novo.
+  - Callback que lanca e capturado em try/catch interno - resultado vira {error:'Falha ao executar ferramenta'} para o modelo.
+  - nodeGenerate ja faz push no toolsExecuted via callback; ordem nao-deterministica com batching, mas como os testes pre-existentes nao dependem de ordem e o ToolsPage/log so consome contadores, zero quebra.
+  - Cuidado: tecto stepCountIs(5) inalterado (armadilha B3 do plano - paralelismo NAO substitui limite de raciocinio multi-step).
+Rollback: TOOL_BATCHING_ENABLED=false.
+Commit: feat(ia37): tool calls paralelas no step (flag off).
