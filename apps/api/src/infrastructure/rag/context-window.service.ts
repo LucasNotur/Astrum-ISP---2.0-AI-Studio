@@ -26,8 +26,9 @@ export interface ContextWindowOptions {
 /**
  * Estimativa de tokens (sem custo de API).
  * ~3.5 chars por token em português.
+ * Exportada para reuso no context-compressor (IA-30) sem mudar comportamento.
  */
-function estimateTokens(text: string): number {
+export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 3.5);
 }
 

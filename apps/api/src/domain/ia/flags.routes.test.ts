@@ -25,11 +25,12 @@ describe('flags.routes', () => {
     process.env.SAFETY_CLASSIFIER_ENABLED = 'true';
     process.env.GRAPHRAG_ENABLED = 'true';
     process.env.LIVE_TRANSLATION_ENABLED = 'true';
+    process.env.PROMPT_COMPRESSION_ENABLED = 'true';
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: '/api/v2/flags/public' });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
-    expect(body).toEqual({ flags: { hub: true, toolreg: true, safety: true, graphrag: true, translate: true } });
+    expect(body).toEqual({ flags: { hub: true, toolreg: true, safety: true, graphrag: true, translate: true, compression: true } });
   });
 
   it('flag off retorna false', async () => {
@@ -38,11 +39,12 @@ describe('flags.routes', () => {
     delete process.env.SAFETY_CLASSIFIER_ENABLED;
     delete process.env.GRAPHRAG_ENABLED;
     delete process.env.LIVE_TRANSLATION_ENABLED;
+    delete process.env.PROMPT_COMPRESSION_ENABLED;
     const app = await buildApp();
     const res = await app.inject({ method: 'GET', url: '/api/v2/flags/public' });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
-    expect(body).toEqual({ flags: { hub: false, toolreg: false, safety: false, graphrag: false, translate: false } });
+    expect(body).toEqual({ flags: { hub: false, toolreg: false, safety: false, graphrag: false, translate: false, compression: false } });
   });
 
   it('define Cache-Control publico de 60s', async () => {

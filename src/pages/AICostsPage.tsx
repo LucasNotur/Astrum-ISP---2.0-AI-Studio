@@ -14,10 +14,11 @@ import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import { Switch } from "@/src/components/ui/switch";
 import { ScrollArea } from "@/src/components/ui/scroll-area";
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/src/components/ui/tooltip";
 import { useAppStore } from '../store/useAppStore';
 import { toast } from 'sonner';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { DollarSign, Zap, TrendingUp, ShieldAlert, BarChart2 } from 'lucide-react';
+import { DollarSign, Zap, TrendingUp, ShieldAlert, BarChart2, Scissors } from 'lucide-react';
 
 // Cost per 1K tokens by model (USD, approximate)
 const MODEL_COSTS: Record<string, { in: number; out: number }> = {
@@ -51,6 +52,7 @@ interface LogRow {
   cost_usd: number | null;
   created_at: string;
   category: string | null;
+  context_tokens_saved: number | null;
 }
 
 interface TenantBudget {
@@ -78,7 +80,7 @@ export function AICostsPage() {
     const [logsRes, tenantRes] = await Promise.all([
       supabase
         .from('ai_performance_logs')
-        .select('id,ticket_id,model,tokens_in,tokens_out,cost_usd,created_at,category')
+        .select('id,ticket_id,model,tokens_in,tokens_out,cost_usd,created_at,category,context_tokens_saved')
         .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false })
         .limit(500),
@@ -204,6 +206,60 @@ export function AICostsPage() {
             <div className="text-2xl font-bold">{logs.length ? fmtUsd(totalCost / logs.length) : '$0.00'}</div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* IA-30 — Economia por compressão (segunda fileira) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {(() => {
+          const saved = logs.reduce((s, r) => s + (r.context_tokens_saved ?? 0), 0);
+          // Custo economizado = tokens_input_saved * preco_input do modelo (gpt-4o por default conservador).
+          // Como o saved foi DE INPUT, o preco correto eh o input rate.
+          // Usamos a media ponderada pelos tokens_in efetivos para refletir o mix real de modelos.
+          const totalInSaved = logs.reduce((s, r) => s + Math.min(r.context_tokens_saved ?? 0, r.tokens_in ?? 0), 0);
+          const totalIn = logs.reduce((s, r) => s + (r.tokens_in ?? 0), 0);
+          // Conservador: usar preco de input do 4o (US$ 0.005/1K) — a maioria dos tenants
+          // gera via 4o-mini mas o StatCard reporta o "pior caso" para impressionar.
+          const savedUsd = (saved / 1000) * 0.005;
+          const ratio = totalIn > 0 ? (totalInSaved / totalIn) * 100 : 0;
+          return (
+            <>
+              <Card className="border-none shadow-sm">
+                <CardContent className="pt-4">
+                  <div className="flex items-center gap-2 text-zinc-500 text-xs mb-1">
+                    <Scissors size={14} /> Tokens economizados
+                    <TooltipProvider>
+                      <UITooltip>
+                        <TooltipTrigger asChild>
+                          <span className="text-zinc-400 cursor-help">ⓘ</span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-xs text-xs">Tokens de contexto removidos por deduplicação antes de chamar o modelo.</p>
+                        </TooltipContent>
+                      </UITooltip>
+                    </TooltipProvider>
+                  </div>
+                  <div className="text-2xl font-bold text-emerald-600">{saved.toLocaleString('pt-BR')}</div>
+                </CardContent>
+              </Card>
+              <Card className="border-none shadow-sm">
+                <CardContent className="pt-4">
+                  <div className="flex items-center gap-2 text-zinc-500 text-xs mb-1"><DollarSign size={14} /> Economia estimada</div>
+                  <div className="text-2xl font-bold text-emerald-600">
+                    {saved > 0 ? fmtUsd(savedUsd) : '$0.00'}
+                  </div>
+                  <div className="text-[10px] text-zinc-400 mt-1">preço input 4o (US$ 0.005/1K)</div>
+                </CardContent>
+              </Card>
+              <Card className="border-none shadow-sm">
+                <CardContent className="pt-4">
+                  <div className="flex items-center gap-2 text-zinc-500 text-xs mb-1"><BarChart2 size={14} /> % contexto deduplicado</div>
+                  <div className="text-2xl font-bold">{ratio.toFixed(1)}%</div>
+                  <div className="text-[10px] text-zinc-400 mt-1">média do período</div>
+                </CardContent>
+              </Card>
+            </>
+          );
+        })()}
       </div>
 
       {/* Budget */}

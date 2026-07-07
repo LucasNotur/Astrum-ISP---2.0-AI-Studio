@@ -4,6 +4,7 @@ import { ILoggerPort } from '../../ports/logger.port';
 import { findCachedResponse, storeCachedResponse, isEligibleForCache } from '../../../infrastructure/cache/semantic-cache.service';
 import { getEnabledTools } from '../../../infrastructure/ai/tool-registry';
 import { isLiveTranslationEnabled, LANGUAGE_NAMES, type SupportedLanguage } from '../../../infrastructure/ai/language-detector';
+import { compressContext, DEFAULT_BUDGETS, isPromptCompressionEnabled } from '../../../infrastructure/rag/context-compressor';
 
 export function makeNodeGenerate(deps: {
   ai: Pick<IAIPort, 'streamWithTools'>;
@@ -40,11 +41,34 @@ export function makeNodeGenerate(deps: {
       }
     }
 
-    const systemContext = [
-      ragContext && `## Documentos Técnicos:\n${ragContext}`,
-      dbContext && `## Dados do Cliente:\n${dbContext}`,
-      zepContext && `## Histórico:\n${zepContext}`,
-    ].filter(Boolean).join('\n\n---\n\n') + languageSuffix;
+    // IA-30 — Compressão determinística do systemContext (RAG + DB + Zep).
+    // Flag off = byte-a-byte igual ao atual. Flag on = dedup global + budget por seção.
+    const compressionEnabled = isPromptCompressionEnabled();
+    let baseContext: string;
+    if (compressionEnabled) {
+      const r = compressContext([
+        { label: 'Documentos Técnicos', text: ragContext ?? '', budgetTokens: DEFAULT_BUDGETS.RAG },
+        { label: 'Dados do Cliente',    text: dbContext  ?? '', budgetTokens: DEFAULT_BUDGETS.DB  },
+        { label: 'Histórico',          text: zepContext ?? '', budgetTokens: DEFAULT_BUDGETS.ZEP },
+      ]);
+      baseContext = r.text;
+      deps.logger.info({
+        step: 'generate',
+        compression: 'on',
+        tokensBefore: r.tokensBefore,
+        tokensAfter: r.tokensAfter,
+        savedPct: r.savedPct,
+        tenantId,
+      }, 'Agent: context compression');
+    } else {
+      baseContext = [
+        ragContext && `## Documentos Técnicos:\n${ragContext}`,
+        dbContext && `## Dados do Cliente:\n${dbContext}`,
+        zepContext && `## Histórico:\n${zepContext}`,
+      ].filter(Boolean).join('\n\n---\n\n');
+    }
+
+    const systemContext = baseContext + languageSuffix;
 
     const toolsExecuted: AgentState['toolsExecuted'] = [];
     const tools = deps.createTools(tenantId);

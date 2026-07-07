@@ -13,6 +13,7 @@ const PUBLIC_FLAGS: Record<string, string> = {
   safety: 'SAFETY_CLASSIFIER_ENABLED',
   graphrag: 'GRAPHRAG_ENABLED',
   translate: 'LIVE_TRANSLATION_ENABLED',
+  compression: 'PROMPT_COMPRESSION_ENABLED',
 };
 
 export function getPublicFlags(): Record<string, boolean> {
