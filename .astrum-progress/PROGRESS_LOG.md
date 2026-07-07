@@ -1588,3 +1588,34 @@ Observacoes:
   - Tela com 3 abas Tabs shadcn; botao Ver no mapa -> navigate('/map') (a MapPage ja existe).
 Rollback: GRAPHRAG_ENABLED=false.
 Commit: feat(ia16): graphrag leve - tool de grafo de rede + tela (flag off).
+
+[2026-07-05] IA-NEXTGEN / Fase 1 - Sessao IA-14
+Tarefa: Atendimento multilíngue - deteccao de idioma (pt/en/es) + RAG traduzido + resposta no idioma do cliente.
+Arquivos criados:
+  - apps/api/src/infrastructure/ai/language-detector.ts (detector HEURISTICO PURO: stopwords pt/en/es + score por contagem; <2 hits ou empate -> 'pt' conservador; ZERO LLM)
+  - apps/api/src/infrastructure/ai/language-detector.test.ts (11 testes: 12 fixtures do plano em PT/EN/ES, vazio, pouco texto, empate, acentos normalizados via NFD, isLiveTranslationEnabled)
+  - src/components/intelligence/MultilingualCard.tsx (Card standalone com Switch + toast "Atendimento multilíngue ativado." - flag é info-only, controle real via env do backend)
+Arquivos modificados:
+  - apps/api/src/domain/agent/agent.state.ts (+ detectedLanguage: 'pt'|'en'|'es' optional)
+  - apps/api/src/domain/agent/langgraph.service.ts (+ channel detectedLanguage)
+  - apps/api/src/domain/agent/nodes/classify.node.ts (detecta idioma so com flag on; log estruturado)
+  - apps/api/src/domain/agent/nodes/fetch-context.node.ts (traduz query com gpt-4o-mini se flag on + detectedLanguage != 'pt' + dataSource=qdrant/both; fail-open = query original; header Helicone 'rag-query-translate')
+  - apps/api/src/domain/agent/nodes/generate.node.ts (sufixo no systemContext: "IMPORTANTE: o cliente escreveu em {idioma}. Responda TODO o atendimento nesse idioma."; desabilita cache semantico quando ha sufixo para evitar hit cruzado)
+  - apps/api/src/domain/agent/nodes/classify.node.test.ts (+ 2 testes: flag off nao seta, flag on EN detecta)
+  - apps/api/src/infrastructure/config/public-flags.ts (+ 'translate' : 'LIVE_TRANSLATION_ENABLED')
+  - apps/api/src/infrastructure/config/public-flags.test.ts (+ 1 teste)
+  - apps/api/src/domain/ia/flags.routes.test.ts (atualizado p/ 5 chaves)
+  - src/pages/AIConfigPage.tsx (+ TabsTrigger "Multilíngue" + TabsContent <MultilingualCard />)
+  - src/pages/ChatPage.tsx (+ badge EN/ES no header do chat com tooltip "Detectado automaticamente"; quickDetectLang client-side como fallback quando metadata.language nao existe)
+  - .env.example (+ LIVE_TRANSLATION_ENABLED=false)
+Tecnologias implementadas: detector de idioma heuristico (zero custo, sem LLM); traducao de query RAG com gpt-4o-mini fail-open; sufixo no systemContext para forcar resposta no idioma; cache semantico NAO cacheia respostas em idioma nao-pt.
+Testes: 28 passando (4 arquivos novos/expandidos). Typecheck limpo (1 warning pre-existente), 0 errors lint.
+Status: CONCLUIDO. Flag LIVE_TRANSLATION_ENABLED default 'false' - no nodeClassify short-circuito, sem chamada extra de LLM, sem alteracao no state.
+Observacoes:
+  - SEM tela propria no hub (RN12 - AIConfigPage ja esta no nav, registrado no PROGRESS_LOG por design do plano).
+  - Detector: 30 stopwords por idioma; 12 fixtures do plano cobertas (4 por idioma).
+  - message.worker: sera evoluido em sessao futura para gravar metadata.language (ja tem metadata no insert - o sufixo IA-14 so marca o idioma detectado, persistencia vem no cutover real).
+  - Custo: gpt-4o-mini c/ translate ~US.00015/traducao; flag off = R.
+  - Justificativa do modelo (decisao registrada): GPT-4o-mini eh mais barato que Llama-Guard-3 self-hosted e mais natural que um pipeline de tradução. RAG traduzido so dispara quando vai buscar no Qdrant.
+Rollback: LIVE_TRANSLATION_ENABLED=false.
+Commit: feat(ia14): atendimento multilingue com RAG traduzido (flag off).

@@ -66,6 +66,8 @@ function buildAgentGraph() {
       // IA-21 — Safety veto
       safetyVetoed: { value: (x, y) => y ?? x },
       safetyCategories: { value: (x, y) => y ?? x },
+      // IA-14 — Idioma detectado pelo classificador
+      detectedLanguage: { value: (x, y) => y ?? x },
       requiresHuman: { value: (x, y) => y ?? x },
       escalationReason: { value: (x, y) => y ?? x },
       steps: { value: (x, y) => y ?? x, default: () => [] },

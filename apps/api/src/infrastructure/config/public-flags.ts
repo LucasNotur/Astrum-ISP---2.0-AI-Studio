@@ -12,6 +12,7 @@ const PUBLIC_FLAGS: Record<string, string> = {
   toolreg: 'TOOL_REGISTRY_ENABLED',
   safety: 'SAFETY_CLASSIFIER_ENABLED',
   graphrag: 'GRAPHRAG_ENABLED',
+  translate: 'LIVE_TRANSLATION_ENABLED',
 };
 
 export function getPublicFlags(): Record<string, boolean> {

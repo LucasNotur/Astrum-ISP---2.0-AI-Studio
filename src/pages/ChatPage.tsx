@@ -193,6 +193,29 @@ export function ChatPage() {
       });
   }, [userProfile?.tenantId]);
 
+  // IA-14: detecção rápida de idioma client-side (fallback quando metadata.language
+  // ainda não fue gravado pelo runtime). Mesma heurística do backend — 30 stopwords
+  // por idioma, score por contagem, conservador.
+  const QUICK_STOPWORDS = {
+    pt: new Set(['a','o','as','os','um','uma','uns','umas','de','do','da','dos','das','no','na','nos','nas','em','por','para','com','sem','que','se','e','ou','mas','ja','nao','sim','eu','voce','meu','minha']),
+    en: new Set(['the','a','an','and','or','but','if','is','are','was','were','be','been','have','has','had','i','you','he','she','it','we','they','my','your','his','her','its','our','their','this','that']),
+    es: new Set(['el','la','los','las','un','una','unos','unas','de','del','en','por','para','con','sin','que','si','no','se','es','son','estoy','estas','este','esta','yo','tu','mi','mis','tengo','tienes']),
+  };
+  const quickDetectLang = (text: string): 'pt' | 'en' | 'es' => {
+    const tokens = (text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').match(/[a-z0-9]+/g) || []);
+    if (tokens.length === 0) return 'pt';
+    const scores: Record<string, number> = { pt: 0, en: 0, es: 0 };
+    for (const t of tokens) {
+      for (const lang of Object.keys(QUICK_STOPWORDS) as Array<'pt'|'en'|'es'>) {
+        if ((QUICK_STOPWORDS as any)[lang].has(t)) scores[lang] += 1;
+      }
+    }
+    const max = Math.max(scores.pt, scores.en, scores.es);
+    if (max < 2) return 'pt';
+    if (scores.pt === max) return 'pt';
+    return scores.en === max ? 'en' : 'es';
+  };
+
   const getSLAStatus = (ticket: any) => {
     if (ticket.status === "resolved") return null; // No SLA indicator for resolved
     if (ticket.sla_breached) return "red";
@@ -1247,6 +1270,30 @@ export function ChatPage() {
                             </span>
                         )}
                       </div>
+                      {/* IA-14: badge do idioma detectado — aparece quando a última mensagem do
+                          cliente não é pt e a flag pública `translate` está ligada. */}
+                      {(() => {
+                        const lastCustomerMsg = [...messages]
+                          .reverse()
+                          .find((mm: any) => mm.senderType === 'customer' && mm.text);
+                        const lang = lastCustomerMsg?.metadata?.language
+                          || (lastCustomerMsg?.text ? quickDetectLang(lastCustomerMsg.text) : 'pt');
+                        if (lang === 'pt') return null;
+                        return (
+                          <TooltipProvider>
+                            <UITooltip>
+                              <TooltipTrigger asChild>
+                                <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-astrum-slate/15 text-astrum-slate px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                                  {lang}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs">Detectado automaticamente</p>
+                              </TooltipContent>
+                            </UITooltip>
+                          </TooltipProvider>
+                        );
+                      })()}
                       <div className="text-[10px] md:text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 truncate flex items-center">
                         {(() => {
                           const cPhone = customers.find(

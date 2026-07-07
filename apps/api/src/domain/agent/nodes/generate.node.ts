@@ -3,6 +3,7 @@ import { IAIPort, IToolsPortFactory } from '../../ports/ai.port';
 import { ILoggerPort } from '../../ports/logger.port';
 import { findCachedResponse, storeCachedResponse, isEligibleForCache } from '../../../infrastructure/cache/semantic-cache.service';
 import { getEnabledTools } from '../../../infrastructure/ai/tool-registry';
+import { isLiveTranslationEnabled, LANGUAGE_NAMES, type SupportedLanguage } from '../../../infrastructure/ai/language-detector';
 
 export function makeNodeGenerate(deps: {
   ai: Pick<IAIPort, 'streamWithTools'>;
@@ -10,10 +11,21 @@ export function makeNodeGenerate(deps: {
   logger: ILoggerPort;
 }) {
   return async function nodeGenerate(state: AgentState): Promise<Partial<AgentState>> {
-    const { ragContext, dbContext, zepContext, userMessage, tenantId, intent, dataSource } = state;
+    const { ragContext, dbContext, zepContext, userMessage, tenantId, intent, dataSource, detectedLanguage } = state;
+
+    // IA-14 — Sufixo do system context quando cliente escreveu em idioma não-pt.
+    // Adicionado ANTES do cache semântico (RN4): a resposta cacheada de uma
+    // versão sem o sufixo seria a errada; ignoramos cache quando há sufixo.
+    const languageSuffix = (
+      isLiveTranslationEnabled()
+      && detectedLanguage
+      && detectedLanguage !== 'pt'
+    )
+      ? `\n\nIMPORTANTE: o cliente escreveu em ${LANGUAGE_NAMES[detectedLanguage as SupportedLanguage]}. Responda TODO o atendimento nesse idioma.`
+      : '';
 
     // IA-02: Cache semântico — tentar resposta do cache antes de chamar LLM
-    if (isEligibleForCache({ dataSource, dbContext, toolsExecuted: state.toolsExecuted })) {
+    if (!languageSuffix && isEligibleForCache({ dataSource, dbContext, toolsExecuted: state.toolsExecuted })) {
       const cached = await findCachedResponse(userMessage, tenantId);
       if (cached) {
         deps.logger.info({
@@ -32,7 +44,7 @@ export function makeNodeGenerate(deps: {
       ragContext && `## Documentos Técnicos:\n${ragContext}`,
       dbContext && `## Dados do Cliente:\n${dbContext}`,
       zepContext && `## Histórico:\n${zepContext}`,
-    ].filter(Boolean).join('\n\n---\n\n');
+    ].filter(Boolean).join('\n\n---\n\n') + languageSuffix;
 
     const toolsExecuted: AgentState['toolsExecuted'] = [];
     const tools = deps.createTools(tenantId);
@@ -70,10 +82,11 @@ export function makeNodeGenerate(deps: {
       responseLength: fullResponse.length,
       toolsUsed: toolsExecuted.length,
       tier,
+      language: detectedLanguage,
     }, 'Agent: generate');
 
-    // IA-02: Armazenar resposta no cache semântico (fire-and-forget)
-    if (isEligibleForCache({ dataSource, dbContext, toolsExecuted })) {
+    // IA-02: Armazenar resposta no cache semântico (fire-and-forget) — só pt
+    if (!languageSuffix && isEligibleForCache({ dataSource, dbContext, toolsExecuted })) {
       storeCachedResponse(userMessage, fullResponse, tenantId).catch(() => {});
     }
 

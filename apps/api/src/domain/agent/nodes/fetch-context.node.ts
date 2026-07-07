@@ -2,6 +2,10 @@ import { AgentState } from '../agent.state';
 import { ISearchPort } from '../../ports/search.port';
 import { IDatabasePort } from '../../ports/database.port';
 import { ILoggerPort } from '../../ports/logger.port';
+import { generateObject } from 'ai';
+import { openai } from '@ai-sdk/openai';
+import { z } from 'zod';
+import { isLiveTranslationEnabled } from '../../../infrastructure/ai/language-detector';
 
 function formatCustomer(customer: NonNullable<Awaited<ReturnType<IDatabasePort['fetchCustomer']>>>): string {
   const overdueInvoices = customer.invoices.filter(i => i.status === 'overdue');
@@ -14,10 +18,52 @@ Faturas em atraso: ${overdueInvoices.length} (total: R$${overdueInvoices.reduce(
 Tickets abertos: ${openTickets.length}`;
 }
 
+/**
+ * IA-14 — Traduz a query do usuário para pt-BR antes do retrieval no Qdrant.
+ * Fail-open (RN4): erro → query original. Helicone UseCase 'rag-query-translate'.
+ */
+async function translateQueryToPt(query: string, tenantId: string): Promise<string> {
+  try {
+    const { object } = await generateObject({
+      model: openai('gpt-4o-mini') as any,
+      schema: z.object({ translated: z.string() }),
+      system: 'Traduza a mensagem do cliente para português do Brasil (pt-BR) para ser usada como busca em uma base de conhecimento técnica de ISP. Mantenha termos técnicos e nomes próprios. Responda apenas com o JSON {"translated": "..."}.',
+      messages: [{ role: 'user', content: query }],
+      headers: {
+        'Helicone-Property-TenantId': tenantId,
+        'Helicone-Property-UseCase': 'rag-query-translate',
+      },
+    });
+    return object.translated || query;
+  } catch {
+    return query;
+  }
+}
+
 export function makeNodeFetchContext(deps: { search: ISearchPort; db: IDatabasePort; logger: ILoggerPort }) {
   return async function nodeFetchContext(state: AgentState): Promise<Partial<AgentState>> {
     const { dataSource, tenantId, customerId } = state;
-    const searchQuery = state.rewrittenQuery ?? state.userMessage;
+    const originalQuery = state.rewrittenQuery ?? state.userMessage;
+
+    // IA-14: se flag on + idioma != pt e vai buscar no Qdrant, traduz a query.
+    let searchQuery = originalQuery;
+    if (
+      isLiveTranslationEnabled()
+      && state.detectedLanguage
+      && state.detectedLanguage !== 'pt'
+      && (dataSource === 'qdrant' || dataSource === 'both')
+    ) {
+      const translated = await translateQueryToPt(originalQuery, tenantId);
+      if (translated !== originalQuery) {
+        deps.logger.info({
+          step: 'fetch_context',
+          from: state.detectedLanguage,
+          originalChars: originalQuery.length,
+          translatedChars: translated.length,
+        }, 'Agent: query traduzida para RAG');
+      }
+      searchQuery = translated;
+    }
 
     let ragContext = '';
     let dbContext = '';
