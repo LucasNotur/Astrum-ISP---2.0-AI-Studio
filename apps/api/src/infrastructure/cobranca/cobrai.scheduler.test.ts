@@ -58,8 +58,10 @@ describe('CobrAI Scheduler', () => {
       amountCents: 5000,
       dueDate: new Date(),
     });
+    // O mock é module-level e acumula chamadas do teste anterior — olhar as 2 últimas.
     const calls = (cobrancaQueue.add as any).mock.calls;
-    const jobIds = calls.map((c: any[]) => c[2]?.jobId);
-    expect(jobIds[0]).toContain('inv-abc');
+    const jobIds = calls.slice(-2).map((c: any[]) => c[2]?.jobId);
+    for (const id of jobIds) expect(id).toContain('inv-abc');
+    expect(new Set(jobIds).size).toBe(jobIds.length);
   });
 });

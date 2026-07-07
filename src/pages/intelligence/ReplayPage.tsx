@@ -538,7 +538,7 @@ function RunDetailView({
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Divergentes</CardTitle>
+              <CardTitle role="heading" aria-level={2}>Divergentes</CardTitle>
               <CardDescription>
                 Comparação lado a lado das respostas que o juiz marcou como divergentes.
               </CardDescription>

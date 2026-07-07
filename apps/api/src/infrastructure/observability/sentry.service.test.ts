@@ -17,6 +17,9 @@ describe('Sentry Service', () => {
   beforeEach(() => {
     process.env.SENTRY_DSN = 'https://test@sentry.io/1234';
     vi.resetModules();
+    // O factory do vi.mock é cacheado entre testes — limpar o histórico das
+    // fns para asserções de "não foi chamado" não verem chamadas do teste anterior.
+    vi.clearAllMocks();
   });
 
   afterEach(() => {

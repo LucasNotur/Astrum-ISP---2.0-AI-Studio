@@ -187,6 +187,8 @@ describe('LangGraphService.processMessage → recordMessageCost (IA-34)', () => 
       nodeGradeContext: async (state: any = { steps: [] }) => ({ steps: [...state.steps, 'grade_context'] }),
       nodeRewriteQuery: async (state: any = { steps: [] }) => ({ steps: [...state.steps, 'rewrite_query'] }),
       nodeSelfCheck:   async (state: any = { steps: [] }) => ({ steps: [...state.steps, 'self_check'] }),
+      nodeSafetyVeto:  async (state: any = { steps: [] }) => ({ steps: [...state.steps, 'safety_veto'] }),
+      setCreateToolsOverride: () => {},
     }));
   });
 

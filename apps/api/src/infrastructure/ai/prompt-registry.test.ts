@@ -30,10 +30,10 @@ describe('prompt-registry — IA-03', () => {
   });
 
   describe('getPrompt', () => {
-    it('retorna todos os 4 ids conhecidos', () => {
+    it('retorna todos os ids conhecidos', () => {
       const ids = listPrompts().map((p) => p.id);
       expect(ids.sort()).toEqual(
-        ['chat', 'classification', 'technical_diagnostic', 'ticket_report'].sort(),
+        ['chat', 'classification', 'technical_diagnostic', 'ticket_report', 'safety_veto'].sort(),
       );
     });
 
