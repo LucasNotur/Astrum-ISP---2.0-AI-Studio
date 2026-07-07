@@ -34,6 +34,16 @@ export interface MediaDeps {
   describeImage: (imageUrl: string, tenantId: string) => Promise<string | null>;
   storeMedia?: (data: string, mime: string, tenantId: string) => Promise<string>;
   visionEnabled?: boolean;
+  /** IA-04: extrai dados estruturados de boleto via visão (gpt-4o). Null = não é boleto ou falha. */
+  extractBoleto?: (mediaUrl: string, tenantId: string) => Promise<{
+    linha_digitavel?: string; valor_cents?: number; vencimento?: string;
+    beneficiario?: string; is_boleto: boolean; confidence: number;
+  } | null>;
+  /** IA-04: classifica foto de campo de técnico de ISP. Usado apenas via rota dedicada. */
+  classifyFieldPhoto?: (imageUrl: string, tenantId: string) => Promise<{
+    equipment: string; issue: string; severity: string;
+    recommended_action: string; confidence: number;
+  } | null>;
 }
 
 export async function processInboundMedia(
@@ -81,15 +91,41 @@ export async function processInboundMedia(
     };
   }
 
-  // ── Documento → guarda referência ──
+  // ── Documento → OCR boleto (IA-04) ou guarda referência ──
   if (media.isDocument) {
     let storedRef: string | null = null;
+    let systemPromptExtension: string | null = null;
+
     if (deps.storeMedia && media.base64Media) {
       storedRef = await deps.storeMedia(media.base64Media, media.mediaMimeType ?? 'application/octet-stream', tenantId).catch(() => null);
     }
+
+    // IA-04: tentar OCR de boleto se o dep está presente e mime parece imagem/pdf
+    if (deps.extractBoleto && (media.imageUrl || media.audioUrl || media.base64Media)) {
+      const mediaForOcr = media.imageUrl || media.audioUrl || '';
+      if (mediaForOcr) {
+        const boleto = await deps.extractBoleto(mediaForOcr, tenantId).catch(() => null);
+        if (boleto?.is_boleto && (boleto.confidence ?? 0) >= 0.6) {
+          const parts: string[] = [];
+          if (boleto.valor_cents !== undefined) {
+            parts.push(`valor R$${(boleto.valor_cents / 100).toFixed(2)}`);
+          }
+          if (boleto.vencimento) parts.push(`vencimento ${boleto.vencimento}`);
+          if (boleto.linha_digitavel) parts.push(`linha digitável ${boleto.linha_digitavel}`);
+          return {
+            textForLLM: media.textMessage || '[Cliente enviou um boleto]',
+            systemPromptExtension:
+              `Boleto anexado pelo cliente: ${parts.join(', ')}. Compare com as faturas em aberto antes de responder.`,
+            storedRef,
+            mediaType: 'document',
+          };
+        }
+      }
+    }
+
     return {
       textForLLM: media.textMessage || '[Cliente enviou um documento]',
-      systemPromptExtension: storedRef ? `Documento anexado pelo cliente (ref: ${storedRef}).` : null,
+      systemPromptExtension: systemPromptExtension || (storedRef ? `Documento anexado pelo cliente (ref: ${storedRef}).` : null),
       storedRef,
       mediaType: 'document',
     };

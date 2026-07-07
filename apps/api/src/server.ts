@@ -98,6 +98,9 @@ export async function buildServer() {
   const { ragRoutes } = await import('./domain/ia/rag.routes');
   await app.register(ragRoutes);
 
+  const { visionRoutes } = await import('./domain/ia/vision.routes');
+  await app.register(visionRoutes);
+
   const { chatStreamRoutes } = await import('./domain/ia/chat-stream.routes');
   await app.register(chatStreamRoutes);
 
