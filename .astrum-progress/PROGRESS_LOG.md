@@ -24,6 +24,32 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-07] IA-NEXTGEN — Sessão IA-F2-PLAN (planejamento; gate RN16 cumprido)
+Tarefa: expandir os 21 galhos da Fase 2 para o template §4 em densidade total,
+  auditando o código REAL mergeado em main (git log até 64303fa, PROGRESS_LOG de
+  2026-07-06, arquivos das sessões IA-01..IA-46). NENHUMA sessão executada — só plano.
+Arquivos modificados:
+  - .astrum-progress/ia-nextgen/PARTE2_IA11-IA46_fullstack.md (§0.1 item 5 atualizado;
+    §3 vira ordem de execução em 5 blocos; seção "FASE 2 — GALHOS" substituída por 21
+    sessões no template §4: 18 executáveis ⬜ + 3 GATED 🔒 IA-18/20/41; novo Apêndice E
+    com 10 dívidas/achados E1–E10 da auditoria)
+Auditoria realizada (fatos verificados no código, não inferidos):
+  - Catálogo real = 9 tools (vercel-ai.service.ts:94-166); grafo com 12 nós
+    (langgraph.service.ts:83-96); public-flags com 14 chaves; migrations 037–047
+    usadas → próximo número 048 (colisão histórica 035 duplicada registrada em E5).
+  - Eval harness real em apps/api/eval/ (run-eval.ts + judge.ts + 50 cenários jsonl).
+  - ACHADO CRÍTICO (E1): IA-44 tem backend completo mas SandboxPage.tsx e a rota
+    /intelligence/sandbox NÃO existem — card do hub aponta para rota morta.
+    Quitação atribuída à IA-38.
+  - Outras dívidas mapeadas: E2 IA-08 A3 pendente (gate voz), E3 churn-features fora
+    do feature store (→IA-23), E4 SIDE_EFFECT_TOOLS no replay.service (→IA-17),
+    E6 CHECK do ai_decision_log restritivo (→IA-20).
+Ordem definida: Bloco A (IA-32, 42, 38, 23) → B (31, 29, 15, 17, 22, 39, 28, 36, 35)
+  → C com gate de dados (24, 25) → D voz (13, 40, 12) → E GATED (18, 20, 41).
+Status: ✅ Concluído. Fase 2 EXECUTÁVEL — próxima sessão = IA-32 (primeira ⬜ do Bloco A).
+
+---
+
 [2026-07-06] IA-NEXTGEN — CONSOLIDAÇÃO das sessões paralelas + fechamento Fase 1
 Tarefa: recuperar e mergear em main o trabalho de 13 sessões executadas em chats paralelos
   que compartilharam o mesmo worktree (6 branches commitadas + 5 stashes + working tree).

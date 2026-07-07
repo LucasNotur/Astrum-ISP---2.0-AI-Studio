@@ -29,7 +29,10 @@
 2. Ler `.astrum-progress/ia-nextgen/AUDITORIA_FRONTEND.md` INTEIRO.
 3. Últimas 3 entradas do `PROGRESS_LOG.md`; `git status` + `git log --oneline -5`.
 4. Branch `feat/ia-XX-<slug>` a partir de `main`.
-5. Primeira sessão ⬜ da FASE 1 deste arquivo. Fase 2 é INEXECUTÁVEL até o gate RN16.
+5. Fase 1 está 100% em main (2026-07-06). O gate RN16 foi CUMPRIDO pela sessão
+   IA-F2-PLAN (2026-07-07): a Fase 2 está expandida em densidade total neste arquivo.
+   Próxima sessão = primeira ⬜ da ordem da FASE 2 (§3). Ler também o Apêndice E
+   (dívidas herdadas da consolidação) antes de qualquer sessão.
 
 ### 0.2 Regras RN8–RN16
 - **RN8 — Nenhuma sessão termina sem tela integrada** (quando a sessão tem UI): rota
@@ -110,13 +113,33 @@ IA-45 Synthetic data generator
 IA-46 Replay engine                                     ← gate técnico do cutover S74/S82
 ```
 
-### FASE 2 — galhos (INEXECUTÁVEIS até o gate RN16; lista no fim do arquivo)
-IA-12 voice biometrics · IA-13 QA de voz · IA-15 OCR+fila de revisão · IA-17 MCP server ·
-IA-18 A2A (GATED) · IA-20 debate (GATED) · IA-22 browsing agent · IA-23 LTV ·
-IA-24 anomalia de rede · IA-25 forecast demanda · IA-28 perfil de comunicação ·
-IA-29 active learning · IA-31 judge+Elo · IA-32 OpenLLMetry · IA-35 orçamento de latência ·
-IA-36 edge inference · IA-38 SHAP+tela churn · IA-39 constitutional loop · IA-40 PII voz ·
-IA-41 federated eval (GATED) · IA-42 spec tracker.
+### FASE 2 — ordem de execução (gate RN16 CUMPRIDO em 2026-07-07; sessões expandidas no fim do arquivo)
+```
+BLOCO A — medição e quitação de dívidas (sem dependência externa)
+IA-32 OpenLLMetry (spans por nó)          ← medição primeiro; IA-35 depende
+IA-42 Spec tracker (eval como gate de CI)
+IA-38 SHAP + tela de churn                ← quita E1 (SandboxPage) e a dívida de tela da IA-07
+IA-23 LTV                                 ← quita E3 (churn-features → feature store)
+BLOCO B — agentic e aprendizado
+IA-31 LLM-as-judge + Elo
+IA-29 Active learning
+IA-15 OCR multi-layout + fila de revisão
+IA-17 MCP server                          ← quita E4 (SIDE_EFFECT_TOOLS → registry)
+IA-22 Web browsing agent
+IA-39 Constitutional loop
+IA-28 Perfil de comunicação
+IA-36 Edge inference (shadow)
+IA-35 Orçamento de latência               ← depois da IA-32
+BLOCO C — rede e previsão (gate de DADOS: ≥30/60d de histórico)
+IA-24 Anomalia de rede                    ← escreve a ADR-ml-python-service (RN15)
+IA-25 Forecast de demanda                 ← depois da ADR
+BLOCO D — voz (gate: estado da IA-08; A3 pendente)
+IA-13 Speech analytics QA                 ← primeira: cria a persistência de chamadas
+IA-40 PII em voz
+IA-12 Voice biometrics                    ← exige A3 + ADR implementada
+BLOCO E — GATED (não agendar; critérios de abertura em cada sessão)
+IA-18 A2A · IA-20 Debate · IA-41 Federated eval
+```
 
 **Reconciliação dos ~55 itens** (inalterada): 2 duplicatas cruzadas; ~13 absorvidos na
 Parte 1; 35 líquidos + IA-11 = IA-11..IA-46.
@@ -1247,50 +1270,1144 @@ registra `dryRun`. Judge: rationale gravada. Pass-rate = equivalent/total.
 ---
 ---
 
-# FASE 2 — GALHOS (INEXECUTÁVEIS até o gate RN16)
+# FASE 2 — SESSÕES EM DENSIDADE TOTAL
+# (expandidas pela sessão IA-F2-PLAN em 2026-07-07 — gate RN16 CUMPRIDO)
 
-> A sessão **IA-F2-PLAN** (roda depois da Fase 1) expande cada galho abaixo para o
-> template §4 auditando o código REAL mergeado: `git log --oneline`, PROGRESS_LOG,
-> arquivos das sessões IA-01..IA-46-Fase1 e logs de staging. Proibido expandir antes.
+> **Base da auditoria desta expansão:** `git log` até `64303fa` (Fase 1 100% em main),
+> PROGRESS_LOG de 2026-07-06 (consolidação) e 2026-07-05 (sessões individuais), e
+> leitura dos arquivos reais citados linha a linha em cada sessão.
+> **Migrations:** próximo número livre HOJE = `048` (037–047 usados pela Fase 1;
+> atenção à colisão histórica `035_ai_decision_log` + `035_network_metrics` — E5).
+> RN5 continua: confirmar o número com `ls packages/db/src/migrations/` NO DIA.
+> Padrão RLS = policy `tenant_isolation` com `app.current_tenant_id` (D7).
+> **Leitura obrigatória antes de qualquer sessão:** Apêndice E (dívidas herdadas).
+> Flags client novas: cada sessão adiciona a sua em `public-flags.ts` (hoje: 14 chaves;
+> `costdrill` demonstra o padrão client-only `undefined` = sempre on — E9).
 
-- **IA-12 Voice biometrics** — dep IA-08. Embedding de voz + consentimento LGPD;
-  badge "verificado por voz" na tela de chamada.
-- **IA-13 Speech analytics QA** — dep IA-08. Scorecard de 100% das chamadas
-  (`gpt-4o-mini` + rubrica); tela `/intelligence/voice-qa` com player + Timeline + radar.
-- **IA-15 OCR multi-layout + fila de revisão** — dep IA-04. Conta de energia/fatura
-  concorrente; `/intelligence/review-queue` mobile-first; correções alimentam IA-29.
-- **IA-17 MCP server** — dep IA-19 (usa o catálogo). Tools read-only por API key/tenant;
-  UI de keys + toggles + snippet copiável.
-- **IA-18 A2A protocol** — GATED (pós-cutover, com IA-10).
-- **IA-20 Multi-agent debate** — GATED (dep IA-10); votos gravados no `ai_decision_log`
-  (IA-06); Timeline de decisões financeiras.
-- **IA-22 Web browsing agent** — dep IA-19/IA-44 (allowlist + isolamento); cheerio;
-  citação de fonte obrigatória.
-- **IA-23 LTV** — dep IA-07 + IA-27; fase heurística (tenure×ARPU×churn) → Python (ADR).
-- **IA-24 Anomalia de rede** — dep IA-09 (≥30d de `network_metrics`); z-score/EWMA TS →
-  **escreve a ADR-ml-python-service.md** p/ Isolation Forest; `/intelligence/network-health`.
-- **IA-25 Forecast de demanda** — dep ADR; fase média móvel sazonal TS sobre DuckDB;
-  `/intelligence/staffing`.
-- **IA-28 Perfil de comunicação** — dep IA-05; SÓ eixo formal↔coloquial↔técnico (decisão
-  de produto anti-creepy); card no cliente + opt-out.
-- **IA-29 Active learning** — dep IA-15/IA-21/IA-03; unifica sinais humanos em
-  `labeled_examples`; fila `/intelligence/feedback` com teclas 1/2/3.
-- **IA-31 LLM-as-judge + Elo** — dep IA-03/IA-46; ranking em `/intelligence/models`.
-- **IA-32 OpenLLMetry** — sem dependência dura; prioridade baixa; spans por nó do grafo;
-  status do exporter na AIObservabilityPage.
-- **IA-35 Orçamento de latência** — dep IA-32 (medição primeiro). Nota de realismo já
-  registrada: "speculative decoding" real não existe sobre API da OpenAI; a sessão é
-  p95 por nó + otimizações guiadas.
-- **IA-36 Edge inference** — triagem CF Workers AI; gate de concordância ≥85% vs
-  `classifyIntent` antes de ligar.
-- **IA-38 SHAP + tela de churn** — dep IA-07 (+IA-23 p/ SHAP real); `/intelligence/churn`
-  com waterfall que SOMA o score exibido; quita a dívida de tela da IA-07.
-- **IA-39 Constitutional loop** — dep IA-21; constituição editável por tenant; revisão
-  só em intents sensíveis.
-- **IA-40 PII em voz** — dep IA-08/IA-13; mascara ANTES de persistir; trechos marcados
-  no player.
-- **IA-41 Federated evaluation** — GATED (≥3 tenants grandes + análise LGPD registrada).
-- **IA-42 Spec tracker** — dep IA-03; job de CI, sem UI (exceção RN12 justificada).
+---
+
+# ⬜ IA-32 — OpenLLMetry (spans OTel por nó do grafo)
+
+**Objetivo:** telemetria OpenTelemetry padrão: 1 trace por `processMessage`, 1 span por
+nó do grafo e 1 span por chamada LLM, exportados via OTLP para qualquer backend
+(Tempo/Jaeger/Traceloop). Complementa o Helicone (custo, RN7) — não o substitui.
+É a FONTE de medição do orçamento de latência (IA-35).
+**Flags:** `OTEL_ENABLED` (server) / client `otel` (só o card de status).
+
+**Auditoria (2026-07-07):** grafo com 12 nós em `langgraph.service.ts:83-96`
+(`classify, guardrails, decide_source, fetch_context, generate, validate, escalate,
+block, grade_context, rewrite_query, self_check, safety_veto`); `processMessage` na
+:163. Chamadas LLM centralizadas em `vercel-ai.service.ts` (`classifyIntent:176`,
+`streamWithTools`, tudo via `withFailover` do model-router IA-43). Observabilidade
+existente: `sentry.service.ts`, `langsmith.service.ts`, Helicone headers.
+
+### Backend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `apps/api/src/infrastructure/observability/otel.ts` (+ `.test.ts`) — boot do NodeSDK |
+| CRIAR | `apps/api/src/infrastructure/observability/otel-span.helper.ts` (+ `.test.ts`) — `withSpan(name, attrs, fn)` |
+| CRIAR | `apps/api/src/domain/ia/otel.routes.ts` — `GET /ia/otel/status` |
+| MODIFICAR | `langgraph.service.ts` (envolver os 12 `addNode` com `wrapNode(name, node)`) |
+| MODIFICAR | `vercel-ai.service.ts` (span `llm.generate` com attrs model/useCase/tokens) |
+| MODIFICAR | `server.ts` (boot ANTES de tudo) · `env.validator.ts` (`OTEL_ENABLED`, `OTEL_EXPORTER_OTLP_ENDPOINT?`) · `public-flags.ts` (`otel`) |
+
+Deps npm (pinar): `@opentelemetry/api`, `@opentelemetry/sdk-node`,
+`@opentelemetry/exporter-trace-otlp-http`.
+Regras: 1. **Decisão registrada:** instrumentação MANUAL nos pontos de interesse (12
+nós + LLM) em vez do auto-instrument do Traceloop — LangGraph JS não tem instrumentação
+oficial estável; menos mágica, mais controle. 2. Flag off → tracer no-op do
+`@opentelemetry/api` e o SDK pesado NEM é importado (import dinâmico no boot). 3.
+Atributos mínimos por span: `tenantId`, nome do nó, e no `llm.generate`:
+`model`, `useCase`, `tokens` (quando disponível — D4 já corrigido pela IA-34). 4.
+Erro no exporter NUNCA derruba mensagem (fail-open RN4, warn 1x/min).
+
+### Frontend
+MODIFICAR `src/pages/AIObservabilityPage.tsx` (RELER INTEIRA — RN9; já tem a seção
+Providers da IA-43): card **"Telemetria"** — status via `GET /api/v2/ia/otel/status`
+(`{enabled, endpoint_mascarado, spans_sessao, ultimo_erro}`) com RiskBadge
+(exportando=baixo / erro=alto / desligado=sem-dado). SEM tela própria (RN12 via
+AIObservabilityPage; justificar no log).
+
+### Testes
+`InMemorySpanExporter`: 1 mensagem pelo grafo (mocks) → trace contém spans dos nós
+percorridos, na hierarquia certa; flag off → zero spans E zero import do SDK (spy);
+span de nó que lança → status ERROR; atributo tenantId presente em todos.
+
+### Critérios de aceite
+- [ ] Flag off: boot sem OTel carregado (log de boot) e suíte inteira verde.
+- [ ] Staging flag on: trace completo com os 12 nós visível no backend OTLP (print).
+- [ ] Overhead: p95 de `processMessage` com/sem flag difere <5ms (20 msgs, log).
+- [ ] RN8 via card na AIObservabilityPage (print).
+**Rollback:** `OTEL_ENABLED=false`. **Commit:** `feat(ia32): spans opentelemetry por nó do grafo + status do exporter (flag off)`.
+
+---
+
+# ⬜ IA-42 — Spec tracker (eval da IA-03 como gate de CI)
+
+**Objetivo:** comportamento vira spec executável: o eval de 50 cenários roda em CI com
+baseline versionado; regressão de pass-rate quebra o job. SEM UI (exceção RN12 — job de
+CI; registrar no log). **Flags:** nenhuma (não roda em runtime de produção).
+
+**Auditoria:** harness REAL em `apps/api/eval/run-eval.ts` (lê
+`eval/scenarios/atendimento.jsonl` — 50 linhas conferidas) + `eval/judge.ts`
+(`judge(p: JudgeInput, tenantId)` com `JudgeSchema` Zod) + resultados em
+`eval/results/*.json` (existe 1 de 2026-07-05). CI em `.github/workflows/ci.yml`.
+
+### Backend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `apps/api/eval/baseline.json` — snapshot aprovado (por cenário: `{id, pass}`; geral: `rate`) |
+| CRIAR | `apps/api/eval/spec-tracker.ts` (+ `.test.ts`) — PURO |
+| MODIFICAR | `apps/api/eval/run-eval.ts` (modo `--ci`: roda + compara + exit code + summary markdown) |
+| MODIFICAR | `.github/workflows/ci.yml` (job `eval-spec`: schedule nightly + workflow_dispatch) |
+
+```ts
+// spec-tracker.ts
+export interface SpecComparison { regressions: string[]; newPasses: string[]; rateDelta: number; }
+export function compareToBaseline(current: EvalResult, baseline: Baseline): SpecComparison;
+// falha (exit 1) se: rate cai >2pp OU um cenário que passava agora falha.
+```
+Regras: 1. NUNCA por PR — só nightly/manual (custo LLM); gate: o job só roda se o
+secret `OPENAI_API_KEY` existir. UseCase Helicone `eval-spec` (RN7). 2. Atualizar
+baseline é COMMIT deliberado, nunca automático. 3. Cenário flaky (veredito instável em
+3 noites) → campo novo `quarantined: true` no jsonl: fora do gate, listado no summary.
+
+### Testes
+spec-tracker puro: regressão de 1 cenário detectada e nomeada; melhora não falha;
+rateDelta nos limites (exatamente −2pp não falha; −2.1pp falha); quarentena ignorada.
+
+### Critérios de aceite
+- [ ] `npx tsx eval/run-eval.ts --ci` local verde contra o baseline gerado na sessão
+      (colar summary no PROGRESS_LOG).
+- [ ] Regressão sintética (inverter o expected de 1 cenário) → exit 1 nomeando o cenário.
+- [ ] Job nightly verde no GitHub Actions (print).
+**Rollback:** remover o job do ci.yml. **Commit:** `feat(ia42): spec tracker — eval de 50 cenários como gate nightly de CI`.
+
+---
+
+# ⬜ IA-38 — Explicabilidade do churn + tela `/intelligence/churn`
+
+**Objetivo:** quitar a dívida de tela da IA-07: clientes por risco + waterfall de
+contribuições por feature que SOMA o score exibido. **"SHAP honesto" registrado:** o
+modelo real é LINEAR (`computeChurnScore`, `churn-score.ts:61`; pesos em
+`CHURN_WEIGHTS:33`) — contribuição exata = peso × valor normalizado, SEM lib. SHAP de
+verdade só quando houver modelo não-linear Python (ADR da IA-24).
+**Flags:** client `churn`; server: reusar a flag existente do worker de churn (auditar
+o nome real em `packages/queue/src/workers/churn.worker.ts` NO DIA — RN9).
+
+**Auditoria:** `churn_scores` (036) gravada pelo `churn.worker.ts` (cron `0 3 * * *`
+por tenant, jobId `churn-repeat:{tenantId}`); features em
+`churn-features.service.ts:159` (SQL próprio — dívida E3, fica para a IA-23); rota
+`GET /api/v2/ia/churn` JÁ existe (`churn.routes.ts:21` — reler o shape); bandas em
+`RISK_BANDS` (`churn-score.ts:42`: low/medium/high/critical → RiskBadge
+baixo/médio/alto/crítico).
+
+### Backend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `packages/db/src/migrations/0XX_churn_contributions.sql` → `ALTER TABLE churn_scores ADD COLUMN IF NOT EXISTS contributions JSONB;` |
+| MODIFICAR | `apps/api/src/domain/ml/churn-score.ts` (retornar `contributions: {feature, weight, value, contribution}[]` — campo NOVO no resultado, retrocompatível; invariante: soma == score) |
+| MODIFICAR | `packages/queue/src/workers/churn.worker.ts` (gravar `contributions`) |
+| MODIFICAR | `apps/api/src/domain/ia/churn.routes.ts` (incluir contributions + ordenação por score desc + paginação) |
+| MODIFICAR | `public-flags.ts` (`churn`) |
+
+### Frontend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `src/pages/intelligence/ChurnPage.tsx` (+ teste) |
+| CRIAR | `src/pages/intelligence/SandboxPage.tsx` (+ teste) — **QUITAÇÃO DA DÍVIDA E1**: a spec completa (editor mono, hint fixo, histórico de 20, duplo gate flag+super_admin) está na sessão IA-44 da Fase 1; o backend JÁ existe (`sandbox.routes.ts:81` POST + `:153` histórico + guard super_admin `:65`) |
+| MODIFICAR | `src/App.tsx` (rotas `/intelligence/churn` E `/intelligence/sandbox`) · hub (key `churn`, "Risco de Churn", "Quem está prestes a cancelar — e por quê.", ícone `UserMinus`, `/intelligence/churn`) · `pt-br.ts` |
+
+Tela de churn: topo StatCards (clientes em crítico/alto; "MRR em risco" — mono,
+centavos→R$, B4); `DataTablePro` Cliente · Score (mono 0-100) · Banda (RiskBadge) ·
+MRR (mono) · Atualizado (relativo). Clique → `Sheet` com waterfall (BarChart Recharts
+horizontal: contribuição por feature — positivas em orange/red, negativas em signal;
+última barra "Score" = soma, invariante VISÍVEL). Vazio: **"Nenhum score de churn
+ainda."** / **"O cálculo roda toda noite às 03h."** Erro: padrão IA-21.
+
+### Testes
+Invariante `soma(contributions) == score` com 20 fixtures variadas; rota expõe
+contributions; waterfall: soma exibida bate com o score do fixture; SandboxPage:
+gate super_admin (usuário comum não vê), POST renderiza resultado, erro do guard
+renderiza a `hint`.
+
+### Critérios de aceite
+- [ ] Waterfall de 3 clientes reais de staging SOMA o score (prints).
+- [ ] **E1 quitada:** `/intelligence/sandbox` navegável ponta a ponta (query real,
+      print) — o card do hub deixa de apontar para rota morta.
+- [ ] Flag client off → nem churn nem sandbox no DOM.
+- [ ] RN8 completo nas DUAS telas.
+**Rollback:** flag client off. **Commit:** `feat(ia38): tela de churn com waterfall explicável + quitação SandboxPage (E1)`.
+
+---
+
+# ⬜ IA-23 — LTV (lifetime value por cliente)
+
+**Objetivo:** LTV heurístico auditável: `ltv_cents = mrr_cents × margem ×
+expectativa_de_vida_meses`, com expectativa = `1 / churn_mensal` (score → probabilidade
+mensal por banda). Vira feature no Feature Store (fonte única) e coluna na ChurnPage.
+Modelo de sobrevivência Python só via ADR (IA-24).
+**Flags:** `LTV_ENABLED` / client `ltv`.
+**Depende de:** IA-07 ✓, IA-27 ✓, IA-38 (a tela onde a coluna entra).
+
+**Auditoria:** `FEATURE_DEFS` (`feature-registry.ts:14`) tem 4 features
+(tenure_days, overdue_count_90d, tickets_90d, mrr_cents) com
+`assertFeatureDefsUnique:63`; `computeAllForTenant` (`feature-store.service.ts:174`)
+faz 1 query agregada por feature; worker cron 02h. **Dívida E3 quitada AQUI:**
+`churn-features.service.ts:159` (`extractFeatures`) tem SQL próprio para
+tenure/overdue/tickets/mrr — trocar por `getFeatures`
+(`feature-store.service.ts:214`) com FALLBACK ao SQL atual quando o store está
+vazio/stale (fail-open; logar qual fonte serviu).
+
+### Backend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `apps/api/src/domain/ml/ltv.ts` (+ `.test.ts`) — PURO |
+| MODIFICAR | `feature-registry.ts` (+ `ltv_cents` ttl 24h, `expected_lifetime_months`) |
+| MODIFICAR | `feature-store.service.ts` (`computeAllForTenant` computa as 2 novas lendo o `churn_scores` mais recente por cliente — JOIN, não N+1) |
+| MODIFICAR | `churn-features.service.ts` (E3, acima) · `churn.routes.ts` (+ `ltv_cents`) · `public-flags.ts` (`ltv`) |
+
+```ts
+// ltv.ts — constantes EXPORTADAS (calibrar com dados reais depois; decisão registrada)
+export const MONTHLY_CHURN_BY_BAND = { low: 0.005, medium: 0.02, high: 0.05, critical: 0.10 };
+export const LTV_MARGIN = 0.35;          // margem default de ISP; teto 60 meses
+export function computeLtv(i: { mrrCents: number; band: RiskBand }): { ltvCents: number; months: number };
+```
+
+### Frontend
+MODIFICAR `ChurnPage` (coluna **"LTV"** mono R$ + StatCard **"LTV total em risco"** =
+soma dos LTV de crítico+alto) · `pt-br.ts`. Tooltip: **"Estimativa: mensalidade ×
+margem × expectativa de vida pela probabilidade de churn. Teto de 60 meses."**
+SEM tela própria (RN12 via ChurnPage; log).
+
+### Testes
+ltv puro: 4 bandas, teto 60 meses, mrr 0 → 0; E3: store populado → usa store (spy);
+store vazio → fallback SQL + warn, e o RESULTADO das features é igual nas duas fontes
+(fixture); worker grava as 2 features novas.
+
+### Critérios de aceite
+- [ ] 5 clientes de staging: `ltv_cents` = conta manual (colar no log).
+- [ ] E3: log prova o store como fonte no caminho feliz; suíte de churn intacta.
+- [ ] StatCard com dado real (print).
+**Rollback:** flags off (features novas param de computar; colunas ficam).
+**Commit:** `feat(ia23): ltv heurístico no feature store + coluna na tela de churn (flag off)`.
+
+---
+
+# ⬜ IA-31 — LLM-as-judge permanente + ranking Elo
+
+**Objetivo:** toda comparação A×B que o produto JÁ produz (replay original×candidato;
+eval esperado×obtido) alimenta um ranking Elo persistente de "contenders"
+(modelo + versão de prompt), respondendo "a configuração de hoje é melhor que a da
+semana passada?" com um número. Tela `/intelligence/models`.
+**Flags:** `MODEL_ELO_ENABLED` / client `elo`.
+**Depende de:** IA-03 ✓ (`eval/judge.ts`), IA-46 ✓ (`judgeOnePair`,
+`replay.service.ts:239`).
+
+**Auditoria:** contender identificável hoje = `model` + versão de prompt (hash
+sha256-12 do prompt-registry, `promptHash:78`); `replay_items` (047) guarda verdict
+por item; o eval grava JSON em `eval/results/`. **Decisão de granularidade
+registrada:** o replay compara "motor da época" × "motor atual" — a partida é entre
+CONFIGURAÇÕES inteiras (snapshot dos params da run), não modelos isolados; é o que dá
+para afirmar honestamente.
+
+### Backend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `packages/db/src/migrations/0XX_elo.sql` |
+| CRIAR | `apps/api/src/domain/ml/elo.ts` (+ `.test.ts`) — PURO |
+| CRIAR | `apps/api/src/domain/ml/elo-recorder.service.ts` (+ teste) |
+| CRIAR | `apps/api/src/domain/ia/models.routes.ts` (+ teste) |
+| MODIFICAR | `replay.service.ts` (`executeReplayRun:276` — ao fechar a run com flag on, gravar partidas) |
+| MODIFICAR | `public-flags.ts` (`elo`) |
+
+Migration: `elo_contenders(id uuid pk, tenant_id, key text, rating numeric NOT NULL
+DEFAULT 1000, games int NOT NULL DEFAULT 0, UNIQUE(tenant_id, key))` +
+`elo_matches(id uuid pk, tenant_id, winner_key text, loser_key text, draw boolean,
+source text CHECK (source IN ('replay','eval','manual')), ref_id uuid, created_at)`
++ RLS 023 + índice `elo_matches(tenant_id, ref_id)` (idempotência).
+```ts
+// elo.ts
+export function expectedScore(ra: number, rb: number): number;      // 1/(1+10^((rb-ra)/400))
+export function updateElo(ra: number, rb: number, result: 1 | 0 | 0.5, k = 32): [number, number];
+```
+Regras: 1. Item `equivalente` do replay = EMPATE (0.5) entre "época" e "atual". 2. Item
+`divergente` NÃO vira partida automática — o judge de equivalência não diz quem é
+MELHOR; divergência entra numa fila de decisão humana na tela (botões "Original melhor"
+/ "Candidato melhor") e só então vira partida (source `manual`). Escopo honesto,
+registrado. 3. `recordMatch` idempotente por `(tenant, ref_id)` — reprocessar run não
+duplica. 4. Rotas: `GET /ia/models/ranking` · `GET /ia/models/pending` ·
+`POST /ia/models/matches/:itemId/resolve` body `{winner: 'original'|'candidate'}`.
+
+### Frontend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `src/pages/intelligence/ModelsPage.tsx` (+ teste) |
+| MODIFICAR | hub (key `elo`, "Ranking de Modelos", "Elo das configurações de modelo e prompt do seu ambiente.", ícone `Trophy`, `/intelligence/models`) · App.tsx · pt-br.ts |
+
+Ranking: `DataTablePro` Contender (mono) · Rating (mono, 700 só no líder) · Partidas ·
+Últimos 5 (✓/✗/= como pontos coloridos). Abaixo, fila **"Divergências aguardando
+decisão"**: lado a lado original × candidato (padrão da ReplayPage), botões Secondary
+**"Original melhor"** / **"Candidato melhor"** → toast **"Partida registrada."** Vazio:
+**"Nenhuma partida ainda."** / **"Rode um replay para gerar as primeiras
+comparações."** + botão primary **"Ir para o Replay"** → `/intelligence/replay`.
+
+### Testes
+elo puro: simetria (ganho de A = perda de B), empate move menos que vitória, K
+respeitado; recorder: idempotência por ref_id; replay fecha → N empates gravados
+(mock); resolve → ratings movem na direção certa; flag off → `executeReplayRun` byte a
+byte (spy no recorder).
+
+### Critérios de aceite
+- [ ] Replay de 50 em staging → ranking com 2 contenders e partidas == itens
+      equivalentes (query no log).
+- [ ] Decidir 3 divergências na tela → rating muda na direção certa (prints).
+- [ ] Flag off: replay inalterado (spy).
+**Rollback:** flags off. **Commit:** `feat(ia31): ranking elo de configurações via replay + fila de decisão (flag off)`.
+
+---
+
+# ⬜ IA-29 — Active learning (sinais humanos → dataset)
+
+**Objetivo:** unificar TODO feedback humano do produto em `labeled_examples` — a fonte
+de few-shot/eval/fine-tune futura: revisões de veto (IA-21), 👍/👎 da rota de feedback,
+divergências resolvidas (IA-31), correções de OCR (IA-15, quando existir). Fila de
+rotulagem `/intelligence/feedback` com teclas 1/2/3.
+**Flags:** `ACTIVE_LEARNING_ENABLED` / client `activelearn`.
+
+**Auditoria:** fontes REAIS hoje — `safety_vetoes.review_status`
+('veto_correto'|'falso_positivo'; PATCH em `safety.routes.ts:58`);
+`POST /api/v2/ia/feedback` já existe (`feedback.routes.ts:14` — RELER para ver o que
+grava e onde, RN9); `replay_items.verdict` (047). OCR entra quando a IA-15 rodar
+(source já prevista no CHECK).
+
+### Backend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `packages/db/src/migrations/0XX_labeled_examples.sql` |
+| CRIAR | `apps/api/src/domain/ml/active-learning.service.ts` (+ `.test.ts`) |
+| CRIAR | `apps/api/src/domain/ia/labeling.routes.ts` (+ teste) |
+| MODIFICAR | `safety.routes.ts` (PATCH → fire-and-forget `recordExample`) · `feedback.routes.ts` (idem) · `models.routes.ts` da IA-31 (resolve → idem) |
+| MODIFICAR | `public-flags.ts` (`activelearn`) |
+
+Migration: `labeled_examples(id uuid pk, tenant_id, source text CHECK (source IN
+('safety_review','feedback','replay_resolution','ocr_correction','manual')), input
+text NOT NULL, output text, label text, payload jsonb, created_at, labeled_at
+timestamptz, exported_at timestamptz)` + RLS 023 + índice
+`(tenant_id, source, created_at DESC)` + UNIQUE `(tenant_id, source, md5(input))`
+(dedupe).
+Regras: 1. `recordExample` = fire-and-forget SEMPRE (nenhuma rota fica mais lenta por
+causa do dataset). 2. Fila de rotulagem = linhas com `label IS NULL` (ex.: respostas
+escaladas amostradas; feedback sem categoria). Teclas: **1** aprova, **2** reprova,
+**3** pula. 3. `GET /ia/labeling/export?source=&since=` → download JSONL (marca
+`exported_at`).
+
+### Frontend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `src/pages/intelligence/LabelingPage.tsx` (+ teste) |
+| MODIFICAR | hub (key `activelearn`, "Fila de Rotulagem", "Seu feedback vira dado de treino.", ícone `Tags`, `/intelligence/feedback`) · App.tsx · pt-br.ts |
+
+Card único centrado (mobile-first): o exemplo (input + output), badge da origem
+(slate), botões grandes **"1 · Correto"** / **"2 · Incorreto"** / **"3 · Pular"** com
+atalhos de teclado (keydown; visível no botão; aria-keyshortcuts). Contador **"12
+pendentes"** (mono). A cada 10 rotulados: toast **"10 exemplos rotulados —
+obrigado!"** Botão Secondary **"Exportar JSONL"**. Vazio: **"Fila limpa."** / **"Novos
+exemplos chegam conforme o uso do produto."** (sem botão).
+
+### Testes
+Dedupe por (tenant,source,md5); export escapa newline interna; PATCH de veto gera
+exemplo (spy, mock supabase); teclas 1/2/3 disparam POST certo; flag off = zero write
+novo nas rotas modificadas (spy).
+
+### Critérios de aceite
+- [ ] Rotular 10 em staging só com teclado (gravação no log).
+- [ ] Export JSONL válido (`jq -c . | wc -l` no log).
+- [ ] Revisão de veto na GuardrailsPage → exemplo aparece na fila (e2e).
+**Rollback:** flags off. **Commit:** `feat(ia29): active learning — labeled_examples + fila de rotulagem (flag off)`.
+
+---
+
+# ⬜ IA-15 — OCR multi-layout + fila de revisão
+
+**Objetivo:** além do boleto (IA-04), extrair conta de energia e fatura de concorrente
+(negociação/portabilidade); TODA extração com confiança <0.85 cai numa fila de revisão
+humana mobile-first; correções alimentam a IA-29.
+**Flags:** `OCR_MULTILAYOUT_ENABLED` / client `reviewqueue`.
+**Depende de:** IA-04 ✓.
+
+**Auditoria:** `vision.service.ts` real — `BoletoSchema:21`, `extractBoleto:45`
+(gpt-4o vision + generateObject), `classifyFieldPhoto:85`, `formatBoletoPrompt:127`,
+flag `isVisionStructuredEnabled:17`; plugado no WhatsApp via
+`media-processor.service.ts` `processInboundMedia:49` com deps INJETÁVEIS
+(`extractBoleto?`/`classifyFieldPhoto?` nas linhas 38-48) — estender pelo MESMO seam.
+Conferir NO DIA se `BoletoSchema` já tem campo `confidence`; se não, adicionar aos 3
+schemas (mudança aditiva).
+
+### Backend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `packages/db/src/migrations/0XX_ocr_review.sql` |
+| MODIFICAR | `apps/api/src/infrastructure/vision/vision.service.ts` (+ `EnergyBillSchema`, `CompetitorInvoiceSchema`, `classifyDocumentType`, `extractByType`) |
+| MODIFICAR | `apps/api/src/adapters/whatsapp/media-processor.service.ts` (roteia por tipo; grava `ocr_extractions`) |
+| CRIAR | `apps/api/src/domain/ia/ocr-review.routes.ts` (+ teste) |
+| MODIFICAR | `public-flags.ts` (`reviewqueue`) |
+
+Migration: `ocr_extractions(id uuid pk, tenant_id, customer_id, conversation_id,
+media_url text, doc_type text CHECK (doc_type IN
+('boleto','energia','concorrente','desconhecido')), extraction jsonb NOT NULL,
+confidence numeric, review_status text NOT NULL DEFAULT 'auto' CHECK (review_status IN
+('auto','pending','approved','corrected')), corrected jsonb, reviewed_by text,
+created_at timestamptz DEFAULT now())` + RLS 023 + índice
+`(tenant_id, review_status, created_at DESC)`.
+Regras: 1. **Decisão de custo registrada:** `classifyDocumentType(imageUrl)` roda
+ANTES com `gpt-4o-mini` vision (1 enum barato) e só então o extract caro do tipo
+detectado (UseCases `ocr-classify` / `ocr-extract-{tipo}`, RN7). 2. Schemas novos:
+energia `{distribuidora, valor_cents, kwh, vencimento, confidence}`; concorrente
+`{operadora, plano, valor_cents, confidence}` (B4: centavos). 3. confidence <0.85 →
+`pending`; ≥0.85 → `auto`. 4. `PATCH /ia/ocr/:id` `{action:'approve'|'correct',
+corrected?}`; correção → fire-and-forget `recordExample` (IA-29, source
+`ocr_correction`) SE a IA-29 já rodou (checar flag; senão só grava `corrected`).
+
+### Frontend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `src/pages/intelligence/ReviewQueuePage.tsx` (+ teste) — MOBILE-FIRST |
+| MODIFICAR | hub (key `reviewqueue`, "Revisão de Documentos", "Confirme extrações de boletos e faturas com baixa confiança.", ícone `FileSearch`, `/intelligence/review-queue`) · App.tsx · pt-br.ts |
+
+Card por item: imagem (zoom no toque), campos extraídos como inputs EDITÁVEIS
+pré-preenchidos, `ConfidenceMeter`, botões primary **"Aprovar"** / secondary
+**"Corrigir e aprovar"** (habilita ao editar). Navegação item a item (contador "3 de
+7"). Vazio: **"Nenhum documento aguardando revisão."** / **"Extrações com confiança
+alta são aprovadas automaticamente."** Erro: padrão IA-21.
+
+### Testes
+`classifyDocumentType` mock roteia para o schema certo; <0.85 → pending e ≥0.85 →
+auto; PATCH correct grava `corrected` + exemplo IA-29 (spy); linha JSON inválida do
+modelo → `desconhecido` + pending (nunca aborta o media-processor); página renderiza
+inputs do fixture e habilita "Corrigir e aprovar" ao editar.
+
+### Critérios de aceite
+- [ ] 3 documentos reais em staging (boleto, energia, concorrente) extraídos com os
+      campos certos (prints).
+- [ ] Item de baixa confiança na fila, revisado NO CELULAR (print viewport 375px).
+- [ ] Flag off: pipeline do boleto EXATAMENTE como a IA-04 deixou (teste snapshot do
+      fluxo `processInboundMedia`).
+**Rollback:** flags off. **Commit:** `feat(ia15): ocr multi-layout + fila de revisão humana (flag off)`.
+
+---
+
+# ⬜ IA-17 — MCP server (tools read-only por API key)
+
+**Objetivo:** expor as tools READ-ONLY do agente via Model Context Protocol — o dono do
+ISP pluga o Claude (ou outro cliente MCP) nos dados dele com API key por tenant.
+Escrita NUNCA sai por MCP.
+**Flags:** `MCP_SERVER_ENABLED` / client `mcp`.
+**Depende de:** IA-19 ✓.
+
+**Auditoria:** catálogo = 9 tools (`agentTools`, `vercel-ai.service.ts:94-166`);
+executor `ToolsExecutor` (`tools.executor.ts:11`, cases :38-60). Read-only reais:
+`check_invoice`, `get_billing_status`, `query_knowledge_base`, `check_coverage`,
+`run_diagnostics`, `query_network_graph`. Escrita: `suspend_signal`, `create_ticket`,
+`schedule_technical_visit` — hoje listadas em `SIDE_EFFECT_TOOLS`
+(`replay.service.ts:76`). **Dívida E4 quitada AQUI:** mover `SIDE_EFFECT_TOOLS` para
+`tool-registry.ts` (fonte única) com reexport em `replay.service.ts` para não quebrar
+imports.
+
+### Backend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `packages/db/src/migrations/0XX_mcp_keys.sql` |
+| MODIFICAR | `tool-registry.ts` (export `SIDE_EFFECT_TOOLS` + `READ_ONLY_TOOLS` derivado; teste: união == catálogo) |
+| CRIAR | `apps/api/src/infrastructure/mcp/mcp-server.ts` (+ teste) |
+| CRIAR | `apps/api/src/domain/ia/mcp-admin.routes.ts` (+ teste) |
+| MODIFICAR | `server.ts` (montar transporte) · `public-flags.ts` (`mcp`) |
+
+Migration: `mcp_api_keys(id uuid pk, tenant_id, name text NOT NULL, key_hash text NOT
+NULL UNIQUE, enabled boolean NOT NULL DEFAULT true, tools text[] NOT NULL, last_used_at
+timestamptz, created_at timestamptz DEFAULT now())` + RLS 023. A chave é exibida UMA
+vez na criação; só o sha256 persiste.
+Regras: 1. Dep `@modelcontextprotocol/sdk` (instalar, pinar) com transporte
+**Streamable HTTP** em `POST /api/v2/mcp` — conferir o adapter Fastify/Node do SDK NO
+DIA (a API do transporte muda entre minors). 2. Tools oferecidas = `READ_ONLY_TOOLS ∩
+key.tools ∩ getEnabledTools(tenant)` (IA-19) — resolvido POR REQUISIÇÃO. 3. Execução
+delega ao `ToolsExecutor` com o tenantId DA KEY (nunca do payload). 4. Auth: Bearer →
+sha256 → lookup; rate limit 60 req/min por key (reusar o mecanismo de rate limit do
+server.ts — auditar qual é). 5. Cada chamada conta em `tool_usage_daily` (IA-19,
+`recordToolUsage:182`). 6. Rotas admin: `GET/POST /ia/mcp/keys` ·
+`PATCH /ia/mcp/keys/:id` `{enabled, tools}` · `DELETE /ia/mcp/keys/:id`.
+
+### Frontend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `src/pages/intelligence/McpPage.tsx` (+ teste) |
+| MODIFICAR | hub (key `mcp`, "Conexões MCP", "Conecte o Claude e outros clientes aos dados do seu provedor.", ícone `Plug`, `/intelligence/mcp`) · App.tsx · pt-br.ts |
+
+Lista de keys (`DataTablePro`: Nome · Criada · Último uso · Tools (contagem) · Switch)
++ botão primary **"Nova chave"** → Dialog: nome + checkboxes SÓ das tools read-only →
+resultado: chave em bloco mono + botão copiar + aviso amber **"Guarde agora — a chave
+não será exibida de novo."** + snippet copiável do `claude_desktop_config.json` com a
+URL do ambiente. Delete → ConfirmDialog **"Revogar esta chave?"** / **"Integrações
+usando esta chave param de funcionar imediatamente."**
+
+### Testes
+Key inválida → 401; **tool de ESCRITA nunca listada mesmo se injetada em `key.tools`
+(o teste mais importante — defesa dupla)**; executor recebe o tenant da key; plaintext
+da chave não persiste (grep no insert); E4: `READ_ONLY ∪ SIDE_EFFECT == catálogo`
+(quebra se alguém adicionar tool sem classificar).
+
+### Critérios de aceite
+- [ ] Claude Desktop real conectado em staging executa `check_coverage` (print da
+      conversa).
+- [ ] `suspend_signal` inacessível via MCP (tentativa manual → erro; colar no log).
+- [ ] Revogar key → chamada seguinte 401 (curl no log).
+- [ ] RN8 completo.
+**Rollback:** flags off (`POST /api/v2/mcp` → 404). **Commit:** `feat(ia17): mcp server read-only por api key/tenant (flag off)`.
+
+---
+
+# ⬜ IA-22 — Web browsing agent (allowlist + citação obrigatória)
+
+**Objetivo:** tool `browse_url` — o agente consulta páginas externas (status da
+operadora upstream, site da prefeitura, página do próprio ISP) SOMENTE em domínios da
+allowlist do tenant, com extração de texto legível e citação da fonte na resposta.
+**Flags:** `BROWSING_ENABLED` / client `browse`.
+**Depende de:** IA-19 ✓ (catálogo/registry); padrão de defesa em camadas da IA-44 ✓.
+
+**Auditoria:** extração JÁ existe — `extractReadableContent` (`site-scrape.ts:10`,
+usada no scrape do onboarding; REUSAR — R5) + `contentHash:17`. Se ela for regex-based
+e insuficiente, avaliar `cheerio` (dep a instalar) NA SESSÃO — registrar a decisão.
+SSRF é o risco central: o fetch roda DENTRO da infra.
+
+### Backend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `packages/db/src/migrations/0XX_browse_allowlist.sql` → `browse_allowlist(tenant_id, domain text, added_by, created_at, PRIMARY KEY (tenant_id, domain))` + RLS 023 |
+| CRIAR | `apps/api/src/infrastructure/browse/url-guard.ts` (+ `.test.ts`) |
+| CRIAR | `apps/api/src/infrastructure/browse/browser.service.ts` (+ teste) |
+| MODIFICAR | `vercel-ai.service.ts` (def `browse_url`) + `tools.executor.ts` (case novo) |
+| CRIAR | `apps/api/src/domain/ia/browse-admin.routes.ts` (`GET/POST/DELETE /ia/browse/allowlist`) |
+| MODIFICAR | `public-flags.ts` (`browse`) |
+
+`url-guard.ts` (a suíte crítica): (a) só http/https; (b) domínio (eTLD+1, lowercase) ∈
+allowlist — política EXPLÍCITA: domínio exato E subdomínios diretos (`*.dominio.com`)
+— documentar e testar; (c) resolver DNS e RECUSAR IP privado/loopback/link-local/
+metadata (10.x, 172.16-31.x, 192.168.x, 127.x, ::1, 169.254.169.254) — e conectar NO
+IP RESOLVIDO (anti-rebinding: lookup custom no Agent do undici — conferir a API NO
+DIA); (d) redirects: máx 3, NUNCA cross-domain.
+`browser.service.ts`: timeout 5s, máx 500KB, User-Agent identificado
+(`AstrumISP-Agent/1.0`), `extractReadableContent`, retorno `{url_final, title, text
+(máx 4000 chars), fetched_at}`; cache Redis 10min por URL.
+Tool def: descrição **"Consulta uma página web da lista de sites confiáveis do
+provedor. SEMPRE cite a URL da fonte na resposta ao cliente."** Recusa do guard →
+`{error: 'Domínio fora da lista de sites permitidos.'}`. `nodeValidate`: resposta que
+usou `browse_url` sem URL na resposta → `validationIssue` (regex barata).
+
+### Frontend
+MODIFICAR `ToolsPage` — aba nova **"Navegação"** (Tabs; só com flag `browse`): lista de
+domínios + input validado + botão **"Adicionar"**; remover → ConfirmDialog **"Remover
+este site?"** / **"O agente deixa de poder consultá-lo imediatamente."** Microcópia do
+topo: **"O agente só navega nos domínios desta lista. Páginas são lidas como texto —
+sem login, sem formulários."** SEM tela própria (RN12 via ToolsPage; log).
+
+### Testes
+url-guard: TODOS os ranges privados recusados; rebinding (DNS muda entre check e
+fetch — mock lookup) recusado; domínio fora → recusa; subdomínio conforme política;
+redirect cross-domain cortado; 500KB trunca sem explodir. Executor roteia; validate
+pega resposta sem citação.
+
+### Critérios de aceite
+- [ ] e2e staging: allowlist com uma status page real → "a operadora X está com
+      problema?" → resposta cita a URL (print).
+- [ ] `http://169.254.169.254/` recusada (log).
+- [ ] Flag off: tool fora do catálogo; aba fora do DOM.
+**Rollback:** flags off. **Commit:** `feat(ia22): browsing agent com allowlist e citação obrigatória (flag off)`.
+
+---
+
+# ⬜ IA-39 — Constitutional loop (constituição editável por tenant)
+
+**Objetivo:** o tenant edita os princípios de atendimento ("nunca prometer prazo sem OS
+criada", "sempre oferecer 2ª via antes de falar de suspensão"); em intents SENSÍVEIS a
+resposta passa por 1 ciclo crítica→revisão contra a constituição ANTES do safety_veto.
+Complementa a IA-21 (rubrica fixa e VETADORA; aqui é editável e REVISORA).
+**Flags:** `CONSTITUTIONAL_LOOP_ENABLED` / client `constitution`.
+**Depende de:** IA-21 ✓.
+
+**Auditoria:** grafo real (`langgraph.service.ts:83-146`): `generate → self_check →
+validate → safety_veto → (escalate|END)`. Ponto de inserção: nó `constitutional_review`
+entre `validate` (passou) e `safety_veto` — RELER as edges no dia (RN9). Intents
+sensíveis (enum real, `agent.state.ts:19-22`): `cancel_service`, `complaint`, e
+`support_billing` quando `sentiment ∈ {negative, frustrated}`. Padrão de nó: factory
+em `nodes/*.node.ts` com deps injetadas (estabelecido pela IA-01/IA-21; barrel em
+`agent.nodes.ts:44-59`).
+
+### Backend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `packages/db/src/migrations/0XX_tenant_constitutions.sql` → `tenant_constitutions(tenant_id uuid PRIMARY KEY, principles text[] NOT NULL, updated_by text, updated_at timestamptz DEFAULT now())` + RLS 023 (validar máx 10 princípios × 280 chars na APLICAÇÃO — array CHECK em SQL é frágil) |
+| CRIAR | `apps/api/src/infrastructure/guardrails/constitution.service.ts` (+ `.test.ts`) |
+| CRIAR | `apps/api/src/domain/agent/nodes/constitutional-review.node.ts` (+ `.test.ts`) |
+| MODIFICAR | `agent.state.ts` (+ `constitutionApplied: z.boolean().optional()`) + `langgraph.service.ts` (nó + edges + CHANNEL novo — armadilha B1) + `agent.nodes.ts` (barrel) |
+| CRIAR | rotas `GET/PUT /ia/constitution` em `apps/api/src/domain/ia/constitution.routes.ts` (+ teste) |
+| MODIFICAR | `public-flags.ts` (`constitution`) |
+
+`constitution.service.ts`: `getConstitution(tenantId)` (cache Redis 60s; DEFAULT de
+fábrica = 4 princípios CONSTANTES no arquivo) · `critiqueAndRevise(response,
+principles, context)` → `gpt-4o-mini` generateObject `{violates: boolean,
+principle_index: number|null, revised_response: string|null}`, UseCase
+`constitutional-review` (RN7), fail-open (RN4).
+Nó: short-circuit com flag off OU intent não-sensível; `violates` → substitui
+`response` pela revisada + `constitutionApplied: true`. **1 ciclo, NUNCA loop.**
+
+### Frontend
+MODIFICAR `GuardrailsPage` (RELER INTEIRA — RN9) — vira Tabs: aba atual **"Vetos"** +
+aba nova **"Constituição"**: lista editável (máx 10; input + adicionar; lixeira com
+ConfirmDialog). Microcópia topo: **"Princípios que a IA segue ao revisar as próprias
+respostas em conversas sensíveis (cancelamento, reclamação). Frases curtas e diretas
+funcionam melhor."** Botão primary **"Salvar constituição"** → toast **"Constituição
+atualizada — vale para as próximas conversas."** Nos vetos, badge slate **"revisada
+pela constituição"** quando `constitutionApplied`. SEM tela nova (RN12 via
+GuardrailsPage; log).
+
+### Testes
+Nó: flag off → zero LLM (spy); intent `other` → skip; `violates` → response
+substituída, 1 ciclo só; fail-open em erro. Service: cache; default de fábrica quando
+não há linha. Rotas: PUT valida limites (11 princípios → 400). Front: aba salva e
+lista.
+
+### Critérios de aceite
+- [ ] Staging: princípio "nunca prometa visita sem OS criada" + fixture que promete →
+      resposta final SEM a promessa (colar antes/depois no log).
+- [ ] Latência extra p50 <800ms no caminho sensível (log com timestamps).
+- [ ] Flag off: grafo byte a byte (suíte `langgraph.service.test.ts` verde sem
+      mudança).
+**Rollback:** flags off. **Commit:** `feat(ia39): constitutional loop editável por tenant (flag off)`.
+
+---
+
+# ⬜ IA-28 — Perfil de comunicação (formal ↔ coloquial ↔ técnico)
+
+**Objetivo:** a IA adapta o TOM ao cliente — UM único eixo (decisão anti-creepy
+registrada: nada de perfil psicológico); perfil visível e com opt-out no cadastro do
+cliente. Heurística TS pura, ZERO LLM.
+**Flags:** `COMM_PROFILE_ENABLED` / client `commprofile`.
+**Depende de:** IA-05 ✓ (composer), IA-27 ✓ (o perfil persiste como FEATURE).
+
+**Auditoria:** o registry aceita feature textual (`FeatureValue = number|string|null`,
+`feature-registry.ts:55`) — ZERO tabela nova. Mecanismo de sufixo no `systemContext`
+já existe (IA-14 idioma, `generate.node.ts`) — mesmo ponto. Cache semântico precisa
+ser desabilitado quando há sufixo personalizado (padrão IA-14; auditar
+`isEligibleForCache`, `semantic-cache.service.ts:147`).
+
+### Backend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `apps/api/src/domain/ml/comm-style.ts` (+ `.test.ts`) — PURO |
+| CRIAR | `packages/db/src/migrations/0XX_comm_optout.sql` → `ALTER TABLE customers ADD COLUMN IF NOT EXISTS comm_profile_opt_out BOOLEAN NOT NULL DEFAULT FALSE;` |
+| MODIFICAR | `feature-registry.ts` (+ `comm_style` value_text, `comm_style_confidence`; ttl 24h) |
+| MODIFICAR | `feature-store.service.ts` (`computeAllForTenant` computa das últimas 50 msgs/cliente — query em batch, não N+1) |
+| MODIFICAR | `generate.node.ts` (sufixo condicionado) · `public-flags.ts` (`commprofile`) |
+
+`inferCommStyle(messages: string[])` → `{style: 'formal'|'coloquial'|'tecnico',
+confidence: 0..1}` — sinais: % de emoji/internetês ("vc","blz","pq","mn") → coloquial;
+termos técnicos ("pppoe","onu","latência","ip fixo","dns","roteador em bridge") →
+técnico; senão formal. Listas CONSTANTES no arquivo. <10 msgs → formal com
+confidence 0.
+`generate.node.ts`: flag on + `!opt_out` + confidence ≥0.6 → sufixo (3 strings EXATAS,
+RN14): **"Tom da conversa: o cliente se comunica de forma informal; seja leve, use
+frases curtas, evite jargão."** / **"...de forma técnica; pode usar termos de rede com
+precisão."** / **"...de forma formal; trate por senhor/senhora e evite gírias."**
+
+### Frontend
+MODIFICAR a página de DETALHE do cliente do legado (auditar o arquivo real nas 22
+páginas — `AUDITORIA_FRONTEND.md`; RELER INTEIRA antes — RN9): card **"Comunicação"**
+com badge do estilo (slate) + `ConfidenceMeter` + Switch **"Adaptar tom
+automaticamente"** (desligar = opt-out; toast **"A IA volta ao tom padrão com este
+cliente."**). Microcópia LGPD: **"Estimado pelo estilo de escrita das mensagens deste
+cliente. Nenhum dado é compartilhado."** SEM tela no hub (RN12 via página do cliente;
+log).
+
+### Testes
+comm-style: fixtures dos 3 estilos + <10 msgs → formal/0; worker grava a feature;
+generate: opt-out → sem sufixo; confidence 0.5 → sem sufixo; cache semântico não
+cacheia com sufixo presente; flag off → snapshot do systemContext idêntico.
+
+### Critérios de aceite
+- [ ] Staging: cliente com histórico "vc pode ver isso pra mim? blz" → resposta
+      perceptivelmente informal (print antes/depois).
+- [ ] Opt-out na tela → próxima resposta volta ao padrão (e2e).
+- [ ] Flag off: zero mudança (snapshot).
+**Rollback:** flags off. **Commit:** `feat(ia28): perfil de comunicação 1-eixo com opt-out (flag off)`.
+
+---
+
+# ⬜ IA-36 — Edge inference (triagem na borda, modo shadow)
+
+**Objetivo:** classificar intent na borda (Cloudflare Workers AI,
+`@cf/meta/llama-3.1-8b-instruct` — conferir o modelo vigente NO DIA) — SÓ assume a
+triagem depois de concordância ≥85% com o central medida em SHADOW. Esta sessão
+implementa o shadow + painel; o cutover é decisão futura com o número na mão.
+**Flags:** env `EDGE_INFERENCE_MODE` enum `off|shadow` (o valor `active` NÃO existe
+nesta sessão — honestidade de escopo) / client `edge`.
+
+**Auditoria:** alvo = `classifyIntent` (`vercel-ai.service.ts:176`, gpt-4o-mini via
+`withFailover('mini')`, schema `CustomerIntentSchema:54` — 7 intents + urgency +
+sentiment). Workers AI expõe REST
+`https://api.cloudflare.com/client/v4/accounts/{id}/ai/run/{model}`.
+
+### Backend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `apps/api/src/infrastructure/ai/edge-classifier.ts` (+ `.test.ts`) |
+| CRIAR | `packages/db/src/migrations/0XX_edge_shadow.sql` |
+| MODIFICAR | `vercel-ai.service.ts` (`classifyIntent`: shadow fire-and-forget) |
+| CRIAR | `GET /ia/edge/agreement` em `apps/api/src/domain/ia/edge.routes.ts` (+ teste) |
+| MODIFICAR | `env.validator.ts` (`CF_ACCOUNT_ID?`, `CF_AI_API_TOKEN?`, `EDGE_INFERENCE_MODE`) · `public-flags.ts` (`edge`) |
+
+Migration: `edge_shadow_results(id uuid pk, tenant_id, message_hash text NOT NULL,
+central_intent text NOT NULL, edge_intent text, agree boolean, edge_ms int, created_at
+timestamptz DEFAULT now())` + RLS 023. **SEM o texto da mensagem — só hash (LGPD).**
+Regras: 1. `classifyAtEdge(message, history)`: REST com timeout 2s; prompt curto
+pedindo JSON do MESMO enum de 7 intents; parse defensivo (JSON inválido → null, conta
+como discordância `edge_intent=null`). 2. Shadow NUNCA bloqueia nem atrasa o caminho
+central: fire-and-forget em paralelo, `.catch` → warn. 3. Sem env CF → shadow vira
+no-op com warn 1x no boot.
+
+### Frontend
+MODIFICAR `AIObservabilityPage` — card **"Triagem na borda"**: taxa de concordância
+(mono %, RiskBadge ≥85% baixo / ≥70% médio / abaixo alto), latência média edge ×
+central (mono), barras por intent. Microcópia: **"O modelo de borda só assume a
+triagem quando concordar com o central em pelo menos 85% por 14 dias."** SEM tela
+própria (RN12; log).
+
+### Testes
+Parse defensivo (JSON lixo → null, não explode); shadow não atrasa o central (fake
+timers: central resolve antes do edge); `agree` correto; sem env → no-op; hash no
+insert (nunca o texto — teste com grep no payload do mock).
+
+### Critérios de aceite
+- [ ] 100 mensagens em staging → `SELECT count(*), avg(agree::int)` colado no log;
+      painel bate com a query.
+- [ ] p95 do `classifyIntent` central INALTERADO com shadow on (comparar logs).
+- [ ] Zero PII na tabela (SELECT no log).
+**Rollback:** `EDGE_INFERENCE_MODE=off`. **Commit:** `feat(ia36): edge inference em shadow + painel de concordância (off)`.
+
+---
+
+# ⬜ IA-35 — Orçamento de latência por nó
+
+**Objetivo:** p95 por nó do grafo contra budgets DECLARADOS; estouro → notificação.
+Nota de realismo mantida: não existe "speculative decoding" sobre a API da OpenAI —
+o ganho vem de MEDIR e atacar o nó certo.
+**Flags:** `LATENCY_BUDGET_ENABLED` / client `latency`.
+**Depende de:** IA-32 (os spans são a fonte).
+
+**Auditoria/decisão registrada:** em vez de CONSULTAR o backend OTLP (acoplamento a
+Tempo/Jaeger), o `withSpan` da IA-32 ganha um hook `onEnd` que alimenta agregado local
+barato: rolling 24h no Redis + fechamento diário em Postgres. Notificações = tabela
+`notifications` (016; auditar o insert padrão, mesmo caminho da IA-33).
+
+### Backend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `apps/api/src/infrastructure/observability/latency-budget.ts` (+ `.test.ts`) |
+| CRIAR | `packages/db/src/migrations/0XX_node_latency.sql` |
+| MODIFICAR | `otel-span.helper.ts` (hook `onEnd` → `recordNodeLatency` quando flag on) |
+| MODIFICAR | `packages/queue/src/workers/drift.worker.ts` (**decisão registrada:** job `latency-rollup` no cron 04h do drift — NÃO criar 14º worker) |
+| CRIAR | `GET /ia/latency/report` em `apps/api/src/domain/ia/latency.routes.ts` (+ teste) |
+| MODIFICAR | `public-flags.ts` (`latency`) |
+
+`BUDGETS_MS` exportado (valores INICIAIS — recalibrar com 7d de dados reais, registrar):
+`classify 800 · guardrails 50 · decide_source 20 · fetch_context 1200 · grade_context
+700 · rewrite_query 700 · generate 6000 · self_check 900 · validate 20 · safety_veto
+900 · escalate 100` (+ `constitutional_review 900` se a IA-39 já rodou — conferir o
+grafo no dia). Migration: `node_latency_daily(node text, day date, p50 numeric, p95
+numeric, count int, PRIMARY KEY (node, day))` — agregado GLOBAL de infra, sem
+tenant_id/RLS; acesso só admin (decisão registrada). Estouro: p95(7d) > budget×1.2 →
+notificação com dedupe 1/dia por nó.
+
+### Frontend
+MODIFICAR `AIObservabilityPage` — seção **"Latência por nó"**: barras horizontais
+(Recharts) p95 vs budget (o excedente do budget em orange), valores mono; select
+24h/7d. Microcópia: **"p95 por etapa do pipeline. O orçamento é a linha; o que passa
+dela é o que o cliente sente."** SEM tela própria (RN12; log).
+
+### Testes
+Percentil correto (fixtures com distribuição conhecida); estouro cria notificação com
+dedupe; flag off → `onEnd` não grava (spy no Redis); rollup idempotente (2 execuções =
+mesmas linhas).
+
+### Critérios de aceite
+- [ ] 24h de staging → report com p95 real dos nós (print).
+- [ ] Estouro sintético no `generate` (sleep no mock) → notificação criada (query no
+      log).
+- [ ] Flag off: zero escrita no Redis.
+**Rollback:** flags off. **Commit:** `feat(ia35): orçamento de latência p95 por nó (flag off)`.
+
+---
+
+# ⬜ IA-24 — Anomalia de rede (EWMA/z-score) + ADR ML/Python
+
+**Objetivo:** detectar CTO com comportamento anômalo (packet loss/latência fora da
+banda esperada) ANTES do cliente reclamar, com estatística TS pura; e ESCREVER a
+`ADR-ml-python-service.md` (RN15) — a decisão de como o produto ganha um serviço
+Python (Isolation Forest aqui; sobrevivência p/ LTV; SHAP real p/ churn; embeddings
+de voz p/ IA-12).
+**Flags:** `NETWORK_ANOMALY_ENABLED` / client `netanomaly`.
+**Depende de:** IA-09 ✓. **GATE DE DADOS:** ≥30 dias de `network_metrics` em staging —
+verificar `SELECT min(collected_at) FROM network_metrics` ANTES de começar; sem 30d,
+registrar o bloqueio no PROGRESS_LOG e pular para a próxima da ordem.
+
+**Auditoria:** `network_metrics` (035) — `metric CHECK IN ('latency_ms',
+'packet_loss_pct','signal_dbm','clients_online')`, índice `(tenant_id, cto_id, metric,
+collected_at DESC)`; ingest `POST /api/v2/rede/metrics` batch até 500
+(`metrics-ingest.routes.ts:25`); `cto-alert.worker.ts` roda cron 15min com threshold
+FIXO de 5% packet loss + dedupe de ticket — a anomalia é o upgrade ESTATÍSTICO desse
+threshold. Notificações: tabela `notifications` (016).
+
+### Backend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `docs/adr/ADR-ml-python-service.md` — status `proposed`; a DECISÃO é do Lucas |
+| CRIAR | `apps/api/src/domain/rede/anomaly.ts` (+ `.test.ts`) — PURO |
+| CRIAR | `packages/db/src/migrations/0XX_network_anomalies.sql` |
+| MODIFICAR | `packages/queue/src/workers/cto-alert.worker.ts` (flag on: além do threshold fixo — MANTIDO —, roda detecção na janela 48h) |
+| CRIAR | `GET /ia/network/anomalies?days=7` + `GET /ia/network/health` em `apps/api/src/domain/rede/anomaly.routes.ts` (+ teste) |
+| MODIFICAR | `public-flags.ts` (`netanomaly`) |
+
+ADR: contexto (4 demandas de ML que o TS não cobre), opções (A: FastAPI sidecar no
+mesmo deploy; B: serviço separado com fila; C: continuar TS-only), recomendação A com
+contrato HTTP interno + healthcheck + fallback TS (fail-open), consequências.
+**Nenhuma linha de Python nesta sessão.**
+```ts
+// anomaly.ts
+export function ewma(series: number[], alpha = 0.3): number[];
+export function zscore(value: number, mean: number, std: number): number;
+export function detectAnomalies(points: {t: string; v: number}[],
+  opts?: { zThreshold?: number; minPoints?: number }   // default 3 / 48
+): { bands: {t: string; expected: number; upper: number}[]; anomalies: {t: string; v: number; z: number}[] };
+```
+Migration: `network_anomalies(id uuid pk, tenant_id, cto_id, metric text, value
+numeric, expected numeric, zscore numeric, severity text CHECK (severity IN
+('medio','alto')), created_at timestamptz DEFAULT now())` + RLS 023. Severity: z≥3
+médio, z≥4 alto. Worker: anomalia → grava + notificação com dedupe 6h por
+(cto, metric); flag off → byte a byte o worker atual.
+
+### Frontend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `src/pages/intelligence/NetworkHealthPage.tsx` (+ teste) |
+| MODIFICAR | hub (key `netanomaly`, "Saúde da Rede", "Anomalias estatísticas por CTO antes do cliente reclamar.", ícone `HeartPulse`, `/intelligence/network-health`) · App.tsx · pt-br.ts |
+
+Grid de `RiskStripeCard` por CTO com anomalia ativa (métrica, valor vs esperado mono,
+"há 2h") + LineChart da métrica com banda EWMA sombreada e pontos anômalos marcados +
+link Ghost **"Ver impacto"** → `/intelligence/graph` (IA-16, aba Impacto). Vazio:
+**"Rede dentro do esperado."** / **"Nenhuma anomalia nas últimas 24 horas."** (sem
+botão). Erro: padrão IA-21.
+
+### Testes
+ewma/zscore: série com degrau → detecta; ruído gaussiano → não detecta; `minPoints`
+respeitado (47 pontos → vazio); worker flag off inalterado (snapshot de chamadas);
+dedupe 6h; severity nos cortes.
+
+### Critérios de aceite
+- [ ] Injeção sintética em staging (batch com packet_loss 3σ acima) → anomalia +
+      notificação (queries no log).
+- [ ] Falsos positivos controlados: 7d de dados reais → ≤2 anomalias/dia/tenant
+      (senão subir zThreshold; registrar a calibração no log).
+- [ ] ADR commitada, linkada no PROGRESS_LOG, decisão marcada como pendente do Lucas.
+- [ ] RN8 completo.
+**Rollback:** flags off. **Commit:** `feat(ia24): anomalia de rede ewma/z-score + ADR ml-python (flag off)`.
+
+---
+
+# ⬜ IA-25 — Forecast de demanda (staffing)
+
+**Objetivo:** prever o volume de tickets 14 dias à frente (média móvel sazonal por
+dia-da-semana sobre DuckDB) e traduzir em staffing sugerido. Prophet/Python só via ADR
+aprovada (IA-24).
+**Flags:** `DEMAND_FORECAST_ENABLED` / client `forecast`.
+**Depende de:** IA-24 (ADR escrita). **Gate de dados:** ≥60d de tickets no DuckDB.
+
+**Auditoria:** DuckDB REAL — `duckdb.service.ts` (`getDuckDB:20`); ETL já sincroniza
+`syncTickets` (`etl.service.ts:133`) e `syncMessages:67`, com rota admin
+`POST /api/v2/admin/etl/sync` (`etl.routes.ts:6`); schema em `analytics.schema.ts:8`.
+
+### Backend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `apps/api/src/domain/ml/forecast.ts` (+ `.test.ts`) — PURO |
+| CRIAR | `apps/api/src/domain/ia/forecast.routes.ts` (+ teste) — `GET /ia/forecast/demand?days=14` |
+| MODIFICAR | `env.validator.ts` (`AGENT_CAPACITY_PER_DAY?` default 25) · `public-flags.ts` (`forecast`) |
+
+```ts
+// forecast.ts
+export function seasonalMovingAverage(daily: {date: string; count: number}[], horizon = 14):
+  { date: string; forecast: number; low: number; high: number }[];
+// média das últimas 4 ocorrências do mesmo dia-da-semana × fator de tendência
+// (média 14d ÷ média 28d, clamp 0.7..1.3); IC = ±1.5×desvio dos resíduos.
+export function suggestStaffing(forecast: number, perAgentPerDay: number): number; // ceil
+```
+Rota: lê a série agregada por dia do DuckDB; <60d de histórico → `409 {error, hint:
+"Rode a sincronização de analytics e acumule histórico."}`.
+
+### Frontend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `src/pages/intelligence/StaffingPage.tsx` (+ teste) |
+| MODIFICAR | hub (key `forecast`, "Previsão de Demanda", "Quantos atendimentos vêm aí — e quanta gente precisa.", ícone `TrendingUp`, `/intelligence/staffing`) · App.tsx · pt-br.ts |
+
+BarChart: 28d passados (slate) + 14d previstos (fiber, IC como área) + `DataTablePro`
+(Dia · Dia da semana · Previsto com IC (mono) · Atendentes sugeridos (mono)) + StatCard
+**"Pico previsto"**. Nota metodológica: **"Média sazonal por dia da semana com
+tendência. Previsões são estimativas — confie mais no intervalo do que no ponto."**
+Vazio/409: **"Histórico insuficiente para prever."** / **"São necessários 60 dias de
+tickets sincronizados."** + botão Secondary **"Sincronizar analytics"** (dispara a
+rota de ETL existente).
+
+### Testes
+forecast puro: série sintética com sazonalidade semanal → o padrão aparece na
+previsão; tendência clampada em 0.7/1.3; IC cresce com o ruído; staffing arredonda
+para cima; rota: <60d → 409.
+
+### Critérios de aceite
+- [ ] Backtest no log: treinar até d−14 e comparar com o real — MAPE ≤30% em staging
+      (registrar o número; se pior, registrar e ajustar janelas).
+- [ ] Tela com dado real (print).
+- [ ] Flag off: tela fora do DOM; zero rota nova exposta sem flag server.
+**Rollback:** flags off. **Commit:** `feat(ia25): forecast sazonal de demanda + staffing (flag off)`.
+
+---
+
+# ⬜ IA-13 — Speech analytics QA (scorecard de 100% das chamadas)
+
+**Objetivo:** toda chamada de voz ganha transcript PERSISTIDO + scorecard automático
+(rubrica ISP de 6 critérios via gpt-4o-mini) + tela `/intelligence/voice-qa`. É a
+PRIMEIRA sessão de voz da Fase 2: cria a persistência que IA-40 e IA-12 usam.
+**Flags:** `VOICE_QA_ENABLED` / client `voiceqa`.
+**Depende de:** IA-08 A1+A2 ✓. **GATE parcial:** IA-08 A3 (identificação — PENDENTE
+desde 2026-07-06, E2) NÃO bloqueia transcript/scorecard, mas bloqueia atribuir chamada
+a customer — o MVP grava por telefone/tenant com `customer_id` NULLABLE.
+
+**Auditoria:** `RealtimeBridge` (`realtime-bridge.service.ts:60`) já troca eventos com
+a OpenAI Realtime — os eventos de transcrição
+(`conversation.item.input_audio_transcription.completed` /
+`response.audio_transcript.done` — conferir os nomes na versão instalada NO DIA)
+passam pelo bridge e HOJE são descartados. `voice-call.ts` tem a máquina de estados
+(`transition:31`, `initialCall:68`). NADA de chamada é persistido hoje (auditado:
+zero tabela de voz). `BridgeDeps` (:50) é seam injetável — estender por ele.
+
+### Backend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `packages/db/src/migrations/0XX_voice_calls.sql` |
+| MODIFICAR | `realtime-bridge.service.ts` (`BridgeDeps` + `onTranscript?: (turn) => void`; flag on → acumula e persiste no fim da chamada, fire-and-forget) |
+| MODIFICAR | `prompt-registry.ts` (PromptId `voice_qa` + rubrica de 6 critérios) |
+| CRIAR | `apps/api/src/domain/atendimento/voice-qa.service.ts` (+ `.test.ts`) |
+| CRIAR | `packages/queue/src/workers/voice-qa.worker.ts` (fila sob demanda, padrão `replay.worker.ts` — sem cron; job enfileirado no fim da chamada) |
+| CRIAR | `GET /ia/voice/calls` + `GET /ia/voice/calls/:id` em `apps/api/src/domain/ia/voice.routes.ts` (+ teste) |
+| MODIFICAR | `public-flags.ts` (`voiceqa`) |
+
+Migration: `voice_calls(id uuid pk, tenant_id, customer_id uuid NULL, phone_last4
+text, phone_hash text, started_at, ended_at, duration_s int, status text)` +
+`voice_transcripts(id uuid pk, call_id uuid REFERENCES voice_calls(id) ON DELETE
+CASCADE, tenant_id, role text CHECK (role IN ('customer','agent')), content text,
+t_offset_ms int)` + `voice_scorecards(call_id uuid PRIMARY KEY REFERENCES
+voice_calls(id), tenant_id, total int, criteria jsonb, model text, created_at)` + RLS
+023. **Telefone NUNCA em claro: só last4 + hash.**
+Rubrica (6 critérios fixos, 0-100 + justificativa cada): saudação identificou o
+provedor · confirmou o problema · linguagem clara sem jargão · resolveu ou encaminhou
+corretamente · confirmou a resolução com o cliente · despedida com próximos passos.
+`scoreCall(callId)`: transcript → generateObject (schema Zod dos 6), UseCase
+`voice-qa` (RN7), fail-open.
+
+### Frontend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `src/pages/intelligence/VoiceQaPage.tsx` (+ teste) |
+| MODIFICAR | hub (key `voiceqa`, "Qualidade de Voz", "Scorecard automático de todas as chamadas.", ícone `PhoneCall`, `/intelligence/voice-qa`) · App.tsx · pt-br.ts |
+
+Lista (`DataTablePro`: Quando · Duração (mono) · Telefone (•••1234) · Nota (mono;
+signal ≥80 / amber ≥60 / orange abaixo)) → detalhe: RadarChart (Recharts) dos 6
+critérios + `TimelineList` do transcript (cliente/agente alternados, offset mono) +
+card com a justificativa por critério. Vazio: **"Nenhuma chamada analisada."** /
+**"As chamadas aparecem aqui quando o atendimento por telefone estiver ativo
+(VOICE_ENGINE=mvp)."**
+
+### Testes
+Bridge: `onTranscript` chamado nos eventos (fixtures de evento Realtime); persistência
+agrupa por chamada e ordena por offset; `scoreCall`: schema válido, total coerente com
+os critérios; telefone mascarado SEMPRE (teste que FALHA se número completo aparecer
+em qualquer insert); página renderiza radar do fixture.
+
+### Critérios de aceite
+- [ ] Chamada real em staging (`VOICE_ENGINE=mvp`) → transcript + scorecard no banco e
+      na tela (prints).
+- [ ] Cobertura 100%: 5 chamadas → 5 scorecards (query no log).
+- [ ] Custo por chamada visível no Helicone (`voice-qa`).
+- [ ] Flag off: bridge byte a byte (zero persistência; snapshot).
+**Rollback:** flags off. **Commit:** `feat(ia13): speech qa — transcript persistido + scorecard por rubrica (flag off)`.
+
+---
+
+# ⬜ IA-40 — PII em voz (mascarar ANTES de persistir)
+
+**Objetivo:** transcripts de voz nunca persistem PII em claro: CPF, telefone, e-mail,
+cartão DITADOS são mascarados antes do INSERT (LGPD by design), com marcação visível
+na tela.
+**Flags:** `VOICE_PII_MASK_ENABLED` / client `voicepii`.
+**Depende de:** IA-13 (o ponto ÚNICO de persistência criado lá).
+
+**Auditoria:** detector REAL já existe e é puro — `detectAndMaskPII`
+(`pii-detector.service.ts:82`), `PIIType:34`, `maskPII:127` — REUSAR (R5). Risco
+específico de voz: número DITADO pode virar "um dois três quatro..." — a transcrição
+da Realtime normalmente normaliza para dígitos (CONFIRMAR em staging), mas cobrir a
+variante por extenso é escopo desta sessão.
+
+### Backend
+| Ação | Arquivo |
+|---|---|
+| MODIFICAR | `pii-detector.service.ts` (+ `spokenNumbersToDigits(text)` pt-BR pura exportada: "um dois três"→"123", "meia"→"6"; aplicada SÓ com opção `{spoken: true}` — snapshot dos consumidores atuais INALTERADO) |
+| MODIFICAR | ponto de persistência da IA-13 (pipeline: turno → flag on → `detectAndMaskPII(turn, {spoken:true})` → INSERT do MASCARADO + `pii_entities` (tipos + offsets pós-máscara; NUNCA o valor original)) |
+| CRIAR | `packages/db/src/migrations/0XX_voice_pii.sql` → `ALTER TABLE voice_transcripts ADD COLUMN IF NOT EXISTS pii_entities JSONB;` |
+| CRIAR | `apps/api/scripts/mask-existing-transcripts.ts` (one-shot retroativo, idempotente) |
+| MODIFICAR | `public-flags.ts` (`voicepii`) |
+
+### Frontend
+MODIFICAR `VoiceQaPage` — trecho mascarado renderiza chip slate **`[CPF]`** /
+**`[telefone]`** com tooltip **"Removido automaticamente antes de salvar (LGPD)."**;
+contador no detalhe: **"3 dados pessoais mascarados nesta chamada."** SEM tela própria
+(RN12 via VoiceQaPage; log).
+
+### Testes (a suíte crítica)
+CPF ditado por extenso mascarado; telefone com DDD; e-mail com "arroba"; falso
+positivo controlado: protocolo de 8 dígitos NÃO mascara (regra: só padrões com
+validação estrutural — CPF com dígito verificador); snapshot dos consumidores atuais
+do detector inalterado; o INSERT nunca contém o original (teste no seam); script
+retroativo 2× = mesmo resultado.
+
+### Critérios de aceite
+- [ ] Chamada staging ditando um CPF → banco SEM o CPF (SELECT no log) e chip na tela
+      (print).
+- [ ] `{spoken:true}` não ativa no caminho WhatsApp/texto (snapshot).
+- [ ] Script retroativo idempotente provado no log.
+**Rollback:** flag off para NOVAS chamadas (recomendação registrada: manter ON).
+**Commit:** `feat(ia40): máscara de pii em transcripts de voz antes de persistir (flag off)`.
+
+---
+
+# ⬜ IA-12 — Voice biometrics (trilho com consentimento LGPD)
+
+**Objetivo:** cliente que CONSENTIU tem identidade reforçada na chamada; badge
+"verificado por voz". **Honestidade técnica registrada:** a API Realtime NÃO expõe
+speaker embeddings; embedding real (resemblyzer/pyannote) é Python → depende da ADR
+(IA-24) IMPLEMENTADA. Esta sessão entrega o TRILHO completo: consentimento,
+verificação por desafio de conhecimento (fallback), port de verificação com adapter
+`null` — zero Python.
+**Flags:** `VOICE_BIOMETRICS_ENABLED` / client `voicebio`.
+**Depende de:** IA-08 A3 (identificação — E2, PENDENTE) + IA-13 ✓ + ADR (IA-24).
+**Não agendar antes da A3.**
+
+**Auditoria:** `CustomerIdentifier` já é seam injetável do bridge
+(`realtime-bridge.service.ts:45` — `(ctx: {cpf?, phone?}) => Promise<string|null>`);
+nenhuma tabela de consentimento existe (auditar colunas de `customers` NO DIA).
+
+### Backend
+| Ação | Arquivo |
+|---|---|
+| CRIAR | `packages/db/src/migrations/0XX_voice_biometry.sql` |
+| CRIAR | `apps/api/src/domain/atendimento/voice-verify.port.ts` (+ adapter `nullVoiceVerify` + teste) |
+| MODIFICAR | integração A3 do bridge (identificado + consentiu → `verify()`; `'unavailable'` → desafio de conhecimento via prompt `voice_identity` no registry: confirmar data de nascimento OU 3 primeiros dígitos do CPF ANTES de dados sensíveis) |
+| CRIAR | `POST /ia/voice/consent` + `DELETE /ia/voice/consent/:customerId` em rotas de voz (+ teste) |
+| MODIFICAR | `prompt-registry.ts` (`voice_identity`) · `public-flags.ts` (`voicebio`) |
+
+Migration: `voice_biometry_consents(customer_id uuid PRIMARY KEY, tenant_id,
+consented_at timestamptz NOT NULL, consent_channel text, revoked_at timestamptz)` +
+`voice_prints(customer_id uuid PRIMARY KEY, tenant_id, print bytea, model_version
+text, created_at)` + RLS 023. `print` é OPACO (gerado pelo serviço Python futuro);
+sem pgvector novo.
+```ts
+export interface IVoiceVerifyPort {
+  enroll(callId: string, customerId: string): Promise<'ok' | 'unavailable'>;
+  verify(callId: string, customerId: string): Promise<{ verified: boolean; confidence: number } | 'unavailable'>;
+}
+```
+**LGPD:** revogação (`DELETE`) apaga `voice_prints` imediatamente (art. 18); sem
+consentimento, `verify()` NUNCA é chamado.
+
+### Frontend
+Badge **"Verificado por voz"** (signal) / **"Identidade por desafio"** (slate) no
+detalhe da chamada (VoiceQaPage); card de consentimento no cadastro do cliente
+(Switch + microcópia: **"Com o consentimento, a voz do cliente reforça a identificação
+nas chamadas. Revogável a qualquer momento; o registro de voz é apagado na
+revogação."**). SEM tela própria (RN12; log).
+
+### Testes
+Sem consentimento → `verify` NUNCA chamado (spy — o teste mais importante); revogação
+apaga `voice_prints` (mock verifica delete); adapter null → fluxo cai no desafio;
+contrato do port respeitado.
+
+### Critérios de aceite
+- [ ] e2e staging (com A3): cliente sem consentimento → desafio de conhecimento no
+      áudio (transcript no log).
+- [ ] Consentir → revogar → SELECT prova `voice_prints` vazio.
+- [ ] Zero Python nesta sessão; adapter HTTP só nasce com a ADR implementada.
+**Rollback:** flags off. **Commit:** `feat(ia12): trilho de biometria de voz — consentimento + desafio + port (flag off)`.
+
+---
+
+# 🔒 IA-18 — A2A protocol (GATED)
+
+**GATE (não agendar até TODOS):** (a) cutover `ATENDIMENTO_ENGINE=v2` estável ≥30d;
+(b) IA-10 multi-agent com tráfego real; (c) existir um parceiro/agente externo
+CONCRETO para interoperar — sem contraparte, é especulação.
+**Objetivo (quando abrir):** expor o agente Astrum como agente A2A (Agent Card em
+`/.well-known/agent.json`, tasks com lifecycle submitted→working→completed via
+JSON-RPC) para agentes externos (ERP, marketplace de ISPs) delegarem/receberem tarefas.
+**Esqueleto já auditado:** auth por API key generaliza a da IA-17 (`mcp_api_keys` →
+`agent_api_keys`); a fronteira read-only/side-effect (E4) vale idêntica; o supervisor
+da IA-10 (`buildMultiAgentGraph`, `multi-agent.supervisor.ts:77`; domínios
+`atendimento|cobranca|retencao|escalation` em `multi-agent.state.ts:11`) é o executor
+natural de uma task A2A.
+**Ao abrir o gate:** rodar uma mini-sessão de expansão (padrão IA-F2-PLAN) auditando a
+spec A2A VIGENTE — ela muda rápido; detalhar hoje apodrece.
+**Flags:** `A2A_ENABLED` / client `a2a`. **Commit futuro:** `feat(ia18): a2a server mínimo (flag off)`.
+
+---
+
+# 🔒 IA-20 — Multi-agent debate (GATED)
+
+**GATE:** (a) IA-10 com tráfego real (pós-cutover); (b) regra de custo definida pelo
+Lucas: debate = ~3× chamadas full — só para decisões acima de um limiar (ex.:
+suspensão de cliente com MRR ≥ R$200; desconto de retenção >20%).
+**Objetivo (quando abrir):** decisões FINANCEIRAS de alto valor passam por debate:
+agente-pró e agente-contra (gpt-4o, 1 rodada cada) + juiz (gpt-4o) → decisão final com
+os votos GRAVADOS no audit trail imutável.
+**Esqueleto já auditado:** `ai_decision_log` (035) tem `decision_type CHECK IN
+('agent_response','escalation','tool_call','block')` → precisará de migration
+`ALTER TABLE ... DROP CONSTRAINT / ADD CHECK` incluindo `'debate_vote'` (as RULEs
+`no_update`/`no_delete` não impedem ALTER — ok, E6); writer canônico =
+`recordDecision` (`ai-audit.service.ts:115`, hash-chain com `computeHash:44` e
+`verifyChain:58`); UI: `TimelineList` (IA-11) pronta para a tela
+`/intelligence/decisions`.
+**Flags:** `DEBATE_ENABLED` / client `decisions`. **Commit futuro:** `feat(ia20): debate pró/contra/juiz em decisões financeiras (flag off)`.
+
+---
+
+# 🔒 IA-41 — Federated evaluation (GATED)
+
+**GATE:** (a) ≥3 tenants grandes ativos; (b) análise LGPD ESCRITA e aprovada pelo
+Lucas (agregação entre tenants é zona sensível — mesmo agregado pode vazar sinal);
+(c) IA-42 rodando (a métrica federada é o pass-rate do eval).
+**Objetivo (quando abrir):** comparar qualidade ENTRE tenants sem mover dado bruto:
+cada tenant computa agregados locais → agregação com ruído (DP, ε documentado) →
+benchmark "você vs mediana anônima" no hub.
+**Esqueleto já auditado:** todas as métricas-fonte já existem POR TENANT — pass-rate
+(eval IA-03/IA-42), taxa de veto (`GET /ia/safety/stats`, `safety.routes.ts:86`),
+drift PSI (`drift_reports`, 043). O que falta é decisão de produto/jurídico, não
+código.
+**Flags:** `FEDERATED_EVAL_ENABLED` / client `fedeval`. **Commit futuro:** `feat(ia41): benchmark federado com ruído dp (flag off)`.
 
 ---
 
@@ -1325,3 +2442,34 @@ C7 tab nova exige `canAccess` · C8 Sidebar colapsada (testar os 2 modos).
   `app.current_tenant_id`) é o modelo para TODA migration nova deste plano.
 - **D8 — Preços duplicados:** `MODEL_COSTS` vive no client (`AICostsPage.tsx:23-30`) —
   IA-34 move a fonte para o server (`MODEL_PRICING`) e o client passa a ler `cost_usd`.
+
+## APÊNDICE E — DÍVIDAS E ACHADOS DA AUDITORIA IA-F2-PLAN (2026-07-07 — li o código mergeado por você)
+
+- **E1 — SandboxPage NÃO existe.** A IA-44 entregou o backend completo
+  (`sandbox.routes.ts`: POST `:81`, histórico `:153`, guard super_admin `:65`), mas a
+  consolidação das sessões paralelas NÃO trouxe `src/pages/intelligence/SandboxPage.tsx`
+  nem a rota no `App.tsx` — o card `sandbox` do hub (BRANCH_REGISTRY) aponta para rota
+  MORTA. Quitação atribuída à **IA-38** (primeira sessão de Fase 2 com UI); a spec da
+  tela está na IA-44 da Fase 1.
+- **E2 — IA-08 A3 pendente** (tools/identificação na voz — PROGRESS_LOG 2026-07-06).
+  Gate duro para IA-12; IA-13/IA-40 rodam sem ela (`customer_id` nullable).
+- **E3 — `churn-features.service.ts:159` usa SQL próprio** e NÃO o Feature Store — a
+  nota cruzada da IA-27 não foi aplicada porque a IA-07 rodou ANTES da IA-27.
+  Quitação na **IA-23** (com fallback fail-open).
+- **E4 — `SIDE_EFFECT_TOOLS` vive em `replay.service.ts:76`** — a fonte única deveria
+  ser o registry. Quitação na **IA-17** (mover para `tool-registry.ts` + reexport).
+- **E5 — Migrations `035` duplicadas** (`035_ai_decision_log` + `035_network_metrics`)
+  — herança das sessões paralelas; o runner aguenta, mas NÃO repetir o padrão.
+  Próximo número livre em 2026-07-07 = `048` (RN5: conferir NO DIA).
+- **E6 — `ai_decision_log.decision_type` tem CHECK restritivo** (4 valores) — a IA-20
+  precisará de ALTER para `'debate_vote'`; as RULEs de imutabilidade não impedem ALTER.
+- **E7 — `metadata.language` ainda não persiste** no `message.worker` (observação da
+  IA-14) — não bloqueia nenhuma sessão da Fase 2; entra no cutover S74.
+- **E8 — Typecheck:** 14 erros pré-existentes em `packages/queue/src/workers/
+  message.worker.ts` (imports relativos — conhecidos; NÃO atribuir às sessões novas).
+- **E9 — Padrão `costdrill`:** flag client-only (`public-flags.ts:24`, env `undefined`
+  = sempre on) — disponível para flags de UI inócuas da Fase 2.
+- **E10 — Catálogo real = 9 tools** (`agentTools`, `vercel-ai.service.ts:94-166` —
+  as 8 da IA-19 + `query_network_graph` da IA-16). Toda sessão que adicionar tool
+  (IA-22) DEVE classificá-la como read-only ou side-effect (teste da IA-17 quebra se
+  não classificar).
