@@ -10,6 +10,8 @@
 const PUBLIC_FLAGS: Record<string, string> = {
   hub: 'INTELLIGENCE_HUB_ENABLED',
   toolreg: 'TOOL_REGISTRY_ENABLED',
+  sandbox: 'AGENT_SANDBOX_ENABLED',
+  synthdata: 'SYNTH_DATA_ENABLED',
 };
 
 export function getPublicFlags(): Record<string, boolean> {

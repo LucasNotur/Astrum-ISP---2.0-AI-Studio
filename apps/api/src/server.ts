@@ -112,6 +112,14 @@ export async function buildServer() {
   const { toolsAdminRoutes } = await import('./domain/ia/tools-admin.routes');
   await app.register(toolsAdminRoutes);
 
+  // IA-44 — Sandbox SQL do agente (somente leitura, defesa dupla).
+  const { sandboxRoutes } = await import('./domain/ia/sandbox.routes');
+  await app.register(sandboxRoutes);
+
+  // IA-45 — Gerador de dados sintéticos (apenas tenants de teste).
+  const { syntheticRoutes } = await import('./domain/ia/synthetic.routes');
+  await app.register(syntheticRoutes);
+
   const websocketRoutes = await import('./domain/realtime/websocket.routes');
   await app.register(websocketRoutes.default);
 

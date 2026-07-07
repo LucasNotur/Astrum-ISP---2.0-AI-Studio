@@ -50,6 +50,11 @@ const envSchema = z.object({
 
   // IA-09 — Coleta de métricas de rede + alerta de CTO
   CTO_ALERT_ENABLED: z.string().optional().default('false'),
+
+  // IA-44 — Sandbox SQL do agente (somente leitura). Opcional: se
+  // ausente, o endpoint /api/v2/ia/sandbox/query responde 503
+  // (fail-open: backend não cai).
+  SANDBOX_DB_URL: z.string().url().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

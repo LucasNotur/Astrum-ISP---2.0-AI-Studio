@@ -2,6 +2,7 @@ import React from 'react';
 import { Sparkles, Wrench, ShieldCheck, Network, Database, Target, Activity, Terminal, FlaskConical, RefreshCw } from 'lucide-react';
 import { useFeatureFlags } from '@/src/hooks/useFeatureFlags';
 import { ptBR } from '@/src/lib/i18n/pt-br';
+import { supabase } from '@/src/lib/supabase';
 import { RiskStripeCard } from '@/src/components/intelligence/RiskStripeCard';
 import { EmptyState } from '@/src/components/intelligence/EmptyState';
 import { CardContent } from '@/src/components/ui/card';
@@ -14,6 +15,8 @@ interface Branch {
   description: string;
   icon: React.ElementType;
   route: string;
+  /** Quando true, o card exige role=super_admin além da flag. */
+  superAdminOnly?: boolean;
 }
 
 // Registry de módulos da Central de Inteligência. Cada sessão futura adiciona sua entrada.
@@ -25,7 +28,7 @@ export const BRANCH_REGISTRY: Branch[] = [
   { key: 'bandit', title: 'Campanhas Inteligentes', description: 'Variantes de mensagem de cobrança competindo por conversão.', icon: Target, route: '/intelligence/campaigns' },
   { key: 'drift', title: 'Drift do Modelo', description: 'A conversa dos clientes mudou? O modelo continua calibrado?', icon: Activity, route: '/intelligence/drift' },
   { key: 'sandbox', title: 'Sandbox SQL', description: 'Console analítico somente leitura, com histórico auditado.', icon: Terminal, route: '/intelligence/sandbox' },
-  { key: 'synthdata', title: 'Dados Sintéticos', description: 'Gere conversas de teste para load e avaliação.', icon: FlaskConical, route: '/intelligence/synthetic' },
+  { key: 'synthdata', title: 'Dados Sintéticos', description: 'Gere conversas de teste para load e avaliação.', icon: FlaskConical, route: '/intelligence/synthetic', superAdminOnly: true },
   { key: 'replay', title: 'Replay de Conversas', description: 'Rode conversas reais contra o motor atual antes de qualquer cutover.', icon: RefreshCw, route: '/intelligence/replay' },
 ];
 
@@ -33,9 +36,45 @@ export function IntelligenceHubPage() {
   const { flags, isLoading } = useFeatureFlags();
   const navigate = useNavigate();
 
+  // IA-45: gate adicional — card synthdata só aparece para super_admin.
+  // Mesmo padrão do Sidebar.tsx (consulta role na tabela users, não no JWT).
+  const [isSuperAdmin, setIsSuperAdmin] = React.useState(false);
+
+  React.useEffect(() => {
+    let mounted = true;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const uid = session?.user?.id;
+      if (!uid) {
+        if (mounted) setIsSuperAdmin(false);
+        return;
+      }
+      supabase
+        .from('users')
+        .select('role')
+        .eq('id', uid)
+        .maybeSingle()
+        .then(
+          ({ data }) => {
+            if (mounted) setIsSuperAdmin(data?.role === 'super_admin');
+          },
+          () => {
+            if (mounted) setIsSuperAdmin(false);
+          },
+        );
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const visibleBranches = React.useMemo(
-    () => BRANCH_REGISTRY.filter((b) => flags[b.key]),
-    [flags],
+    () =>
+      BRANCH_REGISTRY.filter((b) => {
+        if (!flags[b.key]) return false;
+        if (b.superAdminOnly && !isSuperAdmin) return false;
+        return true;
+      }),
+    [flags, isSuperAdmin],
   );
 
   return (
