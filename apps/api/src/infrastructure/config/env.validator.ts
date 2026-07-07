@@ -47,6 +47,14 @@ const envSchema = z.object({
 
   // Opcionais — ERP (IXC, MK-Auth)
   ERP_CRED_KEY: z.string().optional(),
+
+  // IA-08 — Voz MVP (telefonia + OpenAI Realtime)
+  VOICE_ENGINE: z.enum(['off', 'mvp']).default('off'),
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_PHONE_NUMBER: z.string().optional(),
+  OPENAI_REALTIME_MODEL: z.string().optional().default('gpt-4o-realtime-preview'),
+  VOICE_HUMAN_QUEUE_NUMBER: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

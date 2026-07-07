@@ -1320,5 +1320,28 @@ Arquivos criados:
 Testes: 4 novos.
 Status: 🔶 Lógica do gate final pronta/testada. Aprovação real precisa dos 10 critérios verdes em produção.
 Observações: evaluateFinalGate (10 critérios do MAPA_SESSOES: 10 ISPs, workers integrados, resolução>80%,
-  0 jobs cobrança perdidos, isolamento, custo/ISP, deploy<5min, RAGAS, docs, synthetic). Plano V2 S68-S98 concluído
+  0 jobs cobrança perdidos, isolamento, custo/ISP, deploy<5min, RAGAS, docs, synthetic).   Plano V2 S68-S98 concluído
   em modo code-complete; etapas operacionais documentadas em docs/ASTRUM_ESTADO_FINAL_PLANO_V2.md.
+
+---
+
+[2026-07-05] IA-NEXTGEN Parte 1 — Sessão IA-08 (WIP)
+Tarefa: Voz MVP fase A — organização e continuação do WIP existente (sem merge de dependências).
+Arquivos criados:
+  - apps/api/src/adapters/telephony/ulaw-converter.ts (+ .test.ts)
+  - apps/api/src/adapters/telephony/realtime-bridge.service.ts (+ .test.ts)
+  - apps/api/src/adapters/telephony/twilio-webhook.routes.ts (+ .test.ts)
+  - apps/api/src/adapters/telephony/voice-stream.routes.ts
+  - apps/api/src/adapters/telephony/ws.d.ts
+  - apps/api/src/__tests__/setup.ts
+Arquivos modificados:
+  - apps/api/src/infrastructure/config/env.validator.ts
+  - apps/api/src/server.ts
+Testes: 25 novos passando.
+Status: 🔶 Parcial / Bloqueado.
+Observações:
+  - IA-08 A1 (webhook TwiML) e A2 (bridge áudio) implementados e testados.
+  - IA-08 A3 (tools/identificação) ficou incompleta porque IA-01 (CRAG) e IA-03 (prompt registry)
+    não estão mergeados em main/branch atual. O código deixa hooks prontos para integração.
+  - IA-09 NÃO executada (existe branch feat/ia-09-cto-metrics).
+  - IA-10 NÃO executada — plano exige ATENDIMENTO_ENGINE=v2 estável (pós-S74/S82).

@@ -111,6 +111,13 @@ export async function buildServer() {
   const { evolutionWebhookRoutes } = await import('./domain/atendimento/evolution-webhook.routes');
   await app.register(evolutionWebhookRoutes);
 
+  // IA-08 — Voz MVP (telefonia + OpenAI Realtime)
+  const { twilioVoiceRoutes } = await import('./adapters/telephony/twilio-webhook.routes');
+  await app.register(twilioVoiceRoutes);
+
+  const { voiceStreamRoutes } = await import('./adapters/telephony/voice-stream.routes');
+  await app.register(voiceStreamRoutes);
+
   // Health check com status dos serviços
   app.get('/api/v2/health', async () => {
     const { getLLMStatus } = await import('./adapters/ai/llm.adapter');
