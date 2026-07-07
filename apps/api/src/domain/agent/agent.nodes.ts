@@ -22,6 +22,7 @@ import { makeNodeBlock }        from './nodes/block.node';
 import { makeNodeGradeContext } from './nodes/grade-context.node';
 import { makeNodeRewriteQuery } from './nodes/rewrite-query.node';
 import { makeNodeSelfCheck }    from './nodes/self-check.node';
+import { makeNodeSafetyVeto }   from './nodes/safety-veto.node';
 
 export const nodeClassify     = makeNodeClassify({ ai: vercelAIService, logger: infraLogger });
 export const nodeGuardrails   = makeNodeGuardrails({ guardrails: guardrailsAdapter, logger: infraLogger });
@@ -34,3 +35,4 @@ export const nodeBlock        = makeNodeBlock(infraLogger);
 export const nodeGradeContext = makeNodeGradeContext({ crag: cragAdapter, logger: infraLogger });
 export const nodeRewriteQuery = makeNodeRewriteQuery({ crag: cragAdapter, logger: infraLogger });
 export const nodeSelfCheck    = makeNodeSelfCheck({ crag: cragAdapter, logger: infraLogger });
+export const nodeSafetyVeto   = makeNodeSafetyVeto({ db: agentDbAdapter, logger: infraLogger });

@@ -12,6 +12,7 @@ import {
   nodeGradeContext,
   nodeRewriteQuery,
   nodeSelfCheck,
+  nodeSafetyVeto,
 } from './agent.nodes';
 import type { ILoggerPort } from '../ports/logger.port';
 import { infraLogger } from '../../infrastructure/logging/logger';
@@ -62,6 +63,9 @@ function buildAgentGraph() {
       streamTokens: { value: (x, y) => y ?? x },
       validationPassed: { value: (x, y) => y ?? x },
       validationIssue: { value: (x, y) => y ?? x },
+      // IA-21 — Safety veto
+      safetyVetoed: { value: (x, y) => y ?? x },
+      safetyCategories: { value: (x, y) => y ?? x },
       requiresHuman: { value: (x, y) => y ?? x },
       escalationReason: { value: (x, y) => y ?? x },
       steps: { value: (x, y) => y ?? x, default: () => [] },
@@ -85,6 +89,8 @@ function buildAgentGraph() {
   graph.addNode('grade_context', nodeGradeContext as any);
   graph.addNode('rewrite_query', nodeRewriteQuery as any);
   graph.addNode('self_check', nodeSelfCheck as any);
+  // IA-21 — Constitutional classifier
+  graph.addNode('safety_veto', nodeSafetyVeto as any);
 
   // ─── Edges lineares ──────────────────────────────────────────────────────
   graph.addEdge(START, 'classify' as any);
@@ -124,6 +130,14 @@ function buildAgentGraph() {
 
   graph.addConditionalEdges('validate' as any, (state: AgentState) => {
     if (!state.validationPassed || state.requiresHuman) return 'escalate';
+    // IA-21: validate passou → passa pelo safety_veto antes de encerrar.
+    return 'safety_veto';
+  });
+
+  // IA-21 — Veto do classificador de segurança. Flag off = no-op (categoria vazia, sem veto).
+  // Sem canal de "flag" no edge (consistente com IA-01): o próprio nó faz short-circuit.
+  graph.addConditionalEdges('safety_veto' as any, (state: AgentState) => {
+    if (state.safetyVetoed) return 'escalate';
     return END;
   });
   /* eslint-enable @typescript-eslint/no-explicit-any */

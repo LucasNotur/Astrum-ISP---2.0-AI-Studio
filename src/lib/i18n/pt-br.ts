@@ -46,6 +46,29 @@ export const ptBR = {
         off: 'Desativada',
       },
     },
+    guardrails: {
+      title: 'Guardrails',
+      subtitle: 'Vetos do classificador de segurança e revisão humana.',
+      stats: {
+        vetosToday: 'Vetos hoje',
+        vetoRate7d: 'Taxa de veto 7d',
+        falsePositiveRate: 'Falsos positivos',
+      },
+      pendingTitle: 'Pendentes de revisão',
+      buttons: {
+        vetoCorrect: 'Veto correto',
+        falsePositive: 'Falso positivo',
+      },
+      toasts: {
+        reviewRegistered: 'Revisão registrada.',
+      },
+      emptyState: {
+        title: 'Nenhum veto pendente de revisão.',
+        description: 'O classificador está ativo e nenhuma resposta foi vetada recentemente.',
+      },
+      loadError: 'Não foi possível carregar os vetos. Recarregue a página.',
+      reload: 'Recarregar',
+    },
     risk: {
       baixo: 'Baixo',
       medio: 'Médio',

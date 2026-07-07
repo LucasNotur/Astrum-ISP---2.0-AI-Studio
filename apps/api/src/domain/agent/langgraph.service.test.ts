@@ -138,6 +138,8 @@ describe('LangGraphService.processMessage — grafo completo', () => {
     validationPassed: true,
     requiresHuman: false,
     classifyThrows: false,
+    safetyVetoed: false,
+    safetyCategories: [] as string[],
   };
 
   const input = {
@@ -166,6 +168,12 @@ describe('LangGraphService.processMessage — grafo completo', () => {
       nodeGradeContext: async (state: any = { steps: [] }) => ({ steps: [...state.steps, 'grade_context'] }),
       nodeRewriteQuery: async (state: any = { steps: [] }) => ({ steps: [...state.steps, 'rewrite_query'] }),
       nodeSelfCheck:   async (state: any = { steps: [] }) => ({ steps: [...state.steps, 'self_check'] }),
+      // IA-21 — Safety veto: pass-through; testes específicos controlam safetyVetoed.
+      nodeSafetyVeto:   async (state: any = { steps: [] }) => ({
+        safetyVetoed: nodeResults.safetyVetoed,
+        safetyCategories: nodeResults.safetyVetoed ? nodeResults.safetyCategories : [],
+        steps: [...state.steps, 'safety_veto'],
+      }),
     }));
   });
 
@@ -174,6 +182,8 @@ describe('LangGraphService.processMessage — grafo completo', () => {
     nodeResults.validationPassed = true;
     nodeResults.requiresHuman = false;
     nodeResults.classifyThrows = false;
+    nodeResults.safetyVetoed = false;
+    nodeResults.safetyCategories = [];
     vi.restoreAllMocks();
   });
 
@@ -194,6 +204,15 @@ describe('LangGraphService.processMessage — grafo completo', () => {
 
   it('validação reprova → nó escalate encerra o grafo', async () => {
     nodeResults.validationPassed = false;
+    const { langGraphService } = await import('./langgraph.service');
+    const out = await langGraphService.processMessage(input);
+    expect(out.response).toBe('escalado-humano');
+    expect(out.requiresHuman).toBe(true);
+  });
+
+  it('IA-21: safety_veto reprova → nó escalate (cliente NUNCA recebe resposta vetada)', async () => {
+    nodeResults.safetyVetoed = true;
+    nodeResults.safetyCategories = ['promessa_nao_autorizada'];
     const { langGraphService } = await import('./langgraph.service');
     const out = await langGraphService.processMessage(input);
     expect(out.response).toBe('escalado-humano');
@@ -265,6 +284,7 @@ describe('CRAG — IA-01 caminhos', () => {
         selfCheckPassed: cragState.grounded,
         steps: [...state.steps, 'self_check'],
       }),
+      nodeSafetyVeto: async (state: any = { steps: [] }) => ({ steps: [...state.steps, 'safety_veto'] }),
     }));
   });
 

@@ -115,6 +115,10 @@ export async function buildServer() {
   const { toolsAdminRoutes } = await import('./domain/ia/tools-admin.routes');
   await app.register(toolsAdminRoutes);
 
+  // IA-21 — fila de revisão de respostas vetadas pelo classificador de segurança.
+  const { safetyRoutes } = await import('./domain/ia/safety.routes');
+  await app.register(safetyRoutes);
+
   const websocketRoutes = await import('./domain/realtime/websocket.routes');
   await app.register(websocketRoutes.default);
 

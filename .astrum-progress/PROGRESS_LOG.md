@@ -1513,3 +1513,43 @@ Observacoes:
   - Cuidado: tecto stepCountIs(5) inalterado (armadilha B3 do plano - paralelismo NAO substitui limite de raciocinio multi-step).
 Rollback: TOOL_BATCHING_ENABLED=false.
 Commit: feat(ia37): tool calls paralelas no step (flag off).
+
+[2026-07-05] IA-NEXTGEN / Fase 1 - Sessao IA-21
+Tarefa: Constitutional classifier (no de veto dedicado) + fila de revisao humana.
+Arquivos criados:
+  - packages/db/src/migrations/038_safety_vetoes.sql (safety_vetoes: id, tenant_id, conversation_id, response_text, categories[], review_status check, reviewed_by/at; RLS tenant_isolation + idx tenant+status+created_at)
+  - apps/api/src/infrastructure/guardrails/safety-classifier.service.ts (SafetyVerdictSchema Zod com 5 categorias da rubrica ISP; classifyResponseSafety c/ gpt-4o-mini + Helicone 'safety-veto'; fail-open em erro de modelo)
+  - apps/api/src/infrastructure/guardrails/safety-classifier.service.test.ts (7 testes: flag off, !safe em promessa/vazamento, fail-open, schema rejeita categoria invalida/>3, isEnabled normaliza)
+  - apps/api/src/domain/ia/safety.routes.ts (GET /api/v2/ia/safety/vetoes?status + GET /stats + PATCH /:id; RBAC ai_config)
+  - apps/api/src/domain/ia/safety.routes.test.ts (3 testes: listar, PATCH ok, body invalido -> 400)
+  - apps/api/src/domain/agent/nodes/safety-veto.node.ts (short-circuit flag off; !safe -> fire-and-forget db.recordSafetyVeto; return safetyVetoed:true)
+  - apps/api/src/domain/agent/nodes/safety-veto.node.test.ts (4 testes: flag off, !safe marca veto, !safe grava fila, resposta vazia no-op)
+  - src/pages/intelligence/GuardrailsPage.tsx (StatCards + lista RiskStripeCard + botoes Veto correto / Falso positivo + EmptyState + load error c/ reload)
+  - src/pages/intelligence/GuardrailsPage.test.tsx (3 testes: render, empty, PATCH dispara)
+Arquivos modificados:
+  - apps/api/src/infrastructure/ai/prompt-registry.ts (+ 'safety_veto' id + SAFETY_PROMPT com 5 exemplos)
+  - apps/api/src/domain/agent/agent.state.ts (+ safetyVetoed + safetyCategories)
+  - apps/api/src/domain/agent/agent.nodes.ts (+ nodeSafetyVeto c/ db adapter)
+  - apps/api/src/domain/agent/langgraph.service.ts (novo no safety_veto + channels; validate->safety_veto; safety_veto->escalate|END)
+  - apps/api/src/domain/agent/langgraph.service.test.ts (+ nodeSafetyVeto mock + 1 teste IA-21: veto reprova -> escalate)
+  - apps/api/src/domain/ports/database.port.ts (+ ISafetyVetoInput + recordSafetyVeto)
+  - apps/api/src/infrastructure/adapters/agent-db.adapter.ts (+ recordSafetyVeto -> safety_vetoes)
+  - apps/api/src/infrastructure/config/public-flags.ts (+ 'safety' : 'SAFETY_CLASSIFIER_ENABLED')
+  - apps/api/src/infrastructure/config/public-flags.test.ts (+ 1 teste)
+  - apps/api/src/domain/ia/flags.routes.test.ts (atualizado p/ 3 chaves)
+  - apps/api/src/server.ts (registro safetyRoutes)
+  - src/App.tsx (lazy route /intelligence/guardrails)
+  - src/lib/i18n/pt-br.ts (+ intelligence.guardrails)
+  - .env.example (+ SAFETY_CLASSIFIER_ENABLED=false)
+Tecnologias implementadas: classificador constitutional (gpt-4o-mini) com rubrica fixa de 5 categorias ISP; fila de revisao humana; grafo LangGraph estendido com no safety_veto entre validate e END.
+Testes: 27 passando (6 arquivos novos/expandidos). Typecheck limpo nos arquivos tocados, 0 errors lint.
+Status: CONCLUIDO. Flag SAFETY_CLASSIFIER_ENABLED default 'false' - no no faz short-circuit sem chamar LLM.
+Observacoes:
+  - Rubrica ISP: valor_ou_prazo_inventado / promessa_nao_autorizada / dado_de_outro_cliente / orientacao_perigosa / fora_de_escopo_isp. Schema Zod garante <= 3 categorias.
+  - Modelo: gpt-4o-mini (decisao registrada no plano - Llama-Guard-3 exigiria provider novo; reavaliar em producao com header Helicone safety-veto).
+  - No safety_veto fica DEPOIS de validate (mesmo com CRAG ligado, self_check -> validate -> safety_veto). Veto -> escalate (cliente NUNCA recebe a resposta vetada - humano assume).
+  - recordSafetyVeto e fire-and-forget: erro na gravacao da fila de revisao NAO derruba o no (warn + segue). DB usa RLS 023 padrao.
+  - Defense in depth: mesmo sem tools, o classificador sobe (escala 8 tools -> 8k+ chamadas/dia por provedor = justificativa economica do gpt-4o-mini).
+  - BRANCH_REGISTRY ja tinha 'safety' (IA-11) - GuardrailsPage preenche o destino /intelligence/guardrails.
+Rollback: SAFETY_CLASSIFIER_ENABLED=false (no vira no-op).
+Commit: feat(ia21): classificador de seguranca dedicado + fila de revisao (flag off).
