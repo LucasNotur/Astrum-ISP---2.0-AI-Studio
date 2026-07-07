@@ -53,6 +53,73 @@ export const ptBR = {
       critico: 'Crítico',
       'sem-dado': 'Sem dado',
     },
+    replay: {
+      title: 'Replay de Conversas',
+      subtitle:
+        'Reexecute conversas reais contra o motor atual em modo dry-run e meça a equivalência com a resposta original.',
+      stepSample: {
+        title: 'Amostra',
+        fromLabel: 'Data inicial',
+        toLabel: 'Data final',
+        sampleLabel: 'Tamanho da amostra',
+        sampleHint: (n: number) => `≈ ${n} conversas do período (estimativa)`,
+        next: 'Continuar',
+        back: 'Voltar',
+        invalidRange: 'A data inicial deve ser anterior à data final.',
+      },
+      stepConfirm: {
+        title: 'Confirmar',
+        body:
+          'O replay reexecuta as conversas SEM enviar mensagens e SEM executar ações reais (modo seco). ' +
+          'Tools de escrita (suspender sinal, abrir ticket, agendar visita técnica) são neutralizadas.',
+        start: 'Iniciar replay',
+        cancel: 'Cancelar',
+      },
+      status: {
+        queued: 'Na fila',
+        running: 'Em execução',
+        done: 'Concluído',
+        failed: 'Falhou',
+      },
+      runColumns: {
+        date: 'Data',
+        sample: 'Amostra',
+        status: 'Status',
+        passRate: 'Equivalência',
+      },
+      empty: {
+        title: 'Nenhum replay executado.',
+        description:
+          'Execute o primeiro replay para validar o motor atual contra o histórico antes de qualquer cutover.',
+        cta: 'Iniciar o primeiro replay',
+      },
+      detail: {
+        title: 'Detalhe da corrida',
+        passRateLabel: 'Equivalência',
+        verdictFilter: {
+          all: 'Todos os vereditos',
+          equivalente: 'Equivalentes',
+          divergente: 'Divergentes',
+          erro: 'Com erro',
+        },
+        columns: {
+          original: 'Resposta original',
+          candidate: 'Resposta do motor',
+          rationale: 'Justificativa',
+        },
+        divergenteBadge: 'Divergente',
+        export: 'Exportar relatório',
+        exporting: 'Exportando...',
+        rationaleMissing: '(sem justificativa)',
+      },
+      toasts: {
+        started: 'Replay iniciado — acompanhe o status aqui.',
+        loadError: 'Não foi possível carregar a lista de replays.',
+        detailError: 'Não foi possível carregar o detalhe da corrida.',
+        exportOk: 'Relatório exportado.',
+        exportError: 'Falha ao exportar relatório.',
+      },
+    },
   },
 } as const;
 

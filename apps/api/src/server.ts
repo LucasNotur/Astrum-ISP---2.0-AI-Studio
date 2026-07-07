@@ -112,6 +112,10 @@ export async function buildServer() {
   const { toolsAdminRoutes } = await import('./domain/ia/tools-admin.routes');
   await app.register(toolsAdminRoutes);
 
+  // IA-46 — Replay engine: POST /api/v2/ia/replay, GET /runs, GET /runs/:id.
+  const { replayRoutes } = await import('./domain/ia/replay.routes');
+  await app.register(replayRoutes);
+
   const websocketRoutes = await import('./domain/realtime/websocket.routes');
   await app.register(websocketRoutes.default);
 
