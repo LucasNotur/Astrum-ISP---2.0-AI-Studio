@@ -350,7 +350,7 @@ PATCH limpa o cache. Front: Switch off dispara PATCH e rollback em erro.
 
 ---
 
-# ⬜ IA-37 — Batching de tool calls
+# ✅ IA-37 — Batching de tool calls
 
 **Objetivo:** tool calls independentes do mesmo step executam em paralelo — hoje o loop é
 sequencial (`vercel-ai.service.ts:220-232`: `for … await onToolCall(...)`).
@@ -399,7 +399,7 @@ timers). 1 rejeitada → outras 2 completam e log registra `failed:1`.
 
 ---
 
-# ⬜ IA-21 — Constitutional classifier (nó de veto dedicado)
+# ✅ IA-21 — Constitutional classifier (nó de veto dedicado)
 
 **Objetivo:** um segundo classificador BARATO e INDEPENDENTE do gerador veta resposta
 imprópria antes do envio (categorias fixas de ISP), com fila de revisão humana. Complementa
@@ -495,7 +495,7 @@ E cliente recebe a mensagem de escalação (nunca a vetada). Front: botões PATC
 
 ---
 
-# ⬜ IA-16 — GraphRAG leve (raciocínio relacional sobre a rede física)
+# ✅ IA-16 — GraphRAG leve (raciocínio relacional sobre a rede física)
 
 **Objetivo:** o agente responde perguntas RELACIONAIS ("se a CTO X cair, quem é afetado?",
 "qual CTO tem mais reincidência?") consultando o grafo rede↔clientes↔tickets em SQL —
@@ -562,7 +562,7 @@ filtra >0.85. Executor: tool nova roteia. Front: aba Impacto renderiza StatCards
 
 ---
 
-# ⬜ IA-14 — Atendimento multilíngue
+# ✅ IA-14 — Atendimento multilíngue
 
 **Objetivo:** cliente escreve em EN/ES → agente responde no idioma dele; a busca RAG
 continua funcionando (query traduzida p/ pt-BR antes do retrieval). Sem pipeline de
@@ -612,7 +612,7 @@ busca usou query traduzida (spy no HybridSearchService mock); flag off → zero 
 
 ---
 
-# ⬜ IA-30 — Compressão de contexto RAG
+# ✅ IA-30 — Compressão de contexto RAG
 
 **Objetivo:** cortar ≥30% dos tokens de contexto sem perder resposta: dedupe de sentenças
 entre chunks + orçamento de tokens por seção. LLMLingua é Python — fase TS primeiro
@@ -669,7 +669,7 @@ Grafo: flag off → `systemContext` idêntico ao atual (snapshot test).
 
 ---
 
-# ⬜ IA-27 — Feature Store leve
+# ✅ IA-27 — Feature Store leve
 
 **Objetivo:** UMA fonte de features por entidade (cliente) para todo ML do produto —
 treino e serving leem o mesmo valor. Sem Feast: tabela + registry TS tipado + worker
@@ -750,7 +750,7 @@ tenant com 3 clientes seed → 12 linhas (4 features × 3).
 
 ---
 
-# ⬜ IA-26 — Multi-armed bandit nas mensagens de cobrança (CobrAI v2)
+# ✅ IA-26 — Multi-armed bandit nas mensagens de cobrança (CobrAI v2)
 
 **Objetivo:** em vez de template fixo por régua, variantes de mensagem competem via
 Thompson sampling; conversão = pagamento em ≤7 dias. **Honestidade R6:** isso instrumenta
@@ -845,7 +845,7 @@ paga em 5d → alpha+1; 8d → beta+1; cancelada → não conta.
 
 ---
 
-# ⬜ IA-33 — Drift detection
+# ✅ IA-33 — Drift detection
 
 **Objetivo:** alerta quando a distribuição de intents/sentimentos muda vs baseline (PSI)
 — modelo degradando ou clientela mudando. Requer persistir contagens (hoje o intent só
@@ -910,7 +910,7 @@ gera report coerente. nodeClassify: flag on grava contagem (mock), flag off não
 
 ---
 
-# ⬜ IA-34 — Cost attribution por cliente e feature
+# ✅ IA-34 — Cost attribution por cliente e feature
 
 **Objetivo:** de "gastamos $X" para "gastamos $X com o cliente Y na feature Z".
 A base JÁ existe (migration 028: `tokens_in/out, model, cost_usd` em
@@ -970,7 +970,7 @@ não propaga. processMessage: grava com os IDs do estado (mock). Front: soma da 
 
 ---
 
-# ⬜ IA-43 — Failover multi-provider (port do `src/ai-provider/`)
+# ✅ IA-43 — Failover multi-provider (port do `src/ai-provider/`)
 
 **Objetivo:** OpenAI caiu → Anthropic/Gemini assumem. **R3 manda PORTAR** a lógica que já
 existe (`src/ai-provider/`: `ai-provider.service.ts`, `types.ts`, adapters
@@ -1033,7 +1033,7 @@ legado reproduzidos como fixtures). Rota de status: shape estável.
 
 ---
 
-# ⬜ IA-44 — Sandbox SQL do agente (somente leitura, defesa dupla)
+# ✅ IA-44 — Sandbox SQL do agente (somente leitura, defesa dupla)
 
 **Objetivo:** consultas analíticas com segurança física: role Postgres read-only +
 validação de AST — nunca "confiar no prompt". Console super-admin prova o sandbox; expor
@@ -1107,7 +1107,7 @@ recusa. Service: timeout dispara em query lenta (staging). Rota: papel comum →
 
 ---
 
-# ⬜ IA-45 — Synthetic data generator
+# ✅ IA-45 — Synthetic data generator
 
 **Objetivo:** dataset sintético de conversas/tickets p/ load test e eval — gerado via
 Batch API (50% desconto, `batch.service.ts` já implementa o fluxo JSONL→upload→poll),
@@ -1164,7 +1164,7 @@ descartada sem abortar o lote. Mix: soma ≠100 → 400 com mensagem clara.
 
 ---
 
-# ⬜ IA-46 — Replay engine de conversas
+# ✅ IA-46 — Replay engine de conversas
 
 **Objetivo:** reexecutar conversas REAIS contra o motor atual (com as flags/modelo/prompt
 do ambiente) e comparar com o que foi respondido na época — o gate técnico do cutover

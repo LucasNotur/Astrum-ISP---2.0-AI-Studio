@@ -22,6 +22,28 @@ Observações: notas da IA sobre a sessão
 
 ## LOG DE SESSÕES
 
+---
+
+[2026-07-06] IA-NEXTGEN — CONSOLIDAÇÃO das sessões paralelas + fechamento Fase 1
+Tarefa: recuperar e mergear em main o trabalho de 13 sessões executadas em chats paralelos
+  que compartilharam o mesmo worktree (6 branches commitadas + 5 stashes + working tree).
+Recuperado de stashes: IA-26+27 (ia26-pending), IA-33+34 (ia34-uncommitted),
+  IA-43+44+45 (ia46-temp + WIP ia44), IA-08 A1+A2 (IA-08 WIP completo), IA-04 wiring (IA-04 uncommitted WIP).
+Merges em main: IA-04, IA-08(A1+A2), IA-37, IA-21, IA-16, IA-14, IA-30, IA-26+27, IA-33+34, IA-43+44+45, IA-46.
+Migrations renumeradas (colisão 3x038/3x039/3x040): safety_vetoes=038, customers_cto_link=039,
+  context_savings=040, feature_store=041, campaign_variants=042, drift=043, ai_costs_dimensions=044,
+  agent_readonly_role=045, tenant_sandbox_flag=046, replay=047.
+Correções de integração: public-flags unificado (14 chaves), flags.routes.test resiliente,
+  classify.node.test (IA-14+IA-33 juntos), agent.nodes (seam IA-46 + db IA-33), generate.node (idioma+tokens),
+  vitest.config em 2 projetos (frontend jsdom / backend node), prompt-registry.test (+safety_veto),
+  cobrai.scheduler.test (mock acumulado), cost-recorder.test (+nodeSafetyVeto), sentry.test (clearAllMocks),
+  ReplayPage (role=heading).
+Testes: backend 1010/1010 verdes; frontend 409/409 verdes.
+Typecheck: 14 erros pré-existentes em packages/queue/message.worker.ts (imports relativos — conhecido).
+Status: ✅ Fase 1 (IA-11..IA-46) 100% em main. Parte 1: IA-08 A3 (tools/identificação na voz) PENDENTE.
+GATE RN16: ABERTO — próxima sessão é IA-F2-PLAN (expandir os 21 galhos da Fase 2 auditando o código real).
+
+
 [2026-05-31] ✅ GATE SPRINT 0 APROVADO — 10/10 critérios passando
 Fundações DDD estabelecidas. Pronto para Sprint 1.
 
@@ -1488,8 +1510,8 @@ Typecheck: limpo nos arquivos tocados.
 Lint: 0 errors, ~20 warnings de s any (padrao pre-existente no repo).
 Status: CONCLUIDO. Flag TOOL_REGISTRY_ENABLED default 'false' - comportamento identico ao atual (agentTools completo de 8 tools oferecido como hoje).
 Observacoes / DESVIO do plano:
-  - Ap�ndice D2 do PARTE2: 4 tools (check_coverage, run_diagnostics, schedule_technical_visit, get_billing_status) ja estavam implementadas no tools.executor (S72) mas faltavam no catalogo agentTools - IA-19 completou o catalogo em vercel-ai.service.ts.
-  - Fix D1 commitado: case 'check_invoice' duplicado no switch do executor. Alias get_billing_status agora cai no mesmo case (consolida��o de chaves).
+  - Ap�ndice D2 do PARTE2: 4 tools (check_coverage, run_diagnostics, schedule_technical_visit, get_billing_status) ja estavam implementadas no tools.executor (S72) mas faltavam no catalogo agentTools - IA-19 completou o catalogo em vercel-ai.service.ts.
+  - Fix D1 commitado: case 'check_invoice' duplicado no switch do executor. Alias get_billing_status agora cai no mesmo case (consolida��o de chaves).
   - Defesa em profundidade: mesmo com tool desabilitada, o executor recusa (RN contra prompt injection ou cache stale).
   - Migracao 037 = 2 tabelas (settings + usage) com RLS padrao 023. contadores 7d sao agregados na query do GET (somam calls/errors por dia).
   - Sem mock: a tela /intelligence/tools consome direto GET/PATCH /api/v2/ia/tools (RBAC ai_config).
@@ -1590,11 +1612,11 @@ Rollback: GRAPHRAG_ENABLED=false.
 Commit: feat(ia16): graphrag leve - tool de grafo de rede + tela (flag off).
 
 [2026-07-05] IA-NEXTGEN / Fase 1 - Sessao IA-14
-Tarefa: Atendimento multil�ngue - deteccao de idioma (pt/en/es) + RAG traduzido + resposta no idioma do cliente.
+Tarefa: Atendimento multil�ngue - deteccao de idioma (pt/en/es) + RAG traduzido + resposta no idioma do cliente.
 Arquivos criados:
   - apps/api/src/infrastructure/ai/language-detector.ts (detector HEURISTICO PURO: stopwords pt/en/es + score por contagem; <2 hits ou empate -> 'pt' conservador; ZERO LLM)
   - apps/api/src/infrastructure/ai/language-detector.test.ts (11 testes: 12 fixtures do plano em PT/EN/ES, vazio, pouco texto, empate, acentos normalizados via NFD, isLiveTranslationEnabled)
-  - src/components/intelligence/MultilingualCard.tsx (Card standalone com Switch + toast "Atendimento multil�ngue ativado." - flag � info-only, controle real via env do backend)
+  - src/components/intelligence/MultilingualCard.tsx (Card standalone com Switch + toast "Atendimento multil�ngue ativado." - flag � info-only, controle real via env do backend)
 Arquivos modificados:
   - apps/api/src/domain/agent/agent.state.ts (+ detectedLanguage: 'pt'|'en'|'es' optional)
   - apps/api/src/domain/agent/langgraph.service.ts (+ channel detectedLanguage)
@@ -1605,7 +1627,7 @@ Arquivos modificados:
   - apps/api/src/infrastructure/config/public-flags.ts (+ 'translate' : 'LIVE_TRANSLATION_ENABLED')
   - apps/api/src/infrastructure/config/public-flags.test.ts (+ 1 teste)
   - apps/api/src/domain/ia/flags.routes.test.ts (atualizado p/ 5 chaves)
-  - src/pages/AIConfigPage.tsx (+ TabsTrigger "Multil�ngue" + TabsContent <MultilingualCard />)
+  - src/pages/AIConfigPage.tsx (+ TabsTrigger "Multil�ngue" + TabsContent <MultilingualCard />)
   - src/pages/ChatPage.tsx (+ badge EN/ES no header do chat com tooltip "Detectado automaticamente"; quickDetectLang client-side como fallback quando metadata.language nao existe)
   - .env.example (+ LIVE_TRANSLATION_ENABLED=false)
 Tecnologias implementadas: detector de idioma heuristico (zero custo, sem LLM); traducao de query RAG com gpt-4o-mini fail-open; sufixo no systemContext para forcar resposta no idioma; cache semantico NAO cacheia respostas em idioma nao-pt.
@@ -1616,14 +1638,14 @@ Observacoes:
   - Detector: 30 stopwords por idioma; 12 fixtures do plano cobertas (4 por idioma).
   - message.worker: sera evoluido em sessao futura para gravar metadata.language (ja tem metadata no insert - o sufixo IA-14 so marca o idioma detectado, persistencia vem no cutover real).
   - Custo: gpt-4o-mini c/ translate ~US.00015/traducao; flag off = R.
-  - Justificativa do modelo (decisao registrada): GPT-4o-mini eh mais barato que Llama-Guard-3 self-hosted e mais natural que um pipeline de tradu��o. RAG traduzido so dispara quando vai buscar no Qdrant.
+  - Justificativa do modelo (decisao registrada): GPT-4o-mini eh mais barato que Llama-Guard-3 self-hosted e mais natural que um pipeline de tradu��o. RAG traduzido so dispara quando vai buscar no Qdrant.
 Rollback: LIVE_TRANSLATION_ENABLED=false.
 Commit: feat(ia14): atendimento multilingue com RAG traduzido (flag off).
 
 [2026-07-05] IA-NEXTGEN / Fase 1 - Sessao IA-30
 Tarefa: Compressao deterministica de contexto RAG (dedup + budget por secao).
 Arquivos criados:
-  - apps/api/src/infrastructure/rag/context-compressor.ts (compressContext: split sentencas via regex /(?<=[.!?�])s+/; normaliza com NFD+lowercase+trim; dedup GLOBAL via Set - 1a ocorrencia vence; trunca em FRONTEIRA de sentenca; DEFAULT_BUDGETS = RAG 2000 / DB 500 / Zep 500)
+  - apps/api/src/infrastructure/rag/context-compressor.ts (compressContext: split sentencas via regex /(?<=[.!?�])s+/; normaliza com NFD+lowercase+trim; dedup GLOBAL via Set - 1a ocorrencia vence; trunca em FRONTEIRA de sentenca; DEFAULT_BUDGETS = RAG 2000 / DB 500 / Zep 500)
   - apps/api/src/infrastructure/rag/context-compressor.test.ts (10 testes: dedup entre secoes preserva 1a, NFD handling, truncation na fronteira, budget 0, texto menor intacto, multi-section com labels, economia >=50% em corpus com 50% overlap, edge cases, flag)
   - packages/db/src/migrations/040_context_savings.sql (ADD COLUMN context_tokens_saved INTEGER DEFAULT 0 em ai_performance_logs)
 Arquivos modificados:
@@ -1632,11 +1654,11 @@ Arquivos modificados:
   - apps/api/src/infrastructure/config/public-flags.ts (+ 'compression' : 'PROMPT_COMPRESSION_ENABLED')
   - apps/api/src/infrastructure/config/public-flags.test.ts (+ 1 teste)
   - apps/api/src/domain/ia/flags.routes.test.ts (atualizado p/ 6 chaves)
-  - src/pages/AICostsPage.tsx (+ 2a fileira de KPIs: Tokens economizados / Economia estimada / % contexto deduplicado; tooltip "Tokens de contexto removidos por deduplica��o antes de chamar o modelo.")
+  - src/pages/AICostsPage.tsx (+ 2a fileira de KPIs: Tokens economizados / Economia estimada / % contexto deduplicado; tooltip "Tokens de contexto removidos por deduplica��o antes de chamar o modelo.")
   - .env.example (+ PROMPT_COMPRESSION_ENABLED=false)
 Tecnologias implementadas: dedup via Set de sentencas normalizadas (NFD+lowercase+trim); budget por secao; trunca APOS a ultima sentenca que cabe (nunca no meio); ZERO LLM, ZERO custo.
 Testes: 30 passando (4 arquivos novos/expandidos). Typecheck limpo, 0 errors lint.
-Status: CONCLUIDO. Flag PROMPT_COMPRESSION_ENABLED default 'false' - contexto id�ntico ao atual (snapshot byte-a-byte).
+Status: CONCLUIDO. Flag PROMPT_COMPRESSION_ENABLED default 'false' - contexto id�ntico ao atual (snapshot byte-a-byte).
 Observacoes:
   - Decisao registrada (plano): LLMLingua eh Python; fase TS primeiro (deterministica, gratis). Reavaliar LLMLingua na Fase 2 se ganho estagnar.
   - Teste de economia >=50% em corpus com 50% de overlap passou - cobre o caso de uso real (mesma info repetida em RAG + DB + Zep).

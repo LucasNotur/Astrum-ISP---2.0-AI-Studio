@@ -446,7 +446,7 @@ nos scripts existentes e seguir o padrão).
 
 ---
 
-# ⬜ IA-04 — OCR de boleto + visão técnica de campo
+# ✅ IA-04 — OCR de boleto + visão técnica de campo
 
 **Objetivo:** (a) documento PDF/imagem de boleto no WhatsApp vira dados estruturados
 (linha digitável, valor, vencimento) no contexto do agente; (b) técnico manda foto de
@@ -691,7 +691,7 @@ scored_at DESC), auth igual às rotas irmãs de `domain/ia/`.
 
 ---
 
-# ⬜ IA-08 — Voz MVP fase A (telefonia + OpenAI Realtime)
+# 🔶 IA-08 — Voz MVP fase A — A1+A2 ✅ mergeados; A3 (tools/identificação) PENDENTE
 
 **Grande (multi-sessão). Executar SÓ com IA-01 e IA-03 concluídas.** Dividir em A1/A2/A3;
 cada uma com commit próprio. A FSM `voice-call.ts` JÁ EXISTE e é a fonte de verdade do fluxo.
