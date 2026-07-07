@@ -185,6 +185,7 @@ GATE FINAL                   → S98
 **Critérios de aceite:**
 - [ ] ≥95% de equivalência na amostra julgada, p95 ≤ legado, custo ≤ legado (senão: iterar antes de cortar).
 - [ ] Cutover executado com rollback testado (virar a env de volta e confirmar que o legado volta a responder).
+- [ ] replay ≥95% (IA-46) anexado — relatório gerado via `POST /api/v2/ia/replay` com flag `REPLAY_ENGINE_ENABLED=true`.
 - [ ] A partir daqui o atendimento REAL roda no `apps/api`. 🏁 Marco maior do plano inteiro.
 
 ---

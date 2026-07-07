@@ -20,6 +20,7 @@ const allOff: Record<string, boolean> = {
   sandbox: false,
   synthdata: false,
   failover: false,
+  replay: false,
 };
 
 const FLAG_ENVS = [
@@ -35,6 +36,7 @@ const FLAG_ENVS = [
   'AGENT_SANDBOX_ENABLED',
   'SYNTH_DATA_ENABLED',
   'PROVIDER_FAILOVER_ENABLED',
+  'REPLAY_ENGINE_ENABLED',
 ];
 
 describe('public-flags', () => {
@@ -84,6 +86,7 @@ describe('public-flags', () => {
       ['AGENT_SANDBOX_ENABLED', 'sandbox'],
       ['SYNTH_DATA_ENABLED', 'synthdata'],
       ['PROVIDER_FAILOVER_ENABLED', 'failover'],
+      ['REPLAY_ENGINE_ENABLED', 'replay'],
     ];
     for (const [env, key] of pairs) {
       for (const e of FLAG_ENVS) delete process.env[e];

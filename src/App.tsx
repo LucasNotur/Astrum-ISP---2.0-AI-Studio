@@ -249,6 +249,7 @@ const FeaturesPage = lazy(() => import("./pages/intelligence/FeaturesPage"));
 const CampaignsPage = lazy(() => import("./pages/intelligence/CampaignsPage"));
 const DriftPage = lazy(() => import("./pages/intelligence/DriftPage"));
 const SyntheticPage = lazy(() => import("./pages/intelligence/SyntheticPage"));
+const ReplayPage = lazy(() => import("./pages/intelligence/ReplayPage"));
 
 import {
   Bell,
@@ -3026,6 +3027,14 @@ export default function App() {
               element={
                 <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
                   <SyntheticPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/intelligence/replay"
+              element={
+                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
+                  <ReplayPage />
                 </Suspense>
               }
             />

@@ -26,6 +26,7 @@ const PUBLIC_FLAGS: Record<string, string | undefined> = {
   synthdata: 'SYNTH_DATA_ENABLED',
   // IA-43 — flag de failover multi-provider (off por padrão).
   failover: 'PROVIDER_FAILOVER_ENABLED',
+  replay: 'REPLAY_ENGINE_ENABLED',
 };
 
 export function getPublicFlags(): Record<string, boolean> {

@@ -11,3 +11,4 @@ export { driftRoutes } from './drift.routes';
 export { sandboxRoutes } from './sandbox.routes';
 export { syntheticRoutes } from './synthetic.routes';
 export { providersRoutes } from './providers.routes';
+export { replayRoutes } from './replay.routes';
