@@ -53,7 +53,80 @@ export const ptBR = {
       critico: 'Crítico',
       'sem-dado': 'Sem dado',
     },
+    features: {
+      title: 'Catálogo de Features',
+      subtitle: 'As variáveis pré-computadas que alimentam os modelos preditivos.',
+      columns: {
+        name: 'Feature',
+        describe: 'Descrição',
+        entities: 'Entidades',
+        computedAt: 'Atualizada',
+        ttl: 'TTL',
+      },
+      ttlHours: (h: number) => `${h}h`,
+      empty: {
+        title: 'Nenhuma feature computada ainda.',
+        body: 'O cálculo roda toda noite às 02h. Você também pode aguardar a primeira execução do worker.',
+      },
+    },
+    campaigns: {
+      title: 'Campanhas Inteligentes',
+      subtitle: 'Variantes de mensagem de cobrança competindo por conversão.',
+      badges: {
+        exploring: 'explorando',
+        converged: 'convergiu',
+      },
+      columns: {
+        variant: 'Variante',
+        template: 'Template',
+        sends: 'Envios',
+        conversion: 'Conversão',
+        status: 'Status',
+      },
+      status: {
+        active: 'Ativa',
+        paused: 'Pausada',
+      },
+      ci: (low: number, high: number) => `IC95: ${formatPct(low)}–${formatPct(high)}`,
+      conversionPct: (n: number) => formatPct(n),
+      actions: {
+        pause: 'Pausar',
+        resume: 'Reativar',
+        newVariant: 'Nova variante',
+        createFirst: 'Criar primeira variante',
+        templateLabel: 'Template',
+        templateHint:
+          'Variáveis disponíveis: {{customerName}}, {{amountBRL}}, {{paymentLink}}, {{daysOverdue}}, {{invoiceId}}.',
+        campaignKeyLabel: 'Chave da campanha',
+        campaignKeyPlaceholder: 'ex.: cobranca_d1',
+        variantKeyLabel: 'Chave da variante',
+        variantKeyPlaceholder: 'ex.: A',
+        save: 'Criar variante',
+        cancel: 'Cancelar',
+      },
+      pauseDialog: {
+        title: (variantKey: string) => `Pausar a variante ${variantKey}?`,
+        body:
+          'Ela sai do sorteio imediatamente. Os envios já feitos continuam contando conversão.',
+        confirm: 'Pausar',
+        cancel: 'Cancelar',
+      },
+      toasts: {
+        paused: 'Variante pausada — tráfego realocado.',
+        resumed: 'Variante reativada — voltou ao sorteio.',
+        created: 'Variante criada.',
+        error: 'Não foi possível concluir. Tente de novo.',
+      },
+      empty: {
+        title: 'Nenhuma campanha com variantes ainda.',
+        body: 'Crie a primeira variante para que o bandit comece a explorar e convergir.',
+      },
+    },
   },
 } as const;
+
+function formatPct(n: number): string {
+  return `${(n * 100).toFixed(1)}%`;
+}
 
 export type PtBR = typeof ptBR;

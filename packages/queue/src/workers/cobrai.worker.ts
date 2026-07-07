@@ -17,6 +17,12 @@ export interface CobraiJobData {
   customerPhone?: string;
   messageContent?: string;
   amountCents?: number;
+  // IA-26 — multi-armed bandit (opcional; só ativo se BANDIT_ENABLED=true).
+  // Sem campaignKey, o worker usa a messageContent original (fail-open).
+  campaignKey?: string;
+  // Vars originais usados na interpolação do messageContent. Necessários para
+  // re-interpolar a variante sorteada. Se ausentes, a variante vai "crua".
+  messageVars?: Record<string, string | number>;
 }
 
 async function executeCobraiAction(job: Job<CobraiJobData>): Promise<void> {
@@ -104,9 +110,40 @@ async function executeCobraiAction(job: Job<CobraiJobData>): Promise<void> {
         cobrancaLogger.warn({ tenantId, invoiceId }, 'send_message sem phone ou message');
         break;
       }
+      // IA-26 — multi-armed bandit (Thompson sampling). Fail-open:
+      // se a flag estiver off, ou se a campanha não tiver 2+ variantes ativas,
+      // ou se qualquer chamada ao Supabase falhar, usamos o messageContent
+      // original. Comportamento atual preservado byte a byte no caminho padrão.
+      let finalMessage = messageContent;
+      if ((job.data as CobraiJobData).campaignKey) {
+        const variantKey = (job.data as CobraiJobData).campaignKey;
+        try {
+          const { isBanditEnabled, tryPickVariant, recordVariantSend, buildMessageFromVariant } =
+            await import('../../../apps/api/src/domain/cobranca/variant-picker.service');
+          if (isBanditEnabled()) {
+            const picked = await tryPickVariant(tenantId, variantKey);
+            if (picked) {
+              finalMessage = buildMessageFromVariant(
+                picked.template,
+                (job.data as CobraiJobData).messageVars,
+              );
+              await recordVariantSend(tenantId, picked.id, invoiceId);
+              cobrancaLogger.info(
+                { tenantId, invoiceId, campaignKey: variantKey, variantId: picked.id, variantKey: picked.variantKey },
+                'CobrAI bandit: variante sorteada',
+              );
+            }
+          }
+        } catch (err) {
+          cobrancaLogger.warn(
+            { err, tenantId, invoiceId, campaignKey: variantKey },
+            'CobrAI bandit falhou — usando mensagem original (fail-open)',
+          );
+        }
+      }
       await sendWhatsAppResponse({
         to: customerPhone,
-        content: messageContent,
+        content: finalMessage,
         tenantId,
       });
       break;

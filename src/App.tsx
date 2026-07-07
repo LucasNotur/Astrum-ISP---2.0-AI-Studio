@@ -243,6 +243,8 @@ import { BIPage } from "./pages/BIPage";
 
 const IntelligenceHubPage = lazy(() => import("./pages/intelligence/IntelligenceHubPage"));
 const ToolsPage = lazy(() => import("./pages/intelligence/ToolsPage"));
+const FeaturesPage = lazy(() => import("./pages/intelligence/FeaturesPage"));
+const CampaignsPage = lazy(() => import("./pages/intelligence/CampaignsPage"));
 
 import {
   Bell,
@@ -2972,6 +2974,22 @@ export default function App() {
               element={
                 <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
                   <ToolsPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/intelligence/features"
+              element={
+                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
+                  <FeaturesPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/intelligence/campaigns"
+              element={
+                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
+                  <CampaignsPage />
                 </Suspense>
               }
             />
