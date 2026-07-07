@@ -245,6 +245,8 @@ const IntelligenceHubPage = lazy(() => import("./pages/intelligence/Intelligence
 const ToolsPage = lazy(() => import("./pages/intelligence/ToolsPage"));
 const GuardrailsPage = lazy(() => import("./pages/intelligence/GuardrailsPage"));
 const NetworkGraphPage = lazy(() => import("./pages/intelligence/NetworkGraphPage"));
+const FeaturesPage = lazy(() => import("./pages/intelligence/FeaturesPage"));
+const CampaignsPage = lazy(() => import("./pages/intelligence/CampaignsPage"));
 
 import {
   Bell,
@@ -2990,6 +2992,22 @@ export default function App() {
               element={
                 <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
                   <NetworkGraphPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/intelligence/features"
+              element={
+                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
+                  <FeaturesPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/intelligence/campaigns"
+              element={
+                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
+                  <CampaignsPage />
                 </Suspense>
               }
             />

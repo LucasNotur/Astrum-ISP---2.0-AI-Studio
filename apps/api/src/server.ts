@@ -123,6 +123,15 @@ export async function buildServer() {
   const { graphRoutes } = await import('./domain/rede/graph.routes');
   await app.register(graphRoutes);
 
+  // IA-27 — feature store: catálogo de features pré-computadas (cataloga + freshness).
+  const { featuresRoutes } = await import('./domain/ia/features.routes');
+  await app.register(featuresRoutes);
+
+  // IA-26 — campanhas: variantes de mensagem de cobrança competindo por conversão
+  // (multi-armed bandit Thompson sampling). Flag BANDIT_ENABLED default false.
+  const { campaignsRoutes } = await import('./domain/ia/campaigns.routes');
+  await app.register(campaignsRoutes);
+
   const websocketRoutes = await import('./domain/realtime/websocket.routes');
   await app.register(websocketRoutes.default);
 
