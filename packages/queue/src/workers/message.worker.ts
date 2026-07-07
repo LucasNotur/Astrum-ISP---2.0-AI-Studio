@@ -9,6 +9,8 @@ import { sendWhatsAppResponse } from '../../../apps/api/src/adapters/whatsapp/me
 import { supabaseAdmin } from '../../../apps/api/src/infrastructure/database/supabase.client';
 import { atendimentoLogger } from '../../../apps/api/src/infrastructure/logging/logger';
 import { addSentryToWorker } from '../../../apps/api/src/infrastructure/observability/sentry-worker.helper';
+import { processInboundMedia, type MediaDeps } from '../../../apps/api/src/adapters/whatsapp/media-processor.service';
+import { isVisionEnabled, extractBoleto, classifyFieldPhoto } from '../../../apps/api/src/infrastructure/vision/vision.service';
 
 export interface MessageJobData {
   tenantId: string;
@@ -48,6 +50,48 @@ async function processMessage(job: Job<MessageJobData>): Promise<void> {
     content: messageContent, // original
   });
 
+  // 2.5 (IA-04) PROCESSAR MÍDIA — converter áudio/imagem/documento em texto
+  let userMessage = messageContent;
+  const hasMedia = job.data.isAudio || job.data.isImage || job.data.isDocument;
+  if (hasMedia) {
+    const mediaDeps: MediaDeps = {
+      transcribeAudio: async () => {
+        atendimentoLogger.warn({ tenantId }, 'Whisper not wired — returning null (placeholder)');
+        return null;
+      },
+      describeImage: async () => {
+        atendimentoLogger.warn({ tenantId }, 'Vision describe not wired — returning null (placeholder)');
+        return null;
+      },
+      visionEnabled: false,
+    };
+    if (isVisionEnabled()) {
+      mediaDeps.extractBoleto = extractBoleto;
+      mediaDeps.classifyFieldPhoto = classifyFieldPhoto;
+    }
+
+    const mediaResult = await processInboundMedia(
+      {
+        textMessage: messageContent,
+        isAudio: job.data.isAudio,
+        audioUrl: job.data.audioUrl,
+        base64Media: job.data.base64Media,
+        isImage: job.data.isImage,
+        isDocument: job.data.isDocument,
+        mediaMimeType: job.data.mediaMimeType,
+        imageUrl: job.data.audioUrl, // reusa audioUrl como url genérica para mídia
+      },
+      tenantId,
+      mediaDeps,
+    );
+
+    userMessage = mediaResult.textForLLM;
+    atendimentoLogger.info(
+      { mediaType: mediaResult.mediaType, extension: mediaResult.systemPromptExtension?.slice(0, 100) },
+      'Media processed for message',
+    );
+  }
+
   // 3. EXECUTAR LANGGRAPH STATE MACHINE
   const { langGraphService } = await import('../../../apps/api/src/domain/agent/langgraph.service');
   
@@ -55,7 +99,7 @@ async function processMessage(job: Job<MessageJobData>): Promise<void> {
     tenantId,
     customerId: customerId ?? 'unknown',
     conversationId,
-    userMessage: messageContent,
+    userMessage,
   });
 
   // 4. SALVAR RESPOSTA DA IA

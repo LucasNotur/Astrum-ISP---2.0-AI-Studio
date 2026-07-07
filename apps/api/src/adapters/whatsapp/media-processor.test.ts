@@ -90,4 +90,54 @@ describe('processInboundMedia — documento (F3)', () => {
     expect(r.storedRef).toBe('r2://doc/comprovante.pdf');
     expect(r.systemPromptExtension).toContain('r2://doc/comprovante.pdf');
   });
+
+  // IA-04: OCR de boleto via extractBoleto dep
+  it('IA-04: boleto válido → extension com valor, vencimento e linha digitável', async () => {
+    const r = await processInboundMedia(
+      { textMessage: 'meu boleto', isDocument: true, imageUrl: 'http://img/boleto.png' },
+      't1',
+      deps({
+        extractBoleto: vi.fn().mockResolvedValue({
+          is_boleto: true, confidence: 0.95,
+          valor_cents: 12050, vencimento: '2026-08-15',
+          linha_digitavel: '34191790010104351004791020150008291070026000123',
+        }),
+      }),
+    );
+    expect(r.systemPromptExtension).toContain('Boleto anexado');
+    expect(r.systemPromptExtension).toContain('R$120.50');
+    expect(r.systemPromptExtension).toContain('2026-08-15');
+    expect(r.systemPromptExtension).toContain('Compare com as faturas');
+  });
+
+  it('IA-04: is_boleto=false → comportamento de documento normal', async () => {
+    const r = await processInboundMedia(
+      { textMessage: 'contrato', isDocument: true, imageUrl: 'http://img/doc.jpg' },
+      't1',
+      deps({
+        extractBoleto: vi.fn().mockResolvedValue({ is_boleto: false, confidence: 0.98 }),
+      }),
+    );
+    expect(r.systemPromptExtension).toBeNull();
+    expect(r.textForLLM).toBe('contrato');
+  });
+
+  it('IA-04: dep extractBoleto ausente → comportamento de documento normal', async () => {
+    const r = await processInboundMedia(
+      { textMessage: 'boleto', isDocument: true, imageUrl: 'http://img/boleto.png' },
+      't1',
+      deps(),
+    );
+    expect(r.systemPromptExtension).toBeNull();
+  });
+
+  it('IA-04: OCR lança → fail-open (cai para documento normal)', async () => {
+    const r = await processInboundMedia(
+      { textMessage: 'boleto', isDocument: true, imageUrl: 'http://img/boleto.png' },
+      't1',
+      deps({ extractBoleto: vi.fn().mockRejectedValue(new Error('OCR down')) }),
+    );
+    expect(r.systemPromptExtension).toBeNull();
+    expect(r.textForLLM).toBe('boleto');
+  });
 });
