@@ -3,7 +3,7 @@
  *
  * Defensa dupla:
  *  1. sql-guard.ts (este arquivo) — valida o AST antes de qualquer I/O.
- *  2. migration 038_agent_readonly_role.sql — role Postgres sem permissão
+ *  2. migration 045_agent_readonly_role.sql — role Postgres sem permissão
  *     de escrita e com statement_timeout = 3s, executada na conexão sandbox.
  *
  * Política:

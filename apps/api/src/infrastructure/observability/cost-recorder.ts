@@ -11,7 +11,7 @@
  *   Assim, o caller pode tanto `await` quanto `.catch()` defensivamente.
  * - O INSERT é em ai_performance_logs (mesma tabela que 018/028 alimentam).
  *   As novas dimensões (customer_id, conversation_id, use_case) vêm da
- *   migration 041_ai_costs_dimensions.sql.
+ *   migration 044_ai_costs_dimensions.sql.
  */
 
 import { infraLogger } from '../logging/logger';
