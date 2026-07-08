@@ -24,6 +24,35 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-08] NEXTGEN 2.0 — Sessão NG2-UIUX-PLAN (Plano C) + radar James/Telia
+Tarefa: (a) criar o PLANO_C_UIUX_OPERACIONAL.md; (b) adicionar concorrentes
+  apontados pelo Lucas (James IA / Telia) ao quadro do Plano B.
+Arquivos criados:
+  - .astrum-progress/nextgen-2.0/PLANO_C_UIUX_OPERACIONAL.md — direção
+    "Tecnologia Limpa" com lista negra anti-cara-de-IA (RN21), personas × métricas
+    de eficiência (RN22), fases U0-U7 (auditoria das 38 telas → fundações →
+    GATE-VISUAL → shell/command palette → redesign por persona → responsividade →
+    white-label/config por ISP → qualidade dev). GATE-VISUAL: redesign em massa
+    BLOQUEADO até o Lucas enviar as imagens de referência; delas nasce a Skill
+    `astrum-design` que mantém o padrão para sempre.
+Arquivos modificados:
+  - PLANO_B_PARIDADE_CONCORRENTES.md: + Meu James (WhatsApp IA áudio/texto, PIX,
+    trial 7d, marketing agressivo no Instagram — maior share de atenção do dono
+    de ISP) + Telia/Agência Intellect (landing JS; monitorar IG) + Maxbot,
+    EvoTalks, ZiveAI, ISP AI Starter (anel 2 lotado) + leitura estratégica #4
+    (lição de distribuição) + P5-05 (trial sem fricção, resposta ao James) +
+    fontes novas no §6.
+Fatos do frontend auditados p/ o Plano C: 28 páginas legadas + 10 intelligence =
+  38 telas; App.tsx com 5.903 linhas; 18 componentes ui + 7 intelligence;
+  7 páginas sem NENHUM breakpoint; tokens astrum e Space Grotesk já no index.css.
+Nota de operação: sessões paralelas trocaram a branch do worktree (ia32 → ia38);
+  este commit foi feito em worktree temporário sobre origin/main para não
+  interferir. PLANO_C também copiado aqui a partir do worktree da ia38.
+Status: ✅ Concluído (planejamento). Próximo: Lucas envia imagens de referência →
+  sessão U2 (linguagem visual + Skill astrum-design). U0/U1 já executáveis.
+
+---
+
 [2026-07-07] NEXTGEN 2.0 — Sessão NG2-PLAN (estratégia: diferencial + paridade)
 Tarefa: criar a pasta .astrum-progress/nextgen-2.0/ com 2 planos estratégicos,
   com pesquisa de concorrência de julho/2026 (Google + Instagram público; FB/IG

@@ -49,7 +49,9 @@ posicionamento Astrum):
 |---|---|
 | **Mundiale.ai (WitHub)** | Atendimento (2ª via, abertura de OS, **religue por confiança**, notificação de falha, resumo p/ humano, 24/7), cobrança (lembretes, Pix, **negociação automatizada**, promessa "−30% inadimplência"), vendas (oferta, **viabilidade**, coleta, fechamento; "84% resolvido automaticamente"). Integra **Voalle, MK, IXC, SGP/TSMX, Hubsoft, MK-Auth** |
 | **Talqui** | Balcão financeiro 24/7 no WhatsApp com IXC — busca fatura no ERP e **recalcula juros conforme a regra do IXC** |
-| **Opa! Suite** (da própria IXC), **Chatlabs, Zapisp, PliQ** | Omnichannel WhatsApp + cobrança integrada aos ERPs |
+| **Meu James (James IA)** — *adicionado 2026-07-08 por indicação do Lucas* | Atendimento WhatsApp 24/7 com IA respondendo **áudio e texto**, cobrança automatizada com PIX, boleto em segundos, desbloqueio, notificações personalizadas; integrado ao sistema do provedor; **trial de 7 dias acompanhado**. Máquina de marketing: blog com "comparativos 2026" ranqueando a si mesmo (SEO) + anúncios pesados no Instagram, com muitos donos de ISP seguindo. É o concorrente com MAIOR share de atenção do decisor — a guerra com ele é tanto de distribuição quanto de produto |
+| **Telia (Agência Intellect)** — *adicionado 2026-07-08 por indicação do Lucas* | "Atendimento IA para provedores de Internet"; landing 100% JS (conteúdo não indexável — detalhes exigem olhar o Instagram deles diretamente, onde também anunciam forte). Mesmo playbook do James: mídia paga em cima do dono de ISP. Entra no radar mensal (§6) como prioridade |
+| **Opa! Suite** (da própria IXC), **Chatlabs, Zapisp, PliQ, Maxbot, EvoTalks, ZiveAI, ISP AI Starter** | Omnichannel WhatsApp + cobrança integrados aos ERPs (Maxbot/EvoTalks com CRM multicanal; ZiveAI e ISP AI Starter são entrantes menores de IA) — **o anel 2 está lotado**: reforça que o diferencial da Astrum não pode ser "bot de WhatsApp" |
 | **Meta Business Agent** (global desde jun/2026) | IA nativa do WhatsApp/Instagram para PMEs — **commoditiza o atendimento básico**. Quem só "responde WhatsApp" morre; quem opera o ERP com dados, não |
 
 ### 1b. Leitura estratégica
@@ -62,6 +64,12 @@ posicionamento Astrum):
 3. O Meta Business Agent mata o bot burro, não a Astrum — mas OBRIGA a Astrum a
    nunca se vender como "chatbot": vende-se OPERAÇÃO (agir no ERP, na rede, na
    cobrança), que o Meta não alcança.
+4. **James e Telia ensinam a lição de DISTRIBUIÇÃO** (2026-07-08): eles dominam a
+   atenção do dono de ISP com anúncio no Instagram, trial de 7 dias sem fricção e
+   conteúdo SEO — antes de qualquer superioridade técnica. O P5 deste plano ganha
+   um item de resposta (P5-05) e o Degrau 0 da escada (§2) precisa ser TÃO sem
+   fricção quanto o trial do James: conectar o ERP e ver o primeiro insight em
+   minutos, sem reunião de venda.
 
 ---
 
@@ -176,7 +184,15 @@ auditado).
   tenant, PII masking, audit trail; falta EMPACOTAR como documento comercial).
 - **P5-04 — Case engine:** todo tenant piloto gera case com número auditado
   (backtesting D-02 do PLANO_A vira a máquina de cases quando existir).
-**Métrica:** ciclo de venda (dias); % de deals ganhos vs Anel 2.
+- **P5-05 — Trial sem fricção (resposta ao James/Telia):** o Degrau 0 vira
+  produto: cadastro self-service → conectar ERP (P0-01) → sync read-only →
+  primeiro relatório de insight em <30 min, grátis por 7-14 dias, sem call de
+  vendas obrigatória. O relatório do trial JÁ usa os números do P5-01 ("neste
+  período a Astrum teria recuperado R$ X"). Distribuição: presença de conteúdo
+  onde o dono de ISP está (Instagram) é decisão comercial do Lucas — o produto
+  entrega a landing do trial e o funil instrumentado.
+**Métrica:** ciclo de venda (dias); % de deals ganhos vs Anel 2; conversão
+trial→pago.
 
 ### BLOCO P6 — Rede/CPE via parceria (não construir)
 **Gap:** IXC ACS gerencia CPE com IA (TR-069). Construir ACS = anos (RN19).
@@ -225,6 +241,9 @@ auditado).
 - Meta Business Agent (jun/2026): https://exame.com/tecnologia/meta-amplia-business-agent-no-whatsapp-inclui-instagram-e-prepara-cobranca-para-pmes/
 - Ecossistema de bots: https://www.chatlabs.com.br/whatsapp-api-para-provedores-de-internet-suporte-cobranca-e-os · https://wiki.opasuite.com.br/integracoes/erp-ixc/cobranca-whatsapp · https://zapisp.com.br/integracoes · https://www.pliq.io/integracoes/
 - Instagram público: @ixcsoft (18k, APTC Cumbre Lima 2026, parceria BB) · @hubsoftoficial · @grupovoalle.
+- Meu James (add. 2026-07-08): https://meujames.com/ · https://meujames.com/lp/provedor · blog SEO: https://blog.meujames.com/plataforma-chatbot-provedores-internet-isp-brasil-whatsapp-atendimento/
+- Telia (add. 2026-07-08): https://telia.agenciaintellect.com.br/ (landing JS — monitorar Instagram diretamente)
+- Demais anel 2 (add. 2026-07-08): https://www.maxbot.com.br/plataforma-de-atendimento-digital-2/plataforma-de-atendimento-para-provedores-de-internet · https://www.evotalks.com.br/provedores-de-internet/ · https://ziveai.com.br/ · https://ispai.com.br/
 
 **Limitações registradas:** Facebook/Instagram exigem login para o feed completo —
 a leitura foi de posts indexados publicamente. **Recomendação:** monitoramento
