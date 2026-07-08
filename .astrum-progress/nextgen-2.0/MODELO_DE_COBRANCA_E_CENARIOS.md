@@ -67,11 +67,62 @@ o modelo mental do setor — ERP, OZmap, tudo se paga por assinante). Dois ajust
 Espelha a escada de entrada (Plano B §2) — o cliente sobe de degrau no produto E
 no preço, com o dashboard de valor justificando cada upgrade:
 
-| Tier | Cobre (degraus) | Preço/assinante | Piso mensal | 1.862 assin. |
-|---|---|---|---|---|
-| **Radar** | 0-1: conector ERP, dashboards, churn, saúde de rede (read-only) | R$ 1,20 | R$ 690 | ≈ R$ 2,2k |
-| **Copiloto** | 2: + atendimento IA omnichannel, cobrança IA agindo via ERP | R$ 2,80 | R$ 1.990 | ≈ R$ 5,2k |
-| **Autônomo** | 3: + vendas, NOC preventivo, negociador c/ alçada, CFO virtual | R$ 4,50 | R$ 3.990 | ≈ R$ 8,4k |
+*(Revisado em 2026-07-08 após feedback do Lucas: o modelo precisa nascer da dor
+de cada PORTE — o de 500 não pode pagar barreira de entrada; quem cresce sobe de
+degrau com o caixa que a própria Astrum gerou. A mecânica dele — piso + por
+assinante — foi mantida e generalizada em FAIXAS PROGRESSIVAS, estilo alíquota
+marginal: cada faixa só cobra pelos assinantes DENTRO dela; crescer 1 assinante
+nunca dá salto de fatura.)*
+
+**RADAR** (porta de entrada/funil — preço de gancho, flat por porte):
+até 1.000 = **R$ 349** · até 3.000 = **R$ 690** · até 5.000 = **R$ 990** ·
+até 10.000 = **R$ 1.490** · até 20.000 = **R$ 1.990**
+
+**COPILOTO** — piso **R$ 890** (já inclui os primeiros 500 assinantes) + faixas:
+501-2.000 = **R$ 2,20**/assin. · 2.001-5.000 = **R$ 1,80** ·
+5.001-10.000 = **R$ 1,40** · acima de 10.000 = **R$ 1,00**
+
+**AUTÔNOMO** — piso **R$ 1.990** (inclui 500) + faixas:
+501-2.000 = **R$ 3,60** · 2.001-5.000 = **R$ 3,00** ·
+5.001-10.000 = **R$ 2,30** · acima de 10.000 = **R$ 1,70** (+ voz por consumo)
+
+### Tabela de exemplos por porte (ticket médio assumido R$ 90; valor = 6-12% da receita)
+
+| Assinantes | Receita ISP/mês | Valor Astrum est./mês | Radar | Copiloto (R$/assin.) | Autônomo (R$/assin.) | ROI Copiloto |
+|---|---|---|---|---|---|---|
+| 500 | R$ 45k | R$ 2,7k – 5,4k | R$ 349 | **R$ 890** (1,78) | R$ 1.990 (3,98) | 3-6× |
+| 1.000 | R$ 90k | R$ 5,4k – 10,8k | R$ 349 | **R$ 1.990** (1,99) | R$ 3.790 (3,79) | 2,7-5,4× |
+| 3.000 | R$ 270k | R$ 16k – 32k | R$ 690 | **R$ 5.990** (2,00) | R$ 10.390 (3,46) | 2,7-5,3× |
+| 5.000 | R$ 450k | R$ 27k – 54k | R$ 990 | **R$ 9.590** (1,92) | R$ 16.390 (3,28) | 2,8-5,6× |
+| 8.000 | R$ 720k | R$ 43k – 86k | R$ 1.490 | **R$ 13.790** (1,72) | R$ 23.290 (2,91) | 3,1-6,2× |
+| 10.000 | R$ 900k | R$ 54k – 108k | R$ 1.490 | **R$ 16.590** (1,66) | R$ 27.890 (2,79) | 3,3-6,5× |
+| 15.000 | R$ 1,35M | R$ 81k – 162k | R$ 1.990 | **R$ 21.590** (1,44) | R$ 36.390 (2,43) | 3,8-7,5× |
+| 20.000 | R$ 1,8M | R$ 108k – 216k | R$ 1.990 | **R$ 26.590** (1,33) | R$ 44.890 (2,24) | 4,1-8,1× |
+
+Conferência com o exemplo real do Lucas (1.862 assin.): Copiloto = 890 +
+1.362×2,20 = **R$ 3.886** (R$ 2,09/assin.) · Autônomo = 1.990 + 1.362×3,60 =
+**R$ 6.893**. O preço atual dele (R$ 4.655) fica ENTRE os dois — coerente.
+
+### A dor e a âncora de venda por porte (o argumento, não só o número)
+- **500** — o dono atende de madrugada e é refém do único atendente. Âncora:
+  Copiloto custa **¼ de um atendente CLT** (custo total R$ 3,5-4,5k) e não tira
+  férias. É aqui que o James ganha hoje por preço — R$ 890 compete de igual.
+- **1.000** — a primeira contratação evitada JÁ paga o ano de Astrum.
+- **3.000** — 2-3 atendentes + técnico de plantão; a conta muda para "equipe
+  que eu não precisei montar" (R$ 10-15k/mês de folha evitada).
+- **5.000-8.000** — nasce a dor de NOC/plantão noturno e de gestão de campo;
+  âncora: Autônomo custa menos que o plantão que ele elimina.
+- **10.000+** — operação multi-cidade: benchmark, SLA, white-label, M&A.
+  Acima de ~15k é ENTERPRISE: contrato negociado (a tabela vira teto de
+  referência, não preço de balcão), success fee maior, CSM dedicado.
+
+### Gatilhos de upgrade (a escada §2 do Plano B em versão comercial)
+O upgrade nunca é empurrado por vendedor — é disparado pelo produto: quando o
+dashboard "Valor Gerado" (P5-01) mostra por 2 meses seguidos valor medido ≥3×
+a mensalidade, a Astrum oferece o degrau seguinte DENTRO do produto, com o
+número do próprio cliente como argumento ("o Copiloto te devolveu R$ 18k em 60
+dias; o Autônomo destrava a madrugada e as vendas"). O ISP sobe quando tem
+caixa — caixa que a Astrum ajudou a criar.
 
 - **Voz é SEMPRE consumo** (add-on em qualquer tier): a Realtime API tem custo
   real por minuto — vender pacotes (ex.: 1.000 min/mês) com margem, nunca
@@ -94,7 +145,12 @@ no preço, com o dashboard de valor justificando cada upgrade:
   Gerado" do mês (P5-01): "custou R$ 5,2k, entregou R$ 14,1k medidos".
 
 ### 3d. Decisões em aberto (do Lucas)
-1. Valores finais por tier (os acima são ponto de partida calibrado por valor).
+1. Valores finais das faixas (os acima são ponto de partida calibrado por valor;
+   validar contra o custo real medido pela IA-34 nos primeiros pilotos).
 2. Success fee: % e teto; entra no contrato padrão ou só como destrava?
-3. Piso do Radar: R$ 690 ou ainda mais baixo (R$ 0?) para maximizar funil?
+3. Radar de entrada: R$ 349 ou R$ 0 (grátis permanente até 1.000 assinantes?)
+   para maximizar o funil contra o trial do James — trade-off: funil × percepção
+   de valor ("de graça não vale nada").
 4. White-label/revenda (U6-01) como tier próprio ou negociação enterprise.
+5. Limiar do enterprise: a partir de quantos assinantes a tabela vira "sob
+   consulta" (sugestão: 15.000).
