@@ -15,6 +15,16 @@
 > (3) criar a **Skill `astrum-design`** que codifica o padrão; (4) aprovar 1 tela
 > piloto. Todo o §2 abaixo é HIPÓTESE de direção até esse gate. O trabalho
 > ESTRUTURAL (U0/U1) não depende do gate e pode começar antes.
+>
+> **⚠️ STATUS 2026-07-08 — 1ª HIPÓTESE REJEITADA.** Um conceito "blueprint neon
+> dark" (quase-preto + grid pontilhado + neon verde + banner expressivo), montado
+> a partir de pins do Pinterest enviados pelo Lucas, foi apresentado como mockup
+> e ficou "bem fora" do que ele imagina. Consequências para a IA executora:
+> (a) NÃO retomar essa direção nem derivar dela; (b) o §2 inteiro perde o status
+> de hipótese preferida — vale só a lista negra 2a (anti-genérico continua);
+> (c) NÃO gerar novos conceitos visuais por iniciativa própria — o próximo passo
+> visual é 100% pautado pelas imagens e observações que o Lucas vai enviar;
+> (d) U0/U1 (estruturais) seguem liberadas.
 
 ---
 

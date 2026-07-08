@@ -24,6 +24,29 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-08] NEXTGEN 2.0 — Decisões do Lucas: UI pausada + autoria de commits + modelo de cobrança
+Decisões registradas:
+  - UI/UX: o conceito "blueprint neon dark" apresentado FOI REJEITADO ("bem fora
+    do que eu imaginava"). UI pausada até o Lucas enviar imagens de referência
+    próprias. Nota de status adicionada ao GATE-VISUAL do PLANO_C. Nenhuma
+    sessão deve gerar conceito visual por iniciativa própria.
+  - Commits: autoria 100% LucasNotur (já era o author de todos); a partir de
+    agora SEM trailer "Co-Authored-By: Claude". Histórico antigo não será
+    reescrito (main publicado + sessões paralelas dependem dele).
+  - Docs de plano: sempre direto no main (confirmado — 37096c0, 06b2de2,
+    b78051a estão todos em origin/main, organizados em .astrum-progress/).
+Arquivos criados:
+  - .astrum-progress/nextgen-2.0/MODELO_DE_COBRANCA_E_CENARIOS.md — valor
+    entregue por ISP de referência (1.862 assinantes: R$ 10-20k/mês, 6-12% da
+    receita), 7 cenários pós-implementação, e modelo de cobrança recomendado:
+    3 tiers por assinante (Radar R$1,20 / Copiloto R$2,80 / Autônomo R$4,50 +
+    pisos) + voz por consumo + success fee opcional auditável via D-02 +
+    trial 14d. Decisões finais de preço ficam com o Lucas (§3d).
+Arquivos modificados: PLANO_C_UIUX_OPERACIONAL.md (status da hipótese rejeitada).
+Status: ✅ Concluído (registro de decisões + documento de pricing).
+
+---
+
 [2026-07-08] NEXTGEN 2.0 — Sessão NG2-UIUX-PLAN (Plano C) + radar James/Telia
 Tarefa: (a) criar o PLANO_C_UIUX_OPERACIONAL.md; (b) adicionar concorrentes
   apontados pelo Lucas (James IA / Telia) ao quadro do Plano B.
