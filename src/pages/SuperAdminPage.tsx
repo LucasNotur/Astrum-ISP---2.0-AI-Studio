@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useAppStore } from '../store/useAppStore';
 import { Button } from "@/src/components/ui/button";
 import { Badge } from "@/src/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
@@ -42,6 +43,7 @@ interface FlagRow {
 }
 
 export const SuperAdminPage = () => {
+  const { currentUserRole } = useAppStore();
   const [metrics, setMetrics] = useState<any>(null);
   const [tenants, setTenants] = useState<TenantRow[]>([]);
   const [shadowRows, setShadowRows] = useState<ShadowRow[]>([]);
@@ -50,8 +52,9 @@ export const SuperAdminPage = () => {
   const [engineUpdating, setEngineUpdating] = useState<string | null>(null);
 
   useEffect(() => {
+    if (currentUserRole !== 'super_admin') return;
     fetchData();
-  }, []);
+  }, [currentUserRole]);
 
   const getToken = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -153,6 +156,15 @@ export const SuperAdminPage = () => {
     : 0;
 
   const CORE_FLAGS = ['cobrai_v2', 'atendimento_v2', 'ai_budget_hard_stop', 'rag_enabled', 'webhook_svix'];
+
+  if (currentUserRole !== 'super_admin') {
+    return (
+      <div className="flex items-center justify-center h-64 text-muted-foreground">
+        <ShieldCheck className="mr-2 h-5 w-5" />
+        Acesso restrito — apenas Super Admin.
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">

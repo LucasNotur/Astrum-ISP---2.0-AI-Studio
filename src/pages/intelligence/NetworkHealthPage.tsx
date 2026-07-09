@@ -41,7 +41,7 @@ const columns = [
     key: 'severity',
     header: 'Severidade',
     accessor: (r: Anomaly) => r.severity === 'alto' ? 'Alto' : 'Médio',
-    riskAccessor: (r: Anomaly) => (r.severity === 'alto' ? 'high' as const : 'medium' as const),
+    riskAccessor: (r: Anomaly) => (r.severity === 'alto' ? 'alto' as const : 'medio' as const),
   },
 ];
 

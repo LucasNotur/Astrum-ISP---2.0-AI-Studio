@@ -310,7 +310,7 @@ export function ChatPage() {
         snoozed_until: snoozedUntilDate.toISOString(),
         snooze_reason: snoozeForm.reason,
         snoozed_by: userProfile?.id || "Operador",
-      });
+      }).eq('id', selectedTicket.id);
 
       toast.success("Ticket colocado em espera (Snooze).");
       setIsSnoozeDialogOpen(false);

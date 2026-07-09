@@ -46,9 +46,9 @@ const forecastColumns = [
     },
     riskAccessor: (r: ForecastRow) => {
       const s = r.staffing?.status;
-      if (s === 'critical') return 'high' as const;
-      if (s === 'warning') return 'medium' as const;
-      return 'low' as const;
+      if (s === 'critical') return 'critico' as const;
+      if (s === 'warning') return 'medio' as const;
+      return 'baixo' as const;
     },
   },
 ];
