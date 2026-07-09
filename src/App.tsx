@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { applyTheme } from "./lib/themeManager";
 import {
   Routes,
   Route,
-  Navigate,
   useLocation,
   useNavigate,
 } from "react-router-dom";
@@ -215,50 +214,14 @@ import {
 import { UpgradePrompt } from "./components/UpgradePrompt";
 import { AppLayout } from "./components/layout/AppLayout";
 import { StatCard } from "./components/ui/StatCard";
-import { DashboardPage } from "./pages/DashboardPage";
-import { SuperAdminRoute } from "./components/SuperAdminRoute";
-import { SuperAdminPage } from "./pages/SuperAdminPage";
-import { CustomersPage } from "./pages/CustomersPage";
 import { TicketsPage } from "./pages/TicketsPage";
-import { ServiceOrdersPage } from "./pages/ServiceOrdersPage";
-import { ChatPage } from "./pages/ChatPage";
-import { MapPage } from "./pages/MapPage";
-import { BillingPage } from "./pages/BillingPage";
 import { KnowledgeBasePage } from "./pages/KnowledgeBasePage";
 import { AIConfigPage } from "./pages/AIConfigPage";
 import { TeamPage } from "./pages/TeamPage";
-import QualityMonitorPage from "./pages/QualityMonitorPage";
 import { SettingsPage } from "./pages/SettingsPage";
-import { MonitoringPage } from "./pages/MonitoringPage";
-import { CobrAIPage } from "./pages/CobrAIPage";
-import { InventoryPage } from "./pages/InventoryPage";
-import { AIObservabilityPage } from "./pages/AIObservabilityPage";
-import { AICostsPage } from "./pages/AICostsPage";
-import { ERPIntegrationsPage } from "./pages/ERPIntegrationsPage";
-import { WebhooksPage } from "./pages/WebhooksPage";
-import { SecurityPage } from "./pages/SecurityPage";
 import { SignupPage } from "./pages/SignupPage";
-import TechnicianAppPage from "./pages/TechnicianAppPage";
-import { BIPage } from "./pages/BIPage";
 
-const IntelligenceHubPage = lazy(() => import("./pages/intelligence/IntelligenceHubPage"));
-const ToolsPage = lazy(() => import("./pages/intelligence/ToolsPage"));
-const GuardrailsPage = lazy(() => import("./pages/intelligence/GuardrailsPage"));
-const NetworkGraphPage = lazy(() => import("./pages/intelligence/NetworkGraphPage"));
-const FeaturesPage = lazy(() => import("./pages/intelligence/FeaturesPage"));
-const CampaignsPage = lazy(() => import("./pages/intelligence/CampaignsPage"));
-const DriftPage = lazy(() => import("./pages/intelligence/DriftPage"));
-const SyntheticPage = lazy(() => import("./pages/intelligence/SyntheticPage"));
-const ReplayPage = lazy(() => import("./pages/intelligence/ReplayPage"));
-const ChurnPage = lazy(() => import("./pages/intelligence/ChurnPage"));
-const SandboxPage = lazy(() => import("./pages/intelligence/SandboxPage"));
-const ModelsPage = lazy(() => import("./pages/intelligence/ModelsPage"));
-const LabelingPage = lazy(() => import("./pages/intelligence/LabelingPage"));
-const ReviewQueuePage = lazy(() => import("./pages/intelligence/ReviewQueuePage"));
-const McpPage = lazy(() => import("./pages/intelligence/McpPage"));
-const NetworkHealthPage = lazy(() => import("./pages/intelligence/NetworkHealthPage"));
-const StaffingPage = lazy(() => import("./pages/intelligence/StaffingPage"));
-const VoiceQaPage = lazy(() => import("./pages/intelligence/VoiceQaPage"));
+import { mainRoutes } from './routes/main.routes';
 
 import {
   Bell,
@@ -2974,171 +2937,7 @@ export default function App() {
           </motion.div>
         ) : (
           <Routes>
-            <Route
-              path="/super-admin"
-              element={
-                <SuperAdminRoute>
-                  <SuperAdminPage />
-                </SuperAdminRoute>
-              }
-            />
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route
-              path="/intelligence"
-              element={
-                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
-                  <IntelligenceHubPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/intelligence/tools"
-              element={
-                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
-                  <ToolsPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/intelligence/guardrails"
-              element={
-                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
-                  <GuardrailsPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/intelligence/graph"
-              element={
-                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
-                  <NetworkGraphPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/intelligence/features"
-              element={
-                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
-                  <FeaturesPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/intelligence/campaigns"
-              element={
-                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
-                  <CampaignsPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/intelligence/drift"
-              element={
-                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
-                  <DriftPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/intelligence/synthetic"
-              element={
-                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
-                  <SyntheticPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/intelligence/replay"
-              element={
-                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
-                  <ReplayPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/intelligence/churn"
-              element={
-                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
-                  <ChurnPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/intelligence/models"
-              element={
-                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
-                  <ModelsPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/intelligence/labeling"
-              element={
-                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
-                  <LabelingPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/intelligence/review-queue"
-              element={
-                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
-                  <ReviewQueuePage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/intelligence/mcp"
-              element={
-                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
-                  <McpPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/intelligence/network-health"
-              element={
-                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
-                  <NetworkHealthPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/intelligence/staffing"
-              element={
-                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
-                  <StaffingPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/intelligence/voice-qa"
-              element={
-                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
-                  <VoiceQaPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/intelligence/sandbox"
-              element={
-                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
-                  <SandboxPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/"
-              element={
-                <Navigate
-                  to={currentUserRole === "tecnico" ? "/tecnico" : "/dashboard"}
-                  replace
-                />
-              }
-            />
-            <Route path="/tecnico" element={<TechnicianAppPage />} />
-            <Route path="/bi" element={<BIPage />} />
-            <Route path="/customers" element={<CustomersPage />} />
+            {mainRoutes(currentUserRole)}
             <Route
               path="/tickets"
               element={
@@ -3147,14 +2946,6 @@ export default function App() {
                 />
               }
             />
-
-            <Route path="/os" element={<ServiceOrdersPage />} />
-
-            <Route path="/chat" element={<ChatPage />} />
-
-            <Route path="/map" element={<MapPage />} />
-
-            <Route path="/billing" element={<BillingPage />} />
 
             <Route
               path="/whatsapp"
@@ -3290,76 +3081,6 @@ export default function App() {
               }
             />
 
-            <Route path="/monitoring" element={<MonitoringPage />} />
-
-            <Route path="/quality-monitor" element={<QualityMonitorPage />} />
-
-            <Route path="/cobrai" element={<CobrAIPage />} />
-
-            <Route
-              path="/observability"
-              element={
-                <motion.div
-                  key="observability"
-                  initial={{ opacity: 0, x: 10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                >
-                  <AIObservabilityPage />
-                </motion.div>
-              }
-            />
-
-            <Route
-              path="/ai-costs"
-              element={
-                <motion.div
-                  key="ai-costs"
-                  initial={{ opacity: 0, x: 10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                >
-                  <AICostsPage />
-                </motion.div>
-              }
-            />
-
-            <Route
-              path="/integrations"
-              element={
-                <motion.div
-                  key="integrations"
-                  initial={{ opacity: 0, x: 10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                >
-                  <ERPIntegrationsPage />
-                </motion.div>
-              }
-            />
-
-            <Route
-              path="/webhooks"
-              element={
-                <motion.div
-                  key="webhooks"
-                  initial={{ opacity: 0, x: 10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                >
-                  <WebhooksPage />
-                </motion.div>
-              }
-            />
-
-            <Route
-              path="/security"
-              element={
-                <motion.div
-                  key="security"
-                  initial={{ opacity: 0, x: 10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                >
-                  <SecurityPage />
-                </motion.div>
-              }
-            />
 
             <Route
               path="/inventory"
