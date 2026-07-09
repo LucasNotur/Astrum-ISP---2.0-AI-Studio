@@ -211,6 +211,10 @@ export async function buildServer() {
   const { voiceConsentRoutes } = await import('./domain/ia/voice-consent.routes');
   await app.register(voiceConsentRoutes);
 
+  // P0-01 — ERP admin: wizard de credenciais (15 min) + sanity test.
+  const { erpAdminRoutes } = await import('./domain/erp/erp-admin.routes');
+  await app.register(erpAdminRoutes);
+
   const websocketRoutes = await import('./domain/realtime/websocket.routes');
   await app.register(websocketRoutes.default);
 

@@ -116,8 +116,17 @@ describe('erp.factory', () => {
     expect(createErpProvider('ixc', { url: 'u', token: 't' }).name).toBe('ixc');
   });
 
-  it('lança para provider ainda não implementado', () => {
-    expect(isErpImplemented('sgp')).toBe(false);
-    expect(() => createErpProvider('voalle', { url: 'u', token: 't' })).toThrow(/não implementado/);
+  it('voalle, sgp e hubsoft agora implementados (P0-02..P0-05)', () => {
+    expect(isErpImplemented('voalle')).toBe(true);
+    expect(isErpImplemented('sgp')).toBe(true);
+    expect(isErpImplemented('hubsoft')).toBe(true);
+    expect(createErpProvider('voalle', { url: 'u', token: 't' }).name).toBe('voalle');
+    expect(createErpProvider('sgp', { url: 'u', token: 't' }).name).toBe('sgp');
+    expect(createErpProvider('hubsoft', { url: 'u', token: 't' }).name).toBe('hubsoft');
+  });
+
+  it('lança para provider ainda não implementado (radiusnet, rbx)', () => {
+    expect(isErpImplemented('radiusnet')).toBe(false);
+    expect(() => createErpProvider('radiusnet' as any, { url: 'u', token: 't' })).toThrow(/não implementado/);
   });
 });

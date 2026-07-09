@@ -47,12 +47,37 @@ vi.mock('../../domain/rede/network-graph.service', () => ({
   defaultDb: {},
 }));
 
+// P0-06 — ERP adapter bypass
+let erpAdapterBillingResult: unknown = null;
+let erpAdapterShouldThrow = false;
+
+vi.mock('../../adapters/erp/credential-cipher', () => ({
+  decryptCredentials: vi.fn(() => ({ url: 'https://erp.test', token: 'tok' })),
+}));
+
+vi.mock('../../adapters/erp/erp.factory', () => ({
+  isErpImplemented: vi.fn((p: string) => p === 'ixc'),
+  createErpProvider: vi.fn(() => ({
+    name: 'ixc',
+    getBillingStatus: vi.fn(async () => {
+      if (erpAdapterShouldThrow) throw new Error('ERP offline');
+      return erpAdapterBillingResult;
+    }),
+    findCustomerByCpf: vi.fn(async () => []),
+    generateSecondCopy: vi.fn(async () => ({})),
+    getConnectionStatus: vi.fn(async () => ({ online: false })),
+    unlockCustomer: vi.fn(async () => ({})),
+  })),
+}));
+
 describe('ToolsExecutor', () => {
   beforeEach(() => {
     for (const k of Object.keys(results)) delete results[k];
     for (const k of Object.keys(lastSelect)) delete lastSelect[k];
     enabledToolsOverride = null;
     recordUsageCalls = 0;
+    erpAdapterBillingResult = null;
+    erpAdapterShouldThrow = false;
   });
 
   it('get_billing_status SELECIONA payment_url e pix_copy_paste (2ª via)', async () => {
@@ -150,5 +175,41 @@ describe('ToolsExecutor', () => {
     const { ToolsExecutor } = await import('./tools.executor');
     const r: any = await new ToolsExecutor('t1').execute('foo_bar', {});
     expect(r.error).toBeDefined();
+  });
+
+  // P0-06 — ERP bypass
+  it('P0-06: check_invoice usa ERP quando tenant tem credencial ativa e implementada', async () => {
+    erpAdapterBillingResult = [{ id: 'erp-fatura-1', valor: '99,90' }];
+    results['tenant_erp_credentials'] = {
+      data: { provider: 'ixc', credentials_encrypted: 'iv:tag:enc' },
+      error: null,
+    };
+    const { ToolsExecutor } = await import('./tools.executor');
+    const r: any = await new ToolsExecutor('t1').execute('check_invoice', { customer_id: 'c1' });
+    expect(r.source).toBe('erp');
+    expect(r.invoices).toEqual([{ id: 'erp-fatura-1', valor: '99,90' }]);
+  });
+
+  it('P0-06: check_invoice cai para Supabase quando ERP falha (resiliência)', async () => {
+    erpAdapterShouldThrow = true;
+    results['tenant_erp_credentials'] = {
+      data: { provider: 'ixc', credentials_encrypted: 'iv:tag:enc' },
+      error: null,
+    };
+    results['invoices'] = { data: [{ id: 'sb-fatura-1' }], error: null };
+    const { ToolsExecutor } = await import('./tools.executor');
+    const r: any = await new ToolsExecutor('t1').execute('check_invoice', { customer_id: 'c1' });
+    // sem .source → veio do Supabase
+    expect(r.source).toBeUndefined();
+    expect(r.invoices).toEqual([{ id: 'sb-fatura-1' }]);
+  });
+
+  it('P0-06: check_invoice usa Supabase quando nenhum ERP configurado', async () => {
+    results['tenant_erp_credentials'] = { data: null, error: null };
+    results['invoices'] = { data: [{ id: 'sb-2' }], error: null };
+    const { ToolsExecutor } = await import('./tools.executor');
+    const r: any = await new ToolsExecutor('t1').execute('check_invoice', { customer_id: 'c1' });
+    expect(r.source).toBeUndefined();
+    expect(r.invoices).toEqual([{ id: 'sb-2' }]);
   });
 });

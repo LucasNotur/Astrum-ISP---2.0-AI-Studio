@@ -3,6 +3,9 @@ import { suspensionQueue } from '../../../../../packages/queue/src/queues';
 import { infraLogger } from '../logging/logger';
 import { getEnabledTools, recordToolUsage } from './tool-registry';
 import { impactoCto, reincidencia, capacidade, defaultDb as graphDb } from '../../domain/rede/network-graph.service';
+import { decryptCredentials } from '../../adapters/erp/credential-cipher';
+import { createErpProvider, isErpImplemented } from '../../adapters/erp/erp.factory';
+import type { ERPProviderName, ERPCredentials } from '../../adapters/erp/erp.types';
 
 /**
  * Executor de ferramentas do Function Calling.
@@ -107,6 +110,27 @@ export class ToolsExecutor {
       customer_id: string;
       include_overdue_only: boolean;
     };
+
+    // P0-06 — se o tenant tem ERP configurado, busca diretamente no ERP do ISP.
+    try {
+      const { data: erpCred } = await supabase
+        .from('tenant_erp_credentials')
+        .select('provider, credentials_encrypted')
+        .eq('tenant_id', this.tenantId)
+        .eq('active', true)
+        .maybeSingle();
+
+      if (erpCred?.provider && isErpImplemented(erpCred.provider as ERPProviderName)) {
+        const creds = decryptCredentials<ERPCredentials>(erpCred.credentials_encrypted);
+        const adapter = createErpProvider(erpCred.provider as ERPProviderName, creds);
+        const billingRaw = await adapter.getBillingStatus(customer_id);
+        infraLogger.info({ tenantId: this.tenantId, provider: erpCred.provider }, 'check_invoice via ERP adapter');
+        return { invoices: billingRaw, source: 'erp' };
+      }
+    } catch (erpErr) {
+      // Falha silenciosa: cai de volta para Supabase (resiliência).
+      infraLogger.warn({ err: (erpErr as Error).message, tenantId: this.tenantId }, 'ERP check_invoice falhou — usando Supabase');
+    }
 
     let query = supabase
       .from('invoices')

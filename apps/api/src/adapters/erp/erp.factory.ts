@@ -1,16 +1,22 @@
 import type { ERPProvider, ERPProviderName, ERPCredentials, HttpClient } from './erp.types';
 import { IXCAdapter } from './ixc.adapter';
 import { MKAuthAdapter } from './mkauth.adapter';
+import { VoalleAdapter } from './voalle.adapter';
+import { SGPAdapter } from './sgp.adapter';
+import { HubsoftAdapter } from './hubsoft.adapter';
 
 /**
  * ERP Factory — resolve o adapter certo por provider. Plano Mestre V2, S75.
- * Os 5 providers restantes (sgp, voalle, hubsoft, radiusnet, rbx) seguem o mesmo
- * padrão dos dois implementados (IXC, MK-Auth) e entram incrementalmente.
+ * IXC, MK-Auth, Voalle, SGP e Hubsoft implementados (P0-01..P0-05).
+ * Radiusnet e Rbx entram incrementalmente.
  */
 
 const IMPLEMENTED: Partial<Record<ERPProviderName, (c: ERPCredentials, h?: HttpClient) => ERPProvider>> = {
   ixc: (c, h) => new IXCAdapter(c, h),
   mkauth: (c, h) => new MKAuthAdapter(c, h),
+  voalle: (c, h) => new VoalleAdapter(c, h),
+  sgp: (c, h) => new SGPAdapter(c, h),
+  hubsoft: (c, h) => new HubsoftAdapter(c, h),
 };
 
 export function isErpImplemented(provider: ERPProviderName): boolean {
