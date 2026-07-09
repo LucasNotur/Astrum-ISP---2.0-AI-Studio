@@ -2,7 +2,7 @@
 
 > Este arquivo é lido pela IA (Claude Code) no início do trabalho. As regras abaixo
 > são decisões do dono do produto (Lucas) e **têm precedência sobre qualquer inferência**.
-> A execução das sessões segue `.astrum-progress/PLANO_MESTRE_V2.md` (protocolo §0 obrigatório).
+> A execução das sessões segue `.astrum-progress/PLANO_MESTRE_V2__EM_ANDAMENTO.md` (protocolo §0 obrigatório).
 
 ## Regras invioláveis (R1–R6)
 
@@ -13,7 +13,7 @@
 
 - **R2 — Dados:** Supabase é o **ÚNICO** banco. Redis para cache/filas. O Firestore foi
   **REMOVIDO totalmente do código** em 2026-07-03 (Plano FIRESTORE-ZERO —
-  `.astrum-progress/PLANO_FIRESTORE_ZERO.md`). O backend legado acessa o Supabase pela
+  `.astrum-progress/PLANO_FIRESTORE_ZERO__CONCLUIDO.md`). O backend legado acessa o Supabase pela
   camada de compatibilidade `src/lib/db-compat/` (via seam `src/lib/firebaseAdmin.ts`,
   que mantém o nome histórico mas é 100% Supabase). **Proibido reintroduzir firebase/firebase-admin.**
 
@@ -34,7 +34,7 @@
 
 - **Todo código novo de produção tem teste Vitest** cobrindo o comportamento (não só "compila").
 - Rodar `npx vitest run <arquivos>` antes de fechar a sessão.
-- DoD completo em `.astrum-progress/PLANO_MESTRE_V2.md` §0.4.
+- DoD completo em `.astrum-progress/PLANO_MESTRE_V2__EM_ANDAMENTO.md` §0.4.
 
 ## Flags de transição (env)
 
@@ -54,5 +54,5 @@ Rollback de cutover = trocar a env de volta. Nenhuma das duas engines de um dom�
 - `apps/backend` — **removido** na S68 (órfão; preservado em `graveyard/billing-enterprise`).
 - `apps/frontend` — billing/subscriptions **em uso** por `src/pages/SettingsPage.tsx` (UI viva, mantido).
 
-Fontes da verdade: `.astrum-progress/PLANO_FIRESTORE_ZERO.md` (remoção do Firestore),
-`docs/LEGACY_RETIREMENT_PLAN.md`, `docs/DB_MIGRATION_GAP_REPORT.md`, `.astrum-progress/PLANO_MESTRE_V2.md`.
+Fontes da verdade: `.astrum-progress/PLANO_FIRESTORE_ZERO__CONCLUIDO.md` (remoção do Firestore),
+`docs/LEGACY_RETIREMENT_PLAN.md`, `docs/DB_MIGRATION_GAP_REPORT.md`, `.astrum-progress/PLANO_MESTRE_V2__EM_ANDAMENTO.md`.

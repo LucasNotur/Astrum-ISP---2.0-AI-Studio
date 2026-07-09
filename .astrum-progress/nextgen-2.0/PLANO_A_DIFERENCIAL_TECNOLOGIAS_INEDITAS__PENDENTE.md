@@ -21,8 +21,8 @@
 
 ## §0 — PROTOCOLO
 
-- Herda §0 do `PLANO_MESTRE_V2.md` (R1–R6), §0 do `PARTE1_IA01-IA10_backend.md`
-  (RN1–RN7) e §0.2 do `PARTE2_IA11-IA46_fullstack.md` (RN8–RN16 + Apêndices C/D/E).
+- Herda §0 do `PLANO_MESTRE_V2__EM_ANDAMENTO.md` (R1–R6), §0 do `PARTE1_IA01-IA10_backend__EM_ANDAMENTO.md`
+  (RN1–RN7) e §0.2 do `PARTE2_IA11-IA46_fullstack__EM_ANDAMENTO.md` (RN8–RN16 + Apêndices C/D/E).
 - **RN17 — Gate de expansão (igual RN16):** as sessões D-XX abaixo são GALHOS
   estruturados. Nenhuma pode ser executada sem antes uma sessão de planejamento
   (padrão IA-F2-PLAN) reescrevê-la em densidade §4 AUDITANDO o código real do dia —

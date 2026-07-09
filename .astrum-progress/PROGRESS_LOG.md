@@ -24,6 +24,29 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-08] NG2-INVENTARIO — Inventário geral de planos + renomeação por status + plano de ação
+Tarefa: inventariar TODOS os planos do sistema, renomear cada arquivo com o
+  status no fim do nome, e criar o plano de ação geral unificado.
+Arquivos criados:
+  - .astrum-progress/00_PLANO_DE_ACAO_GERAL__EM_ANDAMENTO.md — índice vivo de
+    todos os planos (§1) + roteiro em 5 ondas (§2) + mapa de dependências (§3) +
+    dever de casa do Lucas consolidado (§4) + regras de manutenção (§5).
+Renomeações (status no nome; git mv + referências atualizadas em 16 arquivos,
+  incl. CLAUDE.md, package.json e comentários de código do db-compat):
+  - CONCLUÍDOS: SPRINT_0..5, SPRINT_5_e_6, PLANO_ACAO_SPRINT1,
+    12_BLOCOS_TECNOLOGICOS, PLANO_FIRESTORE_ZERO → sufixo __CONCLUIDO
+  - SPRINT_6 → __ABSORVIDO_PELO_V2 (ficou 8/14; restante virou o V2)
+  - EM ANDAMENTO: PLANO_MESTRE_V2 (S68-98 code-complete; FALTA operação:
+    cutovers + gate final 10 critérios), PARTE1 (falta IA-08 A3), PARTE2
+    (Fase 1 ✅; Fase 2 com IA-32/IA-38 em execução paralela) → __EM_ANDAMENTO
+  - PENDENTES: PLANO_A, PLANO_B, PLANO_C (nextgen-2.0) → __PENDENTE
+  - MODELO_DE_COBRANCA_E_CENARIOS → __AGUARDANDO_DECISAO (5 decisões do Lucas)
+Nota para sessões paralelas (IA-32/IA-38): PARTE2 foi RENOMEADA no main —
+  ao mergear, o git resolve por rename detection; conferir referências.
+Status: ✅ Concluído.
+
+---
+
 [2026-07-08] NEXTGEN 2.0 — Decisões do Lucas: UI pausada + autoria de commits + modelo de cobrança
 Decisões registradas:
   - UI/UX: o conceito "blueprint neon dark" apresentado FOI REJEITADO ("bem fora

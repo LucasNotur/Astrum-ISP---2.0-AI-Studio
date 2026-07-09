@@ -3,7 +3,7 @@
  * Este módulo mantém o NOME e as ASSINATURAS históricas (era Firestore client SDK)
  * para que App.tsx e as páginas continuem importando de "./lib/db" sem mudanças.
  * As leituras real-time vivem em ./supabaseDb.ts (re-exportadas aqui).
- * Plano: .astrum-progress/PLANO_FIRESTORE_ZERO.md (FZ-4).
+ * Plano: .astrum-progress/PLANO_FIRESTORE_ZERO__CONCLUIDO.md (FZ-4).
  */
 import forge from "node-forge";
 import { supabase } from "./supabase.ts";

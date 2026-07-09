@@ -30,7 +30,7 @@
 
 ## §0 — PROTOCOLO E REGRAS
 
-- Herda R1–R6 (`PLANO_MESTRE_V2.md`), RN8–RN16 (PARTE2) e RN17–RN20 (Planos A/B).
+- Herda R1–R6 (`PLANO_MESTRE_V2__EM_ANDAMENTO.md`), RN8–RN16 (PARTE2) e RN17–RN20 (Planos A/B).
   **R1 reafirmado:** o frontend oficial é o legado (`src/pages/*`, Vite na raiz) —
   todo este plano opera NELE. `apps/web` segue condenado.
 - **RN21 — Anti-genérico é lei.** Checklist de "cara de IA" (§2a) vira teste de

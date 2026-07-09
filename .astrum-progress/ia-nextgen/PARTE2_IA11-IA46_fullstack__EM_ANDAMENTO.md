@@ -1,6 +1,6 @@
 # PARTE 2 — IA-11 a IA-46 — Fase 1 (o chão) + Fase 2 (os andares)
 
-> **Para a IA executora (Sonnet):** este arquivo completa o `PARTE1_IA01-IA10_backend.md`
+> **Para a IA executora (Sonnet):** este arquivo completa o `PARTE1_IA01-IA10_backend__EM_ANDAMENTO.md`
 > (IA-01..IA-10). Reestruturado em 2026-07-05 em DUAS FASES:
 >
 > - **FASE 1 (IA-11 + 14 sessões):** tecnologias cuja implementação depende SÓ de código
@@ -22,10 +22,10 @@
 
 ---
 
-## §0 — PROTOCOLO (herda §0 do PLANO_MESTRE_V2.md e §0/RN1–RN7 do PARTE1_IA01-IA10_backend.md)
+## §0 — PROTOCOLO (herda §0 do PLANO_MESTRE_V2__EM_ANDAMENTO.md e §0/RN1–RN7 do PARTE1_IA01-IA10_backend__EM_ANDAMENTO.md)
 
 ### 0.1 Ritual de início de TODA sessão
-1. Ler `PLANO_MESTRE_V2.md` §0 (R1–R6, DoD) e `PARTE1_IA01-IA10_backend.md` §0/§1/Apêndice B.
+1. Ler `PLANO_MESTRE_V2__EM_ANDAMENTO.md` §0 (R1–R6, DoD) e `PARTE1_IA01-IA10_backend__EM_ANDAMENTO.md` §0/§1/Apêndice B.
 2. Ler `.astrum-progress/ia-nextgen/AUDITORIA_FRONTEND.md` INTEIRO.
 3. Últimas 3 entradas do `PROGRESS_LOG.md`; `git status` + `git log --oneline -5`.
 4. Branch `feat/ia-XX-<slug>` a partir de `main`.
@@ -1263,7 +1263,7 @@ registra `dryRun`. Judge: rationale gravada. Pass-rate = equivalent/total.
 - [ ] ZERO efeito colateral provado: contagens de tickets/OS/mensagens antes = depois
       (colar no log).
 - [ ] Referência cruzada: adicionar ao checklist do cutover S74/S82 no
-      `PLANO_MESTRE_V2.md` a linha "replay ≥95% (IA-46) anexado" (editar lá, 1 linha).
+      `PLANO_MESTRE_V2__EM_ANDAMENTO.md` a linha "replay ≥95% (IA-46) anexado" (editar lá, 1 linha).
 - [ ] RN8 completo.
 **Rollback:** flags off. **Commit:** `feat(ia46): replay engine com dry-run e judge (flag off)`.
 

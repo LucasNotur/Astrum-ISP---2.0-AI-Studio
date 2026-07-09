@@ -1,6 +1,6 @@
 /**
  * FZ-1 — Roteador de paths: decide onde cada path Firestore vive no Supabase.
- * Regras documentadas em .astrum-progress/PLANO_FIRESTORE_ZERO.md §0.3.
+ * Regras documentadas em .astrum-progress/PLANO_FIRESTORE_ZERO__CONCLUIDO.md §0.3.
  */
 
 /** Coleções top-level com tabela nativa no Supabase. */

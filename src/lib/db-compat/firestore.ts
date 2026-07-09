@@ -1,7 +1,7 @@
 /**
  * FZ-1 — Fachada com a API do Firestore Admin SDK persistindo no Supabase.
  * Consumida via src/lib/firebaseAdmin.ts (seam) por ~50 arquivos do backend legado
- * que NÃO são editados. Ver .astrum-progress/PLANO_FIRESTORE_ZERO.md.
+ * que NÃO são editados. Ver .astrum-progress/PLANO_FIRESTORE_ZERO__CONCLUIDO.md.
  *
  * Logs: namespace [db-compat]. Fallbacks são WARN (meta: zerá-los), erros são ERROR.
  */

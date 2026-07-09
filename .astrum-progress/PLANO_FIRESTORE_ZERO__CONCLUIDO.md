@@ -141,7 +141,7 @@ Storage → portar para `supabase.storage.from('uploads')`. Bucket criado na mig
 ## 1. Sprints
 
 ### FZ-0 — Fundações (este doc + migrations) ✅ quando: doc commitado, migrations criadas
-- [x] `.astrum-progress/PLANO_FIRESTORE_ZERO.md` (este arquivo)
+- [x] `.astrum-progress/PLANO_FIRESTORE_ZERO__CONCLUIDO.md` (este arquivo)
 - [ ] `packages/db/src/migrations/031_legacy_docs.sql`
 - [ ] `packages/db/src/migrations/032_storage_uploads.sql`
 

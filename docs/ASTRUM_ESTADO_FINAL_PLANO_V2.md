@@ -1,7 +1,7 @@
 # Astrum — Estado Final do Plano Mestre V2 (S68–S98)
 
 > Consolidado em 2026-07-01. Fecha a execução das sessões 68–98 do
-> `.astrum-progress/PLANO_MESTRE_V2.md`.
+> `.astrum-progress/PLANO_MESTRE_V2__EM_ANDAMENTO.md`.
 
 ## Resumo
 
@@ -51,6 +51,6 @@ viva (Supabase/Redis/Firestore/ERP reais, tráfego de produção) ou é irrevers
 
 ## Rastreabilidade
 
-- Sessões: `.astrum-progress/PLANO_MESTRE_V2.md` (checkboxes) + `PROGRESS_LOG.md` (log).
+- Sessões: `.astrum-progress/PLANO_MESTRE_V2__EM_ANDAMENTO.md` (checkboxes) + `PROGRESS_LOG.md` (log).
 - Inventário do port: `docs/port/MESSAGEWORKER_INVENTORY.md`.
 - Gates testáveis: `scripts/cutover/{readiness,go-live-gate,final-gate}.ts`.

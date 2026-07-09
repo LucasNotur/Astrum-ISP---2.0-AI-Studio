@@ -16,7 +16,7 @@
 ---
 
 ## §0 — PROTOCOLO
-- Herda §0 do `PLANO_MESTRE_V2.md` (R1–R6), RN1–RN16 dos planos IA-NEXTGEN e
+- Herda §0 do `PLANO_MESTRE_V2__EM_ANDAMENTO.md` (R1–R6), RN1–RN16 dos planos IA-NEXTGEN e
   RN17/RN18 do PLANO_A. Sessões P-XX são GALHOS: expansão em densidade §4 só via
   sessão de planejamento dedicada auditando o código do dia (RN17).
 - **RN19 — Paridade é integração, não reconstrução.** Onde o concorrente é um ERP

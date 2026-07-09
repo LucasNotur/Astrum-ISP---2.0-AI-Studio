@@ -1,7 +1,7 @@
 -- 031_legacy_docs.sql — Plano FIRESTORE-ZERO (FZ-0).
 -- Document store JSONB endereçável por path: fallback universal do db-compat para
 -- coleções Firestore sem tabela nativa no Supabase (ai_personas, saas_metrics,
--- prompts/versions, subcoleções settings/*, etc). Ver .astrum-progress/PLANO_FIRESTORE_ZERO.md §0.3.
+-- prompts/versions, subcoleções settings/*, etc). Ver .astrum-progress/PLANO_FIRESTORE_ZERO__CONCLUIDO.md §0.3.
 
 CREATE TABLE IF NOT EXISTS legacy_docs (
   path        TEXT PRIMARY KEY,     -- ex: 'tenants/abc/settings/theme'

@@ -140,6 +140,6 @@ Uma fase só é considerada concluída quando:
 
 ## 5. Referências
 
-- Auditoria de estrutura e stack: `.astrum-progress/12_BLOCOS_TECNOLOGICOS.md`
+- Auditoria de estrutura e stack: `.astrum-progress/12_BLOCOS_TECNOLOGICOS__CONCLUIDO.md`
 - PRD (parcialmente desatualizado — ainda cita Firestore como banco principal): `docs/PRD.md`
 - Progresso das sessões: `.astrum-progress/PROGRESS_LOG.md`

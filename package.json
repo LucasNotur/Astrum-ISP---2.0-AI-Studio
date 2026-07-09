@@ -8,7 +8,7 @@
   ],
   "version": "1.0.0",
   "type": "module",
-  "_migration_notes": "FZ 2026-07-03: Firestore/Firebase removidos TOTALMENTE — Supabase e o unico banco (ver .astrum-progress/PLANO_FIRESTORE_ZERO.md)",
+  "_migration_notes": "FZ 2026-07-03: Firestore/Firebase removidos TOTALMENTE — Supabase e o unico banco (ver .astrum-progress/PLANO_FIRESTORE_ZERO__CONCLUIDO.md)",
   "scripts": {
     "dev:turbo": "turbo run dev",
     "dev": "tsx -r dotenv/config server.ts",

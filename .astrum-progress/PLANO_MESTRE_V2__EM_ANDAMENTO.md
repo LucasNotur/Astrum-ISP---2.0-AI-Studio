@@ -9,7 +9,7 @@
 ## §0 — PROTOCOLO DE EXECUÇÃO (a IA DEVE ler isto no início de TODA sessão)
 
 ### 0.1 Ritual de início de sessão
-1. Ler este arquivo inteiro (`.astrum-progress/PLANO_MESTRE_V2.md`).
+1. Ler este arquivo inteiro (`.astrum-progress/PLANO_MESTRE_V2__EM_ANDAMENTO.md`).
 2. Ler as últimas 3 entradas de `.astrum-progress/PROGRESS_LOG.md`.
 3. Rodar `git status` e `git log --oneline -5` — se houver trabalho não commitado de sessão anterior, terminar/commitar antes de começar coisa nova.
 4. Localizar a **primeira sessão com checkbox ⬜** neste arquivo. Essa é a sessão atual. Não executar sessões futuras "de carona".

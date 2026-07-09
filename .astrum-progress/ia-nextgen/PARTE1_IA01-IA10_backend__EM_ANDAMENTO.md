@@ -9,7 +9,7 @@
 
 ---
 
-## §0 — PROTOCOLO (obrigatório, herda o §0 do PLANO_MESTRE_V2.md)
+## §0 — PROTOCOLO (obrigatório, herda o §0 do PLANO_MESTRE_V2__EM_ANDAMENTO.md)
 
 > ⚠️ **Escopo desta Parte:** sessões IA-01..IA-10 são **100% backend** — todo código vai
 > em `apps/api/`, `packages/queue/` ou `packages/db/`. Nenhuma sessão toca `/src` ou cria
@@ -17,7 +17,7 @@
 > — não é necessária aqui e não faz parte do ritual abaixo.
 
 ### 0.1 Ritual de início de TODA sessão
-1. Ler `.astrum-progress/PLANO_MESTRE_V2.md` §0 inteiro (regras R1–R6 e DoD).
+1. Ler `.astrum-progress/PLANO_MESTRE_V2__EM_ANDAMENTO.md` §0 inteiro (regras R1–R6 e DoD).
 2. Ler as últimas 3 entradas de `.astrum-progress/PROGRESS_LOG.md`.
 3. `git status` + `git log --oneline -5`. Se houver trabalho não commitado, resolver antes.
 4. Criar branch `feat/ia-XX-<slug>` a partir de `main` atualizado.

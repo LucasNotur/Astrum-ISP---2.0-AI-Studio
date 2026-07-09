@@ -138,7 +138,7 @@
 
 > ⚠️ **ORDEM SUBSTITUÍDA EM 2026-07-01.** A tabela abaixo é o planejamento ORIGINAL, mantido
 > apenas como histórico. A execução das sessões 68–98 agora segue o
-> **`.astrum-progress/PLANO_MESTRE_V2.md`** (remapeamento completo com protocolo de execução).
+> **`.astrum-progress/PLANO_MESTRE_V2__EM_ANDAMENTO.md`** (remapeamento completo com protocolo de execução).
 > Não execute nada desta tabela diretamente.
 
 | Sessão | Dia   | Tarefa                                            | Tipo |
