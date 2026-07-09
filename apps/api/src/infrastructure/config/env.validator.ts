@@ -71,6 +71,56 @@ const envSchema = z.object({
   // ausente, o endpoint /api/v2/ia/sandbox/query responde 503
   // (fail-open: backend não cai).
   SANDBOX_DB_URL: z.string().url().optional(),
+
+  // IA-32 — OpenTelemetry (instrumentação manual por nó do grafo).
+  OTEL_ENABLED: z.string().optional().default('false'),
+  OTEL_EXPORTER_OTLP_ENDPOINT: z.string().optional(),
+  OTEL_SERVICE_NAME: z.string().optional(),
+
+  // IA-23 — LTV heurístico.
+  LTV_ENABLED: z.string().optional().default('false'),
+
+  // IA-29 — Active learning (rotulagem de exemplos).
+  ACTIVE_LEARNING_ENABLED: z.string().optional().default('false'),
+
+  // IA-15 — OCR multi-layout + fila de revisão.
+  OCR_MULTILAYOUT_ENABLED: z.string().optional().default('false'),
+
+  // IA-17 — MCP server (tools read-only via API key).
+  MCP_SERVER_ENABLED: z.string().optional().default('false'),
+
+  // IA-22 — Web browsing (allowlist + citação).
+  BROWSING_ENABLED: z.string().optional().default('false'),
+
+  // IA-39 — Constitutional loop (princípios editáveis).
+  CONSTITUTIONAL_LOOP_ENABLED: z.string().optional().default('false'),
+
+  // IA-28 — Perfil de comunicação (estilo inferido por heurística).
+  COMM_PROFILE_ENABLED: z.string().optional().default('false'),
+
+  // IA-36 — Edge inference shadow mode (Cloudflare Workers AI).
+  EDGE_INFERENCE_MODE: z.enum(['off', 'shadow']).default('off'),
+  CF_ACCOUNT_ID: z.string().optional(),
+  CF_AI_API_TOKEN: z.string().optional(),
+
+  // IA-35 — Latency budget (orçamento de latência por nó).
+  LATENCY_BUDGET_ENABLED: z.string().optional().default('false'),
+
+  // IA-24 — Network anomaly detection (EWMA + z-score).
+  NETWORK_ANOMALY_ENABLED: z.string().optional().default('false'),
+
+  // IA-25 — Demand forecast (seasonal moving average).
+  DEMAND_FORECAST_ENABLED: z.string().optional().default('false'),
+  AGENT_CAPACITY_PER_DAY: z.string().optional().default('25'),
+
+  // IA-13 — Voice QA (scorecard de chamadas de voz).
+  VOICE_QA_ENABLED: z.string().optional().default('false'),
+
+  // IA-40 — PII masking em transcrições de voz.
+  VOICE_PII_MASK_ENABLED: z.string().optional().default('false'),
+
+  // IA-12 — Voice biometrics (consentimento + verificação).
+  VOICE_BIOMETRICS_ENABLED: z.string().optional().default('false'),
 });
 
 export type Env = z.infer<typeof envSchema>;

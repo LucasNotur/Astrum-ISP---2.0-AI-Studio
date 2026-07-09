@@ -4,6 +4,8 @@ import { infraLogger } from '../logging/logger';
 import { resolvePrompt, type PromptVersion } from './prompt-registry';
 import { isModelCascadeEnabled } from '../cache/semantic-cache.service';
 import { getModel, withFailover } from './providers/model-router';
+import { withSpan } from '../observability/otel-span.helper';
+import { isOtelEnabled } from '../observability/otel';
 
 /**
  * IA-37 — Tool batching (paralelismo intra-step).
@@ -154,6 +156,13 @@ export const agentTools = {
       include_overdue_only: z.boolean().default(false),
     }),
   },
+  // IA-22 — Web browsing (allowlist + citação obrigatória).
+  browse_url: {
+    description: 'Consulta uma página web da lista de sites confiáveis do provedor. SEMPRE cite a URL da fonte na resposta ao cliente.',
+    parameters: z.object({
+      url: z.string().url().describe('URL completa (com http/https) para consultar'),
+    }),
+  },
   // IA-16 — GraphRAG leve (3 consultas nomeadas, sem banco de grafo novo).
   query_network_graph: {
     description: 'Consulta o grafo da rede física do provedor (clientes ↔ CTOs ↔ tickets). Use para perguntas sobre impacto de falha em CTO, reincidência de problemas por região ou capacidade de portas.',
@@ -178,29 +187,34 @@ export class VercelAIService {
     conversationHistory: string,
     tenantId: string,
   ): Promise<CustomerIntent> {
-    const prompt = resolvePrompt('classification');
-    const { object } = await withFailover('mini', (model) =>
-      generateObject({
-        model: model as any,
-        schema: CustomerIntentSchema,
-        system: prompt.text,
-        messages: [
-          {
-            role: 'user',
-            content: `Histórico:\n${conversationHistory}\n\nMensagem atual: "${message}"`,
+    const doClassify = async () => {
+      const prompt = resolvePrompt('classification');
+      const { object } = await withFailover('mini', (model) =>
+        generateObject({
+          model: model as any,
+          schema: CustomerIntentSchema,
+          system: prompt.text,
+          messages: [
+            {
+              role: 'user',
+              content: `Histórico:\n${conversationHistory}\n\nMensagem atual: "${message}"`,
+            },
+          ],
+          headers: {
+            'Helicone-Property-TenantId': tenantId,
+            'Helicone-Property-UseCase': 'classify-intent',
+            'Helicone-Property-PromptVersion': prompt.version,
           },
-        ],
-        headers: {
-          'Helicone-Property-TenantId': tenantId,
-          'Helicone-Property-UseCase': 'classify-intent',
-          'Helicone-Property-PromptVersion': prompt.version,
-        },
-      }),
-      tenantId,
-    );
+        }),
+        tenantId,
+      );
 
-    infraLogger.info({ intent: object.intent, urgency: object.urgency }, 'Intent classified');
-    return object;
+      infraLogger.info({ intent: object.intent, urgency: object.urgency }, 'Intent classified');
+      return object;
+    };
+
+    if (!isOtelEnabled()) return doClassify();
+    return withSpan('llm.classify_intent', { tenantId, model: 'gpt-4o-mini', useCase: 'classify-intent' }, doClassify);
   }
 
   /**
@@ -213,28 +227,32 @@ export class VercelAIService {
     ragContext: string,
     tenantId: string,
   ): Promise<NetworkDiagnostic> {
-    const prompt = resolvePrompt('technical_diagnostic');
-    const { object } = await withFailover('full', (model) =>
-      generateObject({
-        model: model as any, // tier 'full' para diagnósticos técnicos
-        schema: NetworkDiagnosticSchema,
-        system: prompt.text,
-        messages: [
-          {
-            role: 'user',
-            content: `Contexto técnico dos manuais:\n${ragContext}\n\nQueixa do cliente: "${customerMessage}"`,
+    const doDiagnostic = async () => {
+      const prompt = resolvePrompt('technical_diagnostic');
+      const { object } = await withFailover('full', (model) =>
+        generateObject({
+          model: model as any,
+          schema: NetworkDiagnosticSchema,
+          system: prompt.text,
+          messages: [
+            {
+              role: 'user',
+              content: `Contexto técnico dos manuais:\n${ragContext}\n\nQueixa do cliente: "${customerMessage}"`,
+            },
+          ],
+          headers: {
+            'Helicone-Property-TenantId': tenantId,
+            'Helicone-Property-UseCase': 'network-diagnostic',
+            'Helicone-Property-PromptVersion': prompt.version,
           },
-        ],
-        headers: {
-          'Helicone-Property-TenantId': tenantId,
-          'Helicone-Property-UseCase': 'network-diagnostic',
-          'Helicone-Property-PromptVersion': prompt.version,
-        },
-      }),
-      tenantId,
-    );
+        }),
+        tenantId,
+      );
+      return object;
+    };
 
-    return object;
+    if (!isOtelEnabled()) return doDiagnostic();
+    return withSpan('llm.network_diagnostic', { tenantId, model: 'gpt-4o', useCase: 'network-diagnostic' }, doDiagnostic);
   }
 
   /**
@@ -246,28 +264,32 @@ export class VercelAIService {
     resolution: string,
     tenantId: string,
   ): Promise<TicketReport> {
-    const prompt = resolvePrompt('ticket_report');
-    const { object } = await withFailover('mini', (model) =>
-      generateObject({
-        model: model as any,
-        schema: TicketReportSchema,
-        system: prompt.text,
-        messages: [
-          {
-            role: 'user',
-            content: `Resumo da conversa:\n${conversationSummary}\n\nResolução:\n${resolution}`,
+    const doReport = async () => {
+      const prompt = resolvePrompt('ticket_report');
+      const { object } = await withFailover('mini', (model) =>
+        generateObject({
+          model: model as any,
+          schema: TicketReportSchema,
+          system: prompt.text,
+          messages: [
+            {
+              role: 'user',
+              content: `Resumo da conversa:\n${conversationSummary}\n\nResolução:\n${resolution}`,
+            },
+          ],
+          headers: {
+            'Helicone-Property-TenantId': tenantId,
+            'Helicone-Property-UseCase': 'ticket-report',
+            'Helicone-Property-PromptVersion': prompt.version,
           },
-        ],
-        headers: {
-          'Helicone-Property-TenantId': tenantId,
-          'Helicone-Property-UseCase': 'ticket-report',
-          'Helicone-Property-PromptVersion': prompt.version,
-        },
-      }),
-      tenantId,
-    );
+        }),
+        tenantId,
+      );
+      return object;
+    };
 
-    return object;
+    if (!isOtelEnabled()) return doReport();
+    return withSpan('llm.ticket_report', { tenantId, model: 'gpt-4o-mini', useCase: 'ticket-report' }, doReport);
   }
 
   /**
@@ -295,6 +317,8 @@ export class VercelAIService {
     // (default = catálogo completo se nenhum for passado).
     const tools = (opts?.tools ?? agentTools) as any;
 
+    // IA-32: span LLM para stream coberto pelo wrapNode('generate') em langgraph.
+    // Wrapping aqui seria redundante e complicaria o retorno do stream.
     const result = streamText({
       model: selectedModel as any,
       system: `${prompt.text}\n\n${systemContext}`,

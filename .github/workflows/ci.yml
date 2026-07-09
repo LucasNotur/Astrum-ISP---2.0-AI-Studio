@@ -5,6 +5,9 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch:
 
 env:
   NODE_VERSION: '20'
@@ -185,3 +188,41 @@ jobs:
           name: playwright-report-${{ github.run_id }}
           path: apps/web/playwright-report/
           retention-days: 7
+
+  # ─── Job 4: IA-42 Eval Spec Gate (nightly + manual) ──
+  eval-spec:
+    name: 🧪 Eval Spec Gate (IA-42)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Rodar eval com gate CI
+        run: npx tsx apps/api/eval/run-eval.ts --ci
+        env:
+          NODE_ENV: test
+          EVAL_ONLINE: 'true'
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          EVAL_TENANT_ID: '00000000-0000-0000-0000-000000000000'
+          SUPABASE_URL: ${{ secrets.SUPABASE_TEST_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_TEST_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_TEST_SERVICE_ROLE }}
+          JWT_SECRET: test-jwt-secret-mínimo-32-caracteres-aqui
+          REDIS_URL: redis://localhost:6379
+
+      - name: Upload resultados eval
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-results-${{ github.run_id }}
+          path: apps/api/eval/results/
+          retention-days: 30

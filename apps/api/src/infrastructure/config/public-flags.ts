@@ -27,6 +27,42 @@ const PUBLIC_FLAGS: Record<string, string | undefined> = {
   // IA-43 — flag de failover multi-provider (off por padrão).
   failover: 'PROVIDER_FAILOVER_ENABLED',
   replay: 'REPLAY_ENGINE_ENABLED',
+  // IA-38 — Churn. Reusa a env EXISTENTE do churn worker (RN9):
+  //         `CHURN_ENGINE=on|off` (default off) em packages/queue/src/workers/churn.worker.ts.
+  //         Quando off, a worker nem roda e a tela de IA-38 fica vazia.
+  churn: 'CHURN_ENGINE',
+  // IA-32 — OpenTelemetry (spans por nó do grafo).
+  otel: 'OTEL_ENABLED',
+  // IA-23 — LTV heurístico (coluna na tela de churn).
+  ltv: 'LTV_ENABLED',
+  // IA-31 — Ranking Elo de configurações.
+  elo: 'MODEL_ELO_ENABLED',
+  // IA-29 — Active learning (rotulagem de exemplos).
+  activelearn: 'ACTIVE_LEARNING_ENABLED',
+  // IA-15 — OCR multi-layout + fila de revisão.
+  reviewqueue: 'OCR_MULTILAYOUT_ENABLED',
+  // IA-17 — MCP server (tools read-only via API key).
+  mcp: 'MCP_SERVER_ENABLED',
+  // IA-22 — Web browsing (allowlist + citação).
+  browse: 'BROWSING_ENABLED',
+  // IA-39 — Constitutional loop (princípios editáveis).
+  constitution: 'CONSTITUTIONAL_LOOP_ENABLED',
+  // IA-28 — Perfil de comunicação (estilo inferido por heurística).
+  commprofile: 'COMM_PROFILE_ENABLED',
+  // IA-36 — Edge inference shadow mode (Cloudflare Workers AI).
+  edgeinfer: 'EDGE_INFERENCE_MODE',
+  // IA-35 — Latency budget (orçamento de latência por nó).
+  latencybudget: 'LATENCY_BUDGET_ENABLED',
+  // IA-24 — Network anomaly detection (EWMA + z-score).
+  netanomaly: 'NETWORK_ANOMALY_ENABLED',
+  // IA-25 — Demand forecast (seasonal moving average).
+  forecast: 'DEMAND_FORECAST_ENABLED',
+  // IA-13 — Voice QA (scorecard de chamadas de voz).
+  voiceqa: 'VOICE_QA_ENABLED',
+  // IA-40 — PII masking em transcrições de voz.
+  voicepii: 'VOICE_PII_MASK_ENABLED',
+  // IA-12 — Voice biometrics (consentimento + verificação).
+  voicebio: 'VOICE_BIOMETRICS_ENABLED',
 };
 
 export function getPublicFlags(): Record<string, boolean> {
@@ -35,7 +71,8 @@ export function getPublicFlags(): Record<string, boolean> {
       if (env === undefined) {
         return [key, true];
       }
-      return [key, (process.env[env] ?? '').trim().toLowerCase() === 'true'];
+      const val = (process.env[env] ?? '').trim().toLowerCase();
+      return [key, val === 'true' || val === 'on'];
     }),
   );
 }

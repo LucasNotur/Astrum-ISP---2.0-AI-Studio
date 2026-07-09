@@ -19,6 +19,8 @@ import { infraLogger } from '../../infrastructure/logging/logger';
 import { isCragEnabled } from '../ports/crag.port';
 import { aiAuditService } from '../../infrastructure/audit/ai-audit.service';
 import { recordMessageCost } from '../../infrastructure/observability/cost-recorder';
+import { withSpan } from '../../infrastructure/observability/otel-span.helper';
+import { isOtelEnabled } from '../../infrastructure/observability/otel';
 
 /**
  * LangGraph Agent Service
@@ -79,21 +81,29 @@ function buildAgentGraph() {
   });
 
   /* eslint-disable @typescript-eslint/no-explicit-any -- LangGraph SDK exige node names como string genérica; tipos incompatíveis por design da lib */
+
+  // IA-32 — OTel: envolve cada nó com um span (flag off = no-op do @opentelemetry/api).
+  function wrapNode(name: string, nodeFn: (state: AgentState) => Promise<Partial<AgentState>>) {
+    if (!isOtelEnabled()) return nodeFn;
+    return (state: AgentState) =>
+      withSpan(`agent.${name}`, { tenantId: state.tenantId ?? 'unknown', node: name }, () => nodeFn(state));
+  }
+
   // ─── Adicionar nós ───────────────────────────────────────────────────────
-  graph.addNode('classify', nodeClassify as any);
-  graph.addNode('guardrails', nodeGuardrails as any);
-  graph.addNode('decide_source', nodeDecideSource as any);
-  graph.addNode('fetch_context', nodeFetchContext as any);
-  graph.addNode('generate', nodeGenerate as any);
-  graph.addNode('validate', nodeValidate as any);
-  graph.addNode('escalate', nodeEscalate as any);
-  graph.addNode('block', nodeBlock as any);
+  graph.addNode('classify', wrapNode('classify', nodeClassify) as any);
+  graph.addNode('guardrails', wrapNode('guardrails', nodeGuardrails) as any);
+  graph.addNode('decide_source', wrapNode('decide_source', nodeDecideSource) as any);
+  graph.addNode('fetch_context', wrapNode('fetch_context', nodeFetchContext) as any);
+  graph.addNode('generate', wrapNode('generate', nodeGenerate) as any);
+  graph.addNode('validate', wrapNode('validate', nodeValidate) as any);
+  graph.addNode('escalate', wrapNode('escalate', nodeEscalate) as any);
+  graph.addNode('block', wrapNode('block', nodeBlock) as any);
   // CRAG — IA-01
-  graph.addNode('grade_context', nodeGradeContext as any);
-  graph.addNode('rewrite_query', nodeRewriteQuery as any);
-  graph.addNode('self_check', nodeSelfCheck as any);
+  graph.addNode('grade_context', wrapNode('grade_context', nodeGradeContext) as any);
+  graph.addNode('rewrite_query', wrapNode('rewrite_query', nodeRewriteQuery) as any);
+  graph.addNode('self_check', wrapNode('self_check', nodeSelfCheck) as any);
   // IA-21 — Constitutional classifier
-  graph.addNode('safety_veto', nodeSafetyVeto as any);
+  graph.addNode('safety_veto', wrapNode('safety_veto', nodeSafetyVeto) as any);
 
   // ─── Edges lineares ──────────────────────────────────────────────────────
   graph.addEdge(START, 'classify' as any);

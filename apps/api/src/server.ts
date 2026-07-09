@@ -12,6 +12,10 @@ import sentryPlugin from './infrastructure/observability/sentry-fastify.plugin';
 export async function buildServer() {
   initSentry(); // DEVE ser chamado antes de qualquer outro código
   validateEnv();
+
+  // IA-32 — OTel boot ANTES de tudo (spans precisam do SDK registrado).
+  const { initOtel } = await import('./infrastructure/observability/otel');
+  await initOtel();
   
   const app = Fastify({
     logger: { level: process.env.LOG_LEVEL ?? 'info' },
@@ -154,6 +158,58 @@ export async function buildServer() {
   // IA-46 — Replay engine: POST /api/v2/ia/replay, GET /runs, GET /runs/:id.
   const { replayRoutes } = await import('./domain/ia/replay.routes');
   await app.register(replayRoutes);
+
+  // IA-32 — OTel status (GET /api/v2/ia/otel/status).
+  const { otelRoutes } = await import('./domain/ia/otel.routes');
+  await app.register(otelRoutes);
+
+  // IA-31 — Elo ranking: ranking, pending, resolve.
+  const { modelsRoutes } = await import('./domain/ia/models.routes');
+  await app.register(modelsRoutes);
+
+  // IA-29 — Active learning: rotulagem de exemplos.
+  const { labelingRoutes } = await import('./domain/ia/labeling.routes');
+  await app.register(labelingRoutes);
+
+  // IA-15 — OCR multi-layout: fila de revisão humana.
+  const { ocrReviewRoutes } = await import('./domain/ia/ocr-review.routes');
+  await app.register(ocrReviewRoutes);
+
+  // IA-17 — MCP server: keys admin + endpoint POST /api/v2/mcp.
+  const { mcpAdminRoutes } = await import('./domain/ia/mcp-admin.routes');
+  await app.register(mcpAdminRoutes);
+
+  // IA-22 — Web browsing: allowlist admin.
+  const { browseAdminRoutes } = await import('./domain/ia/browse-admin.routes');
+  await app.register(browseAdminRoutes);
+
+  // IA-39 — Constitutional loop: princípios editáveis.
+  const { constitutionRoutes } = await import('./domain/ia/constitution.routes');
+  await app.register(constitutionRoutes);
+
+  // IA-36 — Edge inference: shadow agreement stats.
+  const { edgeRoutes } = await import('./domain/ia/edge.routes');
+  await app.register(edgeRoutes);
+
+  // IA-35 — Latency budget: relatório de latência por nó.
+  const { latencyRoutes } = await import('./domain/ia/latency.routes');
+  await app.register(latencyRoutes);
+
+  // IA-24 — Network anomaly: detecção EWMA + z-score.
+  const { anomalyRoutes } = await import('./domain/rede/anomaly.routes');
+  await app.register(anomalyRoutes);
+
+  // IA-25 — Demand forecast: seasonal moving average + staffing.
+  const { forecastRoutes } = await import('./domain/ia/forecast.routes');
+  await app.register(forecastRoutes);
+
+  // IA-13 — Voice QA: scorecard de chamadas de voz.
+  const { voiceQaRoutes } = await import('./domain/ia/voice.routes');
+  await app.register(voiceQaRoutes);
+
+  // IA-12 — Voice biometrics: consentimento + verificação.
+  const { voiceConsentRoutes } = await import('./domain/ia/voice-consent.routes');
+  await app.register(voiceConsentRoutes);
 
   const websocketRoutes = await import('./domain/realtime/websocket.routes');
   await app.register(websocketRoutes.default);
@@ -347,7 +403,13 @@ export async function startFastifyServer() {
       const { closeRedis } = await import('./infrastructure/cache/redis.client');
       await closeRedis();
     } catch(e) {}
-    
+
+    // IA-32 — OTel shutdown (flush spans pendentes).
+    try {
+      const { shutdownOtel } = await import('./infrastructure/observability/otel');
+      await shutdownOtel();
+    } catch(e) {}
+
     app.log.info('[FASTIFY] Shutdown gracioso concluído.');
     process.exit(0);
   };

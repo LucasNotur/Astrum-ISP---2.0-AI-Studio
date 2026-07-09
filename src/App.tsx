@@ -250,6 +250,15 @@ const CampaignsPage = lazy(() => import("./pages/intelligence/CampaignsPage"));
 const DriftPage = lazy(() => import("./pages/intelligence/DriftPage"));
 const SyntheticPage = lazy(() => import("./pages/intelligence/SyntheticPage"));
 const ReplayPage = lazy(() => import("./pages/intelligence/ReplayPage"));
+const ChurnPage = lazy(() => import("./pages/intelligence/ChurnPage"));
+const SandboxPage = lazy(() => import("./pages/intelligence/SandboxPage"));
+const ModelsPage = lazy(() => import("./pages/intelligence/ModelsPage"));
+const LabelingPage = lazy(() => import("./pages/intelligence/LabelingPage"));
+const ReviewQueuePage = lazy(() => import("./pages/intelligence/ReviewQueuePage"));
+const McpPage = lazy(() => import("./pages/intelligence/McpPage"));
+const NetworkHealthPage = lazy(() => import("./pages/intelligence/NetworkHealthPage"));
+const StaffingPage = lazy(() => import("./pages/intelligence/StaffingPage"));
+const VoiceQaPage = lazy(() => import("./pages/intelligence/VoiceQaPage"));
 
 import {
   Bell,
@@ -1556,26 +1565,34 @@ export default function App() {
       if (!mounted) return;
       setUser(appUser);
       const superEmails = ['lucaspferraz123@gmail.com', 'noturcursos1@gmail.com'];
-      if (superEmails.includes((appUser.email || '').toLowerCase())) {
-        setCurrentUserRole('admin');
-        setUserProfile({ email: appUser.email, role: 'admin', name: appUser.displayName, tenantId: 'DEFAULT_TENANT' });
-      } else {
-        try {
-          const { data } = await supabase
-            .from('users')
-            .select('role, tenant_id, name, email')
-            .eq('email', appUser.email)
-            .maybeSingle();
-          if (data) {
-            const r = ((data as any).role || 'support').toLowerCase();
-            const mapped = (r === 'admin' || r === 'owner') ? 'owner' : (r === 'tecnico' ? 'tecnico' : 'support');
-            setCurrentUserRole(mapped as any);
-            setUserProfile({ ...(data as any), tenantId: (data as any).tenant_id });
-          } else {
-            setCurrentUserRole('support');
-            setUserProfile({ email: appUser.email, role: 'support', tenantId: null });
-          }
-        } catch { setCurrentUserRole('support'); }
+      try {
+        const { data } = await supabase
+          .from('users')
+          .select('role, tenant_id, name, email')
+          .eq('id', appUser.uid)
+          .maybeSingle();
+        if (data) {
+          const isSuperEmail = superEmails.includes((appUser.email || '').toLowerCase());
+          const dbRole = ((data as any).role || 'support').toLowerCase();
+          const mapped = isSuperEmail || dbRole === 'super_admin' || dbRole === 'admin' || dbRole === 'owner'
+            ? 'admin'
+            : (dbRole === 'tecnico' ? 'tecnico' : 'support');
+          setCurrentUserRole(mapped as any);
+          setUserProfile({ ...(data as any), role: mapped, tenantId: (data as any).tenant_id });
+        } else if (superEmails.includes((appUser.email || '').toLowerCase())) {
+          setCurrentUserRole('admin');
+          setUserProfile({ email: appUser.email, role: 'admin', name: appUser.displayName, tenantId: null });
+        } else {
+          setCurrentUserRole('support');
+          setUserProfile({ email: appUser.email, role: 'support', tenantId: null });
+        }
+      } catch {
+        if (superEmails.includes((appUser.email || '').toLowerCase())) {
+          setCurrentUserRole('admin');
+          setUserProfile({ email: appUser.email, role: 'admin', name: appUser.displayName, tenantId: null });
+        } else {
+          setCurrentUserRole('support');
+        }
       }
       setNeedsMfaEnrollment(false);
       setLoading(false);
@@ -3035,6 +3052,78 @@ export default function App() {
               element={
                 <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
                   <ReplayPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/intelligence/churn"
+              element={
+                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
+                  <ChurnPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/intelligence/models"
+              element={
+                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
+                  <ModelsPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/intelligence/labeling"
+              element={
+                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
+                  <LabelingPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/intelligence/review-queue"
+              element={
+                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
+                  <ReviewQueuePage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/intelligence/mcp"
+              element={
+                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
+                  <McpPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/intelligence/network-health"
+              element={
+                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
+                  <NetworkHealthPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/intelligence/staffing"
+              element={
+                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
+                  <StaffingPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/intelligence/voice-qa"
+              element={
+                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
+                  <VoiceQaPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/intelligence/sandbox"
+              element={
+                <Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}>
+                  <SandboxPage />
                 </Suspense>
               }
             />

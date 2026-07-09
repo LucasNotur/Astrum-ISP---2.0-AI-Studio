@@ -365,6 +365,87 @@ export const ptBR = {
         exportError: 'Falha ao exportar relatório.',
       },
     },
+    churn: {
+      title: 'Risco de Churn',
+      subtitle:
+        'Probabilidade de cancelamento por cliente. Modelo linear auditável — o score é a soma de contribuições por feature.',
+      gate: {
+        flagOff: 'Motor de churn desligado neste ambiente (CHURN_ENGINE=off).',
+        loadError: 'Não foi possível carregar os scores. Recarregue a página.',
+      },
+      stats: {
+        critical: 'Clientes em crítico',
+        high: 'Clientes em alto',
+        mrrAtRisk: 'MRR em risco',
+        mrrAtRiskHint: (cents: number) =>
+          `Soma do MRR (centavos→R$) de clientes em alto + crítico.`,
+      },
+      columns: {
+        customer: 'Cliente',
+        score: 'Score',
+        band: 'Banda',
+        mrr: 'MRR',
+        updatedAt: 'Atualizado',
+      },
+      empty: {
+        title: 'Nenhum score de churn ainda.',
+        body: 'O cálculo roda toda noite às 03h (BRT).',
+      },
+      waterfall: {
+        title: (name: string) => `Por que ${name} está em risco?`,
+        subtitle: 'Contribuição de cada feature para o score final.',
+        feature: 'Feature',
+        contribution: 'Contribuição',
+        total: 'Score total',
+        invariant: (sum: number, score: number) =>
+          `Invariante: soma das contribuições = ${sum.toFixed(2)} ≈ score = ${score.toFixed(2)} (±0.01).`,
+        contributionLabel: (c: number) => (c >= 0 ? `+${c.toFixed(2)}` : c.toFixed(2)),
+        valueLabel: (v: number) => `valor normalizado ${v.toFixed(2)}`,
+        weightLabel: (w: number) => `peso ${w}`,
+      },
+    },
+    sandbox: {
+      title: 'Sandbox SQL',
+      subtitle:
+        'Console analítico somente leitura. Cada query executada fica registrada com tenant, usuário, ms e linhas.',
+      editor: {
+        label: 'Consulta',
+        placeholder: 'SELECT * FROM vw_agent_customers WHERE tenant_id = $1 LIMIT 10;',
+        hint:
+          'Somente SELECT sobre vw_agent_customers, vw_agent_invoices, vw_agent_tickets. Limite 500 linhas, 3s.',
+        run: 'Executar consulta',
+        running: 'Executando…',
+      },
+      results: {
+        title: 'Resultado',
+        ms: (ms: number) => `${ms.toFixed(1)} ms`,
+        rows: (n: number) => `${n} linha${n === 1 ? '' : 's'}`,
+        empty: 'A consulta não retornou linhas.',
+        copyError: 'Não foi possível executar a consulta.',
+      },
+      errorCard: {
+        title: 'Consulta rejeitada pelo guard de SQL',
+        genericError: 'Erro',
+      },
+      history: {
+        title: 'Histórico',
+        empty: 'Nenhuma consulta executada ainda.',
+        cols: {
+          when: 'Quando',
+          sql: 'SQL',
+          rows: 'Linhas',
+          ms: 'ms',
+        },
+        clickHint: 'Clique para carregar a consulta no editor.',
+      },
+      gate: {
+        flagOff: 'Sandbox do agente desabilitado (AGENT_SANDBOX_ENABLED=false).',
+        notSuperAdmin: 'Acesso restrito a super_admin.',
+        notSuperAdminHint:
+          'Esta tela só pode ser usada por usuários com role super_admin no banco.',
+        sandboxUnavailable: 'Sandbox indisponível neste ambiente (SANDBOX_DB_URL ausente).',
+      },
+    },
   },
 } as const;
 

@@ -49,7 +49,7 @@ async function processChurnJob(job: Job<ChurnJobData>): Promise<void> {
   for (const customer of customers) {
     try {
       const features = await extractFeatures(tenantId, customer.id);
-      const { score, riskBand } = computeChurnScore(features);
+      const { score, riskBand, contributions } = computeChurnScore(features);
 
       await supabaseAdmin.from('churn_scores').insert({
         tenant_id: tenantId,
@@ -57,6 +57,7 @@ async function processChurnJob(job: Job<ChurnJobData>): Promise<void> {
         score,
         risk_band: riskBand,
         features,
+        contributions, // IA-38: vetor {feature, weight, value, contribution} para waterfall na UI.
         model_version: 'heuristic-v1',
       });
 

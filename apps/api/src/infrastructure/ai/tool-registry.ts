@@ -22,6 +22,20 @@ import supabase from '../database/supabase.client';
  * completo ao runtime via `streamWithTools({ tools })`.
  */
 
+/**
+ * E4 debt: SIDE_EFFECT_TOOLS was in replay.service.ts — canonical home is here.
+ * Tools that mutate state or trigger external actions.
+ */
+export const SIDE_EFFECT_TOOLS: ReadonlySet<string> = new Set([
+  'suspend_signal',
+  'create_ticket',
+  'schedule_technical_visit',
+]);
+
+export const READ_ONLY_TOOLS: ReadonlySet<string> = new Set(
+  Object.keys(agentTools).filter((t) => !SIDE_EFFECT_TOOLS.has(t)),
+);
+
 const CACHE_TTL_SECONDS = 60;
 const CACHE_KEY_PREFIX = 'toolreg';
 

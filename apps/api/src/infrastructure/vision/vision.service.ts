@@ -40,7 +40,150 @@ export const FieldPhotoSchema = z.object({
 
 export type FieldPhotoClassification = z.infer<typeof FieldPhotoSchema>;
 
+export const EnergyBillSchema = z.object({
+  distribuidora: z.string().max(120).optional(),
+  valor_cents: z.number().int().optional(),
+  kwh: z.number().optional(),
+  vencimento: z.string().optional(),
+  confidence: z.number().min(0).max(1),
+});
+
+export type EnergyBillExtraction = z.infer<typeof EnergyBillSchema>;
+
+export const CompetitorInvoiceSchema = z.object({
+  operadora: z.string().max(120).optional(),
+  plano: z.string().max(200).optional(),
+  valor_cents: z.number().int().optional(),
+  confidence: z.number().min(0).max(1),
+});
+
+export type CompetitorInvoiceExtraction = z.infer<typeof CompetitorInvoiceSchema>;
+
+export type DocType = 'boleto' | 'energia' | 'concorrente' | 'desconhecido';
+
+const DocTypeSchema = z.object({
+  doc_type: z.enum(['boleto', 'energia', 'concorrente', 'desconhecido']),
+});
+
 const visionModel = openai('gpt-4o');
+const classifyModel = openai('gpt-4o-mini');
+
+export async function classifyDocumentType(
+  imageUrl: string,
+  tenantId: string,
+): Promise<DocType> {
+  if (!isVisionStructuredEnabled()) return 'desconhecido';
+  try {
+    const { object } = await generateObject({
+      model: classifyModel as any,
+      schema: DocTypeSchema,
+      system: `Classifique o documento na imagem em uma das categorias:
+- boleto: boleto bancário brasileiro
+- energia: conta de luz / energia elétrica
+- concorrente: fatura de outro provedor de internet/telecom
+- desconhecido: qualquer outro tipo
+Retorne apenas o tipo.`,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Classifique este documento:' },
+            { type: 'image', image: imageUrl },
+          ],
+        } as any,
+      ],
+      headers: {
+        'Helicone-Property-TenantId': tenantId,
+        'Helicone-Property-UseCase': 'ocr-classify',
+      },
+    });
+    return object.doc_type;
+  } catch (err) {
+    infraLogger.warn({ err, tenantId }, 'Vision: doc classify failed (fail-open → desconhecido)');
+    return 'desconhecido';
+  }
+}
+
+export async function extractByType(
+  imageUrl: string,
+  docType: DocType,
+  tenantId: string,
+): Promise<{ extraction: Record<string, unknown>; confidence: number }> {
+  if (docType === 'boleto') {
+    const result = await extractBoleto(imageUrl, tenantId);
+    if (result) return { extraction: result as any, confidence: result.confidence };
+    return { extraction: {}, confidence: 0 };
+  }
+  if (docType === 'energia') {
+    return extractEnergyBill(imageUrl, tenantId);
+  }
+  if (docType === 'concorrente') {
+    return extractCompetitorInvoice(imageUrl, tenantId);
+  }
+  return { extraction: {}, confidence: 0 };
+}
+
+async function extractEnergyBill(
+  imageUrl: string,
+  tenantId: string,
+): Promise<{ extraction: Record<string, unknown>; confidence: number }> {
+  try {
+    const { object } = await generateObject({
+      model: visionModel as any,
+      schema: EnergyBillSchema,
+      system: `Você extrai dados de contas de energia elétrica brasileiras.
+Identifique: distribuidora, valor em centavos (ex: R$150,00 = 15000), consumo kWh, vencimento (ISO yyyy-mm-dd).`,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Extraia os dados desta conta de energia:' },
+            { type: 'image', image: imageUrl },
+          ],
+        } as any,
+      ],
+      headers: {
+        'Helicone-Property-TenantId': tenantId,
+        'Helicone-Property-UseCase': 'ocr-extract-energia',
+      },
+    });
+    return { extraction: object as any, confidence: object.confidence };
+  } catch (err) {
+    infraLogger.warn({ err, tenantId }, 'Vision: energy bill extraction failed');
+    return { extraction: {}, confidence: 0 };
+  }
+}
+
+async function extractCompetitorInvoice(
+  imageUrl: string,
+  tenantId: string,
+): Promise<{ extraction: Record<string, unknown>; confidence: number }> {
+  try {
+    const { object } = await generateObject({
+      model: visionModel as any,
+      schema: CompetitorInvoiceSchema,
+      system: `Você extrai dados de faturas de provedores de internet/telecom concorrentes.
+Identifique: operadora, nome do plano, valor em centavos (ex: R$99,90 = 9990).`,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Extraia os dados desta fatura de concorrente:' },
+            { type: 'image', image: imageUrl },
+          ],
+        } as any,
+      ],
+      headers: {
+        'Helicone-Property-TenantId': tenantId,
+        'Helicone-Property-UseCase': 'ocr-extract-concorrente',
+      },
+    });
+    return { extraction: object as any, confidence: object.confidence };
+  } catch (err) {
+    infraLogger.warn({ err, tenantId }, 'Vision: competitor invoice extraction failed');
+    return { extraction: {}, confidence: 0 };
+  }
+}
 
 export async function extractBoleto(
   imageOrPdfUrl: string,

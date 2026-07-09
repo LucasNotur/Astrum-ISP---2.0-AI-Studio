@@ -16,11 +16,45 @@ const allOff: Record<string, boolean> = {
   features: false,
   bandit: false,
   drift: false,
-  costdrill: true, // client-only
+  costdrill: true, // client-only — sempre true
   sandbox: false,
   synthdata: false,
   failover: false,
   replay: false,
+  // IA-38
+  churn: false,
+  // IA-32
+  otel: false,
+  // IA-23
+  ltv: false,
+  // IA-31
+  elo: false,
+  // IA-29
+  activelearn: false,
+  // IA-15
+  reviewqueue: false,
+  // IA-17
+  mcp: false,
+  // IA-22
+  browse: false,
+  // IA-39
+  constitution: false,
+  // IA-28
+  commprofile: false,
+  // IA-36
+  edgeinfer: false,
+  // IA-35
+  latencybudget: false,
+  // IA-24
+  netanomaly: false,
+  // IA-25
+  forecast: false,
+  // IA-13
+  voiceqa: false,
+  // IA-40
+  voicepii: false,
+  // IA-12
+  voicebio: false,
 };
 
 const FLAG_ENVS = [
@@ -37,6 +71,23 @@ const FLAG_ENVS = [
   'SYNTH_DATA_ENABLED',
   'PROVIDER_FAILOVER_ENABLED',
   'REPLAY_ENGINE_ENABLED',
+  'CHURN_ENGINE',
+  'OTEL_ENABLED',
+  'LTV_ENABLED',
+  'MODEL_ELO_ENABLED',
+  'ACTIVE_LEARNING_ENABLED',
+  'OCR_MULTILAYOUT_ENABLED',
+  'MCP_SERVER_ENABLED',
+  'BROWSING_ENABLED',
+  'CONSTITUTIONAL_LOOP_ENABLED',
+  'COMM_PROFILE_ENABLED',
+  'EDGE_INFERENCE_MODE',
+  'LATENCY_BUDGET_ENABLED',
+  'NETWORK_ANOMALY_ENABLED',
+  'DEMAND_FORECAST_ENABLED',
+  'VOICE_QA_ENABLED',
+  'VOICE_PII_MASK_ENABLED',
+  'VOICE_BIOMETRICS_ENABLED',
 ];
 
 describe('public-flags', () => {
@@ -87,6 +138,23 @@ describe('public-flags', () => {
       ['SYNTH_DATA_ENABLED', 'synthdata'],
       ['PROVIDER_FAILOVER_ENABLED', 'failover'],
       ['REPLAY_ENGINE_ENABLED', 'replay'],
+      ['CHURN_ENGINE', 'churn'],
+      ['OTEL_ENABLED', 'otel'],
+      ['LTV_ENABLED', 'ltv'],
+      ['MODEL_ELO_ENABLED', 'elo'],
+      ['ACTIVE_LEARNING_ENABLED', 'activelearn'],
+      ['OCR_MULTILAYOUT_ENABLED', 'reviewqueue'],
+      ['MCP_SERVER_ENABLED', 'mcp'],
+      ['BROWSING_ENABLED', 'browse'],
+      ['CONSTITUTIONAL_LOOP_ENABLED', 'constitution'],
+      ['COMM_PROFILE_ENABLED', 'commprofile'],
+      ['EDGE_INFERENCE_MODE', 'edgeinfer'],
+      ['LATENCY_BUDGET_ENABLED', 'latencybudget'],
+      ['NETWORK_ANOMALY_ENABLED', 'netanomaly'],
+      ['DEMAND_FORECAST_ENABLED', 'forecast'],
+      ['VOICE_QA_ENABLED', 'voiceqa'],
+      ['VOICE_PII_MASK_ENABLED', 'voicepii'],
+      ['VOICE_BIOMETRICS_ENABLED', 'voicebio'],
     ];
     for (const [env, key] of pairs) {
       for (const e of FLAG_ENVS) delete process.env[e];

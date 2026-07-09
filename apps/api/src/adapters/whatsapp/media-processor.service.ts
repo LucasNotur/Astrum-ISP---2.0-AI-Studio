@@ -44,6 +44,17 @@ export interface MediaDeps {
     equipment: string; issue: string; severity: string;
     recommended_action: string; confidence: number;
   } | null>;
+  /** IA-15: classifica tipo de documento (boleto/energia/concorrente/desconhecido). */
+  classifyDocumentType?: (imageUrl: string, tenantId: string) => Promise<string>;
+  /** IA-15: extrai dados por tipo de documento. */
+  extractByType?: (imageUrl: string, docType: string, tenantId: string) => Promise<{
+    extraction: Record<string, unknown>; confidence: number;
+  }>;
+  /** IA-15: grava extração no banco para revisão. */
+  recordOcrExtraction?: (data: {
+    tenantId: string; conversationId?: string; mediaUrl?: string;
+    docType: string; extraction: Record<string, unknown>; confidence: number;
+  }) => void;
 }
 
 export async function processInboundMedia(
@@ -100,26 +111,63 @@ export async function processInboundMedia(
       storedRef = await deps.storeMedia(media.base64Media, media.mediaMimeType ?? 'application/octet-stream', tenantId).catch(() => null);
     }
 
-    // IA-04: tentar OCR de boleto se o dep está presente e mime parece imagem/pdf
-    if (deps.extractBoleto && (media.imageUrl || media.audioUrl || media.base64Media)) {
-      const mediaForOcr = media.imageUrl || media.audioUrl || '';
-      if (mediaForOcr) {
-        const boleto = await deps.extractBoleto(mediaForOcr, tenantId).catch(() => null);
-        if (boleto?.is_boleto && (boleto.confidence ?? 0) >= 0.6) {
-          const parts: string[] = [];
-          if (boleto.valor_cents !== undefined) {
-            parts.push(`valor R$${(boleto.valor_cents / 100).toFixed(2)}`);
+    // IA-15: multi-layout OCR — classifica tipo e extrai por tipo
+    const mediaForOcr = media.imageUrl || media.audioUrl || '';
+    if (mediaForOcr && deps.classifyDocumentType && deps.extractByType) {
+      try {
+        const docType = await deps.classifyDocumentType(mediaForOcr, tenantId);
+        if (docType !== 'desconhecido') {
+          const { extraction, confidence } = await deps.extractByType(mediaForOcr, docType, tenantId);
+          const reviewStatus = confidence < 0.85 ? 'pending' : 'auto';
+
+          if (deps.recordOcrExtraction) {
+            deps.recordOcrExtraction({
+              tenantId,
+              mediaUrl: mediaForOcr,
+              docType,
+              extraction,
+              confidence,
+            });
           }
-          if (boleto.vencimento) parts.push(`vencimento ${boleto.vencimento}`);
-          if (boleto.linha_digitavel) parts.push(`linha digitável ${boleto.linha_digitavel}`);
-          return {
-            textForLLM: media.textMessage || '[Cliente enviou um boleto]',
-            systemPromptExtension:
-              `Boleto anexado pelo cliente: ${parts.join(', ')}. Compare com as faturas em aberto antes de responder.`,
-            storedRef,
-            mediaType: 'document',
-          };
+
+          if (confidence >= 0.6) {
+            const parts: string[] = [];
+            const ext = extraction as any;
+            if (ext.valor_cents !== undefined) parts.push(`valor R$${(ext.valor_cents / 100).toFixed(2)}`);
+            if (ext.vencimento) parts.push(`vencimento ${ext.vencimento}`);
+            if (ext.linha_digitavel) parts.push(`linha digitável ${ext.linha_digitavel}`);
+            if (ext.distribuidora) parts.push(`distribuidora ${ext.distribuidora}`);
+            if (ext.operadora) parts.push(`operadora ${ext.operadora}`);
+            const typeLabels: Record<string, string> = { boleto: 'Boleto', energia: 'Conta de energia', concorrente: 'Fatura concorrente' };
+            return {
+              textForLLM: media.textMessage || `[Cliente enviou ${typeLabels[docType] ?? 'um documento'}]`,
+              systemPromptExtension:
+                `${typeLabels[docType] ?? 'Documento'} anexado: ${parts.join(', ')}. ${reviewStatus === 'pending' ? '(confiança baixa — aguardando revisão)' : ''}`.trim(),
+              storedRef,
+              mediaType: 'document',
+            };
+          }
         }
+      } catch { /* fail-open: segue fluxo normal */ }
+    }
+
+    // IA-04 fallback: tentar OCR de boleto se os deps IA-15 não estão presentes
+    if (deps.extractBoleto && !deps.classifyDocumentType && mediaForOcr) {
+      const boleto = await deps.extractBoleto(mediaForOcr, tenantId).catch(() => null);
+      if (boleto?.is_boleto && (boleto.confidence ?? 0) >= 0.6) {
+        const parts: string[] = [];
+        if (boleto.valor_cents !== undefined) {
+          parts.push(`valor R$${(boleto.valor_cents / 100).toFixed(2)}`);
+        }
+        if (boleto.vencimento) parts.push(`vencimento ${boleto.vencimento}`);
+        if (boleto.linha_digitavel) parts.push(`linha digitável ${boleto.linha_digitavel}`);
+        return {
+          textForLLM: media.textMessage || '[Cliente enviou um boleto]',
+          systemPromptExtension:
+            `Boleto anexado pelo cliente: ${parts.join(', ')}. Compare com as faturas em aberto antes de responder.`,
+          storedRef,
+          mediaType: 'document',
+        };
       }
     }
 

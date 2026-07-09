@@ -2,17 +2,22 @@ import { describe, it, expect } from 'vitest';
 import { FEATURE_DEFS, FEATURE_NAMES, FEATURE_TTL_HOURS, assertFeatureDefsUnique } from './feature-registry';
 
 describe('feature-registry', () => {
-  it('FEATURE_DEFS contém o catálogo canônico das 4 features do IA-27', () => {
+  it('FEATURE_DEFS contém o catálogo canônico (IA-27 + IA-23)', () => {
     expect(FEATURE_DEFS.map((f) => f.name)).toEqual([
       'tenure_days',
       'overdue_count_90d',
       'tickets_90d',
       'mrr_cents',
+      'ltv_cents',
+      'expected_lifetime_months',
     ]);
   });
 
   it('FEATURE_NAMES deriva do array (não há divergência)', () => {
-    expect(FEATURE_NAMES).toEqual(['tenure_days', 'overdue_count_90d', 'tickets_90d', 'mrr_cents']);
+    expect(FEATURE_NAMES).toEqual([
+      'tenure_days', 'overdue_count_90d', 'tickets_90d', 'mrr_cents',
+      'ltv_cents', 'expected_lifetime_months',
+    ]);
   });
 
   it('cada feature tem entity="customer" e ttlHours=24', () => {

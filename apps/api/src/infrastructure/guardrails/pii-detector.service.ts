@@ -79,16 +79,34 @@ const PII_PATTERNS: Array<{ type: PIIType; pattern: RegExp; mask: string }> = [
   },
 ];
 
-export function detectAndMaskPII(text: string): PIIDetectionResult {
+const SPOKEN_DIGITS: Record<string, string> = {
+  zero: '0', um: '1', uma: '1', dois: '2', duas: '2', três: '3', tres: '3',
+  quatro: '4', cinco: '5', meia: '6', seis: '6', sete: '7', oito: '8', nove: '9',
+};
+
+export function spokenNumbersToDigits(text: string): string {
+  const words = Object.keys(SPOKEN_DIGITS).join('|');
+  const re = new RegExp(`\\b(${words})\\b`, 'gi');
+  const converted = text.replace(re, (match) => SPOKEN_DIGITS[match.toLowerCase()] ?? match);
+  // Collapse sequences of single digits separated by spaces: "1 2 3" → "123"
+  return converted.replace(/\b(\d(?:\s+\d)+)\b/g, (m) => m.replace(/\s+/g, ''));
+}
+
+export interface DetectOptions {
+  spoken?: boolean;
+}
+
+export function detectAndMaskPII(text: string, opts?: DetectOptions): PIIDetectionResult {
+  const normalizedText = opts?.spoken ? spokenNumbersToDigits(text) : text;
   const detected: PIIEntity[] = [];
-  let maskedText = text;
+  let maskedText = normalizedText;
   let offset = 0;
 
   for (const { type, pattern, mask } of PII_PATTERNS) {
     pattern.lastIndex = 0;
     let match: RegExpExecArray | null;
 
-    while ((match = pattern.exec(text)) !== null) {
+    while ((match = pattern.exec(normalizedText)) !== null) {
       detected.push({
         type,
         originalValue: match[0],
@@ -124,6 +142,6 @@ export function detectAndMaskPII(text: string): PIIDetectionResult {
 /**
  * Versão simplificada — retorna apenas o texto mascarado.
  */
-export function maskPII(text: string): string {
-  return detectAndMaskPII(text).maskedText;
+export function maskPII(text: string, opts?: DetectOptions): string {
+  return detectAndMaskPII(text, opts).maskedText;
 }

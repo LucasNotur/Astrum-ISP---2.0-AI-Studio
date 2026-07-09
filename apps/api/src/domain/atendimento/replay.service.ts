@@ -68,16 +68,9 @@ export interface ReplayItemRow {
   judge_rationale: string | null;
 }
 
-// ─── Catálogo de tools com side-effect (IA-19) ───────────────────────────────
-// Estas 3 tools MUTAM estado do sistema. No replay, são interceptadas pelo
-// DryRunToolsExecutor para não criar tickets, suspender sinais ou agendar OS
-// durante a reexecução. As outras (check_invoice, check_coverage,
-// run_diagnostics, query_knowledge_base) são read-only e seguem normalmente.
-export const SIDE_EFFECT_TOOLS: ReadonlySet<string> = new Set([
-  'suspend_signal',
-  'create_ticket',
-  'schedule_technical_visit',
-]);
+// E4 debt quita: SIDE_EFFECT_TOOLS agora vive em tool-registry.ts (fonte única).
+import { SIDE_EFFECT_TOOLS } from '../../infrastructure/ai/tool-registry';
+export { SIDE_EFFECT_TOOLS };
 
 // ─── DryRunToolsExecutor ─────────────────────────────────────────────────────
 // Implementa IToolsPort (mesma assinatura de `ToolsExecutor.execute`). Recebe
@@ -385,6 +378,30 @@ export async function executeReplayRun(runId: string): Promise<void> {
       { runId, total: results.length, equivalent, passRate, errors: results.length - judged.length },
       'Replay concluído',
     );
+
+    // IA-31: gravar empates Elo para itens equivalentes (flag-gated).
+    if ((process.env.MODEL_ELO_ENABLED ?? '').trim().toLowerCase() === 'true') {
+      try {
+        const { recordMatch } = await import('../ml/elo-recorder.service');
+        const config = typedRun.params as any;
+        const originalKey = config?.original_key ?? 'epoch';
+        const candidateKey = config?.candidate_key ?? 'current';
+        const eqItems = results.filter((r) => r.verdict === 'equivalente');
+        for (const r of eqItems) {
+          await recordMatch({
+            tenantId: typedRun.tenant_id,
+            winnerKey: originalKey,
+            loserKey: candidateKey,
+            draw: true,
+            source: 'replay',
+            refId: r.pair.conversationId,
+          });
+        }
+        iaLogger.info({ runId, eloMatches: eqItems.length }, '[elo] empates gravados');
+      } catch (eloErr) {
+        iaLogger.warn({ runId, err: (eloErr as Error).message }, '[elo] falha ao gravar empates (fail-open)');
+      }
+    }
   } catch (err) {
     iaLogger.error({ runId, err: (err as Error).message }, 'Replay falhou');
     await supabaseAdmin

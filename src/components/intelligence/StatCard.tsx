@@ -10,14 +10,15 @@ interface StatCardProps {
     value: string;
     positive: boolean;
   };
+  tooltip?: string;
   className?: string;
 }
 
-export function StatCard({ label, value, delta, className }: StatCardProps) {
+export function StatCard({ label, value, delta, tooltip, className }: StatCardProps) {
   return (
     <Card className={cn('bg-card text-card-foreground shadow-sm', className)}>
       <CardContent className="p-5">
-        <div className="text-sm text-muted-foreground">{label}</div>
+        <div className="text-sm text-muted-foreground" title={tooltip}>{label}</div>
         <div className="mt-1 font-mono text-[32px] font-bold leading-none tracking-tight">
           {value}
         </div>

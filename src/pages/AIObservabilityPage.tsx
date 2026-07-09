@@ -57,6 +57,26 @@ function circuitToRisk(circuit: CircuitState): { level: RiskLevel; label: string
   return { level: 'alto', label: `${ptBR.intelligence.risk.alto} · fora` };
 }
 
+// IA-32 — OTel status
+interface OtelStatus {
+  enabled: boolean;
+  endpoint_mascarado: string | null;
+  spans_sessao: number;
+  ultimo_erro: string | null;
+}
+
+async function fetchOtelStatus(): Promise<OtelStatus> {
+  const res = await fetch(`${API_BASE_URL}/api/v2/ia/otel/status`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()) as OtelStatus;
+}
+
+function otelToRisk(s: OtelStatus): { level: RiskLevel; label: string } {
+  if (!s.enabled) return { level: 'sem-dado', label: 'Desligado' };
+  if (s.ultimo_erro) return { level: 'alto', label: 'erro no exporter' };
+  return { level: 'baixo', label: 'exportando' };
+}
+
 const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6'];
 
 export const AIObservabilityPage = () => {
@@ -82,6 +102,15 @@ export const AIObservabilityPage = () => {
     queryFn: () => fetchProvidersStatus(token!),
     enabled: !!token,
     refetchInterval: 30_000, // 30s polling
+    refetchIntervalInBackground: false,
+    staleTime: 25_000,
+  });
+
+  // IA-32 — OTel status (polling 30s, sem auth — rota pública)
+  const otelQuery = useQuery({
+    queryKey: ['ia-otel-status'],
+    queryFn: fetchOtelStatus,
+    refetchInterval: 30_000,
     refetchIntervalInBackground: false,
     staleTime: 25_000,
   });
@@ -338,6 +367,55 @@ export const AIObservabilityPage = () => {
         {providersQuery.isError && (
           <p className="col-span-3 text-xs text-red-500">Falha ao consultar /api/v2/ia/providers/status.</p>
         )}
+      </div>
+
+      {/* ── IA-32: Telemetria ──────────────────────────────────────── */}
+      <h2 className="text-xl font-semibold mt-8 mb-4 flex items-center gap-2">
+        <Activity className="h-5 w-5 text-muted-foreground" />
+        Telemetria
+      </h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {otelQuery.data ? (() => {
+          const risk = otelToRisk(otelQuery.data);
+          return (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Status</CardTitle>
+                <RiskBadge level={risk.level} label={risk.label} />
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-xs text-muted-foreground">Spans (sessão)</span>
+                    <span className="text-sm font-mono font-semibold">
+                      {otelQuery.data.spans_sessao.toLocaleString('pt-BR')}
+                    </span>
+                  </div>
+                  {otelQuery.data.endpoint_mascarado && (
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-xs text-muted-foreground">Endpoint</span>
+                      <span className="text-xs font-mono truncate max-w-[200px]">{otelQuery.data.endpoint_mascarado}</span>
+                    </div>
+                  )}
+                  {otelQuery.data.ultimo_erro && (
+                    <p className="text-[10px] text-red-500 truncate" title={otelQuery.data.ultimo_erro}>
+                      {otelQuery.data.ultimo_erro}
+                    </p>
+                  )}
+                  {!otelQuery.data.enabled && (
+                    <p className="text-[10px] text-muted-foreground">
+                      Defina OTEL_ENABLED=true e OTEL_EXPORTER_OTLP_ENDPOINT para ativar.
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })() : otelQuery.isLoading ? (
+          <p className="col-span-3 text-xs text-muted-foreground">Carregando status do OTel…</p>
+        ) : otelQuery.isError ? (
+          <p className="col-span-3 text-xs text-red-500">Falha ao consultar /api/v2/ia/otel/status.</p>
+        ) : null}
       </div>
 
       {/* COST METER SECTION */}

@@ -8,6 +8,8 @@ import {
   type FeatureMap,
   type FeatureValue,
 } from './feature-registry';
+import { computeLtv } from './ltv';
+import type { RiskBand } from './churn-score';
 
 /**
  * IA-27 — Feature Store Service.
@@ -122,7 +124,60 @@ async function queryFeatureForTenant(
         value: c.plan_id ? priceByPlan.get(c.plan_id) ?? 0 : 0,
       }));
     }
+
+    case 'ltv_cents':
+    case 'expected_lifetime_months': {
+      return computeLtvFeatures(tenantId, feature);
+    }
   }
+}
+
+async function computeLtvFeatures(
+  tenantId: string,
+  feature: 'ltv_cents' | 'expected_lifetime_months',
+): Promise<RawFeatureRow[]> {
+  const { data: scores } = await supabaseAdmin
+    .from('churn_scores')
+    .select('customer_id, risk_band')
+    .eq('tenant_id', tenantId);
+  if (!scores || scores.length === 0) return [];
+
+  const latestByCustomer = new Map<string, string>();
+  for (const s of scores) {
+    latestByCustomer.set(s.customer_id, s.risk_band);
+  }
+
+  const customerIds = [...latestByCustomer.keys()];
+  const { data: customers } = await supabaseAdmin
+    .from('customers')
+    .select('id, plan_id')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'active')
+    .in('id', customerIds);
+  if (!customers || customers.length === 0) return [];
+
+  const planIds = [...new Set(customers.map((c) => c.plan_id).filter(Boolean))] as string[];
+  const priceByPlan = new Map<string, number>();
+  if (planIds.length > 0) {
+    const { data: plans } = await supabaseAdmin
+      .from('billing_plans')
+      .select('id, price_cents')
+      .eq('tenant_id', tenantId)
+      .in('id', planIds);
+    for (const p of plans ?? []) {
+      priceByPlan.set(p.id, Number(p.price_cents ?? 0));
+    }
+  }
+
+  return customers.map((c) => {
+    const band = (latestByCustomer.get(c.id) ?? 'medium') as RiskBand;
+    const mrrCents = c.plan_id ? priceByPlan.get(c.plan_id) ?? 0 : 0;
+    const ltv = computeLtv({ mrrCents, band });
+    return {
+      entity_id: c.id,
+      value: feature === 'ltv_cents' ? ltv.ltvCents : ltv.months,
+    };
+  });
 }
 
 /** Upsert em lote — agrupa N linhas em pacotes de UPSERT_BATCH. */

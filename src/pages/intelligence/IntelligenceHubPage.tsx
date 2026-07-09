@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Wrench, ShieldCheck, Network, Database, Target, Activity, Terminal, FlaskConical, RefreshCw } from 'lucide-react';
+import { Sparkles, Wrench, ShieldCheck, Network, Database, Target, Activity, Terminal, FlaskConical, RefreshCw, TrendingDown, Trophy, Tags, FileSearch, Plug, HeartPulse, TrendingUp, PhoneCall } from 'lucide-react';
 import { useFeatureFlags } from '@/src/hooks/useFeatureFlags';
 import { ptBR } from '@/src/lib/i18n/pt-br';
 import { supabase } from '@/src/lib/supabase';
@@ -27,9 +27,18 @@ export const BRANCH_REGISTRY: Branch[] = [
   { key: 'features', title: 'Catálogo de Features', description: 'As variáveis que alimentam os modelos preditivos.', icon: Database, route: '/intelligence/features' },
   { key: 'bandit', title: 'Campanhas Inteligentes', description: 'Variantes de mensagem de cobrança competindo por conversão.', icon: Target, route: '/intelligence/campaigns' },
   { key: 'drift', title: 'Drift do Modelo', description: 'A conversa dos clientes mudou? O modelo continua calibrado?', icon: Activity, route: '/intelligence/drift' },
-  { key: 'sandbox', title: 'Sandbox SQL', description: 'Console analítico somente leitura, com histórico auditado.', icon: Terminal, route: '/intelligence/sandbox' },
+  // IA-38: sandbox passa a exigir super_admin (duplo gate, alinhado com sandbox.routes.ts:65).
+  { key: 'sandbox', title: 'Sandbox SQL', description: 'Console analítico somente leitura, com histórico auditado.', icon: Terminal, route: '/intelligence/sandbox', superAdminOnly: true },
+  { key: 'churn', title: 'Risco de Churn', description: 'Probabilidade de cancelamento por cliente, com breakdown explicável.', icon: TrendingDown, route: '/intelligence/churn' },
   { key: 'synthdata', title: 'Dados Sintéticos', description: 'Gere conversas de teste para load e avaliação.', icon: FlaskConical, route: '/intelligence/synthetic', superAdminOnly: true },
   { key: 'replay', title: 'Replay de Conversas', description: 'Rode conversas reais contra o motor atual antes de qualquer cutover.', icon: RefreshCw, route: '/intelligence/replay' },
+  { key: 'elo', title: 'Ranking de Modelos', description: 'Elo das configurações de modelo e prompt do seu ambiente.', icon: Trophy, route: '/intelligence/models' },
+  { key: 'activelearn', title: 'Rotulagem de Exemplos', description: 'Corrija e exporte dados de treino coletados do fluxo real.', icon: Tags, route: '/intelligence/labeling' },
+  { key: 'reviewqueue', title: 'Revisão de Documentos', description: 'Confirme extrações de boletos e faturas com baixa confiança.', icon: FileSearch, route: '/intelligence/review-queue' },
+  { key: 'mcp', title: 'Conexões MCP', description: 'Conecte o Claude e outros clientes aos dados do seu provedor.', icon: Plug, route: '/intelligence/mcp' },
+  { key: 'netanomaly', title: 'Saúde da Rede', description: 'Anomalias detectadas via EWMA + z-score em métricas de rede.', icon: HeartPulse, route: '/intelligence/network-health' },
+  { key: 'forecast', title: 'Previsão de Demanda', description: 'Média móvel sazonal com sugestão de staffing por dia.', icon: TrendingUp, route: '/intelligence/staffing' },
+  { key: 'voiceqa', title: 'Qualidade de Voz', description: 'Scorecard automático de todas as chamadas.', icon: PhoneCall, route: '/intelligence/voice-qa' },
 ];
 
 export function IntelligenceHubPage() {

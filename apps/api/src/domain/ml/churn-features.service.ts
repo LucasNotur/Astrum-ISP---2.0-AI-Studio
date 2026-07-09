@@ -1,5 +1,7 @@
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
+import { infraLogger } from '../../infrastructure/logging/logger';
 import type { ChurnFeatures } from './churn-score';
+import { getFeatures } from './feature-store.service';
 
 /**
  * IA-07 — Churn Features Service.
@@ -155,8 +157,46 @@ async function getDowngrades180d(tenantId: string, customerId: string): Promise<
 
 /**
  * Extrai todas as features de churn para um cliente.
+ * E3: tenta ler do Feature Store primeiro; se stale/vazio, usa SQL direto (fallback).
  */
 export async function extractFeatures(tenantId: string, customerId: string): Promise<ChurnFeatures> {
+  try {
+    const snapshot = await getFeatures(tenantId, customerId);
+    const f = snapshot.features;
+    const hasCore =
+      f.tenure_days !== null &&
+      f.overdue_count_90d !== null &&
+      f.tickets_90d !== null &&
+      f.mrr_cents !== null;
+
+    if (hasCore && !snapshot.stale) {
+      infraLogger.debug({ tenantId, customerId, source: 'feature-store' }, '[churn-features] usando feature store');
+      return {
+        tenureDays: Number(f.tenure_days),
+        overdueCount90d: Number(f.overdue_count_90d),
+        avgPaymentDelayDays180d: await getAvgPaymentDelay180d(tenantId, customerId),
+        tickets30d: await getTicketCount(tenantId, customerId, 30),
+        tickets90d: Number(f.tickets_90d),
+        negativeSentimentRatio90d: await getNegativeSentimentRatio90d(tenantId, customerId),
+        downgrades180d: await getDowngrades180d(tenantId, customerId),
+        mrrCents: Number(f.mrr_cents),
+      };
+    }
+    infraLogger.warn(
+      { tenantId, customerId, stale: snapshot.stale, hasCore },
+      '[churn-features] feature store vazio/stale — usando SQL direto (fallback)',
+    );
+  } catch (err: any) {
+    infraLogger.warn(
+      { tenantId, customerId, err: err?.message },
+      '[churn-features] feature store indisponível — usando SQL direto (fallback)',
+    );
+  }
+
+  return extractFeaturesFromSQL(tenantId, customerId);
+}
+
+async function extractFeaturesFromSQL(tenantId: string, customerId: string): Promise<ChurnFeatures> {
   const [tenureDays, overdueCount90d, avgPaymentDelayDays180d, tickets30d, tickets90d, negativeSentimentRatio90d, downgrades180d] =
     await Promise.all([
       getTenureDays(tenantId, customerId),
@@ -168,7 +208,6 @@ export async function extractFeatures(tenantId: string, customerId: string): Pro
       getDowngrades180d(tenantId, customerId),
     ]);
 
-  // MRR: buscar do billing_plans ativo do customer
   const { data: billing } = await supabaseAdmin
     .from('customers')
     .select('plan_id')

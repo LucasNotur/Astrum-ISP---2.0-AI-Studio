@@ -5,7 +5,9 @@ vi.mock('../../infrastructure/ai/guardrails.service', () => ({
   guardrailsService: { check: vi.fn() }
 }));
 vi.mock('../../infrastructure/ai/vercel-ai.service', () => ({
-  vercelAIService: {}
+  vercelAIService: {},
+  agentTools: [],
+  isToolBatchingEnabled: () => false,
 }));
 vi.mock('../../infrastructure/rag/hybrid-search.service', () => ({
   hybridSearchService: {}

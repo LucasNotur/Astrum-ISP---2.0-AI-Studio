@@ -36,6 +36,18 @@ export const FEATURE_DEFS = [
     ttlHours: 24,
     describe: 'Mensalidade em centavos',
   },
+  {
+    name: 'ltv_cents',
+    entity: 'customer',
+    ttlHours: 24,
+    describe: 'Lifetime value estimado em centavos (MRR × margem × expectativa de vida)',
+  },
+  {
+    name: 'expected_lifetime_months',
+    entity: 'customer',
+    ttlHours: 24,
+    describe: 'Expectativa de vida em meses (1/churn_mensal, teto 60)',
+  },
 ] as const;
 
 export type FeatureDef = (typeof FEATURE_DEFS)[number];

@@ -1,6 +1,12 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  compareToBaseline,
+  formatSummary,
+  type Baseline,
+  type EvalResult,
+} from './spec-tracker.js';
 
 /**
  * eval/run-eval.ts — IA-03
@@ -28,6 +34,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCENARIOS_PATH = join(__dirname, 'scenarios', 'atendimento.jsonl');
 const RESULTS_DIR = join(__dirname, 'results');
+const BASELINE_PATH = join(__dirname, 'baseline.json');
 
 const EVAL_TENANT_ID = process.env.EVAL_TENANT_ID ?? '00000000-0000-0000-0000-000000000000';
 const ECONVERSATION_SEQ = '00000000-0000-4000-8000-000000000000';
@@ -49,6 +56,7 @@ interface Scenario {
   must_contain?: string[];
   must_not_contain?: string[];
   requires_human_expected?: boolean;
+  quarantined?: boolean;
 }
 
 interface ScenarioResult {
@@ -154,7 +162,8 @@ function printTable(rows: ScenarioResult[]): void {
 }
 
 async function main() {
-  const online = (process.env.EVAL_ONLINE ?? '').trim().toLowerCase() === 'true';
+  const ciMode = process.argv.includes('--ci');
+  const online = ciMode || (process.env.EVAL_ONLINE ?? '').trim().toLowerCase() === 'true';
   const withJudge = (process.env.EVAL_JUDGE ?? '').trim().toLowerCase() === 'true';
   if (withJudge && !online) {
     console.error('EVAL_JUDGE=true implica EVAL_ONLINE=true. Configure ambos.');
@@ -162,8 +171,9 @@ async function main() {
   }
 
   const scenarios = loadScenarios();
+  const quarantinedIds = scenarios.filter((s) => s.quarantined).map((s) => s.id);
   const mode = withJudge ? 'judge' : online ? 'online' : 'mock';
-  console.log(`\n[eval] modo=${mode} cenários=${scenarios.length} tenant=${EVAL_TENANT_ID}\n`);
+  console.log(`\n[eval] modo=${mode}${ciMode ? ' (CI gate)' : ''} cenários=${scenarios.length} quarentena=${quarantinedIds.length} tenant=${EVAL_TENANT_ID}\n`);
 
   if (!existsSync(RESULTS_DIR)) mkdirSync(RESULTS_DIR, { recursive: true });
 
@@ -303,6 +313,30 @@ async function main() {
     ),
   );
   console.log(`[eval] resultados salvos em ${resultPath}`);
+
+  // IA-42 — CI gate: compara com baseline versionado.
+  if (ciMode) {
+    if (!existsSync(BASELINE_PATH)) {
+      console.error('[eval] ERRO: baseline.json não encontrado. Rode o eval e faça commit do baseline.');
+      process.exit(2);
+    }
+    const baseline: Baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8'));
+    const evalResult: EvalResult = { passRate, rows, quarantined: quarantinedIds };
+    const comparison = compareToBaseline(evalResult, baseline);
+    const summary = formatSummary(comparison, evalResult, baseline, mode);
+
+    const summaryPath = resultPath.replace('.json', '.summary.md');
+    writeFileSync(summaryPath, summary + '\n');
+    console.log(`[eval] summary salvo em ${summaryPath}`);
+    console.log('\n' + summary);
+
+    if (!comparison.gatePass) {
+      console.error(`\n[eval] ❌ GATE FALHOU — ${comparison.regressions.length} regressão(ões): ${comparison.regressions.join(', ')}`);
+      process.exit(1);
+    }
+    console.log('\n[eval] ✅ Gate passou.');
+    process.exit(0);
+  }
 
   if (passRate < threshold) process.exit(1);
   process.exit(0);

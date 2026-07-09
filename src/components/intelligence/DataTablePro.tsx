@@ -26,6 +26,12 @@ interface DataTableProProps<T> {
   pageSize?: number;
   emptyState?: React.ReactNode;
   className?: string;
+  /**
+   * IA-38: handler opcional para tornar a linha inteira clicável (ex.:
+   * abrir um drawer de detalhe). Quando presente, o cursor vira pointer
+   * e a linha ganha foco visível.
+   */
+  onRowClick?: (row: T) => void;
 }
 
 export function DataTablePro<T extends Record<string, any>>({
@@ -34,6 +40,7 @@ export function DataTablePro<T extends Record<string, any>>({
   pageSize = 20,
   emptyState,
   className,
+  onRowClick,
 }: DataTableProProps<T>) {
   const [page, setPage] = useState(1);
 
@@ -66,7 +73,22 @@ export function DataTablePro<T extends Record<string, any>>({
           </TableHeader>
           <TableBody>
             {pageData.map((row, rowIndex) => (
-              <TableRow key={rowIndex}>
+              <TableRow
+                key={rowIndex}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+                className={cn(onRowClick && 'cursor-pointer focus-visible:bg-muted/40')}
+                tabIndex={onRowClick ? 0 : undefined}
+                onKeyDown={
+                  onRowClick
+                    ? (e: React.KeyboardEvent) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onRowClick(row);
+                        }
+                      }
+                    : undefined
+                }
+              >
                 {columns.map((col) => {
                   const riskLevel = col.riskAccessor?.(row);
                   const content = col.accessor?.(row);

@@ -60,6 +60,9 @@ export class ToolsExecutor {
       case 'query_network_graph': // IA-16
         result = await this._queryNetworkGraph(args);
         break;
+      case 'browse_url': // IA-22
+        result = await this._browseUrl(args);
+        break;
       default:
         infraLogger.warn({ toolName }, 'Unknown tool called — ignoring');
         result = { error: 'Ferramenta não reconhecida' };
@@ -232,5 +235,10 @@ export class ToolsExecutor {
       return await capacidade(graphDb, this.tenantId);
     }
     return { error: `mode inválido: ${mode}` };
+  }
+
+  private async _browseUrl(args: Record<string, unknown>) {
+    const { browseUrl } = await import('../browse/browser.service');
+    return browseUrl(args.url as string, this.tenantId);
   }
 }
