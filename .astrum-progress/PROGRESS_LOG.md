@@ -24,6 +24,89 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-09] IA-FASE2 — Execucao completa das sessoes restantes da Fase 2 (17 sessoes + IA-42)
+Tarefa: executar TODA a Fase 2 do IA-NEXTGEN (Onda 1), corrigir falhas de teste
+  pos-merge e publicar no main. 298 testes passando / 1 falha pre-existente
+  (server.test.ts requer Redis/Qdrant/Supabase em ambiente de teste).
+Commit: fbd849c — 123 arquivos, 10.095 insercoes / 249 remocoes.
+
+Sessoes executadas (todas na branch feat/ia38-churn-shap, publicadas em main):
+  IA-32: OpenTelemetry — otel.ts (boot condicional), otel-span.helper.ts,
+    otel.routes.ts (/api/v2/ia/otel/status), otel.test.ts, card Telemetria na
+    AIObservabilityPage, AIObservabilityPage.test.tsx.
+  IA-38 + E1: Churn SHAP — churn-score.ts (SHAP breakdown), churn-features.service.ts,
+    feature-registry.ts, churn.routes.ts, migration 048_churn_contributions.sql,
+    ChurnPage.tsx (tabela de risco + breakdown explicavel), SandboxPage.tsx (QUITACAO
+    da divida E1: rota /intelligence/sandbox agora existe), ChurnPage.test.tsx,
+    SandboxPage.test.tsx.
+  IA-23: LTV heuristico — ltv.ts (computeLtv por banda de risco), ltv.test.ts,
+    coluna ltv_cents exposta na ChurnPage via churn.routes.
+  IA-31: Ranking Elo — elo.ts (comparacoes com formula Elo), elo.test.ts,
+    elo-recorder.service.ts, models.routes.ts (/api/v2/ia/models/*),
+    migration 049_elo.sql, ModelsPage.tsx, ModelsPage.test.tsx.
+  IA-29: Active learning — active-learning.service.ts (fila de rotulagem),
+    active-learning.test.ts, labeling.routes.ts (/api/v2/ia/labeling/*),
+    migration 050_labeled_examples.sql, LabelingPage.tsx, LabelingPage.test.tsx.
+  IA-15: OCR multi-layout — ocr-review.routes.ts (/api/v2/ia/ocr-review/*),
+    migration 051_ocr_review.sql, ReviewQueuePage.tsx, ReviewQueuePage.test.tsx.
+  IA-17: MCP server — mcp-server.ts (MCP JSON-RPC), mcp-server.test.ts,
+    mcp-admin.routes.ts (/api/v2/ia/mcp/*), migration 052_mcp_keys.sql,
+    McpPage.tsx, McpPage.test.tsx. Quitacao E4 (SIDE_EFFECT_TOOLS movido p/ tool-registry).
+  IA-22: Web browsing — url-guard.ts (allowlist + validacao), url-guard.test.ts,
+    browser.service.ts (fetch com retry + citacao), browse-admin.routes.ts,
+    migration 053_browse_allowlist.sql.
+  IA-39: Constitutional loop — constitution.service.ts (votos de violacao por principio),
+    constitution.service.test.ts, constitution.routes.ts (/api/v2/ia/constitution/*),
+    migration 054_tenant_constitutions.sql.
+  IA-28: Perfil de comunicacao — comm-style.ts (heuristica de estilo), comm-style.test.ts,
+    migration 055_comm_optout.sql.
+  IA-36: Edge inference — edge-classifier.ts (shadow mode Cloudflare Workers AI compat),
+    edge-classifier.test.ts, edge.routes.ts, migration 056_edge_shadow.sql.
+  IA-35: Latency budget — latency-budget.ts (P50/P95/P99 por no do grafo),
+    latency-budget.test.ts, latency.routes.ts, migration 057_node_latency.sql.
+  IA-24: Network anomaly — anomaly.ts (EWMA + z-score), anomaly.test.ts,
+    anomaly.routes.ts, migration 058_network_anomalies.sql, NetworkHealthPage.tsx,
+    NetworkHealthPage.test.tsx.
+  IA-25: Demand forecast — forecast.ts (media movel sazonal + staffing), forecast.test.ts,
+    forecast.routes.ts, migration (via 059+), StaffingPage.tsx, StaffingPage.test.tsx.
+  IA-13: Voice QA — voice-qa.service.ts (scorecard automatico de chamadas),
+    voice-qa.service.test.ts, voice.routes.ts (/api/v2/ia/voice/*),
+    migration 059_voice_calls.sql, VoiceQaPage.tsx, VoiceQaPage.test.tsx.
+  IA-40: Voice PII masking — pii-voice.test.ts, voice-consent.routes.ts,
+    migration 060_voice_pii.sql.
+  IA-12: Voice biometrics — voice-verify.port.ts, voice-verify.port.test.ts,
+    voice-verify.service.ts, voice-consent.routes.ts (consentimento + verificacao),
+    migration 061_voice_biometry.sql.
+  IA-42: Spec tracker — spec-tracker.ts (CI gate), spec-tracker.test.ts,
+    baseline.json, run-eval.ts atualizado, resultados de eval em eval/results/.
+
+Flags adicionadas ao public-flags.ts (31 flags total, antes eram 14):
+  churn, otel, ltv, elo, activelearn, reviewqueue, mcp, browse, constitution,
+  commprofile, edgeinfer, latencybudget, netanomaly, forecast, voiceqa, voicepii, voicebio.
+
+Rotas registradas em server.ts: otel, models, labeling, ocr-review, mcp-admin,
+  browse-admin, constitution, edge, latency, anomaly, forecast, voice, voice-consent.
+
+Paginas registradas em BRANCH_REGISTRY (IntelligenceHubPage.tsx): agora 17 entradas
+  (era 9 antes das sessoes paralelas). Todas com rotas em App.tsx.
+
+Correcoes de testes pos-merge:
+  - public-flags.test.ts: 17 novas flags adicionadas ao baseline allOff e FLAG_ENVS
+  - langgraph.service.test.ts: agentTools + isToolBatchingEnabled adicionados ao mock
+  - VoiceQaPage.test.tsx: mock direto de recharts (sem importActual) — de 3716ms p/ <50ms
+  - AIObservabilityPage.test.tsx: mock direto de recharts, fix multiple-elements
+    (getByText -> getAllByText)
+
+Situacao pos-sessao:
+  - Fase 2 do IA-NEXTGEN: 18 sessoes CONCLUIDAS (IA-32, 38, 23, 31, 29, 15, 17, 22,
+    39, 28, 36, 35, 24, 25, 13, 40, 12, 42). Falta so: IA-08 A3 (identificacao
+    de usuario por voz, bloqueado por Twilio staging — dever de casa do Lucas).
+  - 3 sessoes GATED: IA-18 (RN02 amostra ≥1000), IA-20 (dataset PT >10k), IA-41 (A/B)
+  - PARTE2 vira __CONCLUIDO quando IA-08 A3 for quitado.
+Status: ✅ Concluido (Fase 2 code-complete; IA-08 A3 aguarda Twilio do Lucas).
+
+---
+
 [2026-07-08] NG2-INVENTARIO — Inventário geral de planos + renomeação por status + plano de ação
 Tarefa: inventariar TODOS os planos do sistema, renomear cada arquivo com o
   status no fim do nome, e criar o plano de ação geral unificado.
