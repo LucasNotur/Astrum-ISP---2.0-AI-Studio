@@ -181,16 +181,19 @@ completa; Mundiale fecha venda no WhatsApp.
 **Métrica:** % de leads convertidos sem humano; tempo lead→instalação agendada.
 
 ### BLOCO P4 — Experiência do assinante
-**Gap:** IXC Oner tem nova Central do Assinante; todos têm app/central. A Astrum
-tem o embrião `subscriber-portal.ts` (auth por CPF, ações por status — real,
-auditado).
-- **P4-01 — Central do assinante white-label (PWA)**: 2ª via, diagnóstico
-  (`run_diagnostics` já existe como tool), status da OS, histórico — mesmo backend
-  do agente, casca web instalável. PWA primeiro, loja depois (decisão registrada:
-  app nativo só com demanda).
-- **P4-02 — Diagnóstico self-service** ("minha internet está lenta" → roda o
-  diagnóstico real → mostra o resultado → abre OS se preciso).
+✅ **CODE-COMPLETE em 2026-07-11**. Usa tabelas existentes (customers, invoices, service_orders) — sem nova migration.
+**Gap:** IXC Oner tem nova Central do Assinante; todos têm app/central.
+- [x] **P4-01 — Central do assinante white-label (PWA)**: `subscriber-portal.ts` (auth CPF+contrato,
+  lookup por `cpf`/`legacy_id`, fallback para UUID), `subscriber-portal.routes.ts` (5 rotas:
+  auth/dashboard/invoices/service-orders/diagnostic), `src/pages/PortalPage.tsx` (casca PWA
+  instalável, rota `/portal` no Vite, `public/portal-manifest.json`). JWT 24h role:'subscriber'
+  separado do JWT de operador. Tenant via header `X-Tenant-Id` ou URL param `?tenant=`.
+- [x] **P4-02 — Diagnóstico self-service** (`diagnostic-portal.service.ts`): `run_diagnostics` →
+  mapeia sinal (ok/degraded/no_signal) → abre OS automaticamente via `schedule_technical_visit`
+  se degraded/no_signal → mensagem amigável para o assinante.
 **Métrica:** % de autoatendimento no portal; nota de app/loja quando houver.
+**Pendências externas (Lucas):** popular `customers.cpf` e `customers.legacy_id` para tenants piloto;
+decidir domínio/URL do PWA em produção.
 
 ### BLOCO P5 — Prova de valor e confiança (o que faz o deal fechar)
 ✅ **CODE-COMPLETE em 2026-07-11**. Migration `068_p5_valor_gerado.sql` pendente de apply pelo Lucas.

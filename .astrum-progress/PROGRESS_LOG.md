@@ -24,6 +24,28 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-11] P4 — Portal do Assinante (PWA white-label) — CODE-COMPLETE
+Tarefa: Construir casca PWA do portal do assinante (P4-01 + P4-02).
+Arquivos criados:
+  - src/pages/PortalPage.tsx — portal PWA completo: login CPF+contrato, dashboard, faturas, OS, diagnóstico
+  - public/portal-manifest.json — manifest PWA do portal (separado do manifest do operador)
+Arquivos modificados:
+  - src/App.tsx — rota /portal (bypassa auth shell como /webchat)
+  - package.json — script dev:vite adicionado
+  - .claude/launch.json — configuração astrum-vite (porta 5173)
+  - .astrum-progress/nextgen-2.0/PLANO_B_PARIDADE_CONCORRENTES__PENDENTE.md — P4 marcado CODE-COMPLETE
+Backend já existia (code-complete anterior à sessão):
+  - apps/api/src/domain/provedor/subscriber-portal.ts (auth, lookup, invoices, OS)
+  - apps/api/src/domain/provedor/subscriber-portal.routes.ts (5 rotas /api/v2/portal/*)
+  - apps/api/src/domain/provedor/diagnostic-portal.service.ts (P4-02 diagnóstico self-service)
+Testes: 105 passando (build Vite limpo, sem erros TypeScript)
+Status: ✅ CODE-COMPLETE — portal acessível em /portal?tenant=<tenantId>
+Pendências externas (Lucas):
+  1. Popular customers.cpf + customers.legacy_id para tenants piloto
+  2. Decidir domínio/URL do PWA em produção
+
+---
+
 [2026-07-11] S74-exec — Subida do worker v2 + início do período shadow
 Tarefa: Aplicar migrations pendentes, subir message.worker v2 junto ao Fastify, iniciar período de observação 3-7d.
 Arquivos modificados:

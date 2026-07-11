@@ -250,6 +250,7 @@ import { MaskedSensitiveData } from "./components/MaskedSensitiveData";
 
 import WebchatPage from "./pages/WebchatPage";
 import OperatorMobilePage from "./pages/OperatorMobilePage";
+import PortalPage from "./pages/PortalPage";
 
 const queryClient = new QueryClient();
 
@@ -260,6 +261,14 @@ export default function App() {
           <Routes>
              <Route path="/webchat" element={<WebchatPage />} />
              <Route path="/operador-mobile" element={<OperatorMobilePage />} />
+          </Routes>
+      );
+  }
+
+  if (routerLocation.pathname.startsWith('/portal')) {
+      return (
+          <Routes>
+              <Route path="/portal" element={<PortalPage />} />
           </Routes>
       );
   }

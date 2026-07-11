@@ -12,6 +12,7 @@
   "scripts": {
     "dev:turbo": "turbo run dev",
     "dev": "tsx -r dotenv/config server.ts",
+    "dev:vite": "vite",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "build:turbo": "turbo run build",
     "test:unit": "vitest run",
@@ -30,10 +31,10 @@
     "db:migrate:dry": "tsx packages/db/src/migrate.ts --dry-run",
     "db:baseline": "tsx packages/db/src/migrate.ts --baseline",
     "lint:design": "tsx scripts/design-lint.ts",
-    "db:backfill:dry": "npx dotenv -e .env.etl -- tsx scripts/etl/run-backfill.ts --all --dry-run",
-    "db:backfill": "npx dotenv -e .env.etl -- tsx scripts/etl/run-backfill.ts --all",
-    "db:s70:dry": "npx dotenv -e .env.etl -- tsx scripts/etl/run-s70.ts --all --dry-run",
-    "db:s70": "npx dotenv -e .env.etl -- tsx scripts/etl/run-s70.ts --all",
+    "db:backfill:dry": "tsx --env-file=.env.etl scripts/etl/run-backfill.ts --all --dry-run",
+    "db:backfill": "tsx --env-file=.env.etl scripts/etl/run-backfill.ts --all",
+    "db:s70:dry": "tsx --env-file=.env.etl scripts/etl/run-s70.ts --all --dry-run",
+    "db:s70": "tsx --env-file=.env.etl scripts/etl/run-s70.ts --all",
     "start": "node dist/server.cjs"
   },
   "dependencies": {

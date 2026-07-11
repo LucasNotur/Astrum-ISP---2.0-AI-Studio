@@ -8,6 +8,12 @@
       "port": 3000
     },
     {
+      "name": "astrum-vite",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:vite"],
+      "port": 5173
+    },
+    {
       "name": "astrum-api",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
