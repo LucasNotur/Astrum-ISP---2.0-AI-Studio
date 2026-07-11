@@ -253,6 +253,7 @@ export function ChatPage() {
   const [closingReasonsList, setClosingReasonsList] = useState<any[]>([]);
   const [tenantForms, setTenantForms] = useState<any[]>([]);
   const [editingFormId, setEditingFormId] = useState<string | null>(null);
+  const [deletingFormId, setDeletingFormId] = useState<string | null>(null);
   const [formBuilderData, setFormBuilderData] = useState({ name: '', fields: [] as { id: string, label: string, type: string, required: boolean, options?: string }[] });
 
   // S99 — forms persistidos como JSONB na coluna tenants.forms
@@ -271,13 +272,19 @@ export function ChatPage() {
      toast.success(editingFormId && editingFormId !== 'new' ? "Formulário atualizado" : "Formulário criado");
   };
 
-  const handleDeleteForm = async (id: string) => {
-     if (!tenantId || !confirm("Tem certeza?")) return;
-     const updated = tenantForms.filter((f: any) => f.id !== id);
-     const { error } = await supabase.from('tenants').update({ forms: updated }).eq('id', tenantId);
-     if (error) { toast.error("Erro ao remover"); return; }
-     setTenantForms(updated);
-     toast.success("Removido com sucesso");
+  const handleDeleteForm = (id: string) => {
+    if (!tenantId) return;
+    setDeletingFormId(id);
+  };
+
+  const handleDeleteFormConfirmed = async () => {
+    if (!tenantId || !deletingFormId) return;
+    const updated = tenantForms.filter((f: any) => f.id !== deletingFormId);
+    const { error } = await supabase.from('tenants').update({ forms: updated }).eq('id', tenantId);
+    setDeletingFormId(null);
+    if (error) { toast.error("Erro ao remover"); return; }
+    setTenantForms(updated);
+    toast.success("Removido com sucesso");
   };
 
   const [snoozeForm, setSnoozeForm] = useState({
@@ -1041,7 +1048,7 @@ export function ChatPage() {
         {/* Chat List */}
         <div
           className={cn(
-            "w-full md:w-[340px] lg:w-[360px] xl:w-[420px] bg-white dark:bg-[#09090b] md:bg-card md:border md:shadow-sm overflow-hidden shrink-0 md:rounded-[24px] flex flex-col",
+            "w-full md:w-[340px] lg:w-[360px] xl:w-[420px] bg-card md:bg-card md:border md:shadow-sm overflow-hidden shrink-0 md:rounded-[24px] flex flex-col",
             selectedTicket ? "hidden md:flex" : "flex flex-1",
           )}
         >
@@ -1172,7 +1179,7 @@ export function ChatPage() {
       {/* Chat Window */}
       <div
         className={cn(
-          "flex-1 bg-white dark:bg-[#09090b] md:bg-card md:border md:shadow-sm overflow-hidden flex-col md:rounded-[24px]",
+          "flex-1 bg-card md:bg-card md:border md:shadow-sm overflow-hidden flex-col md:rounded-[24px]",
           selectedTicket
             ? "flex fixed inset-0 z-[100] md:relative md:inset-auto md:z-auto"
             : "hidden md:flex",
@@ -1180,7 +1187,7 @@ export function ChatPage() {
       >
         {selectedTicket ? (
           <>
-            <header className="relative p-2 md:p-4 border-b flex flex-row items-center justify-between gap-2 shrink-0 bg-white dark:bg-[#09090b] z-10 w-full pt-[max(env(safe-area-inset-top),_8px)]">
+            <header className="relative p-2 md:p-4 border-b flex flex-row items-center justify-between gap-2 shrink-0 bg-card z-10 w-full pt-[max(env(safe-area-inset-top),_8px)]">
               <div className="flex items-center gap-1 md:gap-4 flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <div
@@ -1649,7 +1656,7 @@ export function ChatPage() {
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
-            <div className="flex flex-col border-t bg-white dark:bg-[#111214] pb-[max(env(safe-area-inset-bottom),_8px)]">
+            <div className="flex flex-col border-t bg-card pb-[max(env(safe-area-inset-bottom),_8px)]">
               {/* Quick Actions (Astrum Logic) */}
               <div className="flex gap-2 overflow-x-auto p-3 no-scrollbar shrink-0">
                 <Button
@@ -1756,7 +1763,7 @@ export function ChatPage() {
                   onChange={handleFileChange}
                   accept="image/*,audio/*"
                 />
-                <div className="flex items-center gap-2 bg-zinc-100/80 dark:bg-zinc-800/80 p-1.5 rounded-[24px] border border-transparent focus-within:bg-white dark:focus-within:bg-[#16171a] focus-within:shadow-[0_4px_16px_rgba(0,0,0,0.05)] dark:focus-within:shadow-[0_4px_16px_rgba(255,255,255,0.02)] focus-within:border-zinc-200 dark:focus-within:border-white/10 transition-all">
+                <div className="flex items-center gap-2 bg-zinc-100/80 dark:bg-zinc-800/80 p-1.5 rounded-[24px] border border-transparent focus-within:bg-card focus-within:shadow-2 focus-within:border-zinc-200 dark:focus-within:border-white/10 transition-all">
                   <Button
                     type="button"
                     variant="ghost"
@@ -2011,6 +2018,20 @@ export function ChatPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmação de exclusão de formulário */}
+      <Dialog open={!!deletingFormId} onOpenChange={(open) => { if (!open) setDeletingFormId(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remover formulário</DialogTitle>
+            <DialogDescription>Esta ação não pode ser desfeita.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeletingFormId(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleDeleteFormConfirmed}>Remover</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </motion.div>
