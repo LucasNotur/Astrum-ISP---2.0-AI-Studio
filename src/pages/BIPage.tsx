@@ -9,7 +9,13 @@ import {
 } from "recharts";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/src/components/ui/tabs";
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+const COLORS = [
+  'hsl(var(--chart-1))',
+  'hsl(var(--chart-2))',
+  'hsl(var(--chart-3))',
+  'hsl(var(--chart-4))',
+  'hsl(var(--chart-5))',
+];
 
 export function BIPage() {
   const { customers, invoices, tickets, auditLogs, currentUserRole } = useAppStore();
@@ -64,11 +70,20 @@ export function BIPage() {
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
-      
+      const dayStr = d.toDateString();
+
+      const dayTickets = tickets.filter(t => {
+        const raw = (t as any).createdAt;
+        const created = raw?.seconds ? new Date(raw.seconds * 1000) : new Date(raw || 0);
+        return created.toDateString() === dayStr;
+      });
+
+      const resolvidosIA = dayTickets.filter(t => (t as any).aiEnabled || (t as any).ai_enabled).length;
+
       data.push({
         name: days[d.getDay()],
-        ResolvidosIA: Math.floor(Math.random() * 20) + 15,
-        TransferidosHumano: Math.floor(Math.random() * 10) + 2
+        ResolvidosIA: resolvidosIA,
+        TransferidosHumano: Math.max(0, dayTickets.length - resolvidosIA),
       });
     }
     return data;
@@ -82,8 +97,8 @@ export function BIPage() {
     >
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white flex items-center gap-2">
-            <BarChart3 className="text-indigo-500" size={24} /> Dashboard Analítico (BI)
+          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <BarChart3 className="text-astrum-signal" size={24} /> Dashboard Analítico (BI)
           </h1>
           <p className="text-zinc-500">Métricas e insights aprofundados sobre a operação comercial, financeira e qualidade de rede.</p>
         </div>

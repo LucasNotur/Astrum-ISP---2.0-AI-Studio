@@ -147,9 +147,9 @@ export default function QualityMonitorPage() {
       return false;
 
     // Score filter
-    if (csatScoreFilter === "promoters" && rating.score < 5) return false;
-    if (csatScoreFilter === "passives" && rating.score !== 4) return false;
-    if (csatScoreFilter === "detractors" && rating.score > 3) return false;
+    if (csatScoreFilter === "promoters" && rating.rating < 5) return false;
+    if (csatScoreFilter === "passives" && rating.rating !== 4) return false;
+    if (csatScoreFilter === "detractors" && rating.rating > 3) return false;
 
     // Agent type filter
     if (csatAgentFilter === "ai" && rating.resolved_by !== "ai") return false;
@@ -448,9 +448,9 @@ export default function QualityMonitorPage() {
                 const date = rating.createdAt?.toDate
                   ? rating.createdAt.toDate()
                   : new Date(rating.createdAt || Date.now());
-                const isPromoter = rating.score === 5;
-                const isPassive = rating.score === 4;
-                const isDetractor = rating.score <= 3;
+                const isPromoter = rating.rating === 5;
+                const isPassive = rating.rating === 4;
+                const isDetractor = rating.rating <= 3;
 
                 return (
                   <div
@@ -469,7 +469,7 @@ export default function QualityMonitorPage() {
                       <div
                         className={`px-2 py-1 rounded text-xs font-bold ${isPromoter ? "bg-green-100 text-green-700" : isPassive ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}
                       >
-                        Nota {rating.score}
+                        Nota {rating.rating}
                       </div>
                     </div>
                     <div className="text-sm font-medium mt-2 flex items-center justify-between">

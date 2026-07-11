@@ -2365,3 +2365,19 @@ Arquivos criados:
 Typecheck: 0 erros.
 Próximo: U3-03 (tela de atalhos "?") ou U4 (redesign por persona — ordem do ranking).
 Commit: feat(u3-01): sidebar tokens dark + breadcrumbs no AppLayout.
+
+[2026-07-11] NEXTGEN-2.0 / Onda 4 — U4 Bug Fixes (QualityMonitorPage + BIPage)
+Tarefa: Correção dos 2 bugs de renderização mais graves identificados no ranking U0 (audit do PLANO_C).
+Bug 1 — QualityMonitorPage: csatRatings mapeados com campo `rating` (= csat_score), mas filter + cards liam
+  `rating.score` — dados sempre undefined. Fix: replace_all `rating.score` → `rating.rating` (5 instâncias).
+Bug 2 — BIPage: `automationData` useMemo usava Math.random() — gráfico mudava a cada re-render.
+  Fix: substituído por cálculo real derivado de `tickets` (filter por createdAt + ai_enabled por dia).
+  COLORS hardcoded (#3b82f6…) → `hsl(var(--chart-1))` … `hsl(var(--chart-5))` (token system).
+  Heading: `text-zinc-900 dark:text-white text-indigo-500` → `text-foreground text-astrum-signal`.
+Arquivos modificados:
+  - src/pages/QualityMonitorPage.tsx (5× rating.score → rating.rating)
+  - src/pages/BIPage.tsx (COLORS hex→CSS vars, automationData Math.random→real data, heading tokens)
+Typecheck: 0 erros novos (erros pré-existentes em App.tsx/chart.tsx/dataExport.ts não relacionados).
+Build: ✅ 2.94s.
+Próximo: U4-01 (ChatPage/Inbox full redesign — coordena com P2-04 omnichannel inbox).
+Commit: fix(u4-bugs): corrige campo rating + Math.random no BIPage + tokens de cor.
