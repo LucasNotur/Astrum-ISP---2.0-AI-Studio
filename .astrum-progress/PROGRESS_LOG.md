@@ -88,6 +88,43 @@ Observações:
 
 ---
 
+[2026-07-11] NEXTGEN-2.0 / Onda 3 — Sessão P5 (Prova de valor e confiança)
+Tarefa: BLOCO P5 do PLANO_B — Dashboard Valor Gerado + Status Page + Compliance Kit + Case Engine + Trial sem fricção.
+Arquivos criados:
+  - packages/db/src/migrations/068_p5_valor_gerado.sql (3 tabelas: valor_cases, trial_tenants, status_incidents)
+  - apps/api/src/domain/provedor/valor-gerado.service.ts (P5-01+P5-04: computeValorGerado + generateCase + defaultValorGeradoDb)
+  - apps/api/src/domain/provedor/valor-gerado.service.test.ts (13 testes)
+  - apps/api/src/domain/provedor/valor-gerado.routes.ts (P5-01+P5-02+P5-04: /valor/dashboard, /valor/status, /valor/case)
+  - apps/api/src/domain/provedor/valor-gerado.routes.test.ts (7 testes)
+  - apps/api/src/domain/provedor/compliance.routes.ts (P5-03: /compliance/dpa, /due-diligence, /policy)
+  - apps/api/src/domain/provedor/compliance.routes.test.ts (8 testes)
+  - apps/api/src/domain/provedor/trial.service.ts (P5-05: buildFirstInsight + defaultTrialDb + defaultInsightDb)
+  - apps/api/src/domain/provedor/trial.service.test.ts (9 testes)
+  - apps/api/src/domain/provedor/trial.routes.ts (P5-05: /trial/signup, /trial/insight, /trial/connect-erp)
+  - apps/api/src/domain/provedor/trial.routes.test.ts (11 testes)
+Arquivos modificados:
+  - apps/api/src/server.ts (registra valorGeradoRoutes, complianceRoutes, trialRoutes)
+Testes: 48 novos PASS — suite completa verde.
+Status: ✅ Concluído (backend P5)
+Observações:
+  P5-01: computeValorGerado(db, tenantId, days) → KPIs: recoveredBrl, aiResolutionRatePct, hoursSaved,
+    ticketsAvoided, roiMultiple + methodology auditável. Dados: invoices×cobrai_jobs, conversations,
+    ai_performance_logs. GET /api/v2/valor/dashboard?period=30d (auth admin).
+  P5-02: GET /api/v2/valor/status (público) — overall status (operational/degraded/outage) derivado de
+    status_incidents ativos; componentes api/whatsapp/ia/cobranca/portal; SLA 99,5% publicado.
+  P5-03: GET /api/v2/compliance/dpa (DPA LGPD v1.0 — 8 seções); /due-diligence (8 Q&As);
+    /policy (per-tenant: retenção 24m/60m, RLS, PII masking, auditoria) — público exceto policy (auth).
+  P5-04: POST /api/v2/valor/case → gera case com share_token único (crypto.randomBytes 16); 
+    GET /api/v2/valor/case/:token → public shareable. Persiste em valor_cases.
+  P5-05: POST /api/v2/trial/signup (público) → cria tenant trial (14d), JWT role:'trial', etapas
+    connect_erp→insight. GET /trial/insight → buildFirstInsight com 3 highlights (R$ em risco, clientes
+    inadimplentes, OS abertas) + nextStep adaptativo. POST /trial/connect-erp → markErpConnected.
+    Trial token verificado em middleware (role:'trial' — rejeita token de operador com 403).
+  Migrations pendentes (Lucas): 068_p5_valor_gerado.sql.
+  Próximo: P6 (parceria CPE/OZmap — decisão comercial do Lucas) ou Onda 4 (UI/UX Plano C).
+
+---
+
 [2026-07-11] NEXTGEN-2.0 / Onda 3 — Sessão P2 (omnichannel: Instagram DM, Messenger, e-mail, inbox)
 Tarefa: BLOCO P2 do PLANO_B — 4 itens de paridade omnichannel.
 Arquivos criados:

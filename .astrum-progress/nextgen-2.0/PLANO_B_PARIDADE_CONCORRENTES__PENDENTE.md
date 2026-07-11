@@ -193,28 +193,25 @@ auditado).
 **Métrica:** % de autoatendimento no portal; nota de app/loja quando houver.
 
 ### BLOCO P5 — Prova de valor e confiança (o que faz o deal fechar)
+✅ **CODE-COMPLETE em 2026-07-11**. Migration `068_p5_valor_gerado.sql` pendente de apply pelo Lucas.
 **Gap:** concorrentes vendem com números e a IXC vende confiança institucional
 (Banco do Brasil, eventos). A Astrum precisa de artilharia de prova.
-- **P5-01 — Dashboard "Valor Gerado"** (a tela que o DONO vê): R$ recuperado pela
-  cobrança IA, atendimentos resolvidos sem humano, horas economizadas, tickets
-  evitados — com metodologia aberta (nada de número inventado; RN20). Fonte:
-  IA-34 (custo) + variant_sends (IA-26) + tickets. *Item de UI/UX coordenado.*
-- **P5-02 — Status page pública + SLA publicado** (uptime do motor; transparência
-  vende para técnico).
-- **P5-03 — Kit de compliance:** DPA/LGPD formal, política de dados por tenant,
-  resposta padrão a due diligence (as práticas já existem no código — RLS por
-  tenant, PII masking, audit trail; falta EMPACOTAR como documento comercial).
-- **P5-04 — Case engine:** todo tenant piloto gera case com número auditado
-  (backtesting D-02 do PLANO_A vira a máquina de cases quando existir).
-- **P5-05 — Trial sem fricção (resposta ao James/Telia):** o Degrau 0 vira
-  produto: cadastro self-service → conectar ERP (P0-01) → sync read-only →
-  primeiro relatório de insight em <30 min, grátis por 7-14 dias, sem call de
-  vendas obrigatória. O relatório do trial JÁ usa os números do P5-01 ("neste
-  período a Astrum teria recuperado R$ X"). Distribuição: presença de conteúdo
-  onde o dono de ISP está (Instagram) é decisão comercial do Lucas — o produto
-  entrega a landing do trial e o funil instrumentado.
-**Métrica:** ciclo de venda (dias); % de deals ganhos vs Anel 2; conversão
-trial→pago.
+- [x] **P5-01 — Dashboard "Valor Gerado"** (`valor-gerado.service.ts` + `valor-gerado.routes.ts`):
+  GET /api/v2/valor/dashboard?period=30d — R$ recuperado, % IA resolve, horas economizadas,
+  tickets evitados, ROI múltiplo. Metodologia auditável embutida. *UI coordenada com Onda 4.*
+- [x] **P5-02 — Status page pública** (GET /api/v2/valor/status, sem auth): overall operational/
+  degraded/outage derivado de `status_incidents`; componentes api/whatsapp/ia/cobranca/portal;
+  SLA 99,5% publicado.
+- [x] **P5-03 — Kit de compliance** (`compliance.routes.ts`): GET /api/v2/compliance/dpa
+  (DPA LGPD v1.0, 8 seções); /due-diligence (8 Q&As); /policy (por tenant: retenção, RLS,
+  PII masking, auditoria).
+- [x] **P5-04 — Case engine** (POST /api/v2/valor/case + GET /api/v2/valor/case/:token):
+  gera case com share_token público + metodologia; persiste em `valor_cases`.
+- [x] **P5-05 — Trial sem fricção** (`trial.service.ts` + `trial.routes.ts`): signup self-service
+  (POST /api/v2/trial/signup) → JWT role:'trial' 14d → connect-erp → GET /trial/insight
+  (3 highlights: R$ em risco, clientes inadimplentes, OS abertas; nextStep adaptativo).
+  Migration `trial_tenants` e `status_incidents` em 068.
+**Métrica:** ciclo de venda (dias); % de deals ganhos vs Anel 2; conversão trial→pago.
 
 ### BLOCO P6 — Rede/CPE via parceria (não construir)
 **Gap:** IXC ACS gerencia CPE com IA (TR-069). Construir ACS = anos (RN19).

@@ -248,6 +248,18 @@ export async function buildServer() {
   const { subscriberPortalRoutes } = await import('./domain/provedor/subscriber-portal.routes');
   await app.register(subscriberPortalRoutes);
 
+  // P5-01/02/04 — Dashboard Valor Gerado + Status page + Case engine
+  const { valorGeradoRoutes } = await import('./domain/provedor/valor-gerado.routes');
+  await app.register(valorGeradoRoutes);
+
+  // P5-03 — Kit de compliance (DPA/LGPD + due diligence)
+  const { complianceRoutes } = await import('./domain/provedor/compliance.routes');
+  await app.register(complianceRoutes);
+
+  // P5-05 — Trial sem fricção (signup self-service → insight em <30min)
+  const { trialRoutes } = await import('./domain/provedor/trial.routes');
+  await app.register(trialRoutes);
+
   // Health check com status dos serviços
   app.get('/api/v2/health', async () => {
     const { getLLMStatus } = await import('./adapters/ai/llm.adapter');
