@@ -19,6 +19,7 @@ import { SecurityPage } from '../pages/SecurityPage';
 import QualityMonitorPage from '../pages/QualityMonitorPage';
 import TechnicianAppPage from '../pages/TechnicianAppPage';
 import { BIPage } from '../pages/BIPage';
+import { InventoryPage } from '../pages/InventoryPage';
 import { intelligenceRoutes } from './intelligence.routes';
 
 /** Wrapper de motion para rotas com animação de entrada. */
@@ -33,7 +34,7 @@ function Animated({ id, children }: { id: string; children: React.ReactNode }) {
 /**
  * U1-01 — Rotas autocontidas (não recebem props de estado do App).
  * Rotas que ainda dependem de estado local do App (whatsapp, kb, ai-config,
- * team, settings, tickets, inventory) permanecem no App.tsx até refatoração
+ * team, settings, tickets) permanecem no App.tsx até refatoração
  * de state management (Zustand stores por domínio).
  */
 export function mainRoutes(currentUserRole: string) {
@@ -67,6 +68,7 @@ export function mainRoutes(currentUserRole: string) {
       <Route path="/integrations"     element={<Animated id="integrations"><ERPIntegrationsPage /></Animated>} />
       <Route path="/webhooks"         element={<Animated id="webhooks"><WebhooksPage /></Animated>} />
       <Route path="/security"         element={<Animated id="security"><SecurityPage /></Animated>} />
+      <Route path="/inventory"        element={<Animated id="inventory"><InventoryPage /></Animated>} />
       {intelligenceRoutes()}
     </>
   );

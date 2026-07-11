@@ -24,6 +24,38 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-11] NEXTGEN-2.0 / Onda 4 — U1-01 (Desmontar App.tsx — Extração InventoryPage)
+Tarefa: Extrair todo o domínio de estoque do App.tsx monolítico para componente autônomo.
+Arquivos criados:
+  - src/pages/InventoryPage.tsx — componente 100% autônomo (~290 linhas):
+      • subscreve sbGetInventory diretamente (useEffect próprio)
+      • lê tenantId do useAppStore (companySettings / userProfile)
+      • usa setConfirmDialog e setNotifications do store global
+      • norm() helper: min_stock (Supabase snake_case) → minStock (JS)
+      • CRUD completo: criar, ajustar, deletar (via ConfirmDialog)
+      • importação CSV + exportação CSV download
+      • UI completa: 4 KPI cards, bar chart (recharts), tabela, 2 dialogs inline
+Arquivos modificados:
+  - src/App.tsx — removidas ~523 linhas de dívida de inventário:
+      • inventoryFileInputRef ref
+      • inventory[], selectedInventoryItem, isInventoryDialogOpen, isNewItemDialogOpen, adjustmentAmount, newItem states
+      • handleAdjustInventory, handleAddItem, handleDeleteItem handlers
+      • inventoryCategoryData useMemo + low-stock useEffect
+      • sbGetInventory subscription + unsubInventory() cleanup
+      • handleImportInventory + exportInventoryToCSV functions
+      • Route /inventory inline (JSX ~320 linhas) — bloco completo removido
+      • New Inventory Item Dialog + Inventory Adjustment Dialog (~107 linhas removidas)
+  - src/routes/main.routes.tsx — adicionada <Route path="/inventory"> apuntando para InventoryPage autônoma
+Testes criados: nenhum nesta sessão (testes de CRUD de inventário ficam pendentes para U3/U4)
+Status: ✅ Concluído
+Observações:
+  Correção de bug durante remoção: useEffect do low-stock ficou com closing braces órfãs após corte
+  parcial; resolvido com segundo Edit cirúrgico.
+  App.tsx de 5903 → 5227 linhas após esta sessão (U1-01) + 3162 → 2839 para o route block.
+  Próximo: U1-01 continua nos outros domínios (tickets, whatsapp, kb, team, settings) ou U2 (Astrum Design Mode).
+
+---
+
 [2026-07-11] NEXTGEN-2.0 / Onda 4 — U1-02/03/04 (Tokens 2.0 + Padrões de página + Lint de design)
 Tarefa: Fundações estruturais do design system Astrum — sem dependência do GATE-VISUAL.
 Arquivos criados:

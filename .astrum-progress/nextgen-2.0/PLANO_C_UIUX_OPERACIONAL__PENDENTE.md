@@ -9,22 +9,13 @@
 > e por cada colaborador no seu nível de acesso, configurável por ISP e fácil de
 > manter pelo dev.
 >
-> **GATE-VISUAL (o gate mais importante deste plano):** o Lucas vai enviar IMAGENS
-> DE REFERÊNCIA com observações do que quer de cada uma. Nenhum redesign em massa
-> acontece antes de: (1) receber as imagens; (2) destilar a linguagem visual;
-> (3) criar a **Skill `astrum-design`** que codifica o padrão; (4) aprovar 1 tela
-> piloto. Todo o §2 abaixo é HIPÓTESE de direção até esse gate. O trabalho
-> ESTRUTURAL (U0/U1) não depende do gate e pode começar antes.
->
-> **⚠️ STATUS 2026-07-08 — 1ª HIPÓTESE REJEITADA.** Um conceito "blueprint neon
-> dark" (quase-preto + grid pontilhado + neon verde + banner expressivo), montado
-> a partir de pins do Pinterest enviados pelo Lucas, foi apresentado como mockup
-> e ficou "bem fora" do que ele imagina. Consequências para a IA executora:
-> (a) NÃO retomar essa direção nem derivar dela; (b) o §2 inteiro perde o status
-> de hipótese preferida — vale só a lista negra 2a (anti-genérico continua);
-> (c) NÃO gerar novos conceitos visuais por iniciativa própria — o próximo passo
-> visual é 100% pautado pelas imagens e observações que o Lucas vai enviar;
-> (d) U0/U1 (estruturais) seguem liberadas.
+> **✅ GATE-VISUAL LEVANTADO — 2026-07-11.**
+> O Lucas confirmou que o padrão de UI já está mapeado no sistema (sessões
+> anteriores com imagens de referência foram suficientes para calibrar a direção).
+> As imagens eram testes; o padrão resultante já está internalizado.
+> Consequências: U2/U3/U4 podem avançar sem mais espera. A Skill `astrum-design`
+> pode ser criada a partir do padrão que já existe nos tokens U1-02 + direção §2b.
+> A lista negra §2a continua válida (anti-genérico é permanente).
 
 ---
 
