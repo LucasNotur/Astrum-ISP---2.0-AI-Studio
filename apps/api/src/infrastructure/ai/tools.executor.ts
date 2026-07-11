@@ -6,6 +6,8 @@ import { impactoCto, reincidencia, capacidade, defaultDb as graphDb } from '../.
 import { decryptCredentials } from '../../adapters/erp/credential-cipher';
 import { createErpProvider, isErpImplemented } from '../../adapters/erp/erp.factory';
 import type { ERPProviderName, ERPCredentials } from '../../adapters/erp/erp.types';
+import { executeTrustUnlock, defaultTrustUnlockDb } from '../../domain/atendimento/trust-unlock.service';
+import { buildNegotiationMenu, defaultNegotiationDb } from '../../domain/atendimento/debt-negotiation.service';
 
 /**
  * Executor de ferramentas do Function Calling.
@@ -65,6 +67,12 @@ export class ToolsExecutor {
         break;
       case 'browse_url': // IA-22
         result = await this._browseUrl(args);
+        break;
+      case 'trust_unlock': // P1-01
+        result = await this._trustUnlock(args);
+        break;
+      case 'negotiate_debt': // P1-03
+        result = await this._negotiateDebt(args);
         break;
       default:
         infraLogger.warn({ toolName }, 'Unknown tool called — ignoring');
@@ -264,5 +272,20 @@ export class ToolsExecutor {
   private async _browseUrl(args: Record<string, unknown>) {
     const { browseUrl } = await import('../browse/browser.service');
     return browseUrl(args.url as string, this.tenantId);
+  }
+
+  /** P1-01 — Religue por confiança com política por tenant. */
+  private async _trustUnlock(args: Record<string, unknown>) {
+    const { customer_id, debt_cents } = args as {
+      customer_id: string;
+      debt_cents: number;
+    };
+    return executeTrustUnlock(defaultTrustUnlockDb, this.tenantId, customer_id, debt_cents);
+  }
+
+  /** P1-03 — Negociação guiada: menu de opções parametrizado pelo tenant. */
+  private async _negotiateDebt(args: Record<string, unknown>) {
+    const { debt_cents } = args as { debt_cents: number };
+    return buildNegotiationMenu(defaultNegotiationDb, this.tenantId, debt_cents);
   }
 }

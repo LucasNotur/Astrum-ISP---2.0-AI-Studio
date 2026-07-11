@@ -1,16 +1,18 @@
 import { AgentState } from '../agent.state';
 import { IDatabasePort } from '../../ports/database.port';
 import { ILoggerPort } from '../../ports/logger.port';
+import { buildHandoverSummary, formatHandoverForTicket } from '../../atendimento/handover-summary.service';
 
 export function makeNodeEscalate(deps: { db: IDatabasePort; logger: ILoggerPort }) {
   return async function nodeEscalate(state: AgentState): Promise<Partial<AgentState>> {
     const reason = state.validationIssue ?? state.escalationReason ?? 'Escalação solicitada';
+    const handover = buildHandoverSummary(state);
 
     await deps.db.createTicket({
       tenant_id: state.tenantId,
       customer_id: state.customerId,
       title: `[ESCALAÇÃO IA] ${reason}`,
-      description: `Mensagem do cliente: "${state.userMessage}"\n\nRazão: ${reason}`,
+      description: formatHandoverForTicket(handover),
       priority: state.urgency === 'high' ? 'urgent' : 'high',
       source: 'ai_agent',
       conversation_id: state.conversationId,
