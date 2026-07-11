@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from 'next-themes';
-import { Sun, Moon, Bell, X, AlertTriangle, Clock, Info, Menu, Search, MessageSquare, Ticket, User } from 'lucide-react';
+import { Sun, Moon, Bell, X, AlertTriangle, Clock, Info, Menu, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/src/components/ui/button';
 import { ScrollArea } from '@/src/components/ui/scroll-area';
-import { Input } from '@/src/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/src/components/ui/dialog';
 import { useAppStore } from '@/src/store/useAppStore';
 import { cn } from '@/src/lib/utils';
-import { useNavigate } from 'react-router-dom';
+import { CommandPalette } from '@/src/components/CommandPalette';
 
 interface TopHeaderProps {
   clearNotifications: () => void;
@@ -99,13 +97,7 @@ function OperatorStatusToggle() {
 export function TopHeader({ clearNotifications, handleMarkNotificationRead, onMenuClick }: TopHeaderProps) {
   const { theme, setTheme } = useTheme();
   const { notifications, isNotificationsOpen, setIsNotificationsOpen, userProfile } = useAppStore();
-  const navigate = useNavigate();
-
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchType, setSearchType] = useState('all');
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -117,30 +109,6 @@ export function TopHeader({ clearNotifications, handleMarkNotificationRead, onMe
     document.addEventListener('keydown', down);
     return () => document.removeEventListener('keydown', down);
   }, []);
-
-  useEffect(() => {
-    const fetchSearch = async () => {
-      if (!searchQuery || searchQuery.length < 2) {
-        setSearchResults([]);
-        return;
-      }
-      setIsSearching(true);
-      try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}&tenantId=${userProfile?.tenantId || 'default'}&type=${searchType}`);
-        const data = await res.json();
-        if (data.results) {
-          setSearchResults(data.results);
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setIsSearching(false);
-      }
-    };
-
-    const timer = setTimeout(fetchSearch, 500);
-    return () => clearTimeout(timer);
-  }, [searchQuery, searchType, userProfile?.tenantId]);
 
   return (
     <div className="flex items-center justify-between md:justify-end shrink-0 px-3 py-2 md:px-6 md:py-3 border-b md:border-b-0 border-zinc-200 dark:border-zinc-800 bg-white/50 backdrop-blur-md md:bg-transparent z-40 sticky top-0 md:static">
@@ -166,92 +134,7 @@ export function TopHeader({ clearNotifications, handleMarkNotificationRead, onMe
           </div>
         </div>
 
-        <Dialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>
-          <DialogContent className="sm:max-w-[600px] p-0 gap-0 overflow-hidden bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl border-zinc-200 dark:border-zinc-800">
-            <DialogTitle className="sr-only">Busca Global</DialogTitle>
-            <div className="flex items-center px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
-              <Search size={20} className="text-zinc-500 mr-3" />
-              <input 
-                className="flex-1 bg-transparent border-none outline-none text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500"
-                placeholder="Busca global (clientes, tickets, mensagens)..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                autoFocus
-              />
-              <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 text-[10px] px-2 py-1 rounded text-zinc-500 font-mono">
-                ESC
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2 px-4 py-2 border-b border-zinc-100 dark:border-zinc-800/50 overflow-x-auto no-scrollbar">
-              {['all', 'customers', 'tickets', 'messages'].map(type => (
-                <button
-                  key={type}
-                  onClick={() => setSearchType(type)}
-                  className={cn(
-                    "px-3 py-1 text-xs rounded-full transition-colors whitespace-nowrap",
-                    searchType === type 
-                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 font-medium" 
-                      : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                  )}
-                >
-                  {type === 'all' ? 'Tudo' : type === 'customers' ? 'Clientes' : type === 'tickets' ? 'Tickets' : 'Mensagens'}
-                </button>
-              ))}
-            </div>
-
-            <ScrollArea className="max-h-[400px]">
-              {isSearching ? (
-                <div className="p-8 text-center text-sm text-zinc-500">Buscando...</div>
-              ) : searchResults.length > 0 ? (
-                <div className="p-2 space-y-1">
-                  {searchResults.map((res: any, idx) => (
-                    <div 
-                      key={idx} 
-                      className="flex items-start gap-3 p-3 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800/50 cursor-pointer transition-colors"
-                      onClick={() => {
-                        setIsSearchOpen(false);
-                        if (res.type === 'ticket' || res.ticketId) {
-                          navigate('/chat', { state: { selectedTicketId: res.ticketId || res.id } });
-                        } else if (res.type === 'customer') {
-                          navigate('/customers');
-                        }
-                      }}
-                    >
-                      <div className="mt-0.5 p-2 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 shrink-0">
-                        {res.type === 'customer' && <User size={14} />}
-                        {res.type === 'ticket' && <Ticket size={14} />}
-                        {res.type === 'message' && <MessageSquare size={14} />}
-                      </div>
-                      <div className="space-y-1 overflow-hidden">
-                        <div className="flex items-center gap-2 text-sm font-medium">
-                          {res.type === 'customer' && (res.name || 'Cliente')}
-                          {res.type === 'ticket' && (res.customerName || `Ticket #${res.id}`)}
-                          {res.type === 'message' && `Mensagem (Ticket #${res.ticketId || '?'})`}
-                          
-                          {res.score && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 font-mono">
-                              {(res.score * 100).toFixed(0)}% ref
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-zinc-500 truncate">
-                          {res.type === 'customer' && `${res.phone} ${res.email ? `• ${res.email}` : ''}`}
-                          {res.type === 'ticket' && res.description}
-                          {res.type === 'message' && res.text}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : searchQuery.length >= 2 ? (
-                <div className="p-8 text-center text-sm text-zinc-500">Nenhum resultado encontrado.</div>
-              ) : (
-                <div className="p-8 text-center text-sm text-zinc-500">Digite para buscar...</div>
-              )}
-            </ScrollArea>
-          </DialogContent>
-        </Dialog>
+        <CommandPalette open={isSearchOpen} onOpenChange={setIsSearchOpen} />
 
       <Button 
         variant="ghost" 
