@@ -2330,3 +2330,16 @@ Gate-Visual: ✅ LEVANTADO em 2026-07-11 (padrão internalizado de sessões ante
 U2-01 foi implícito: decisões de §2b já estavam nos tokens U1-02 + direção do PLANO_C.
 Próximo: U2-03 (redesign tela piloto — ChatPage nº1 do ranking) ou U3-02 (command palette Ctrl+K).
 Commit: feat(u2-02): skill astrum-design — guardião do padrão visual.
+
+[2026-07-11] NEXTGEN-2.0 / Onda 4 — U2-03 (Redesign piloto: ChatPage)
+Tarefa: Aplicar checklist da Skill astrum-design na tela piloto #1 do ranking U0 (ChatPage, 2020 linhas).
+Escopo deliberado: fixes cirúrgicos sem alterar comportamento — full visual redesign pertence ao U4-01 (inbox + P2-04).
+Fixes aplicados:
+  - dark:bg-[#09090b] → bg-card (3 instâncias: painel lista, painel chat, header) — C3 corrigido
+  - dark:bg-[#111214] → bg-card (footer do input)
+  - focus-within:bg-[#16171a] + shadow inline → focus-within:bg-card focus-within:shadow-2 (token)
+  - confirm("Tem certeza?") → Dialog shadcn com estado deletingFormId + handleDeleteFormConfirmed
+Auditoria do "bug crítico" UPDATE sem WHERE: bug NÃO confirmado no código atual — linha 313 já tem .eq('id', selectedTicket.id). Pode ter sido corrigido antes da auditoria U0.
+Typecheck: 0 erros.
+Próximo: U3-02 (command palette Ctrl+K) ou U3-01 (sidebar refinada).
+Commit: fix(u2-03): ChatPage — dark mode tokens + confirm() → Dialog.
