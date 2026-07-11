@@ -36,7 +36,7 @@
 ### ⬜ Pendentes (planejados em detalhe, execução iniciada ou zero)
 | Plano | Conteúdo | Desbloqueio |
 |---|---|---|
-| `nextgen-2.0/PLANO_B_PARIDADE_CONCORRENTES__PENDENTE.md` | Escada de entrada via ERP + blocos P0–P6. **P0 (5 conectores + P0-06) CODE-COMPLETE em 2026-07-09** — falta validar contra ERP real (dever do Lucas) | **P1 é o próximo bloco a executar** (Onda 3) |
+| `nextgen-2.0/PLANO_B_PARIDADE_CONCORRENTES__PENDENTE.md` | Escada de entrada via ERP + blocos P0–P6. **P0 CODE-COMPLETE (2026-07-09), P1 CODE-COMPLETE (2026-07-11)** — migrations de 4 tabelas pendentes (dever do Lucas) | **P2 é o próximo bloco a executar** (Onda 3) |
 | `nextgen-2.0/PLANO_C_UIUX_OPERACIONAL__PENDENTE.md` | UI/UX fases U0–U7 | U0/U1 liberadas; U2+ **BLOQUEADA nas imagens do Lucas** (GATE-VISUAL) |
 | `nextgen-2.0/PLANO_A_DIFERENCIAL_TECNOLOGIAS_INEDITAS__PENDENTE.md` | 12 tecnologias inéditas D-01..D-12 | Gates de combustível (tráfego real, dados, conectores) — Onda 5 |
 
@@ -101,8 +101,8 @@ Fonte: `PLANO_B_PARIDADE_CONCORRENTES__PENDENTE.md` (blocos P0–P6 com metas RN
 2. ~~P0-02..05 (Voalle/MK/SGP/Hubsoft)~~ ✅ — feito em 2026-07-09 (commit `d3c12fc`).
 3. ~~P0-06 (tools do agente operando o ERP)~~ ✅ — só `check_invoice` migrado;
    `suspend_signal`/`schedule_technical_visit` via ERP ficam para sessão futura.
-4. **PRÓXIMO: P1** (religue por confiança, notificação de falha em massa,
-   negociação guiada, resumo de transferência) → P2 (Instagram/e-mail/inbox) →
+4. ~~P1 (religue por confiança, notificação de falha, negociação, handover)~~ ✅ CODE-COMPLETE 2026-07-11.
+   **PRÓXIMO: P2** (Instagram/e-mail/inbox) →
    P3 (vendas) → P4 (portal do assinante) → P5 (dashboard de valor + trial sem
    fricção + kit compliance) → P6 (parcerias CPE/OZmap — *Lucas:* contato comercial).
 5. Em paralelo com P5: *Lucas* fecha as decisões de PREÇO (doc

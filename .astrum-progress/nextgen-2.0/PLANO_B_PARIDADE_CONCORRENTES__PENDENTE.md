@@ -125,17 +125,20 @@ incremental (webhooks onde houver; polling onde não) + cache Redis + circuito.
 concorrentes); nº de ações executadas via ERP/mês.
 
 ### BLOCO P1 — Ações operacionais que o Anel 2 já vende
-**Gap:** religue por confiança, notificação de falha, negociação simples — feitos
-pelos bots concorrentes hoje.
-- **P1-01 — Religue por confiança** com política por tenant (limite de vezes/ano,
-  valor máximo) — auditável (IA-06), 1 clique de config.
-- **P1-02 — Notificação proativa de falha em massa** (versão paridade do D-04 do
-  PLANO_A: detecção manual/semiautomática + lista de afetados via IA-16 + envio;
-  o autônomo completo fica no PLANO_A).
-- **P1-03 — Negociação guiada** (menu de opções parametrizado pelo dono — paridade
-  com Mundiale; o negociador com alçada real é D-03 do PLANO_A).
-- **P1-04 — Resumo para transferência humana** aprimorado + fila com contexto
-  (paridade WitHub) — o `TicketReportSchema` já estrutura; falta a UX do operador.
+✅ **CODE-COMPLETE em 2026-07-11** (commit `978e93e`). Tabelas novas no Supabase
+pendentes de migration pelo Lucas: `trust_unlock_policies`, `trust_unlocks`,
+`negotiation_policies`, `outage_notifications`. Rota HTTP de notificação de falha
+(`POST /api/outages/notify`) também pendente (P2 ou sessão dedicada).
+- [x] **P1-01 — Religue por confiança** (`trust-unlock.service.ts`): política por tenant
+  (max_times_per_year, max_debt_cents), fallback para default (2x/ano, R$200), tool
+  `trust_unlock` no executor, auditável via infraLogger + audit_log.
+- [x] **P1-02 — Notificação proativa de falha em massa** (`outage-notifier.service.ts`):
+  operador informa CTO/região, Astrum busca afetados, dispara WhatsApp e persiste
+  `outage_notifications`. ⚠️ Rota HTTP de invocação ainda não criada.
+- [x] **P1-03 — Negociação guiada** (`debt-negotiation.service.ts`): menu parametrizado
+  (desconto à vista + parcelamento), tool `negotiate_debt` no executor.
+- [x] **P1-04 — Resumo para transferência humana** (`handover-summary.service.ts`):
+  `buildHandoverSummary` + `formatHandoverForTicket` — `escalate.node.ts` usa.
 **Métrica:** % resolvido sem humano (meta inicial: ≥84%, o número da Mundiale).
 
 ### BLOCO P2 — Omnichannel de verdade

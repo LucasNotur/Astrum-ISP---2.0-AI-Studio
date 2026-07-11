@@ -24,6 +24,32 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-11] NEXTGEN-2.0 / Onda 3 — Sessão P1 (paridade Anel 2: religue, falha, negociação, handover)
+Tarefa: BLOCO P1 do PLANO_B — 4 itens de paridade que o Anel 2 (Mundiale/James/Telia) já vende hoje.
+Arquivos criados:
+  - apps/api/src/domain/atendimento/trust-unlock.service.ts + .test.ts (P1-01)
+  - apps/api/src/domain/atendimento/outage-notifier.service.ts + .test.ts (P1-02)
+  - apps/api/src/domain/atendimento/debt-negotiation.service.ts + .test.ts (P1-03)
+  - apps/api/src/domain/atendimento/handover-summary.service.ts + .test.ts (P1-04)
+Arquivos modificados:
+  - apps/api/src/infrastructure/ai/tools.executor.ts (+ trust_unlock, negotiate_debt)
+  - apps/api/src/domain/agent/nodes/escalate.node.ts (usa formatHandoverForTicket)
+Testes: 31 novos PASS, 37 telephony/voice mantidos — 68 total verdes.
+Commit: 978e93e → main.
+Status: ✅ Concluído
+Observações:
+  P1-01: política por tenant com default (2x/ano, teto R$200). Tabelas novas necessárias
+    no Supabase: trust_unlock_policies, trust_unlocks (Lucas aplica migration).
+  P1-02: operador HTTP (route ainda não criada — precisa de rota admin), injeta
+    OutageNotifierDb + NotifySendFn para testabilidade.
+  P1-03: menu parametrizado (desconto à vista + parcelamento); tabela negotiation_policies
+    no Supabase (Lucas aplica migration).
+  P1-04: buildHandoverSummary extrai issue/urgência/contexto/próximo passo do AgentState;
+    formatHandoverForTicket gera Markdown rico — escalate.node.ts usa.
+  Próximo: P2 (omnichannel Instagram/e-mail/inbox) ou migration das tabelas novas primeiro.
+
+---
+
 [2026-07-09] IA-NEXTGEN / Onda 1 — Sessão IA-08 A3 (fecha a Fase A da voz)
 Tarefa: tools e identificação de cliente na chamada de voz — último item pendente
   da Onda 1 (A1+A2 já estavam mergeados). Fecha PARTE1 e PARTE2 do IA-NEXTGEN
