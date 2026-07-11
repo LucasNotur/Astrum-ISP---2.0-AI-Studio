@@ -2354,3 +2354,14 @@ Arquivos modificados:
 Typecheck: 0 erros. Build: verde 3.06s.
 Próximo: U3-01 (sidebar 2 modos) ou U3-03 (mapa de atalhos Alt+?).
 Commit: feat(u3-02): command palette Ctrl+K — busca local + ações rápidas.
+
+[2026-07-11] NEXTGEN-2.0 / Onda 4 — U3-01 (Sidebar refinada + Breadcrumbs)
+Tarefa: Dívida C8 — sidebar 2 modos + breadcrumbs (faltavam completamente).
+Arquivos modificados:
+  - src/components/layout/Sidebar.tsx (bg-white→bg-card, toggle button tokens, badge bg-astrum-red border-card, user card bg-muted rounded-stable, remove duplo heading "Inteligência"/"Painel de Controle IA")
+Arquivos criados:
+  - src/components/layout/Breadcrumbs.tsx (38 rotas mapeadas pt-BR; Link para segmentos anteriores; span bold para atual; ChevronRight 12px; aria-label a11y; hidden mobile)
+  - src/components/layout/AppLayout.tsx (faixa breadcrumb entre TopHeader e conteúdo; bg-background/60; border-b border-border)
+Typecheck: 0 erros.
+Próximo: U3-03 (tela de atalhos "?") ou U4 (redesign por persona — ordem do ranking).
+Commit: feat(u3-01): sidebar tokens dark + breadcrumbs no AppLayout.
