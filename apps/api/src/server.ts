@@ -381,6 +381,12 @@ export async function startFastifyServer() {
     const { startOutboxPoller } = await import('../../packages/queue/src/workers/outbox.worker');
     await startOutboxPoller();
 
+    // S74 — Worker v2 de mensagens (shadow mode quando ATENDIMENTO_ENGINE=legacy).
+    // @ts-ignore
+    const { createMessageWorker } = await import('../../packages/queue/src/workers/message.worker');
+    const msgWorker = createMessageWorker();
+    app.log.info('[message-worker] v2 iniciado (shadow mode ativo enquanto ATENDIMENTO_ENGINE=legacy)');
+
     // Agendar Batch Jobs
     await scheduleBatchJobs();
 

@@ -22,6 +22,7 @@ CREATE INDEX IF NOT EXISTS idx_valor_cases_tenant ON valor_cases(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_valor_cases_token ON valor_cases(share_token) WHERE share_token IS NOT NULL;
 
 ALTER TABLE valor_cases ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "tenant isolation" ON valor_cases;
 CREATE POLICY "tenant isolation" ON valor_cases
   USING (tenant_id = current_setting('app.tenant_id', TRUE)::uuid);
 
