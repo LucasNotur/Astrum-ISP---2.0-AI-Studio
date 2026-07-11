@@ -6,6 +6,7 @@ import type { MultiAgentState, AgentDomain } from './multi-agent.state';
 import { MultiAgentStateSchema, initialMultiAgentState } from './multi-agent.state';
 import { runCobrancaSubgraph, type CobrancaSubgraphDeps } from './subgraphs/cobranca.subgraph';
 import { runRetencaoSubgraph, type RetencaoSubgraphDeps } from './subgraphs/retencao.subgraph';
+import { runVendasSubgraph, type VendasSubgraphDeps } from './subgraphs/vendas.subgraph';
 import { LangGraphService } from './langgraph.service';
 import { computeChurnScore, type ChurnFeatures } from '../ml/churn-score';
 import { extractFeatures } from '../ml/churn-features.service';
@@ -27,11 +28,11 @@ import { isMultiAgentEnabled } from '../../infrastructure/config/engine-flags';
 const miniModel = openai('gpt-4o-mini');
 
 const SupervisorIntentSchema = z.object({
-  domain: z.enum(['atendimento', 'cobranca', 'retencao', 'escalation']),
+  domain: z.enum(['atendimento', 'cobranca', 'retencao', 'vendas', 'escalation']),
   reason: z.string().max(300),
 });
 
-export interface MultiAgentDeps extends CobrancaSubgraphDeps, RetencaoSubgraphDeps {
+export interface MultiAgentDeps extends CobrancaSubgraphDeps, RetencaoSubgraphDeps, VendasSubgraphDeps {
   langGraphService?: LangGraphService;
   classifyDomainFn?: (message: string, tenantId: string) => Promise<{ domain: AgentDomain; reason: string }>;
   checkChurnFn?: (tenantId: string, customerId: string) => Promise<{ riskBand: string } | null>;
@@ -49,6 +50,7 @@ export async function classifyDomain(
 - atendimento: suporte técnico, status, visita, diagnóstico
 - cobranca: fatura, boleto, negociação, suspensão
 - retencao: cancelamento, insatisfação, churn crítico
+- vendas: quero contratar, novo plano, instalar internet, viabilidade, preços, planos disponíveis
 - escalation: caso complexo que precisa de humano
 Responda apenas com o JSON solicitado.`,
     messages: [{ role: 'user', content: message }],
@@ -137,6 +139,7 @@ export function buildMultiAgentGraph(deps: MultiAgentDeps = {}) {
 
   const nodeCobranca = async (state: MultiAgentState) => runCobrancaSubgraph(state, deps);
   const nodeRetencao = async (state: MultiAgentState) => runRetencaoSubgraph(state, deps);
+  const nodeVendas = async (state: MultiAgentState) => runVendasSubgraph(state, deps);
 
   const nodeEscalation = async (state: MultiAgentState) => ({
     response: 'Vou transferir você para um atendente humano para melhor atendê-lo.',
@@ -148,6 +151,7 @@ export function buildMultiAgentGraph(deps: MultiAgentDeps = {}) {
   graph.addNode('atendimento', nodeAtendimento as any);
   graph.addNode('cobranca', nodeCobranca as any);
   graph.addNode('retencao', nodeRetencao as any);
+  graph.addNode('vendas', nodeVendas as any);
   graph.addNode('escalation', nodeEscalation as any);
 
   graph.addEdge(START, 'supervisor' as any);
@@ -157,6 +161,7 @@ export function buildMultiAgentGraph(deps: MultiAgentDeps = {}) {
   graph.addEdge('atendimento' as any, END);
   graph.addEdge('cobranca' as any, END);
   graph.addEdge('retencao' as any, END);
+  graph.addEdge('vendas' as any, END);
   graph.addEdge('escalation' as any, END);
   /* eslint-enable @typescript-eslint/no-explicit-any */
 

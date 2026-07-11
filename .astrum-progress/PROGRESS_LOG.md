@@ -24,6 +24,43 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-11] NEXTGEN-2.0 / Onda 3 — Sessão P3 (vendas: funil conversacional + subgrafo + contrato digital)
+Tarefa: BLOCO P3 do PLANO_B — 3 itens do funil de vendas.
+Arquivos criados:
+  - packages/db/src/migrations/067_p3_sales_leads.sql (migration sales_leads + RLS)
+  - apps/api/src/domain/vendas/sales-funnel.service.ts (P3-01: state machine 9 estágios, ERP+fallback)
+  - apps/api/src/domain/vendas/sales-funnel.service.test.ts (13 testes)
+  - apps/api/src/domain/vendas/contract.service.ts (P3-03: Clicksign + D4Sign, fail-open)
+  - apps/api/src/domain/vendas/contract.service.test.ts (5 testes)
+  - apps/api/src/domain/agent/subgraphs/vendas.subgraph.ts (P3-02: subgrafo LangGraph)
+  - apps/api/src/domain/agent/subgraphs/vendas.subgraph.test.ts (7 testes)
+Arquivos modificados:
+  - apps/api/src/adapters/erp/erp.types.ts (+ ERPSalesCapable, ViabilityResult, ErpPlan, LeadRegistration, supportsErpSales)
+  - apps/api/src/adapters/erp/ixc.adapter.ts (implementa ERPSalesCapable: checkViability/getPlans/createPreRegistration/scheduleInstallation)
+  - apps/api/src/domain/agent/multi-agent.state.ts (+ 'vendas' em AgentDomainSchema)
+  - apps/api/src/domain/agent/multi-agent.supervisor.ts (+ vendas node, SupervisorIntentSchema, VendasSubgraphDeps)
+  - apps/api/src/infrastructure/ai/tools.executor.ts (+ check_viability, list_plans, send_contract)
+Testes: 29 novos PASS (13 funnel + 5 contract + 7 subgrafo + 4 multi-agent mantidos) — suite ≥1272 verde.
+Status: ✅ Concluído
+Observações:
+  P3-01: state machine em 9 estágios (collecting_address → checking_viability → viability_failed |
+    presenting_plans → collecting_data → registering → scheduling → completed | abandoned).
+    Viabilidade: usa ERP (P0) quando configurado, fallback grafo IA-16 `capacidade`; fail-open retorna
+    available=true para não perder lead (operador confirma). Planos: ERP ou tabela local `plans`.
+    Pré-cadastro: ERP ou fallback `local_<leadId>`. OS de instalação: ERP ou service_orders Supabase.
+  P3-02: domínio `vendas` adicionado ao AgentDomainSchema + SupervisorIntentSchema com keywords de vendas.
+    `generateObject` usado para extração estruturada de endereço, seleção de plano, dados pessoais e datas.
+  P3-03: Clicksign tem prioridade quando CLICKSIGN_API_KEY configurada; D4Sign como alternativa.
+    Fail-open: sem chaves retorna {status:'pending_signature'} — operador acompanha manualmente.
+  IXC adapter: implementa ERPSalesCapable com endpoints /webservice/v1/viabilidade, /plano_acesso,
+    /cliente (POST = pré-cadastro inativo), /os (POST = OS de instalação). Precisa de teste contra
+    instância real do IXC (P0-06 pattern: documentação pública usada como base).
+  Migrations pendentes (Lucas): 067_p3_sales_leads.sql.
+  Chaves pendentes (Lucas): CLICKSIGN_API_KEY ou D4SIGN_API_KEY para contrato digital em produção.
+  Próximo: P4 (central do assinante PWA) ou P5 (dashboard valor gerado).
+
+---
+
 [2026-07-11] NEXTGEN-2.0 / Onda 3 — Sessão P2 (omnichannel: Instagram DM, Messenger, e-mail, inbox)
 Tarefa: BLOCO P2 do PLANO_B — 4 itens de paridade omnichannel.
 Arquivos criados:

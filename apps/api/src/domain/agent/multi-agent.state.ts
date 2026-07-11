@@ -12,6 +12,7 @@ export const AgentDomainSchema = z.enum([
   'atendimento',
   'cobranca',
   'retencao',
+  'vendas',
   'escalation',
 ]);
 

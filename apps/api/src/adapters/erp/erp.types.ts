@@ -37,6 +37,53 @@ export interface ERPCredentials {
   [k: string]: unknown;
 }
 
+// ── P3 — Vendas ──────────────────────────────────────────────────────────────
+
+/** Resultado da verificação de viabilidade técnica por endereço. */
+export interface ViabilityResult {
+  available: boolean;
+  ctoId?: string;
+  ctoName?: string;
+  availablePorts?: number;
+  raw?: unknown;
+}
+
+/** Plano normalizado retornado pelo ERP. */
+export interface ErpPlan {
+  id: string;
+  name: string;
+  downloadMbps: number;
+  uploadMbps: number;
+  priceCents: number;
+  description?: string;
+}
+
+/** Dados mínimos para pré-cadastro de lead no ERP. */
+export interface LeadRegistration {
+  fullName: string;
+  cpf: string;
+  email?: string;
+  phone: string;
+  address: string;
+  planId: string;
+}
+
+/**
+ * Capacidades de vendas que um ERP pode expor opcionalmente.
+ * Verifique o suporte em runtime com `supportsErpSales(adapter)`.
+ */
+export interface ERPSalesCapable {
+  checkViability(address: string): Promise<ViabilityResult>;
+  getPlans(): Promise<ErpPlan[]>;
+  createPreRegistration(data: LeadRegistration): Promise<{ leadId: string; externalId?: string }>;
+  scheduleInstallation(leadId: string, scheduledDate: string): Promise<{ orderId: string }>;
+}
+
+/** Type guard — true se o adapter implementa ERPSalesCapable. */
+export function supportsErpSales(p: ERPProvider): p is ERPProvider & ERPSalesCapable {
+  return typeof (p as any).checkViability === 'function';
+}
+
 /**
  * Converte valor monetário de ERP (string ou número) para centavos.
  * Lida com formato brasileiro ("1.234,56" = ponto milhar + vírgula decimal) e

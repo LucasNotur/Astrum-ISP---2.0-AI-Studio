@@ -8,6 +8,8 @@ import { createErpProvider, isErpImplemented } from '../../adapters/erp/erp.fact
 import type { ERPProviderName, ERPCredentials } from '../../adapters/erp/erp.types';
 import { executeTrustUnlock, defaultTrustUnlockDb } from '../../domain/atendimento/trust-unlock.service';
 import { buildNegotiationMenu, defaultNegotiationDb } from '../../domain/atendimento/debt-negotiation.service';
+import { checkViability, getAvailablePlans } from '../../domain/vendas/sales-funnel.service';
+import { sendContract } from '../../domain/vendas/contract.service';
 
 /**
  * Executor de ferramentas do Function Calling.
@@ -73,6 +75,15 @@ export class ToolsExecutor {
         break;
       case 'negotiate_debt': // P1-03
         result = await this._negotiateDebt(args);
+        break;
+      case 'check_viability': // P3-01
+        result = await this._checkViability(args);
+        break;
+      case 'list_plans': // P3-01
+        result = await this._listPlans();
+        break;
+      case 'send_contract': // P3-03
+        result = await this._sendContract(args);
         break;
       default:
         infraLogger.warn({ toolName }, 'Unknown tool called — ignoring');
@@ -287,5 +298,42 @@ export class ToolsExecutor {
   private async _negotiateDebt(args: Record<string, unknown>) {
     const { debt_cents } = args as { debt_cents: number };
     return buildNegotiationMenu(defaultNegotiationDb, this.tenantId, debt_cents);
+  }
+
+  /** P3-01 — Verifica viabilidade técnica por endereço. */
+  private async _checkViability(args: Record<string, unknown>) {
+    const { address } = args as { address: string };
+    if (!address) return { error: 'address é obrigatório' };
+    return checkViability(this.tenantId, address);
+  }
+
+  /** P3-01 — Lista planos disponíveis do tenant (ERP ou Supabase). */
+  private async _listPlans() {
+    return { plans: await getAvailablePlans(this.tenantId) };
+  }
+
+  /** P3-03 — Envia contrato digital para assinatura. */
+  private async _sendContract(args: Record<string, unknown>) {
+    const { lead_id, signer_name, signer_cpf, signer_email, signer_phone, address, plan_name, plan_price_cents } = args as {
+      lead_id: string;
+      signer_name: string;
+      signer_cpf: string;
+      signer_email?: string;
+      signer_phone?: string;
+      address: string;
+      plan_name: string;
+      plan_price_cents: number;
+    };
+    return sendContract({
+      tenantId: this.tenantId,
+      leadId: lead_id,
+      signerName: signer_name,
+      signerCpf: signer_cpf,
+      signerEmail: signer_email,
+      signerPhone: signer_phone,
+      address,
+      planName: plan_name,
+      planPriceCents: plan_price_cents,
+    });
   }
 }

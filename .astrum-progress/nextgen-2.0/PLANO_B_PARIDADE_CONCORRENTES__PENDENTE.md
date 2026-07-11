@@ -162,16 +162,22 @@ e-mail/telefone; a Meta empurra IA nativa nesses canais.
 **Métrica:** canais ativos por tenant; tempo de primeira resposta por canal.
 
 ### BLOCO P3 — Vendas (o funil que Elleven e Mundiale já têm)
+✅ **CODE-COMPLETE em 2026-07-11**. Migration `067_p3_sales_leads` pendente de apply pelo Lucas.
+Chaves de contrato digital pendentes de configuração: `CLICKSIGN_API_KEY` ou `D4SIGN_API_KEY`.
 **Gap:** a Astrum não vende — só atende e cobra. Elleven tem a jornada "Vender"
 completa; Mundiale fecha venda no WhatsApp.
-- **P3-01 — Funil conversacional de venda:** lead → viabilidade (IA-16 `capacidade`
-  + dados do ERP via P0) → apresentação de planos (do ERP) → coleta de dados →
-  pré-cadastro NO ERP → agendamento de instalação.
-- **P3-02 — Subgrafo `vendas` no multi-agente** (IA-10 — o domínio já foi previsto
-  na arquitetura; `AgentDomainSchema` hoje tem atendimento/cobranca/retencao/
-  escalation — adicionar `vendas` é channel novo + subgrafo).
-- **P3-03 — Contrato digital**: paridade mínima via integração (assinatura do
-  próprio ERP quando existir; senão Clicksign/D4Sign API).
+- [x] **P3-01 — Funil conversacional de venda** (`sales-funnel.service.ts`): state machine completa:
+  collecting_address → checking_viability → viability_failed | presenting_plans → collecting_data
+  → registering → scheduling → completed. Viabilidade via ERP (P0) ou grafo local (IA-16 `capacidade`).
+  Planos via ERP ou tabela local. Pré-cadastro e agendamento de OS no ERP; fallback local.
+- [x] **P3-02 — Subgrafo `vendas` no multi-agente** (`vendas.subgraph.ts`): domínio `vendas` adicionado
+  ao `AgentDomainSchema`, ao `SupervisorIntentSchema` e ao grafo LangGraph. Usa `generateObject` para
+  extrair endereço, seleção de plano, dados pessoais e data de agendamento da conversa.
+- [x] **P3-03 — Contrato digital** (`contract.service.ts`): Clicksign (CLICKSIGN_API_KEY) e D4Sign
+  (D4SIGN_API_KEY). Fail-open: sem chave retorna `pending_signature` sem erro. Tool `send_contract`
+  no `tools.executor.ts`. Novo tool `check_viability` e `list_plans` também adicionados.
+  ERP: IXC agora implementa `ERPSalesCapable` (checkViability/getPlans/createPreRegistration/scheduleInstallation).
+  Migrations pendentes (Lucas): `067_p3_sales_leads.sql` (tabela `sales_leads`).
 **Métrica:** % de leads convertidos sem humano; tempo lead→instalação agendada.
 
 ### BLOCO P4 — Experiência do assinante
