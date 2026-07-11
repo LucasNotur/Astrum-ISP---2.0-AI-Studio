@@ -111,7 +111,7 @@ GATE FINAL                   → S98
 - [ ] `invoices`: soma total em centavos = soma legada × 100 (validação financeira).
 
 ## 🔶 S70 — ETL conversacional + re-ingestão de conhecimento + GATE DE DADOS
-> Lógica de split ticket→conversation e delta-sync completas e testadas (10 testes) + migration da ponte. Re-ingestão reusa pipeline RAG existente. **Execução + GATE DE DADOS pendentes de credenciais vivas.**
+> Código 100% completo (48 testes passando). Migration 069_messages_legacy_id.sql + etl-s70-conversations.ts + run-s70.ts + delta-sync.worker.ts. **Execução + GATE DE DADOS pendentes de credenciais vivas (`.env.etl`).**
 **Objetivo:** histórico de atendimento e base de conhecimento no mundo novo.
 
 **Passos:**

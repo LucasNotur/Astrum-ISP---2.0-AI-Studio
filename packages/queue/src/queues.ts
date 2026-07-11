@@ -63,12 +63,19 @@ export const suspensionQueue = createQueue('astrum-suspension', {
   },
 });
 
+// Fila de delta-sync Firestore→Supabase (temporária até S82)
+export const deltaSyncQueue = createQueue('astrum:delta-sync', {
+  connection: connection as any,
+  defaultJobOptions: { ...DEFAULT_JOB_OPTIONS, attempts: 2 },
+});
+
 export const allQueues = [
   messageQueue,
   cobrancaQueue,
   notificationsQueue,
   aiProcessingQueue,
   suspensionQueue,
+  deltaSyncQueue,
 ];
 
 // Graceful shutdown de todas as filas

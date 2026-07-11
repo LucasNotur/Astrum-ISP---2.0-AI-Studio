@@ -24,6 +24,35 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-11] S70 — ETL conversacional + GATE DE DADOS (build completo, execução pendente)
+Tarefa: Construir ETL de tickets→conversations+messages, re-ingestão de knowledge_articles RAG,
+  BullMQ delta-sync worker e runner do GATE DE DADOS.
+Arquivos criados:
+  - packages/db/src/migrations/069_messages_legacy_id.sql — legacy_id + unique index em messages
+  - scripts/etl/etl-s70-conversations.ts — EtlDepsS70, migrateTicketConversations,
+      migrateKnowledgeArticles, runS70Backfill (idempotente, delta-aware)
+  - scripts/etl/etl-s70-conversations.test.ts — 8 testes cobrindo novo/delta/dry-run/sem-mensagens
+  - scripts/etl/run-s70.ts — CLI runner (--all/--tenant/--dry-run), Firebase Admin + Supabase,
+      BullMQ indexing queue, GATE validation (contagem, ordem cronológica, armadilha audit_log),
+      gera docs/etl/GATE_DADOS_S70.md
+  - packages/queue/src/workers/delta-sync.worker.ts — BullMQ Worker + scheduleDeltaSync()
+      (15 min recorrente); Firebase carregado dinamicamente, graceful no-op sem credenciais
+Arquivos modificados:
+  - packages/queue/src/queues.ts — deltaSyncQueue adicionada ao allQueues
+  - package.json — scripts db:s70:dry e db:s70
+  - .astrum-progress/PLANO_MESTRE_V2__EM_ANDAMENTO.md — nota de build completo
+Testes: 48 passando (scripts/etl/ — inclui os 40 do S69)
+Status: ⚠️ Parcial — código e testes prontos; execução real pendente de .env.etl preenchido
+Pendências para execução:
+  1. Preencher .env.etl (FIREBASE_* + SUPABASE_* + REDIS_URL opcional)
+  2. npm run db:backfill:dry → npm run db:backfill  (S69 — dados cadastrais primeiro)
+  3. npm run db:s70:dry → revisar saída
+  4. npm run db:s70  → execução live + GATE
+  5. Após GATE aprovado: marcar checkboxes S70 + chamar scheduleDeltaSync() no boot
+  6. Verificar fila astrum:delta-sync no BullMQ dashboard
+
+---
+
 [2026-07-11] S69 — ETL backfill runner (build completo, execução pendente)
 Tarefa: Construir CLI runner real para backfill Firestore → Supabase; execução aguarda credenciais.
 Arquivos criados:
