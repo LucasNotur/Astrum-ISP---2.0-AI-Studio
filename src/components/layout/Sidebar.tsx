@@ -34,7 +34,7 @@ function NavItem({ active, onClick, icon, label, collapsed, shortcut, badge }: a
         <div className="shrink-0 flex items-center justify-center relative">
           {icon}
           {collapsed && badge > 0 && (
-            <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-zinc-950" />
+            <span className="absolute -top-1 -right-1 w-3 h-3 bg-astrum-red rounded-full border-2 border-card" />
           )}
         </div>
         {!collapsed && <span>{label}</span>}
@@ -139,13 +139,13 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
         onClick={() => setIsMobileMenuOpen && setIsMobileMenuOpen(false)}
       />
       <aside className={cn(
-        "fixed md:static inset-y-0 left-0 z-50 border-r border-transparent dark:border-white/5 bg-white dark:bg-card/50 backdrop-blur-3xl shadow-sm transition-all duration-300 flex flex-col",
+        "fixed md:static inset-y-0 left-0 z-50 border-r border-border bg-card backdrop-blur-3xl shadow-sm transition-all duration-300 flex flex-col",
         !isMobileMenuOpen && "translate-x-[-100%] md:translate-x-0",
         isSidebarCollapsed ? "md:w-24 md:items-center md:px-2 md:py-6 w-72 p-6" : "w-72 p-6"
       )}>
-        <button 
+        <button
           onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          className="hidden md:flex absolute -right-3 top-8 bg-white dark:bg-zinc-800 border-none rounded-full p-2 shadow-sm text-zinc-500 hover:text-primary dark:hover:text-primary z-10 hover:scale-110 transition-transform"
+          className="hidden md:flex absolute -right-3 top-8 bg-card border border-border rounded-full p-2 shadow-2 text-muted-foreground hover:text-foreground z-10 hover:scale-110 transition-transform duration-fast"
         >
           {isSidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
@@ -328,7 +328,6 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
             
             {(hasAccess('bi') || hasAccess('quality-monitor')) && (
                <div className="space-y-1">
-                 {!isSidebarCollapsed && <div className="px-4 py-2 text-[11px] font-semibold text-zinc-500">Inteligência</div>}
                  {hasAccess('bi') && (
                     <NavItem 
                       active={currentPath === 'bi'} 
@@ -352,7 +351,6 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
 
             {(hasAccess('observability') || hasAccess('monitoring')) && (
                 <div className="space-y-1 mt-2">
-                  {!isSidebarCollapsed && <div className="px-4 py-2 text-[11px] font-semibold text-zinc-500">Painel de Controle IA</div>}
                   {hasAccess('observability') && <NavItem active={currentPath === 'observability'} onClick={() => navigate('/observability')} icon={<Activity size={isSidebarCollapsed?24:18} />} label="Logs e Auditoria IA" collapsed={isSidebarCollapsed} />}
                   {hasAccess('monitoring') && <NavItem active={currentPath === 'monitoring'} onClick={() => navigate('/monitoring')} icon={<Activity size={isSidebarCollapsed?24:18} />} label="Monitoramento (Falhas)" collapsed={isSidebarCollapsed} badge={dlqCount} />}
                 </div>
@@ -398,7 +396,7 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
       </nav>
 
       <div className="mt-auto pt-4 w-full">
-        <div className={cn("flex items-center gap-3 rounded-xl bg-zinc-100 dark:bg-zinc-800/50", isSidebarCollapsed ? "md:justify-center md:p-2 p-3" : "p-3")}>
+        <div className={cn("flex items-center gap-3 rounded-stable bg-muted", isSidebarCollapsed ? "md:justify-center md:p-2 p-3" : "p-3")}>
           <Avatar className="h-10 w-10 shrink-0">
             <AvatarImage src={user?.photoURL} />
             <AvatarFallback>{user?.displayName?.[0] || 'U'}</AvatarFallback>
