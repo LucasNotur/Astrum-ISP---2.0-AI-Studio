@@ -27,6 +27,10 @@ import MyPlanDashboard from '../../apps/frontend/src/modules/tenant/subscription
 import BillingEnterpriseDashboard from '../../apps/frontend/src/modules/admin/billing/BillingEnterpriseDashboard';
 import CustomerBillingPortal from '../../apps/frontend/src/modules/tenant/billing/CustomerBillingPortal';
 import { RequireProvedorAdmin } from '../components/RequireProvedorAdmin';
+import { seedSystem, seedInventory, seedKnowledgeBase, logAudit } from '@/src/lib/db';
+import { seedServiceOrdersAndTechnicians } from '@/src/lib/db';
+import { seedPopularAstrum, wipeSystemData } from '@/src/lib/seedAstrum';
+import { getTeamMembers as sbGetTeamMembers, upsertTenantOperator } from '@/src/lib/supabaseDb';
 
 const AVAILABLE_MENUS = [
   { id: 'dashboard', label: 'Dashboard', group: 'Operação Diária' },
@@ -63,52 +67,130 @@ const DEFAULT_PERMISSIONS = {
   tecnico: ['dashboard', 'os', 'kb', 'map']
 };
 
-export function SettingsPage(props: any) {
+export function SettingsPage() {
+  const navigate = useNavigate();
   const {
-    integrationKeys, 
+    user,
+    rolePermissions,
+    currentUserRole,
+    integrationKeys,
     setIntegrationKeys,
-    isSavingKeys,
-    handleSaveKeys,
-    isDeveloper,
-    seedSystem,
-    seedTicketsAndLogs,
-    seedServiceOrdersAndTechnicians,
-    isSeeding,
-    isAstrum,
+    customers,
     companySettings,
     setCompanySettings,
-    handleSeedSystem,
-    handleSeedPopularAstrum,
-    handleWipeSystem,
-    customers,
-    handleSeedKB,
-    evoStatus,
-    fetchEvolutionQrCode,
-    disconnectEvolutionInstance,
-    configureEvolutionWebhook,
-    isFetchingQr,
-    evoQrCode,
-    setIsAddingTech,
-    isAddingTech,
-    newTechPhone,
-    setNewTechPhone,
-    isFetchingTechName,
-    newTechName,
-    setNewTechName,
-    handleAddTechnician,
-    technicians,
-    setTechnicians,
-    updateTechnician,
-    setIsSavingKeys,
-    saveIntegrationKeys,
-    setIsTeamMemberDialogOpen,
-    teamMembers,
-    handleDeleteTeamMember
-  } = props;
-
-  const navigate = useNavigate();
-  const { user, rolePermissions, currentUserRole } = useAppStore();
+  } = useAppStore();
   const tenantId = user?.tenantId || 'DEFAULT_TENANT';
+
+  const isDeveloper =
+    user?.email?.toLowerCase() === 'lucaspferraz123@gmail.com' ||
+    user?.email?.toLowerCase() === 'noturcursos1@gmail.com';
+  const isAstrum = currentUserRole === 'admin';
+
+  const [isSavingKeys, setIsSavingKeys] = useState(false);
+  const [isSeeding, setIsSeeding] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
+  const [isTeamMemberDialogOpen, setIsTeamMemberDialogOpen] = useState(false);
+  const [selectedTeamMember, setSelectedTeamMember] = useState<any>(null);
+
+  useEffect(() => {
+    sbGetTeamMembers(setTeamMembers, tenantId);
+  }, [tenantId]);
+
+  const handleSeedSystem = async () => {
+    setIsSeeding(true);
+    try {
+      await seedSystem();
+      await seedInventory();
+      await seedServiceOrdersAndTechnicians();
+      toast.success('Sistema populado com 100 clientes, estoque, OS e dados de teste!');
+    } catch { toast.error('Erro ao popular sistema.'); }
+    finally { setIsSeeding(false); }
+  };
+
+  const handleSeedKB = async () => {
+    setIsSeeding(true);
+    try { await seedKnowledgeBase(); toast.success('Base de conhecimento populada!'); }
+    catch { toast.error('Erro ao popular base de conhecimento.'); }
+    finally { setIsSeeding(false); }
+  };
+
+  const handleSeedPopularAstrum = async () => {
+    setIsSeeding(true);
+    let tid: any;
+    try {
+      tid = toast.loading('Iniciando Popular Astrum...');
+      await seedPopularAstrum((msg: string) => toast.loading(msg, { id: tid }));
+      toast.success('Astrum populado com 30 dias de operação!', { id: tid });
+    } catch (e) { console.error(e); toast.error('Erro ao popular o Astrum.', { id: tid }); }
+    finally { setIsSeeding(false); }
+  };
+
+  const handleWipeSystem = async () => {
+    if (!window.confirm('Você tem certeza? ISSO APAGARÁ TODOS OS DADOS.')) return;
+    setIsSeeding(true);
+    let tid: any;
+    try {
+      tid = toast.loading('Iniciando Limpeza Total...');
+      await wipeSystemData((msg: string) => toast.loading(msg, { id: tid }));
+      toast.success('Sistema resetado para VAZIO!', { id: tid });
+    } catch (e) { console.error(e); toast.error('Erro ao apagar os dados.', { id: tid }); }
+    finally { setIsSeeding(false); }
+  };
+
+  const seedTicketsAndLogs = async () => {
+    setIsSeeding(true);
+    try {
+      for (let i = 0; i < 20; i++) {
+        const customer = customers[Math.floor(Math.random() * customers.length)];
+        if (!customer) continue;
+        const { data: ticketRef, error: seedTicketErr } = await supabase
+          .from('tickets')
+          .insert({ customer_id: customer.id, subject: `Problema de conexão #${i}`, status: Math.random() > 0.5 ? 'resolved' : 'open', priority: ['low', 'medium', 'high', 'urgent'][Math.floor(Math.random() * 4)] })
+          .select().single();
+        if (seedTicketErr || !ticketRef) continue;
+        await supabase.from('messages').insert({ ticket_id: ticketRef.id, sender_type: 'customer', body: 'Minha internet está caindo muito hoje.' });
+        await logAudit('TICKET_CREATED', { ticketId: ticketRef.id, customerId: customer.id });
+        if (Math.random() > 0.5) {
+          await logAudit('TICKET_RESOLVED', { ticketId: ticketRef.id, sentiment: ['POSITIVO', 'NEUTRO', 'NEGATIVO'][Math.floor(Math.random() * 3)], category: ['SUPORTE_TECNICO', 'FATURA', 'RETENCAO'][Math.floor(Math.random() * 3)], responseTime: Math.floor(Math.random() * 120) + 10 });
+        }
+      }
+      toast.success('Tickets e Logs de auditoria gerados com sucesso!');
+    } catch (e) { console.error(e); toast.error('Erro ao gerar dados de teste.'); }
+    finally { setIsSeeding(false); }
+  };
+
+  const handleDeleteTeamMember = async (id: string) => {
+    if (!window.confirm('Tem certeza que deseja remover este membro?')) return;
+    try {
+      const { error } = await supabase.from('team_members').delete().eq('id', id);
+      if (error) throw error;
+      setTeamMembers((prev) => prev.filter((m) => m.id !== id));
+      toast.success('Membro removido com sucesso!');
+    } catch { toast.error('Erro ao remover membro.'); }
+  };
+
+  const handleSaveTeamMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTeamMember) return;
+    try {
+      const activeTenant = tenantId;
+      if (selectedTeamMember.id) {
+        const { error } = await supabase.from('team_members').update({ name: selectedTeamMember.name, email: selectedTeamMember.email, role: selectedTeamMember.role, status: selectedTeamMember.status, tenant_id: activeTenant }).eq('id', selectedTeamMember.id);
+        if (error) throw error;
+        if (selectedTeamMember.role === 'support' || selectedTeamMember.role === 'admin' || selectedTeamMember.role === 'owner') {
+          await upsertTenantOperator(activeTenant, selectedTeamMember.email, { name: selectedTeamMember.name, role: selectedTeamMember.role });
+        }
+        toast.success('Membro atualizado!');
+      } else {
+        const { error } = await supabase.from('team_members').insert({ name: selectedTeamMember.name, email: selectedTeamMember.email, role: selectedTeamMember.role, status: selectedTeamMember.status || 'active', tenant_id: activeTenant });
+        if (error) throw error;
+        toast.success('Membro adicionado!');
+      }
+      setIsTeamMemberDialogOpen(false);
+      setSelectedTeamMember(null);
+      sbGetTeamMembers(setTeamMembers, tenantId);
+    } catch { toast.error('Erro ao salvar membro.'); }
+  };
   
   const canAccessBilling = currentUserRole === 'admin' || currentUserRole === 'owner';
 
@@ -834,7 +916,7 @@ export function SettingsPage(props: any) {
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, width, height);
         const dataUrl = canvas.toDataURL('image/png');
-        setCompanySettings(prev => ({ ...prev, logoUrl: dataUrl }));
+        setCompanySettings((prev: any) => ({ ...prev, logoUrl: dataUrl }));
         toast.success('Logo processada com sucesso! Clique em "Salvar Alterações" para aplicar.');
       };
       img.src = event.target?.result as string;
@@ -1547,8 +1629,8 @@ export function SettingsPage(props: any) {
   };
 
 
-  return (
-    <motion.div 
+  return (<>
+    <motion.div
               key="settings"
               initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}
@@ -1645,14 +1727,14 @@ export function SettingsPage(props: any) {
                             <Label>Nome Fantasia</Label>
                             <Input 
                               value={companySettings.name || ''} 
-                              onChange={(e) => setCompanySettings(prev => ({ ...prev, name: e.target.value }))}
+                              onChange={(e) => setCompanySettings((prev: any) => ({ ...prev, name: e.target.value }))}
                             />
                           </div>
                           <div className="space-y-2">
                             <Label>E-mail de Suporte</Label>
                             <Input 
                               value={companySettings.supportEmail || ''} 
-                              onChange={(e) => setCompanySettings(prev => ({ ...prev, supportEmail: e.target.value }))}
+                              onChange={(e) => setCompanySettings((prev: any) => ({ ...prev, supportEmail: e.target.value }))}
                             />
                           </div>
                         </div>
@@ -1661,14 +1743,14 @@ export function SettingsPage(props: any) {
                             <Label>Telefone de Contato</Label>
                             <Input 
                               value={companySettings.supportPhone || ''} 
-                              onChange={(e) => setCompanySettings(prev => ({ ...prev, supportPhone: e.target.value }))}
+                              onChange={(e) => setCompanySettings((prev: any) => ({ ...prev, supportPhone: e.target.value }))}
                             />
                           </div>
                           <div className="space-y-2">
                             <Label>Horário de Atendimento</Label>
                             <Input 
                               value={companySettings.workingHours || ''} 
-                              onChange={(e) => setCompanySettings(prev => ({ ...prev, workingHours: e.target.value }))}
+                              onChange={(e) => setCompanySettings((prev: any) => ({ ...prev, workingHours: e.target.value }))}
                             />
                           </div>
                         </div>
@@ -2488,6 +2570,55 @@ export function SettingsPage(props: any) {
 
               </Tabs>
             </motion.div>
-          
-  );
+
+      {/* Team Member Dialog */}
+      <Dialog open={isTeamMemberDialogOpen} onOpenChange={setIsTeamMemberDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{selectedTeamMember?.id ? 'Editar Colaborador' : 'Novo Colaborador'}</DialogTitle>
+            <DialogDescription>Preencha os dados do colaborador abaixo.</DialogDescription>
+          </DialogHeader>
+          {selectedTeamMember && (
+            <form onSubmit={handleSaveTeamMember} className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <Label>Nome</Label>
+                <Input required value={selectedTeamMember.name || ''} onChange={(e) => setSelectedTeamMember({ ...selectedTeamMember, name: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>E-mail</Label>
+                <Input type="email" required value={selectedTeamMember.email || ''} onChange={(e) => setSelectedTeamMember({ ...selectedTeamMember, email: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Cargo</Label>
+                <select className="w-full p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm" value={selectedTeamMember.role || 'support'} onChange={(e) => setSelectedTeamMember({ ...selectedTeamMember, role: e.target.value })}>
+                  <option value="admin">Administrador</option>
+                  <option value="support">Suporte Técnico</option>
+                  <option value="tecnico">Técnico de Campo</option>
+                  <option value="billing">Financeiro</option>
+                  <option value="sales">Vendas</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <select className="w-full p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm" value={selectedTeamMember.status || 'active'} onChange={(e) => setSelectedTeamMember({ ...selectedTeamMember, status: e.target.value })}>
+                  <option value="active">Ativo</option>
+                  <option value="inactive">Inativo</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => setIsTeamMemberDialogOpen(false)}>Cancelar</Button>
+                <Button type="submit">Salvar</Button>
+              </div>
+            </form>
+          )}
+          {!selectedTeamMember && (
+            <div className="pt-4">
+              <Button className="w-full gap-2" onClick={() => setSelectedTeamMember({ name: '', email: '', role: 'support', status: 'active' })}>
+                <Plus size={16} /> Preencher dados
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+  </>);
 }

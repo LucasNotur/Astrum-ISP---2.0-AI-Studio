@@ -2680,54 +2680,7 @@ export default function App() {
 
             <Route path="/team" element={<TeamPage />} />
 
-            <Route
-              path="/settings"
-              element={
-                <SettingsPage
-                  integrationKeys={integrationKeys}
-                  setIntegrationKeys={setIntegrationKeys}
-                  isSavingKeys={isSavingKeys}
-                  handleSaveKeys={saveIntegrationKeys}
-                  isDeveloper={isDeveloper}
-                  seedSystem={seedSystem}
-                  seedTicketsAndLogs={seedTicketsAndLogs}
-                  seedServiceOrdersAndTechnicians={
-                    seedServiceOrdersAndTechnicians
-                  }
-                  isSeeding={isSeeding}
-                  isAstrum={isAstrum}
-                  companySettings={companySettings}
-                  setCompanySettings={setCompanySettings}
-                  handleSeedSystem={handleSeedSystem}
-                  handleSeedPopularAstrum={handleSeedPopularAstrum}
-                  handleWipeSystem={handleWipeSystem}
-                  customers={customers}
-                  handleSeedKB={handleSeedKB}
-                  evoStatus={evoStatus}
-                  fetchEvolutionQrCode={fetchEvolutionQrCode}
-                  disconnectEvolutionInstance={disconnectEvolutionInstance}
-                  configureEvolutionWebhook={configureEvolutionWebhook}
-                  isFetchingQr={isFetchingQr}
-                  evoQrCode={evoQrCode}
-                  setIsAddingTech={setIsAddingTech}
-                  isAddingTech={isAddingTech}
-                  newTechPhone={newTechPhone}
-                  setNewTechPhone={setNewTechPhone}
-                  isFetchingTechName={isFetchingTechName}
-                  newTechName={newTechName}
-                  setNewTechName={setNewTechName}
-                  handleAddTechnician={handleAddTechnician}
-                  technicians={technicians}
-                  setTechnicians={setTechnicians}
-                  updateTechnician={updateTechnician}
-                  setIsSavingKeys={setIsSavingKeys}
-                  saveIntegrationKeys={saveIntegrationKeys}
-                  setIsTeamMemberDialogOpen={setIsTeamMemberDialogOpen}
-                  teamMembers={teamMembers}
-                  handleDeleteTeamMember={handleDeleteTeamMember}
-                />
-              }
-            />
+            <Route path="/settings" element={<SettingsPage />} />
 
           </Routes>
         )}
