@@ -121,6 +121,18 @@ const envSchema = z.object({
 
   // IA-12 — Voice biometrics (consentimento + verificação).
   VOICE_BIOMETRICS_ENABLED: z.string().optional().default('false'),
+
+  // P2-01 — Meta (Instagram DM + Messenger)
+  META_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
+  META_PAGE_ACCESS_TOKEN: z.string().optional(),
+
+  // P2-02 — E-mail inbound/outbound
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.string().optional().default('587').transform(Number),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().optional().default('noreply@astrum.app'),
+  EMAIL_WEBHOOK_SECRET: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

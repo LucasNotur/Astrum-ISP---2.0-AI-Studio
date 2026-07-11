@@ -222,6 +222,18 @@ export async function buildServer() {
   const { evolutionWebhookRoutes } = await import('./domain/atendimento/evolution-webhook.routes');
   await app.register(evolutionWebhookRoutes);
 
+  // P2-01 — Webhook Meta Graph API (Instagram DM + Messenger)
+  const { metaWebhookRoutes } = await import('./adapters/meta/meta-webhook.routes');
+  await app.register(metaWebhookRoutes);
+
+  // P2-02 — Webhook e-mail inbound (SendGrid/Mailgun/Postmark)
+  const { emailInboundRoutes } = await import('./adapters/email/email-inbound.routes');
+  await app.register(emailInboundRoutes);
+
+  // P2-04 — Inbox unificada do operador (todos os canais)
+  const { inboxRoutes } = await import('./domain/atendimento/inbox.routes');
+  await app.register(inboxRoutes);
+
   // IA-09 — Coleta de métricas de rede (CTO failure prediction, fase 0)
   const { metricsIngestRoutes } = await import('./domain/rede/metrics-ingest.routes');
   await app.register(metricsIngestRoutes);

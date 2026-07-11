@@ -24,6 +24,42 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-11] NEXTGEN-2.0 / Onda 3 — Sessão P2 (omnichannel: Instagram DM, Messenger, e-mail, inbox)
+Tarefa: BLOCO P2 do PLANO_B — 4 itens de paridade omnichannel.
+Arquivos criados:
+  - apps/api/src/adapters/meta/meta-graph.adapter.ts (P2-01: sender Meta Graph API com circuit-breaker)
+  - apps/api/src/adapters/meta/meta-webhook.routes.ts (P2-01: GET verification + POST inbound)
+  - apps/api/src/adapters/meta/meta-webhook.test.ts (8 testes)
+  - apps/api/src/adapters/email/email.adapter.ts (P2-02: sender SMTP via nodemailer, fail-open)
+  - apps/api/src/adapters/email/email-inbound.routes.ts (P2-02: inbound compatível SendGrid/Mailgun/Postmark)
+  - apps/api/src/adapters/email/email-inbound.test.ts (6 testes)
+  - apps/api/src/adapters/channel/channel-sender.service.ts (P2-03: roteador de canal omnichannel)
+  - apps/api/src/adapters/channel/channel-sender.test.ts (6 testes)
+  - apps/api/src/domain/atendimento/inbox.routes.ts (P2-04: GET /inbox + /inbox/metrics)
+Arquivos modificados:
+  - packages/queue/src/workers/message.worker.ts (channel expandido; usa sendChannelResponse em vez de sendWhatsAppResponse)
+  - apps/api/src/infrastructure/config/env.validator.ts (+ META_WEBHOOK_VERIFY_TOKEN, META_PAGE_ACCESS_TOKEN, SMTP_*, EMAIL_WEBHOOK_SECRET)
+  - apps/api/src/server.ts (registra metaWebhookRoutes, emailInboundRoutes, inboxRoutes)
+Testes: 18 novos PASS + 123 anteriores mantidos — suite completa verde.
+Status: ✅ Concluído
+Observações:
+  P2-01: Meta Graph API v21.0; tenant lookup via tenant_meta_pages (Lucas: migration); validação de
+    assinatura reutiliza FACEBOOK_APP_SECRET + provider 'facebook' existente no hmac.service.
+    GET /api/v2/webhook/meta (verification) + POST /api/v2/webhook/meta (inbound).
+  P2-02: Email adapter com nodemailer (já na workspace root). Fail-open: sem SMTP_HOST, loga e
+    retorna 'failed' sem derrubar o worker. Inbound via POST /api/v2/webhook/email (Bearer secret).
+    Tenant lookup via tenant_email_inboxes (Lucas: migration).
+  P2-03: channel-sender.service.ts roteia por channel: whatsapp→Evolution, instagram/messenger→Meta,
+    email→SMTP, webchat/telephony→sem-op (já têm canal próprio). message.worker agora universal.
+  P2-04: GET /api/v2/conversations/inbox (lista + filtros status/channel/limit) e /inbox/metrics
+    (contadores por canal e status). Coordenar UI com Onda 4.
+  Migrations pendentes (Lucas):
+    - tenant_meta_pages (page_id, tenant_id, page_type, page_access_token)
+    - tenant_email_inboxes (email, tenant_id, display_name)
+  Próximo: P3 (vendas: funil conversacional + subgrafo vendas no multi-agente).
+
+---
+
 [2026-07-11] NEXTGEN-2.0 / Onda 3 — Sessão P1 (paridade Anel 2: religue, falha, negociação, handover)
 Tarefa: BLOCO P1 do PLANO_B — 4 itens de paridade que o Anel 2 (Mundiale/James/Telia) já vende hoje.
 Arquivos criados:

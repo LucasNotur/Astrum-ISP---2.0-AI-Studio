@@ -142,16 +142,23 @@ pendentes de migration pelo Lucas: `trust_unlock_policies`, `trust_unlocks`,
 **Métrica:** % resolvido sem humano (meta inicial: ≥84%, o número da Mundiale).
 
 ### BLOCO P2 — Omnichannel de verdade
+✅ **CODE-COMPLETE em 2026-07-11**. Migrations pendentes (Lucas): `tenant_meta_pages`, `tenant_email_inboxes`.
 **Gap:** Astrum é WhatsApp (Evolution). Concorrentes cobrem Instagram/Messenger/
 e-mail/telefone; a Meta empurra IA nativa nesses canais.
-- **P2-01 — Instagram DM + Messenger** (Meta Graph API; reusar o pipeline do
-  message.worker — canal é adapter, o grafo é o mesmo).
-- **P2-02 — E-mail** (entrada no mesmo funil, com threading).
-- **P2-03 — Telefonia** = Bloco D da Fase 2 (IA-08/13) — já planejado; aqui só a
-  unificação da fila.
-- **P2-04 — Inbox unificada do operador** (evolução da ChatPage: uma fila, todos
-  os canais, com o resumo do P1-04). *Este é também um item de UI/UX — coordenar
-  com o plano de UI/UX (fase seguinte).*
+- [x] **P2-01 — Instagram DM + Messenger** (`meta-graph.adapter.ts` + `meta-webhook.routes.ts`):
+  Meta Graph API v21.0; circuit-breaker; GET verification + POST inbound; tenant lookup via
+  `tenant_meta_pages`; assinatura FACEBOOK_APP_SECRET (reutiliza provider existente).
+  Rotas: GET/POST `/api/v2/webhook/meta`.
+- [x] **P2-02 — E-mail** (`email.adapter.ts` + `email-inbound.routes.ts`): sender nodemailer (já
+  na workspace root) fail-open sem SMTP_HOST; inbound POST `/api/v2/webhook/email` compatível
+  SendGrid/Mailgun/Postmark; tenant lookup via `tenant_email_inboxes`; Bearer secret.
+- [x] **P2-03 — Unificação de fila** (`channel-sender.service.ts`): `message.worker` agora usa
+  `sendChannelResponse` — roteia whatsapp→Evolution, instagram/messenger→Meta, email→SMTP,
+  webchat/telephony→sem-op (têm canal próprio). Canal expandido no `MessageJobData`.
+- [x] **P2-04 — Inbox unificada do operador** (`inbox.routes.ts`): GET `/api/v2/conversations/inbox`
+  (lista com filtros status/channel/limit/offset, inclui handoverSummary do P1-04) e
+  GET `/api/v2/conversations/inbox/metrics` (contadores byChannel + byStatus + escalated).
+  Coordenar UI com Onda 4.
 **Métrica:** canais ativos por tenant; tempo de primeira resposta por canal.
 
 ### BLOCO P3 — Vendas (o funil que Elleven e Mundiale já têm)

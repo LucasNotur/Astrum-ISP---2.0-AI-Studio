@@ -5,7 +5,7 @@ import { runGuardrails, BLOCK_RESPONSE } from '../../../apps/api/src/infrastruct
 import { queryRAG } from '../../../apps/api/src/infrastructure/rag/rag-query.service';
 import { getConversationContext, ConversationMessage } from '../../../apps/api/src/infrastructure/rag/context-window.service';
 import { getOrCreateConversation, saveMessage, shouldEscalate, escalateConversation } from '../../../apps/api/src/infrastructure/adapters/conversation-db.adapter';
-import { sendWhatsAppResponse } from '../../../apps/api/src/adapters/whatsapp/message-sender.service';
+import { sendChannelResponse } from '../../../apps/api/src/adapters/channel/channel-sender.service';
 import { supabaseAdmin } from '../../../apps/api/src/infrastructure/database/supabase.client';
 import { atendimentoLogger } from '../../../apps/api/src/infrastructure/logging/logger';
 import { addSentryToWorker } from '../../../apps/api/src/infrastructure/observability/sentry-worker.helper';
@@ -15,9 +15,9 @@ import { isVisionEnabled, extractBoleto, classifyFieldPhoto } from '../../../app
 export interface MessageJobData {
   tenantId: string;
   customerId?: string;
-  senderPhone: string;       // número do cliente WhatsApp
+  senderPhone: string;       // phone / PSID / IGSID / e-mail (identificador do remetente por canal)
   messageContent: string;
-  channel: 'whatsapp' | 'webchat' | 'facebook';
+  channel: 'whatsapp' | 'webchat' | 'facebook' | 'instagram' | 'messenger' | 'email' | 'telephony';
   messageId: string;
   existingConversationId?: string;
   // Campos de mídia (inventário F1–F3, portados na S71/S73)
@@ -123,12 +123,14 @@ async function processMessage(job: Job<MessageJobData>): Promise<void> {
     timestamp: new Date().toISOString(),
   });
 
-  // 5. ENVIAR VIA WHATSAPP
-  await sendWhatsAppResponse({
-    to: senderPhone,
+  // 5. ENVIAR VIA CANAL DE ORIGEM (P2-03: roteamento omnichannel)
+  await sendChannelResponse({
+    channel,
+    recipientId: senderPhone,
     content: result.response,
     tenantId,
     conversationId,
+    instanceName: job.data.instanceName,
   });
 
   atendimentoLogger.info(
