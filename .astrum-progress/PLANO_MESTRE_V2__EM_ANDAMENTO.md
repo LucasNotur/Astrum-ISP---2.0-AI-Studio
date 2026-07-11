@@ -174,6 +174,7 @@ GATE FINAL                   → S98
 - [ ] `MESSAGEWORKER_INVENTORY.md` 100% marcado (ou item explicitamente descartado com justificativa escrita).
 
 ## 🔶 S74 — Shadow mode → cutover do atendimento
+> Código 100% completo (19 testes). **Cutover pendente de 3–7d de tráfego espelhado + aprovação do Lucas** (ver `CHECKLIST_PENDENCIAS_EXTERNAS.md` §S74 e `docs/port/SHADOW_REPORT.md`).
 **Objetivo:** provar que o motor novo responde igual ou melhor, e então virar a chave.
 
 **Passos:**

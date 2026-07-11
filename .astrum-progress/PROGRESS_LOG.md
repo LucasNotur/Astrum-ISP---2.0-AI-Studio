@@ -24,6 +24,40 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-11] S74 — Shadow mode + cutover do atendimento (build completo, execução pendente)
+Tarefa: Infraestrutura de shadow mode para o motor v2 + integração decideSend no worker + espelhamento no webhook legado + replay engine wired.
+Arquivos criados:
+  - docs/port/SHADOW_REPORT.md — template do relatório de 3–7d de tráfego espelhado
+  - packages/queue/src/workers/message.worker.shadow.test.ts — 5 testes cobrindo roteamento shadow
+Arquivos modificados:
+  - packages/queue/src/workers/message.worker.ts
+      • MessageJobData: campo `isShadow?: boolean`
+      • processMessage: early-exit para processShadowMessage quando isShadow=true ou engine=legacy
+      • processShadowMessage: roda LangGraph, grava em shadow_results, nunca envia via canal
+  - apps/api/src/domain/atendimento/evolution-webhook.routes.ts
+      • buildMessageJob: parâmetro `opts.isShadow` propagado para o job
+      • rota POST /api/v2/webhook/evolution: detecta header x-shadow:true → jobId prefixado "shadow:"
+  - apps/api/src/domain/atendimento/evolution-webhook.test.ts
+      • 2 novos testes: isShadow=false default + isShadow=true quando opts.isShadow=true
+  - src/routes/evolutionWebhook.ts
+      • shadow espelhamento: após enqueueMessage legado, fire-and-forget para /api/v2/webhook/evolution
+        com x-shadow:true + HMAC fresco; só quando ATENDIMENTO_ENGINE=legacy
+  - .astrum-progress/CHECKLIST_PENDENCIAS_EXTERNAS.md — seção S74 adicionada
+Migrations necessárias (existentes, pendentes de aplicação):
+  - packages/db/src/migrations/023_shadow_results.sql
+  - packages/db/src/migrations/047_replay.sql
+Testes: 19 passando (evolution-webhook + shadow-mode + message.worker.shadow)
+Status: ⚠️ Parcial — código e testes prontos; execução real pendente (ver checklist)
+Pendências para execução:
+  1. Aplicar migrations 023 + 047 no Supabase staging/produção
+  2. Configurar FASTIFY_INTERNAL_URL + subir message.worker v2
+  3. Observar 3–7d em docs/port/SHADOW_REPORT.md
+  4. Executar POST /api/v2/ia/replay → pass_rate ≥ 95% → aprovação Lucas
+  5. Setar ATENDIMENTO_ENGINE=v2 + testar rollback
+  6. Marcar checkboxes S74 após cutover realizado
+
+---
+
 [2026-07-11] S70 — ETL conversacional + GATE DE DADOS (build completo, execução pendente)
 Tarefa: Construir ETL de tickets→conversations+messages, re-ingestão de knowledge_articles RAG,
   BullMQ delta-sync worker e runner do GATE DE DADOS.

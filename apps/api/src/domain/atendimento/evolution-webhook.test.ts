@@ -36,6 +36,16 @@ describe('buildMessageJob', () => {
     const job = buildMessageJob('t1', msg);
     expect(job.messageId).toBe('MSG1');
   });
+
+  it('isShadow=false por default', () => {
+    const job = buildMessageJob('t1', msg);
+    expect(job.isShadow).toBe(false);
+  });
+
+  it('isShadow=true quando opts.isShadow=true (S74 shadow mode)', () => {
+    const job = buildMessageJob('t1', msg, { isShadow: true });
+    expect(job.isShadow).toBe(true);
+  });
 });
 
 // resolveTenantByInstance com Supabase mockado

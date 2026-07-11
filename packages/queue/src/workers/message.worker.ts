@@ -11,6 +11,7 @@ import { atendimentoLogger } from '../../../apps/api/src/infrastructure/logging/
 import { addSentryToWorker } from '../../../apps/api/src/infrastructure/observability/sentry-worker.helper';
 import { processInboundMedia, type MediaDeps } from '../../../apps/api/src/adapters/whatsapp/media-processor.service';
 import { isVisionEnabled, extractBoleto, classifyFieldPhoto } from '../../../apps/api/src/infrastructure/vision/vision.service';
+import { decideSend, buildShadowRecord } from '@/apps/api/src/domain/atendimento/shadow-mode';
 
 export interface MessageJobData {
   tenantId: string;
@@ -28,9 +29,59 @@ export interface MessageJobData {
   isDocument?: boolean;
   base64Media?: string;
   mediaMimeType?: string;
+  // S74 — shadow mode: quando true, processa mas não envia; grava em shadow_results
+  isShadow?: boolean;
+}
+
+/**
+ * S74 — Shadow mode: processa com o motor novo mas NÃO envia.
+ * Grava em shadow_results o que o v2 TERIA respondido, para comparação.
+ * Fail-open: erro no shadow nunca propaga para a fila principal.
+ */
+async function processShadowMessage(job: Job<MessageJobData>): Promise<void> {
+  const { tenantId, customerId, messageContent } = job.data;
+  const start = Date.now();
+  try {
+    // Media: shadow usa apenas o texto (caption/filename) sem transcrição real.
+    const userMessage = messageContent || '[mídia sem legenda]';
+
+    const { langGraphService } = await import('../../../apps/api/src/domain/agent/langgraph.service');
+    const result = await langGraphService.processMessage({
+      tenantId,
+      customerId: customerId ?? 'unknown',
+      // Conversação efêmera — o LangGraph carregará contexto vazio (sem histórico).
+      // Aceitável para shadow: estamos avaliando qualidade da resposta, não contexto exato.
+      conversationId: `shadow:${job.data.messageId}`,
+      userMessage,
+    });
+
+    const record = buildShadowRecord({
+      tenantId,
+      messageId: job.data.messageId,
+      userMessage,
+      v2Response: result.response,
+      latencyMs: Date.now() - start,
+      tokensUsed: result.tokensUsed,
+      provider: (result as any).providerUsed,
+    });
+
+    await supabaseAdmin.from('shadow_results').insert(record);
+    atendimentoLogger.info({ tenantId, latencyMs: record.latency_ms }, '[shadow] resposta gravada');
+  } catch (err) {
+    atendimentoLogger.warn(
+      { tenantId, messageId: job.data.messageId, err: (err as Error).message },
+      '[shadow] falha (fail-open, não propaga)',
+    );
+  }
 }
 
 async function processMessage(job: Job<MessageJobData>): Promise<void> {
+  // S74 — jobs marcados como shadow saem aqui: processam mas nunca enviam.
+  const decision = decideSend({ isShadowRequest: job.data.isShadow ?? false });
+  if (decision.recordShadow && !decision.sendReal) {
+    return processShadowMessage(job);
+  }
+
   const { tenantId, customerId, senderPhone, messageContent, channel } = job.data;
 
   atendimentoLogger.info({ tenantId, channel, attempt: job.attemptsMade + 1 }, 'Processando mensagem');

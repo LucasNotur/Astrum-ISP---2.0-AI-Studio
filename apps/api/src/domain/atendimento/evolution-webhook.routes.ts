@@ -14,7 +14,11 @@ import type { MessageJobData } from '../../../../../packages/queue/src/workers/m
  */
 
 /** Monta o job da fila a partir da mensagem parseada. Função pura (testável). */
-export function buildMessageJob(tenantId: string, msg: ParsedEvolutionMessage): MessageJobData {
+export function buildMessageJob(
+  tenantId: string,
+  msg: ParsedEvolutionMessage,
+  opts: { isShadow?: boolean } = {},
+): MessageJobData {
   return {
     tenantId,
     senderPhone: msg.senderPhone,
@@ -28,6 +32,7 @@ export function buildMessageJob(tenantId: string, msg: ParsedEvolutionMessage): 
     isDocument: msg.isDocument,
     base64Media: msg.base64Media,
     mediaMimeType: msg.mediaMimeType,
+    isShadow: opts.isShadow ?? false,
   };
 }
 
@@ -86,11 +91,15 @@ export async function evolutionWebhookRoutes(app: FastifyInstance): Promise<void
     }
 
     // 5. Mensagem → enfileira em astrum-messages (consumida pelo message.worker)
-    const job = buildMessageJob(tenantId, parsed.message);
+    // x-shadow: true → job marcado como shadow (processa mas não envia)
+    const isShadow = request.headers['x-shadow'] === 'true';
+    const job = buildMessageJob(tenantId, parsed.message, { isShadow });
     const { messageQueue } = await import('../../../../../packages/queue/src/queues');
-    await messageQueue.add('inbound', job, { jobId: `evo:${job.messageId}` }); // jobId evita duplicata (D1)
+    // jobId evita duplicata real (D1). Shadow usa prefixo diferente para não bloquear o job real.
+    const jobId = isShadow ? `shadow:${job.messageId}` : `evo:${job.messageId}`;
+    await messageQueue.add('inbound', job, { jobId });
 
-    return reply.code(200).send({ status: 'queued', messageId: job.messageId });
+    return reply.code(200).send({ status: isShadow ? 'shadow_queued' : 'queued', messageId: job.messageId });
   });
 }
 

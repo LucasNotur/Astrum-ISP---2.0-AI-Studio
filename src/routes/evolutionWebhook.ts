@@ -98,6 +98,25 @@ evolutionWebhookRouter.post("/", async (req, res) => {
         mediaMimeType,
         messageId: key.id
       });
+
+      // S74 — Shadow espelhamento (exceção autorizada a R4, ~10 linhas).
+      // Repassa o payload ao motor novo com x-shadow:true. Fire-and-forget:
+      // falha no espelhamento nunca impacta o atendimento real.
+      {
+        const [{ generateWebhookSignature }, { getAtendimentoEngine }] = await Promise.all([
+          import('../../apps/api/src/infrastructure/security/hmac.service.ts'),
+          import('../../apps/api/src/infrastructure/config/engine-flags.ts'),
+        ]);
+        if (getAtendimentoEngine() === 'legacy') {
+          const shadowSig = generateWebhookSignature(rawBody, 'evolution');
+          const shadowUrl = (process.env.FASTIFY_INTERNAL_URL ?? 'http://localhost:3001') + '/api/v2/webhook/evolution';
+          fetch(shadowUrl, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', 'x-shadow': 'true', 'x-hub-signature-256': shadowSig },
+            body: rawBody,
+          }).catch((err: unknown) => console.warn('[shadow] falha ao espelhar para v2:', (err as Error).message));
+        }
+      }
     } else if (payload.event === "connection.update") {
       const state = payload.data?.state || payload.data?.status;
       if (tenantId !== "local_tenant") {

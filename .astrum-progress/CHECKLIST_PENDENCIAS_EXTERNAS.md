@@ -105,4 +105,32 @@
 
 ---
 
-*Última atualização: 2026-07-11 (após P4)*
+---
+
+## S74 — Shadow mode + cutover do atendimento
+
+> Código 100% completo (19 testes). Execução real aguarda 3–7 dias de tráfego espelhado.
+
+### Pré-condições para ativação do shadow
+
+- [ ] **Aplicar migrations** `023_shadow_results.sql` e `047_replay.sql` no Supabase de produção/staging
+- [ ] **`FASTIFY_INTERNAL_URL`** — URL interna do Fastify (ex.: `http://localhost:3001` se co-localizado; ajustar se em container separado)
+- [ ] **Subir o `message.worker`** (motor v2) para consumir a fila `astrum:messages` junto com o motor legado
+- [ ] **Verificar log** `[shadow] resposta gravada` no dashboard da fila após primeira mensagem espelhada
+
+### Observação (3–7 dias)
+
+- [ ] Monitorar tabela `shadow_results` acumulando respostas
+- [ ] Executar `POST /api/v2/ia/replay` com amostra ≥ 50 pares — verificar `pass_rate ≥ 0.95`
+- [ ] Preencher `docs/port/SHADOW_REPORT.md` com dados reais (latência p95, custo/conversa, taxa de equivalência)
+
+### Decisão de cutover (Lucas)
+
+- [ ] **SHADOW_REPORT aprovado** — taxa ≥ 95 %, p95 ≤ legado, custo ≤ legado
+- [ ] **Setar `ATENDIMENTO_ENGINE=v2`** em produção
+- [ ] **Testar rollback** — trocar env de volta para `legacy` e confirmar que legado responde
+- [ ] **Desligar `messageWorker` legado** após 48 h de estabilidade no v2
+
+---
+
+*Última atualização: 2026-07-11 (após S74)*
