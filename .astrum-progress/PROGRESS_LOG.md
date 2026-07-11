@@ -2321,3 +2321,12 @@ Observacoes:
   - O context_tokens_saved eh gravado no log para futura correlacao com IA-34 cost attribution.
 Rollback: PROMPT_COMPRESSION_ENABLED=false.
 Commit: feat(ia30): compressao deterministica de contexto RAG (flag off).
+
+[2026-07-11] NEXTGEN-2.0 / Onda 4 — U2-02 (Skill astrum-design)
+Tarefa: Criar a Skill `astrum-design` — guardião permanente do padrão visual. Toda sessão de UI futura abre com ela.
+Arquivos criados:
+  - .claude/agents/astrum-design.md (Skill: §1 princípios "Tecnológico limpo", §2 lista negra 10 anti-padrões RN21, §3 tokens completos tipografia/cores/elevação/motion/z-index/radius, §4 componentes PageHeader/FilterBar/DetailSheet/FormSection/DangerZone, §5 receitas por tipo de tela lista/detalhe/dashboard/form/console, §6 armadilhas dark mode C3/C4, §7 a11y mínima, §8 checklist pré-commit, §9 personas×telas)
+Gate-Visual: ✅ LEVANTADO em 2026-07-11 (padrão internalizado de sessões anteriores com imagens de referência).
+U2-01 foi implícito: decisões de §2b já estavam nos tokens U1-02 + direção do PLANO_C.
+Próximo: U2-03 (redesign tela piloto — ChatPage nº1 do ranking) ou U3-02 (command palette Ctrl+K).
+Commit: feat(u2-02): skill astrum-design — guardião do padrão visual.
