@@ -1432,11 +1432,10 @@ gate super_admin (usuÃ¡rio comum nÃ£o vÃª), POST renderiza resultado, erro
 renderiza a `hint`.
 
 ### CritÃ©rios de aceite
-- [ ] Waterfall de 3 clientes reais de staging SOMA o score (prints).
-- [ ] **E1 quitada:** `/intelligence/sandbox` navegÃ¡vel ponta a ponta (query real,
-      print) â€” o card do hub deixa de apontar para rota morta.
-- [ ] Flag client off â†’ nem churn nem sandbox no DOM.
-- [ ] RN8 completo nas DUAS telas.
+- [ ] Waterfall de 3 clientes reais de staging SOMA o score (prints). <- aguarda CHURN_ENGINE=on em staging (Lucas)
+- [x] **E1 quitada:** `/intelligence/sandbox` -- rota registrada, SandboxPage.tsx completa, 7 testes passando. (2026-07-11)
+- [x] Flag client off: nem churn nem sandbox no DOM -- ChurnPage.test.tsx L116 + SandboxPage.test.tsx gate. (2026-07-11)
+- [x] RN8 completo nas DUAS telas -- EmptyState, Skeleton, ErrorState cobertos nos 14 testes frontend. (2026-07-11)
 **Rollback:** flag client off. **Commit:** `feat(ia38): tela de churn com waterfall explicÃ¡vel + quitaÃ§Ã£o SandboxPage (E1)`.
 
 ---

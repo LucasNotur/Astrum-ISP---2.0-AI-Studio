@@ -24,6 +24,13 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-11] IA-38 -- Verificacao de conclusao (churn SHAP + SandboxPage E1)
+Tarefa: code-complete verificado; 58 testes passando; checkboxes PARTE2 atualizados.
+Status: OK Pendencia: CHURN_ENGINE=on em staging p/ waterfall com 3 clientes reais.
+Proximo: P6 (decisao comercial Lucas) ou Onda 4 U1-02/03/04.
+
+---
+
 [2026-07-11] NEXTGEN-2.0 / Onda 3 — Sessão P3 (vendas: funil conversacional + subgrafo + contrato digital)
 Tarefa: BLOCO P3 do PLANO_B — 3 itens do funil de vendas.
 Arquivos criados:
