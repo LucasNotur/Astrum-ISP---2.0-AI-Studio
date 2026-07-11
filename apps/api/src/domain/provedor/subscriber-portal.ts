@@ -44,3 +44,74 @@ export function availableActions(customerStatus: 'active' | 'suspended' | 'cance
   if (customerStatus === 'suspended') return ['segunda_via', 'historico']; // paga p/ religar
   return ['segunda_via', 'diagnostico', 'acompanhar_os', 'historico'];
 }
+
+// ── Acesso ao banco (P4-01) ───────────────────────────────────────────────────
+
+export interface PortalDb {
+  from: (table: string) => any;
+}
+
+import supabase from '../../infrastructure/database/supabase.client';
+export const defaultPortalDb: PortalDb = supabase as any;
+
+/**
+ * Busca o assinante pelo CPF normalizado no tenant.
+ * "contract" = legacy_id do ERP (número que o assinante vê na fatura)
+ * ou fallback para o UUID do cliente se legacy_id não existir.
+ */
+export async function lookupSubscriberByCpf(
+  db: PortalDb,
+  tenantId: string,
+  cpf: string,
+): Promise<SubscriberRecord | null> {
+  const cpfNorm = normalizeCpf(cpf);
+  const { data } = await db
+    .from('customers')
+    .select('id, cpf, legacy_id, status, tenant_id')
+    .eq('tenant_id', tenantId)
+    .eq('cpf', cpfNorm)
+    .maybeSingle();
+
+  if (!data) return null;
+  return {
+    customerId: data.id,
+    cpf: normalizeCpf(data.cpf ?? ''),
+    contract: data.legacy_id ?? data.id,   // ERP ID ou UUID como fallback
+    tenantId: data.tenant_id,
+    active: data.status === 'active',
+  };
+}
+
+/** Busca as últimas faturas do assinante (max 10). */
+export async function getCustomerInvoices(
+  db: PortalDb,
+  tenantId: string,
+  customerId: string,
+  limit = 10,
+): Promise<any[]> {
+  const { data } = await db
+    .from('invoices')
+    .select('id, amount_cents, due_date, status, paid_at, payment_url, pix_copy_paste')
+    .eq('tenant_id', tenantId)
+    .eq('customer_id', customerId)
+    .order('due_date', { ascending: false })
+    .limit(limit);
+  return data ?? [];
+}
+
+/** Busca as OS abertas/recentes do assinante (max 5). */
+export async function getCustomerServiceOrders(
+  db: PortalDb,
+  tenantId: string,
+  customerId: string,
+  limit = 5,
+): Promise<any[]> {
+  const { data } = await db
+    .from('service_orders')
+    .select('id, type, status, description, scheduled_for, created_at')
+    .eq('tenant_id', tenantId)
+    .eq('customer_id', customerId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  return data ?? [];
+}

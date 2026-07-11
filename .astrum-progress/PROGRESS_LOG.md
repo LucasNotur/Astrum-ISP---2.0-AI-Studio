@@ -61,6 +61,33 @@ Observações:
 
 ---
 
+[2026-07-11] NEXTGEN-2.0 / Onda 4 — Sessão P4 (Central do assinante: portal PWA self-service)
+Tarefa: BLOCO P4 do PLANO_B — portal self-service do assinante (CPF+contrato, 2ª via, diagnóstico, OS).
+Arquivos criados:
+  - apps/api/src/domain/provedor/diagnostic-portal.service.ts (P4-02: diagnóstico self-service, auto-OS)
+  - apps/api/src/domain/provedor/diagnostic-portal.service.test.ts (7 testes)
+  - apps/api/src/domain/provedor/subscriber-portal.routes.ts (5 endpoints portal, JWT role:'subscriber' 24h)
+  - apps/api/src/domain/provedor/subscriber-portal.routes.test.ts (10 testes)
+Arquivos modificados:
+  - apps/api/src/domain/provedor/subscriber-portal.ts (+ PortalDb, lookupSubscriberByCpf, getCustomerInvoices, getCustomerServiceOrders, defaultPortalDb)
+  - apps/api/src/server.ts (registra subscriberPortalRoutes)
+Testes: 17 novos PASS — suite completa verde.
+Status: ✅ Concluído (backend P4)
+Observações:
+  Auth: POST /api/v2/portal/auth — CPF + contrato (legacy_id ERP ou UUID). JWT 24h com role:'subscriber'.
+    Operador 15m; portal 24h; verifyPortalToken rejeita operador com 403.
+  availableActions: active→todas; suspended→só segunda_via+historico; cancelled→só historico.
+  Diagnóstico (P4-02): run_diagnostics via ToolsExecutor; mapeia sinal (ok/no_signal/degraded/unknown).
+    Heurística: latency>150ms ou packet_loss>5% → degraded. Auto-abre OS via schedule_technical_visit
+    se sinal ruim. Fail-open: qualquer erro → unknown sem exceção.
+  lookupSubscriberByCpf: normaliza CPF (só dígitos), query em `customers` por tenant+CPF.
+    contract = legacy_id ?? id (fallback UUID para tenants sem ERP).
+  P4-01 (PWA frontend): coordenado com Onda 4 — não é backend desta sessão.
+  Pendências: dados iniciais em `customers` (CPF+legacy_id) para tenants piloto (tabela já existe).
+  Próximo: P5 (dashboard de valor gerado) ou conforme direcionamento de Lucas.
+
+---
+
 [2026-07-11] NEXTGEN-2.0 / Onda 3 — Sessão P2 (omnichannel: Instagram DM, Messenger, e-mail, inbox)
 Tarefa: BLOCO P2 do PLANO_B — 4 itens de paridade omnichannel.
 Arquivos criados:

@@ -245,6 +245,9 @@ export async function buildServer() {
   const { voiceStreamRoutes } = await import('./adapters/telephony/voice-stream.routes');
   await app.register(voiceStreamRoutes);
 
+  const { subscriberPortalRoutes } = await import('./domain/provedor/subscriber-portal.routes');
+  await app.register(subscriberPortalRoutes);
+
   // Health check com status dos serviços
   app.get('/api/v2/health', async () => {
     const { getLLMStatus } = await import('./adapters/ai/llm.adapter');
