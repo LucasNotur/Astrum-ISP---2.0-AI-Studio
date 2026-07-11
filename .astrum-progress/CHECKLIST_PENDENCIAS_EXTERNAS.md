@@ -113,9 +113,9 @@
 
 ### Pré-condições para ativação do shadow
 
-- [ ] **Aplicar migrations** `023_shadow_results.sql` e `047_replay.sql` no Supabase de produção/staging
-- [ ] **`FASTIFY_INTERNAL_URL`** — URL interna do Fastify (ex.: `http://localhost:3001` se co-localizado; ajustar se em container separado)
-- [ ] **Subir o `message.worker`** (motor v2) para consumir a fila `astrum:messages` junto com o motor legado
+- [x] **Aplicar migrations** `023_shadow_results.sql` e `047_replay.sql` — já estavam aplicadas; 068 e 069 aplicadas em 2026-07-11
+- [x] **`FASTIFY_INTERNAL_URL`** — padrão `http://localhost:3001` funciona para co-localizado; em Docker usar URL do container `api`
+- [x] **Subir o `message.worker`** — `createMessageWorker()` adicionado ao boot do Fastify em `apps/api/src/server.ts` (commit 9dcb7dd)
 - [ ] **Verificar log** `[shadow] resposta gravada` no dashboard da fila após primeira mensagem espelhada
 
 ### Observação (3–7 dias)

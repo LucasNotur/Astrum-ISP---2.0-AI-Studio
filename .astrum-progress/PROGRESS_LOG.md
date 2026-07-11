@@ -24,6 +24,24 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-11] S74-exec — Subida do worker v2 + início do período shadow
+Tarefa: Aplicar migrations pendentes, subir message.worker v2 junto ao Fastify, iniciar período de observação 3-7d.
+Arquivos modificados:
+  - apps/api/src/server.ts: createMessageWorker() adicionado ao boot (shadow ativo)
+  - packages/db/src/migrations/068_p5_valor_gerado.sql: DROP POLICY IF EXISTS (idempotência)
+Migrations aplicadas ao banco local:
+  - 068_p5_valor_gerado.sql ✅
+  - 069_messages_legacy_id.sql ✅
+  (023_shadow_results.sql e 047_replay.sql já estavam aplicadas)
+Status: ✅ Worker v2 iniciado — período shadow ATIVO (aguardar 3-7d de tráfego)
+Pendências restantes para fechar S74:
+  1. Preencher docs/port/SHADOW_REPORT.md com dados reais após 3-7d
+  2. Executar POST /api/v2/ia/replay → pass_rate ≥ 95%
+  3. Aprovação de Lucas → setar ATENDIMENTO_ENGINE=v2
+  4. Testar rollback → marcar checkboxes S74
+
+---
+
 [2026-07-11] S74 — Shadow mode + cutover do atendimento (build completo, execução pendente)
 Tarefa: Infraestrutura de shadow mode para o motor v2 + integração decideSend no worker + espelhamento no webhook legado + replay engine wired.
 Arquivos criados:
