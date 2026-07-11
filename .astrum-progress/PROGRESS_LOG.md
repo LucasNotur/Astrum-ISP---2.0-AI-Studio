@@ -2343,3 +2343,14 @@ Auditoria do "bug crítico" UPDATE sem WHERE: bug NÃO confirmado no código atu
 Typecheck: 0 erros.
 Próximo: U3-02 (command palette Ctrl+K) ou U3-01 (sidebar refinada).
 Commit: fix(u2-03): ChatPage — dark mode tokens + confirm() → Dialog.
+
+[2026-07-11] NEXTGEN-2.0 / Onda 4 — U3-02 (Command Palette Ctrl+K)
+Tarefa: Busca global + ações rápidas — ferramenta de eficiência #1 do §5 do PLANO_C.
+Arquivos criados:
+  - src/components/ui/command.tsx (primitiva shadcn/cmdk: Command, CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem, CommandSeparator, CommandShortcut)
+  - src/components/CommandPalette.tsx (busca local no store: customers/tickets/invoices/OS; normalização NFD; 4 grupos de resultado; ações rápidas; navegação rápida com 11 rotas e atalhos visuais; debounce via useMemo; máx 5/grupo)
+Arquivos modificados:
+  - src/components/layout/TopHeader.tsx (substitui Dialog de busca caseiro -85 linhas de fetch /api/search por <CommandPalette />; mantém Ctrl+K; remove imports órfãos)
+Typecheck: 0 erros. Build: verde 3.06s.
+Próximo: U3-01 (sidebar 2 modos) ou U3-03 (mapa de atalhos Alt+?).
+Commit: feat(u3-02): command palette Ctrl+K — busca local + ações rápidas.
