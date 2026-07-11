@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/src/components/ui/ta
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/src/components/ui/dialog";
 import { Search, Server, Sparkles, Plus, CheckCircle2, XCircle, RotateCcw, PenSquare, Trash2, Cpu, FileUp } from 'lucide-react';
 
-export function KnowledgeBasePage({ knowledgeBase, handleGenerateAIArticle, handleSeedKB }: any) {
+export function KnowledgeBasePage() {
   const { user } = useAppStore();
   const currentTenant = user?.tenantId || 'DEFAULT_TENANT';
   const [kbArticles, setKbArticles] = useState<any[]>([]);

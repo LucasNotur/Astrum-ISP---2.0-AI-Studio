@@ -17,14 +17,10 @@ import { cn } from '@/src/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/src/components/ui/dialog";
 import { useAppStore } from '@/src/store/useAppStore';
 import { supabase } from '@/src/lib/supabase';
+import { saveIntegrationKeys } from '@/src/lib/db';
 
-export function WhatsAppConnectionsPage({
-  integrationKeys,
-  setIntegrationKeys,
-  handleSaveKeys,
-  configureEvolutionWebhook
-}: any) {
-  const { user, companySettings } = useAppStore();
+export function WhatsAppConnectionsPage() {
+  const { user, companySettings, integrationKeys, setIntegrationKeys } = useAppStore();
   const [activeTab, setActiveTab] = useState('connections');
   const [connections, setConnections] = useState<any[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -77,9 +73,7 @@ export function WhatsAppConnectionsPage({
   const saveConnections = async (newConnections: any[]) => {
     const jsonStr = JSON.stringify(newConnections);
     setIntegrationKeys((prev: any) => ({ ...prev, whatsappInstances: jsonStr }));
-    if (handleSaveKeys) {
-      handleSaveKeys({ ...integrationKeys, whatsappInstances: jsonStr });
-    }
+    saveIntegrationKeys({ ...integrationKeys, whatsappInstances: jsonStr });
     
     const tId = companySettings?.tenant_id || user?.tenantId;
     if (tId && tId !== 'default') {

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/src/lib/supabase';
 import { motion } from 'framer-motion';
 import { Button } from "@/src/components/ui/button";
@@ -9,7 +9,12 @@ import { Badge } from "@/src/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
-import { Bot, Sparkles, Plus, Edit2, Trash2, Download, Database, Upload, Eye, EyeOff, ShieldAlert, Lock, Info, ExternalLink, Clock } from 'lucide-react';
+import { Bot, Sparkles, Plus, Edit2, Trash2, Download, Database, Upload, Eye, EyeOff, ShieldAlert, Lock, Info, ExternalLink, Clock, BookOpen, Zap, Send, RefreshCw } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/src/components/ui/dialog';
+import { useAppStore } from '@/src/store/useAppStore';
+import { getSystemPrompts, saveSystemPrompts, seedKnowledgeBase, createKBArticle, updateKBArticle, deleteKBArticle } from '@/src/lib/db';
+import { getKnowledgeBase as sbGetKnowledgeBase } from '@/src/lib/supabaseDb';
+import { getAIResponse, generateKBArticleFromTickets, SYSTEM_PROMPTS } from '@/src/lib/gemini';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/src/components/ui/tooltip";
 import { Switch } from "@/src/components/ui/switch";
@@ -36,34 +41,44 @@ const toolsCatalog = [
   { id: "check_cto_status", name: "Consultar Alarme Massivo (CTO)", desc: "Identifica alarmes e quedas em massa antes de encaminhar ao atendente.", required_plan: "enterprise", requires_erp_integration: true, risk_level: "low" },
 ];
 
-export function AIConfigPage({ 
-  aiPrompts, 
-  setAiPrompts,
-  isSavingPrompts,
-  handleSavePrompts,
-  testAgentCategory,
-  setTestAgentCategory,
-  testAgentResponse,
-  setTestAgentResponse,
-  testAgentMessage,
-  setTestAgentMessage,
-  setIsTestAgentOpen,
-  sentimentChartData,
-  auditLogs,
-  handleExportCSV,
-  knowledgeBase,
-  setEditingKB,
-  setNewKB,
-  setIsKBDialogOpen,
-  setIsPdfDialogOpen,
-  setIsMiningDialogOpen,
-  isDeveloper,
-  handleSeedKB,
-  isSeeding,
-  handleDeleteKB,
-  integrationKeys,
-  setIntegrationKeys,
-}: any) {
+export function AIConfigPage() {
+  const { user, userProfile, auditLogs, messages, integrationKeys, setIntegrationKeys } = useAppStore();
+
+  const isDeveloper =
+    user?.email?.toLowerCase() === 'lucaspferraz123@gmail.com' ||
+    user?.email?.toLowerCase() === 'noturcursos1@gmail.com';
+
+  const [aiPrompts, setAiPrompts] = useState<Record<string, string>>(SYSTEM_PROMPTS);
+  const [isSavingPrompts, setIsSavingPrompts] = useState(false);
+  const [knowledgeBase, setKnowledgeBase] = useState<any[]>([]);
+  const [isSeeding, setIsSeeding] = useState(false);
+  const [isKBDialogOpen, setIsKBDialogOpen] = useState(false);
+  const [editingKB, setEditingKB] = useState<any>(null);
+  const [newKB, setNewKB] = useState<any>({ title: '', content: '', category: 'Geral', tags: [] });
+  const [isPdfDialogOpen, setIsPdfDialogOpen] = useState(false);
+  const [isMiningDialogOpen, setIsMiningDialogOpen] = useState(false);
+  const [pdfSummary, setPdfSummary] = useState<string | null>(null);
+  const [isProcessingPdf, setIsProcessingPdf] = useState(false);
+  const [miningResult, setMiningResult] = useState<any>(null);
+  const [isGeneratingArticle, setIsGeneratingArticle] = useState(false);
+  const [isTestAgentOpen, setIsTestAgentOpen] = useState(false);
+  const [testAgentCategory, setTestAgentCategory] = useState<string>('');
+  const [testAgentResponse, setTestAgentResponse] = useState<any>(null);
+  const [testAgentMessage, setTestAgentMessage] = useState('');
+  const [isTestingAgent, setIsTestingAgent] = useState(false);
+
+  const sentimentChartData = useMemo(() => {
+    if (!auditLogs || auditLogs.length === 0) return [{ name: 'Sem Dados', value: 1, color: '#f4f4f5' }];
+    const counts = auditLogs.reduce((acc: any, log: any) => {
+      if (log.sentiment) acc[log.sentiment] = (acc[log.sentiment] || 0) + 1;
+      return acc;
+    }, { POSITIVO: 0, NEUTRO: 0, NEGATIVO: 0 });
+    return [
+      { name: 'Positivo', value: counts.POSITIVO, color: '#22c55e' },
+      { name: 'Neutro', value: counts.NEUTRO, color: '#a1a1aa' },
+      { name: 'Negativo', value: counts.NEGATIVO, color: '#ef4444' },
+    ].filter((d) => d.value > 0);
+  }, [auditLogs]);
 
   const PasswordInput = ({ value, onChange, placeholder, className }: any) => {
     const [show, setShow] = useState(false);
@@ -178,8 +193,78 @@ export function AIConfigPage({
     setIsTestPersonaOpen(true);
   };
 
-  // Hardcode tenant_id for now as in SettingsPage or get from URL if we had it. "default" is assumed
-  const tenantId = 'default';
+  const tenantId = userProfile?.tenantId || user?.tenantId || 'default';
+
+  useEffect(() => {
+    getSystemPrompts(tenantId).then((prompts) => {
+      if (prompts) setAiPrompts((prev) => ({ ...prev, ...prompts }));
+    });
+    sbGetKnowledgeBase(setKnowledgeBase, tenantId);
+  }, [tenantId]);
+
+  const handleSavePrompts = async () => {
+    setIsSavingPrompts(true);
+    try {
+      await saveSystemPrompts(aiPrompts, tenantId);
+      toast.success('Núcleo IA atualizado com sucesso!');
+    } catch {
+      toast.error('Erro ao salvar prompts.');
+    } finally {
+      setIsSavingPrompts(false);
+    }
+  };
+
+  const handleExportCSV = () => {
+    if (!auditLogs || auditLogs.length === 0) { toast.error('Nenhum dado para exportar.'); return; }
+    const headers = ['Data/Hora', 'Ticket ID', 'Categoria', 'Sentimento', 'Tempo de Resposta (s)', 'SLA Cumprido', 'Crítico'];
+    const rows = [headers.join(','), ...auditLogs.map((log: any) => {
+      const date = log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleString('pt-BR') : 'N/A';
+      return [`"${date}"`, `"${log.ticketId}"`, `"${log.category}"`, `"${log.sentiment}"`,
+        `${log.responseTime?.toFixed(1)}`, `"${log.slaCompliant ? 'Sim' : 'Não'}"`,
+        `"${log.isCritical ? 'Sim' : 'Não'}"`].join(',');
+    })].join('\n');
+    const blob = new Blob([rows], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `auditoria_ia_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    toast.success('Exportação concluída!');
+  };
+
+  const handleSeedKB = async () => {
+    setIsSeeding(true);
+    try { await seedKnowledgeBase(); toast.success('Base de conhecimento populada!'); }
+    catch { toast.error('Erro ao popular base de conhecimento.'); }
+    finally { setIsSeeding(false); }
+  };
+
+  const handleSaveKB = async () => {
+    if (!newKB.title || !newKB.content) { toast.error('Título e conteúdo são obrigatórios.'); return; }
+    try {
+      if (editingKB) { await updateKBArticle(editingKB.id, newKB); toast.success('Artigo atualizado!'); }
+      else { await createKBArticle(newKB); toast.success('Artigo criado!'); }
+      setIsKBDialogOpen(false); setEditingKB(null);
+      setNewKB({ title: '', content: '', category: 'Geral', tags: [] });
+    } catch { toast.error('Erro ao salvar artigo.'); }
+  };
+
+  const handleDeleteKB = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir este artigo?')) return;
+    try { await deleteKBArticle(id); toast.success('Artigo excluído!'); }
+    catch { toast.error('Erro ao excluir artigo.'); }
+  };
+
+  const handleTestAgent = async () => {
+    if (!testAgentMessage.trim()) return;
+    setIsTestingAgent(true); setTestAgentResponse(null);
+    try {
+      const res = await getAIResponse([{ role: 'user', parts: [{ text: testAgentMessage }] }], testAgentCategory);
+      setTestAgentResponse(res);
+    } catch (err: any) {
+      setTestAgentResponse({ error: err.message || 'Erro ao testar agente' });
+    } finally { setIsTestingAgent(false); }
+  };
 
   useEffect(() => {
     // Check vector store connection on mount
@@ -342,8 +427,8 @@ export function AIConfigPage({
       });
   }, []);
 
-  return (
-    <motion.div 
+  return (<>
+    <motion.div
               key="ai-config"
               initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}
@@ -1009,7 +1094,7 @@ export function AIConfigPage({
                             <CardTitle>Agente Orquestrador</CardTitle>
                             <CardDescription>Responsável por classificar a intenção do cliente e rotear para o agente correto.</CardDescription>
                           </div>
-                          <Button variant="outline" size="sm" onClick={() => { setTestAgentCategory(undefined); setTestAgentResponse(null); setTestAgentMessage(''); setIsTestAgentOpen(true); }}>
+                          <Button variant="outline" size="sm" onClick={() => { setTestAgentCategory(''); setTestAgentResponse(null); setTestAgentMessage(''); setIsTestAgentOpen(true); }}>
                             <Bot size={16} className="mr-2" /> Testar Agente
                           </Button>
                         </CardHeader>
@@ -1992,6 +2077,172 @@ export function AIConfigPage({
                 </div>
               )}
             </motion.div>
-          
-  );
+
+      {/* KB Dialog */}
+      <Dialog open={isKBDialogOpen} onOpenChange={setIsKBDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>{editingKB ? 'Editar Artigo' : 'Novo Artigo de Conhecimento'}</DialogTitle>
+            <DialogDescription>Adicione informações que a IA usará para responder aos clientes.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Título</label>
+              <input className="flex h-10 w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" value={newKB.title} onChange={(e) => setNewKB({ ...newKB, title: e.target.value })} placeholder="Ex: Como configurar o roteador TP-Link" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Categoria</label>
+              <select className="flex h-10 w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" value={newKB.category} onChange={(e) => setNewKB({ ...newKB, category: e.target.value })}>
+                <option value="Geral">Geral</option>
+                <option value="Suporte Técnico">Suporte Técnico</option>
+                <option value="Financeiro">Financeiro</option>
+                <option value="Vendas">Vendas</option>
+                <option value="Configuração">Configuração</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Conteúdo</label>
+              <textarea className="w-full h-48 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 text-sm bg-zinc-50 dark:bg-zinc-900/50 focus:outline-none" value={newKB.content} onChange={(e) => setNewKB({ ...newKB, content: e.target.value })} placeholder="Descreva detalhadamente o procedimento..." />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Tags (separadas por vírgula)</label>
+              <input className="flex h-10 w-full rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" value={newKB.tags?.join(', ')} onChange={(e) => setNewKB({ ...newKB, tags: e.target.value.split(',').map((t: string) => t.trim()).filter((t: string) => t !== '') })} placeholder="wifi, roteador, configuração" />
+            </div>
+          </div>
+          <DialogFooter>
+            <button className="inline-flex h-9 items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-800 px-4 text-sm font-medium" onClick={() => setIsKBDialogOpen(false)}>Cancelar</button>
+            <button className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-white" onClick={handleSaveKB}>Salvar Artigo</button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Test Agent Dialog */}
+      <Dialog open={isTestAgentOpen} onOpenChange={setIsTestAgentOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Teste Rápido: Agente {testAgentCategory || 'Orquestrador'}</DialogTitle>
+            <DialogDescription>Envie uma mensagem para testar como a IA responde com os prompts atuais.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex gap-2">
+              <input className="flex h-10 flex-1 rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm" value={testAgentMessage} onChange={(e) => setTestAgentMessage(e.target.value)} placeholder="Mensagem do cliente..." onKeyDown={(e) => { if (e.key === 'Enter') handleTestAgent(); }} />
+              <button className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-primary text-white" onClick={handleTestAgent} disabled={isTestingAgent}>
+                {isTestingAgent ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
+              </button>
+            </div>
+            {testAgentResponse && (
+              <div className="p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900 border space-y-3">
+                <div className="flex items-center gap-2 text-sm font-bold text-primary"><Bot size={16} /> Resposta do Agente</div>
+                <p className="text-sm whitespace-pre-wrap">{testAgentResponse.message || testAgentResponse.error}</p>
+                {testAgentResponse.category && (
+                  <div className="pt-3 border-t flex gap-2">
+                    <span className="text-[10px] border rounded px-2 py-0.5">Roteou para: {testAgentResponse.category}</span>
+                    <span className="text-[10px] border rounded px-2 py-0.5">{testAgentResponse.shouldEscalate ? 'Decidiu Escalar' : 'Retido na IA'}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mining Dialog */}
+      <Dialog open={isMiningDialogOpen} onOpenChange={setIsMiningDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Sparkles className="text-purple-500" /> Resumo com IA</DialogTitle>
+            <DialogDescription>A IA varrerá os atendimentos recentes em busca de padrões para sugerir novos artigos.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="bg-purple-50 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-800 rounded-lg p-4">
+              <p className="text-sm text-purple-800 dark:text-purple-300">Extrairemos as dúvidas mais frequentes para transformar em novos artigos no RAG.</p>
+            </div>
+            {!miningResult ? (
+              <div className="flex justify-end pt-4">
+                <button className="inline-flex h-9 items-center gap-2 rounded-md bg-purple-600 hover:bg-purple-700 px-4 text-sm font-medium text-white" onClick={async () => {
+                  setIsGeneratingArticle(true);
+                  try {
+                    const tx = (messages ?? []).slice(-50).map((m: any) => `[${m.senderType}]: ${m.text}`).join('\n');
+                    const articles = await generateKBArticleFromTickets(tx);
+                    if (articles) { setMiningResult(Array.isArray(articles) ? articles : [articles]); toast.success('Logs minerados!'); }
+                    else toast.error('Nenhum padrão encontrado.');
+                  } catch { toast.error('Erro ao minerar logs'); }
+                  finally { setIsGeneratingArticle(false); }
+                }} disabled={isGeneratingArticle}>
+                  {isGeneratingArticle ? <RefreshCw className="animate-spin" size={16} /> : <Zap size={16} />}
+                  {isGeneratingArticle ? 'Analisando...' : 'Iniciar Mineração'}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="max-h-[300px] overflow-y-auto space-y-4">
+                  {miningResult.map((res: any, idx: number) => (
+                    <div key={idx} className="p-4 border rounded-lg bg-zinc-50 dark:bg-zinc-900">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-bold text-sm">{res.title}</h4>
+                        <span className="text-[10px] border rounded px-2 py-0.5">{res.category}</span>
+                      </div>
+                      <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-3">{res.content?.substring(0, 150)}...</p>
+                      <button className="w-full text-blue-600 text-sm" onClick={() => { setNewKB({ title: res.title, content: res.content, category: res.category, tags: [] }); setIsMiningDialogOpen(false); setIsKBDialogOpen(true); }}>
+                        Usar como Novo Artigo Base
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button className="w-full border rounded-md h-9 text-sm" onClick={() => setMiningResult(null)}>Limpar Resultados</button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* PDF Import Dialog */}
+      <Dialog open={isPdfDialogOpen} onOpenChange={setIsPdfDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><BookOpen className="text-blue-500" /> Leitura Inteligente de PDF</DialogTitle>
+            <DialogDescription>Importe manuais ou documentação. A IA extrairá as informações para o RAG.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4 text-center">
+            {!pdfSummary ? (
+              <>
+                <div className="border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl p-8 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900" onClick={() => document.getElementById('ai-pdf-upload')?.click()}>
+                  <Upload className="mx-auto mb-4 text-zinc-400" size={32} />
+                  <h3 className="font-medium mb-1">Selecione um PDF</h3>
+                  <p className="text-xs text-zinc-500">Arraste ou clique para procurar (Até 10MB).</p>
+                  <input id="ai-pdf-upload" type="file" accept=".pdf" className="hidden" onChange={async (e) => {
+                    if (!e.target.files?.[0]) return;
+                    setIsProcessingPdf(true);
+                    try {
+                      const formData = new FormData();
+                      formData.append('pdf', e.target.files[0]);
+                      const res = await fetch('/api/rag/upload-pdf', { method: 'POST', body: formData });
+                      if (!res.ok) throw new Error(await res.text());
+                      const data = await res.json();
+                      setPdfSummary(data.summary);
+                      toast.success('PDF lido com sucesso pela IA!');
+                    } catch { toast.error('Erro ao analisar o PDF.'); }
+                    finally { setIsProcessingPdf(false); }
+                  }} />
+                </div>
+                {isProcessingPdf && <div className="flex items-center justify-center gap-2 text-sm text-blue-600"><RefreshCw size={16} className="animate-spin" /> A IA está analisando...</div>}
+              </>
+            ) : (
+              <div className="text-left space-y-4">
+                <div className="bg-zinc-50 dark:bg-zinc-900 border rounded-lg p-4">
+                  <h4 className="font-bold text-sm mb-2">Resumo da Leitura Analítica</h4>
+                  <pre className="text-xs text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap font-sans">{pdfSummary}</pre>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button className="text-sm px-4 py-2" onClick={() => setPdfSummary(null)}>Ler outro PDF</button>
+                  <button className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm text-white" onClick={() => { setNewKB({ title: 'Resumo Extraído via PDF', content: pdfSummary, category: 'Geral', tags: ['pdf', 'documentação'] }); setIsPdfDialogOpen(false); setPdfSummary(null); setIsKBDialogOpen(true); }}>
+                    Converter em Artigo
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+  </>);
 }
