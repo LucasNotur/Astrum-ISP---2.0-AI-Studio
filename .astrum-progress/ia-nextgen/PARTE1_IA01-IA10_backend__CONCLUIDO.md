@@ -691,7 +691,8 @@ scored_at DESC), auth igual às rotas irmãs de `domain/ia/`.
 
 ---
 
-# 🔶 IA-08 — Voz MVP fase A — A1+A2 ✅ mergeados; A3 (tools/identificação) PENDENTE
+# ✅ IA-08 — Voz MVP fase A — A1+A2+A3 mergeados (2026-07-09). Falta só a ligação
+# real em staging (dever de casa do Lucas — §4 item 6 do 00_PLANO_DE_ACAO_GERAL).
 
 **Grande (multi-sessão). Executar SÓ com IA-01 e IA-03 concluídas.** Dividir em A1/A2/A3;
 cada uma com commit próprio. A FSM `voice-call.ts` JÁ EXISTE e é a fonte de verdade do fluxo.
@@ -732,12 +733,22 @@ pipeline Twilio `<Gather>`+Whisper+TTS, mais lento porém estável).
 
 ### Critérios de aceite (fase A completa)
 - [ ] Ligação real em staging: IA atende, identifica cliente seed, informa fatura em aberto e encerra.
-- [ ] `identify_failed` 3× transfere para humano (log da FSM).
-- [ ] Fora do horário → mensagem e desligamento.
-- [ ] `VOICE_ENGINE=off` → rota responde 404/desabilitado.
+  ⚠️ BLOQUEADO no dever de casa do Lucas (conta Twilio staging + 1 chamada real).
+- [x] `identify_failed` 3× transfere para humano (log da FSM). — FSM já cobria; teste em
+  `realtime-bridge.service.test.ts`.
+- [x] Fora do horário → mensagem e desligamento. — coberto desde A1 (`twilio-webhook.routes.ts`).
+- [x] `VOICE_ENGINE=off` → rota responde 404/desabilitado. — coberto desde A1/A2.
+- [x] Identificação por CPF (prioridade) ou telefone (fallback) contra `customers`
+  (`voice-identify.service.ts`, 2026-07-09).
+- [x] `check_invoice`/`create_ticket` reusam o `ToolsExecutor` com `customer_id` injetado
+  pela FSM; recusa tool de negócio antes de identificar (2026-07-09).
+- [x] Transcrição completa (cliente+IA) persistida em `voice_calls`/`voice_transcripts`
+  (IA-13) com PII mascarada (IA-40) ao fim da chamada — DESVIO do texto original desta
+  seção, que citava `recordDecision`/`ai_decision_log` (IA-06); as tabelas dedicadas de
+  voz não existiam quando a A3 foi especificada e são a persistência correta hoje.
 
 **Commits:** `feat(ia08a): webhook Twilio + TwiML`, `feat(ia08b): bridge áudio Realtime`,
-`feat(ia08c): tools e identificação na voz`.
+`feat(ia08a3): tools e identificação na chamada de voz` (2026-07-09).
 
 ---
 

@@ -1,6 +1,6 @@
 ﻿# PARTE 2 â€” IA-11 a IA-46 â€” Fase 1 (o chÃ£o) + Fase 2 (os andares)
 
-> **Para a IA executora (Sonnet):** este arquivo completa o `PARTE1_IA01-IA10_backend__EM_ANDAMENTO.md`
+> **Para a IA executora (Sonnet):** este arquivo completa o `PARTE1_IA01-IA10_backend__CONCLUIDO.md`
 > (IA-01..IA-10). Reestruturado em 2026-07-05 em DUAS FASES:
 >
 > - **FASE 1 (IA-11 + 14 sessÃµes):** tecnologias cuja implementaÃ§Ã£o depende SÃ“ de cÃ³digo
@@ -22,10 +22,10 @@
 
 ---
 
-## Â§0 â€” PROTOCOLO (herda Â§0 do PLANO_MESTRE_V2__EM_ANDAMENTO.md e Â§0/RN1â€“RN7 do PARTE1_IA01-IA10_backend__EM_ANDAMENTO.md)
+## Â§0 â€” PROTOCOLO (herda Â§0 do PLANO_MESTRE_V2__EM_ANDAMENTO.md e Â§0/RN1â€“RN7 do PARTE1_IA01-IA10_backend__CONCLUIDO.md)
 
 ### 0.1 Ritual de inÃ­cio de TODA sessÃ£o
-1. Ler `PLANO_MESTRE_V2__EM_ANDAMENTO.md` Â§0 (R1â€“R6, DoD) e `PARTE1_IA01-IA10_backend__EM_ANDAMENTO.md` Â§0/Â§1/ApÃªndice B.
+1. Ler `PLANO_MESTRE_V2__EM_ANDAMENTO.md` Â§0 (R1â€“R6, DoD) e `PARTE1_IA01-IA10_backend__CONCLUIDO.md` Â§0/Â§1/ApÃªndice B.
 2. Ler `.astrum-progress/ia-nextgen/AUDITORIA_FRONTEND.md` INTEIRO.
 3. Ãšltimas 3 entradas do `PROGRESS_LOG.md`; `git status` + `git log --oneline -5`.
 4. Branch `feat/ia-XX-<slug>` a partir de `main`.
@@ -133,7 +133,7 @@ IA-35 OrÃ§amento de latÃªncia               â† depois da IA-32
 BLOCO C â€” rede e previsÃ£o (gate de DADOS: â‰¥30/60d de histÃ³rico)
 IA-24 Anomalia de rede                    â† escreve a ADR-ml-python-service (RN15)
 IA-25 Forecast de demanda                 â† depois da ADR
-BLOCO D â€” voz (gate: estado da IA-08; A3 pendente)
+BLOCO D â€” voz (gate: estado da IA-08; A3 concluÃ­da 2026-07-09)
 IA-13 Speech analytics QA                 â† primeira: cria a persistÃªncia de chamadas
 IA-40 PII em voz
 IA-12 Voice biometrics                    â† exige A3 + ADR implementada
@@ -2186,9 +2186,9 @@ para cima; rota: <60d â†’ 409.
 (rubrica ISP de 6 critÃ©rios via gpt-4o-mini) + tela `/intelligence/voice-qa`. Ã‰ a
 PRIMEIRA sessÃ£o de voz da Fase 2: cria a persistÃªncia que IA-40 e IA-12 usam.
 **Flags:** `VOICE_QA_ENABLED` / client `voiceqa`.
-**Depende de:** IA-08 A1+A2 âœ“. **GATE parcial:** IA-08 A3 (identificaÃ§Ã£o â€” PENDENTE
-desde 2026-07-06, E2) NÃƒO bloqueia transcript/scorecard, mas bloqueia atribuir chamada
-a customer â€” o MVP grava por telefone/tenant com `customer_id` NULLABLE.
+**Depende de:** IA-08 A1+A2 âœ“. IA-08 A3 (identificaÃ§Ã£o) CONCLUÍDA em 2026-07-09 â€”
+`voice-stream.routes.ts` agora passa `customer_id` real da FSM para `persistCall`
+(antes gravava `customer_id` NULLABLE quando a identificaÃ§Ã£o estava pendente).
 
 **Auditoria:** `RealtimeBridge` (`realtime-bridge.service.ts:60`) jÃ¡ troca eventos com
 a OpenAI Realtime â€” os eventos de transcriÃ§Ã£o
@@ -2306,8 +2306,7 @@ speaker embeddings; embedding real (resemblyzer/pyannote) Ã© Python â†’ d
 verificaÃ§Ã£o por desafio de conhecimento (fallback), port de verificaÃ§Ã£o com adapter
 `null` â€” zero Python.
 **Flags:** `VOICE_BIOMETRICS_ENABLED` / client `voicebio`.
-**Depende de:** IA-08 A3 (identificaÃ§Ã£o â€” E2, PENDENTE) + IA-13 âœ“ + ADR (IA-24).
-**NÃ£o agendar antes da A3.**
+**Depende de:** IA-08 A3 (identificaÃ§Ã£o â€” E2, CONCLUÍDA 2026-07-09) + IA-13 âœ“ + ADR (IA-24).
 
 **Auditoria:** `CustomerIdentifier` jÃ¡ Ã© seam injetÃ¡vel do bridge
 (`realtime-bridge.service.ts:45` â€” `(ctx: {cpf?, phone?}) => Promise<string|null>`);
@@ -2451,8 +2450,9 @@ C7 tab nova exige `canAccess` Â· C8 Sidebar colapsada (testar os 2 modos).
   nem a rota no `App.tsx` â€” o card `sandbox` do hub (BRANCH_REGISTRY) aponta para rota
   MORTA. QuitaÃ§Ã£o atribuÃ­da Ã  **IA-38** (primeira sessÃ£o de Fase 2 com UI); a spec da
   tela estÃ¡ na IA-44 da Fase 1.
-- **E2 â€” IA-08 A3 pendente** (tools/identificaÃ§Ã£o na voz â€” PROGRESS_LOG 2026-07-06).
-  Gate duro para IA-12; IA-13/IA-40 rodam sem ela (`customer_id` nullable).
+- **E2 â€” IA-08 A3 CONCLUÍDA em 2026-07-09** (tools/identificaÃ§Ã£o na voz).
+  Gate duro para IA-12 destravado; IA-13/IA-40 jÃ¡ tinham rodado com `customer_id`
+  nullable, agora recebem o valor real quando a chamada identifica o cliente.
 - **E3 â€” `churn-features.service.ts:159` usa SQL prÃ³prio** e NÃƒO o Feature Store â€” a
   nota cruzada da IA-27 nÃ£o foi aplicada porque a IA-07 rodou ANTES da IA-27.
   QuitaÃ§Ã£o na **IA-23** (com fallback fail-open).

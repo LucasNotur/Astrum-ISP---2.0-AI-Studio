@@ -47,9 +47,29 @@ export type CustomerIdentifier = (ctx: { cpf?: string; phone?: string }) => Prom
 /** Executor de tools de negócio (fatura, diagnóstico, agendamento). */
 export type VoiceToolExecutor = (name: string, args: Record<string, unknown>) => Promise<string>;
 
+/** IA-08 A3 — turno de transcrição (mesmo formato de `voice-qa.service.ts` TranscriptTurn). */
+export interface VoiceTranscriptTurn {
+  role: 'customer' | 'agent';
+  content: string;
+  offsetMs: number;
+}
+
+export interface PersistTranscriptInput {
+  tenantId: string;
+  customerId: string | null;
+  phone: string | null;
+  turns: VoiceTranscriptTurn[];
+  startedAt: Date;
+  endedAt: Date;
+}
+
+/** Persiste a transcrição completa ao fim da chamada (IA-13 voice_calls/voice_transcripts). */
+export type PersistTranscript = (input: PersistTranscriptInput) => Promise<void>;
+
 export interface BridgeDeps {
   identifyCustomer: CustomerIdentifier;
   executeTool: VoiceToolExecutor;
+  persistTranscript?: PersistTranscript;
 }
 
 export const defaultBridgeDeps = (): BridgeDeps => ({
@@ -62,6 +82,10 @@ export class RealtimeBridge {
   private openAiWs: OpenAiSocket | null = null;
   private callCtx: CallContext;
   private streamSid: string | null = null;
+  private callerPhone: string | null = null;
+  private readonly callStartedAt = new Date();
+  private readonly transcriptEntries: VoiceTranscriptTurn[] = [];
+  private transcriptPersisted = false;
 
   constructor(
     private config: BridgeConfig,
@@ -94,6 +118,7 @@ export class RealtimeBridge {
       infraLogger.info({ tenantId: this.config.tenantId }, 'RealtimeBridge: Twilio closed');
       this.openAiWs?.close();
       this.emitCallEvent({ type: 'hangup' });
+      void this.persistTranscript();
     });
     ws.on('error', (err) => infraLogger.error({ err, tenantId: this.config.tenantId }, 'RealtimeBridge: Twilio error'));
   }
@@ -164,6 +189,7 @@ export class RealtimeBridge {
       }
       case 'start': {
         this.streamSid = msg.start?.streamSid ?? null;
+        this.callerPhone = msg.start?.customParameters?.from ?? null;
         infraLogger.info({ streamSid: this.streamSid, tenantId: this.config.tenantId }, 'RealtimeBridge: stream started');
         break;
       }
@@ -200,11 +226,13 @@ export class RealtimeBridge {
       }
       case 'response.audio_transcript.done': {
         infraLogger.info({ transcript: msg.transcript, tenantId: this.config.tenantId }, 'RealtimeBridge: assistant said');
+        if (msg.transcript) this.pushTranscript('agent', String(msg.transcript));
         break;
       }
       case 'conversation.item.input_audio_transcription.completed': {
         const transcript = msg.transcript ?? '';
         infraLogger.info({ transcript, tenantId: this.config.tenantId }, 'RealtimeBridge: user said');
+        if (transcript) this.pushTranscript('customer', String(transcript));
         await this.handleUserTranscript(transcript);
         break;
       }
@@ -249,7 +277,7 @@ export class RealtimeBridge {
     if (name === 'identify_customer') {
       const customerId = await this.deps.identifyCustomer({
         cpf: String(args.cpf ?? ''),
-        phone: String(args.phone ?? ''),
+        phone: String(args.phone ?? this.callerPhone ?? ''),
       });
       if (customerId) {
         this.emitCallEvent({ type: 'identified', customerId });
@@ -259,20 +287,72 @@ export class RealtimeBridge {
       return;
     }
 
-    // Tools de negócio delegadas ao executor.
+    // A3 — tools de negócio exigem cliente já identificado (evita vazar dado de outro cliente).
+    if (!this.callCtx.customerId) {
+      this.respondToolCall(msg.call_id, 'Cliente ainda não identificado. Peça o CPF antes de continuar.');
+      return;
+    }
+
+    // Tools de negócio delegadas ao ToolsExecutor (reuso, IA-08 A3).
     try {
-      const result = await this.deps.executeTool(name, args);
-      this.openAiWs?.send(JSON.stringify({
-        type: 'conversation.item.create',
-        item: {
-          type: 'function_call_output',
-          call_id: msg.call_id,
-          output: result,
-        },
-      }));
-      this.openAiWs?.send(JSON.stringify({ type: 'response.create' }));
+      const result = await this.deps.executeTool(name, this.enrichToolArgs(name, args));
+      this.respondToolCall(msg.call_id, result);
     } catch (err) {
       infraLogger.warn({ err, name }, 'RealtimeBridge: tool failed');
+    }
+  }
+
+  /** Injeta o customerId identificado pela FSM nos args esperados pelo ToolsExecutor. */
+  private enrichToolArgs(name: string, args: Record<string, unknown>): Record<string, unknown> {
+    const customer_id = this.callCtx.customerId;
+    if (name === 'check_invoice') {
+      return { customer_id, include_overdue_only: false };
+    }
+    if (name === 'create_ticket') {
+      return {
+        customer_id,
+        title: 'Chamado aberto via atendimento por voz',
+        description: String(args.reason ?? ''),
+        priority: 'medium',
+        category: 'tecnico',
+      };
+    }
+    return { ...args, customer_id };
+  }
+
+  private respondToolCall(callId: string, output: string): void {
+    this.openAiWs?.send(JSON.stringify({
+      type: 'conversation.item.create',
+      item: { type: 'function_call_output', call_id: callId, output },
+    }));
+    this.openAiWs?.send(JSON.stringify({ type: 'response.create' }));
+  }
+
+  private pushTranscript(role: VoiceTranscriptTurn['role'], content: string): void {
+    this.transcriptEntries.push({
+      role,
+      content,
+      offsetMs: Date.now() - this.callStartedAt.getTime(),
+    });
+  }
+
+  /** IA-08 A3 — persiste a transcrição completa ao fim da chamada (fail-open, roda 1x). */
+  private async persistTranscript(): Promise<void> {
+    if (this.transcriptPersisted) return;
+    this.transcriptPersisted = true;
+    if (!this.deps.persistTranscript || this.transcriptEntries.length === 0) return;
+
+    try {
+      await this.deps.persistTranscript({
+        tenantId: this.config.tenantId,
+        customerId: this.callCtx.customerId,
+        phone: this.callerPhone,
+        turns: this.transcriptEntries,
+        startedAt: this.callStartedAt,
+        endedAt: new Date(),
+      });
+    } catch (err) {
+      infraLogger.warn({ err, tenantId: this.config.tenantId }, 'RealtimeBridge: falha ao persistir transcript (fail-open)');
     }
   }
 

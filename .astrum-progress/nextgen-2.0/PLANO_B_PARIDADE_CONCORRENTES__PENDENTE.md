@@ -97,6 +97,10 @@ degrau com o número do degrau atual.
 ## §3 — BLOCOS DE PARIDADE (sessões P-XX)
 
 ### BLOCO P0 — Conectores ERP profundos (A PORTA DE ENTRADA — prioridade absoluta)
+✅ **CODE-COMPLETE em 2026-07-09** (commit `d3c12fc` + IXC/MK-Auth da S75). Falta só o
+dever de casa do Lucas: acesso a uma instância real de ERP para validar os adapters
+contra a API viva (hoje seguem só a documentação pública — §4 item 4 do
+`00_PLANO_DE_ACAO_GERAL`). Próximo bloco a executar: **P1**.
 **Gap:** Mundiale integra 7 ERPs; a Astrum tem `tenant_erp_credentials` (024) e
 adapters embrionários IXC/MK-Auth (`ERP_CRED_KEY` no env.validator). Sem P0 não
 existe estratégia de entrada.
@@ -104,17 +108,19 @@ existe estratégia de entrada.
 (política + adapters intercambiáveis): `IErpPort` único (clientes, contratos,
 faturas+juros, desbloqueio, OS, viabilidade, planos) + 1 adapter por ERP + sync
 incremental (webhooks onde houver; polling onde não) + cache Redis + circuito.
-- **P0-01 — IErpPort + conector IXC** (maior base instalada; API documentada) —
-  inclui o "conecte em 15 minutos": wizard (reusar `onboarding/wizard.ts`) +
-  validador de credencial + teste de sanidade com 5 leituras reais.
-- **P0-02 — Conector Voalle/Elleven** (API do Elleven é nova — auditar no dia).
-- **P0-03 — Conector MK Solutions** (evoluir o adapter MK-Auth existente).
-- **P0-04 — Conector SGP/TSMX** · **P0-05 — Conector Hubsoft**.
-- **P0-06 — Camada de AÇÃO via ERP:** as tools do agente (IA-19) ganham variante
-  "via ERP": `check_invoice`/`suspend_signal`/`schedule_technical_visit` operam o
-  ERP do tenant quando conectado (o catálogo IA-19 já permite trocar implementação
-  por tenant). **Teste de paridade Talqui:** 2ª via com juros recalculados pela
-  regra do ERP.
+- [x] **P0-01 — IErpPort + conector IXC** (`ixc.adapter.ts`, S75) + `erp-admin.routes.ts`
+  (credenciais AES-256-GCM + teste de sanidade `POST /:provider/test`, 2026-07-09).
+  ⚠️ falta o wizard "conecte em 15 minutos" reusando `onboarding/wizard.ts` — não entrou
+  no escopo desta rodada, é UX (coordenar com Onda 4).
+- [x] **P0-02 — Conector Voalle/Elleven** (`voalle.adapter.ts`, 2026-07-09).
+- [x] **P0-03 — Conector MK Solutions** (`mkauth.adapter.ts`, S75).
+- [x] **P0-04 — Conector SGP/TSMX** (`sgp.adapter.ts`, 2026-07-09) ·
+  [x] **P0-05 — Conector Hubsoft** (`hubsoft.adapter.ts`, 2026-07-09).
+- [x] **P0-06 — Camada de AÇÃO via ERP:** `tools.executor.ts._checkInvoice` usa o ERP do
+  tenant quando há credencial ativa, fallback silencioso para Supabase (2026-07-09).
+  ⚠️ só `check_invoice` migrado ainda — `suspend_signal`/`schedule_technical_visit` via
+  ERP ficam para a próxima sessão do bloco. **Teste de paridade Talqui** (2ª via com
+  juros recalculados pela regra do ERP) não foi feito contra ERP real — só mock/doc.
 **Métrica de venda (RN20):** tempo de go-live (meta: <1 dia vs semanas dos
 concorrentes); nº de ações executadas via ERP/mês.
 

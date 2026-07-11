@@ -122,7 +122,8 @@ export async function registerTwilioVoiceRoutes(
       return reply.type('text/xml').send(afterHoursTwiml());
     }
 
-    return reply.type('text/xml').send(greetingStreamTwiml(request.hostname, tenant.tenantId));
+    const callerPhone = body?.From ?? '';
+    return reply.type('text/xml').send(greetingStreamTwiml(request.hostname, tenant.tenantId, callerPhone));
   });
 }
 
@@ -138,13 +139,19 @@ function afterHoursTwiml(): string {
 </Response>`.trim();
 }
 
-function greetingStreamTwiml(hostname: string, tenantId: string): string {
+function escapeXmlAttr(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** IA-08 A3: repassa o telefone do chamador para o stream — usado como fallback de identify_customer. */
+function greetingStreamTwiml(hostname: string, tenantId: string, callerPhone: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say language="pt-BR" voice="Polly.Camila-Neural">Olá! Bem-vindo ao atendimento Astrum. Como posso ajudar você hoje?</Say>
   <Connect>
     <Stream url="wss://${hostname}/telephony/voice/stream">
-      <Parameter name="tenantId" value="${tenantId}"/>
+      <Parameter name="tenantId" value="${escapeXmlAttr(tenantId)}"/>
+      <Parameter name="from" value="${escapeXmlAttr(callerPhone)}"/>
     </Stream>
   </Connect>
 </Response>`.trim();

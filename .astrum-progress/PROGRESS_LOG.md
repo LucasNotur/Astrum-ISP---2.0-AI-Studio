@@ -24,6 +24,93 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-09] IA-NEXTGEN / Onda 1 — Sessão IA-08 A3 (fecha a Fase A da voz)
+Tarefa: tools e identificação de cliente na chamada de voz — último item pendente
+  da Onda 1 (A1+A2 já estavam mergeados). Fecha PARTE1 e PARTE2 do IA-NEXTGEN
+  (restam só as GATED IA-18/20/41, reavaliadas na Onda 5).
+Arquivos criados:
+  - apps/api/src/domain/atendimento/voice-identify.service.ts (identifica cliente
+    por CPF — prioridade — ou telefone — fallback; reusa normalizeCpf de
+    subscriber-portal.ts; porta injetável no padrão de network-graph.service.ts)
+  - apps/api/src/domain/atendimento/voice-identify.service.test.ts (6 testes:
+    sem cpf/phone, CPF normalizado, fallback telefone, prioridade CPF, não
+    encontrado, erro do banco -> null fail-closed)
+Arquivos modificados:
+  - apps/api/src/adapters/telephony/realtime-bridge.service.ts (handleToolCall
+    recusa tools de negocio ate identificar; enrichToolArgs injeta customer_id
+    da FSM em check_invoice/create_ticket — create_ticket mapeia reason->description
+    com title/priority/category default; acumula transcript customer+agent por
+    turno; persiste via deps.persistTranscript no fechamento do WS, 1x, fail-open)
+  - apps/api/src/adapters/telephony/realtime-bridge.service.test.ts (+7 testes A3:
+    guarda antes de identificar, enriquecimento check_invoice/create_ticket,
+    telefone via custom parameter "from" como fallback de identify_customer,
+    transcript acumulado e persistido no close, transcript vazio nao persiste)
+  - apps/api/src/adapters/telephony/twilio-webhook.routes.ts (greetingStreamTwiml
+    repassa body.From como <Parameter name="from"> no TwiML — Twilio Media Streams
+    so entrega custom parameters via start.customParameters, nao por query string)
+  - apps/api/src/adapters/telephony/voice-stream.routes.ts (buildVoiceBridgeDeps:
+    troca defaultBridgeDeps stub por identify real (Supabase), executeTool real
+    (ToolsExecutor da tenant) e persistTranscript real (persistCall do IA-13))
+Tecnologias implementadas: identificacao CPF/telefone contra customers; reuso
+  do ToolsExecutor (IA-19) para check_invoice/create_ticket na voz; reuso de
+  voice_calls/voice_transcripts (IA-13) + mascaramento de PII (IA-40) para a
+  transcricao — DESVIO do texto original do plano (que citava recordDecision/
+  ai_decision_log do IA-06): as tabelas dedicadas de voz do IA-13 nao existiam
+  quando a A3 foi especificada e sao a persistencia correta hoje (evita CHECK
+  restritivo do ai_decision_log e duplica a fonte da verdade).
+Testes: 39 passando nos arquivos tocados (15 arquivos na suite telephony+atendimento
+  completa). Typecheck limpo nos arquivos tocados.
+Status: CONCLUIDO (código). Flag VOICE_ENGINE continua default 'off'.
+Observações:
+  - GAP CONHECIDO (pré-existente da A2, não desta sessão): `voice-stream.routes.ts`
+    resolve `tenantId` por query/header no upgrade do WS, mas o Twilio só entrega
+    `<Parameter>` via `start.customParameters` (mesma limitação que motivou eu
+    extrair `from` dentro do bridge, não na rota). Em produção real o tenantId
+    pode cair no fallback 'voice-tenant'. Registrar para sessão futura — não é
+    escopo da A3 corrigir a resolução de tenant da A2.
+  - Critério de aceite "ligação real em staging" continua em aberto — depende do
+    dever de casa do Lucas (conta Twilio staging + 1 ligação de teste, §4 item 6
+    do 00_PLANO_DE_ACAO_GERAL).
+  - PARTE1/PARTE2 do IA-NEXTGEN renomeados para __CONCLUIDO neste commit (GATED
+    IA-18/20/41 documentadas como tal, fora da Onda 1).
+Rollback: reverter o commit — VOICE_ENGINE já é off por padrão, sem risco de prod.
+Commit: feat(ia08a3): tools e identificação na chamada de voz — fecha Onda 1.
+
+---
+
+[2026-07-09] NEXTGEN-2.0 / Onda 3 — Sessão retroativa (registro do commit d3c12fc)
+Tarefa: registrar no log a sessão "onda3-p0" que implementou os adapters ERP
+  Voalle/SGP/Hubsoft + rotas admin de credenciais + P0-06 (tools via ERP), cujo
+  commit original não atualizou este arquivo nem o PLANO_B (falha de processo —
+  regra §5 do 00_PLANO_DE_ACAO_GERAL exige commitar docs junto do código).
+Arquivos entregues no commit d3c12fc (ver `git show d3c12fc --stat`):
+  - apps/api/src/adapters/erp/voalle.adapter.ts (+ .test.ts) — Bearer token,
+    /v1/clientes, /v1/financeiro/titulos, segunda-via, conexão, desbloqueio
+  - apps/api/src/adapters/erp/sgp.adapter.ts (+ .test.ts) — API Key header,
+    /api/v2/contratos, /api/v2/financeiro, status, desbloquear
+  - apps/api/src/adapters/erp/hubsoft.adapter.ts (+ .test.ts) — Bearer token,
+    /api/v1/clientes, cobranças, segunda-via, conexão, desbloquear
+  - apps/api/src/adapters/erp/erp.factory.ts (+ .test.ts) — Voalle/SGP/Hubsoft
+    somados ao IMPLEMENTED map (IXC/MKAuth já existiam desde a S75)
+  - apps/api/src/domain/erp/erp-admin.routes.ts — GET/POST/DELETE credentials
+    (AES-256-GCM via credential-cipher.ts) + POST /:provider/test (sanity check)
+  - apps/api/src/infrastructure/ai/tools.executor.ts (_checkInvoice) — usa ERP
+    adapter quando o tenant tem credencial ativa; fallback silencioso p/ Supabase
+  - apps/api/src/server.ts — registra erpAdminRoutes (/api/v2/erp/credentials)
+Testes: 68 novos casos (adapters + factory + P0-06 bypass), já verificados no
+  commit original.
+Status: P0-01..P0-06 do Plano B tecnicamente CODE-COMPLETE (IXC e MK-Auth já
+  existiam; Voalle/SGP/Hubsoft + admin + P0-06 entraram neste commit).
+Observações:
+  - Falta o "dever de casa" do Lucas (§4 item 4 do 00_PLANO): acesso a uma
+    instância real de IXC/Voalle/etc para validar os adapters contra a API viva
+    — hoje eles seguem só a documentação pública de cada ERP, sem teste E2E real.
+  - PLANO_B_PARIDADE_CONCORRENTES atualizado neste commit: checkboxes P0-01..06
+    marcados, arquivo passa a refletir "P0 concluído, P1 é o próximo bloco".
+Commit: docs(onda3-p0): registra sessão P0 no PROGRESS_LOG (retroativo a d3c12fc).
+
+---
+
 [2026-07-09] IA-FASE2 — Execucao completa das sessoes restantes da Fase 2 (17 sessoes + IA-42)
 Tarefa: executar TODA a Fase 2 do IA-NEXTGEN (Onda 1), corrigir falhas de teste
   pos-merge e publicar no main. 298 testes passando / 1 falha pre-existente

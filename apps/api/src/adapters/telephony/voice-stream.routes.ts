@@ -1,15 +1,47 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { WebSocket } from 'ws';
 import { infraLogger } from '../../infrastructure/logging/logger';
-import { RealtimeBridge, defaultBridgeDeps } from './realtime-bridge.service';
+import { RealtimeBridge, type BridgeDeps, type PersistTranscriptInput } from './realtime-bridge.service';
 import { isVoiceEngineEnabled } from './twilio-webhook.routes';
+import { identifyCustomerByCpfOrPhone, defaultCustomerLookupDb } from '../../domain/atendimento/voice-identify.service';
+import { ToolsExecutor } from '../../infrastructure/ai/tools.executor';
+import { persistCall } from '../../domain/atendimento/voice-qa.service';
 
 /**
- * IA-08 A2 — Rota WebSocket `/telephony/voice/stream`.
+ * IA-08 A2/A3 — Rota WebSocket `/telephony/voice/stream`.
  *
  * Conecta o Media Stream da Twilio ao OpenAI Realtime via RealtimeBridge.
+ * A3: identificação real (Supabase) + tools reais (ToolsExecutor) + persistência
+ * da transcrição em voice_calls/voice_transcripts (IA-13).
  * Flag: VOICE_ENGINE=mvp.
  */
+
+function buildVoiceBridgeDeps(tenantId: string): BridgeDeps {
+  const executor = new ToolsExecutor(tenantId);
+
+  return {
+    identifyCustomer: ({ cpf, phone }) =>
+      identifyCustomerByCpfOrPhone(defaultCustomerLookupDb, tenantId, { cpf, phone }),
+
+    executeTool: async (name, args) => {
+      const result = await executor.execute(name, args);
+      return typeof result === 'string' ? result : JSON.stringify(result);
+    },
+
+    persistTranscript: async (input: PersistTranscriptInput) => {
+      await persistCall(
+        input.tenantId,
+        input.phone ?? 'desconhecido',
+        input.turns,
+        {
+          customerId: input.customerId ?? undefined,
+          startedAt: input.startedAt,
+          endedAt: input.endedAt,
+        },
+      );
+    },
+  };
+}
 
 export async function voiceStreamRoutes(fastify: FastifyInstance) {
   if (!isVoiceEngineEnabled()) {
@@ -40,7 +72,7 @@ Sempre responda em português do Brasil.`;
         voiceSystemPrompt: prompt,
         humanQueueNumber,
       },
-      defaultBridgeDeps(),
+      buildVoiceBridgeDeps(String(tenantId)),
     );
 
     bridge.handleTwilioConnection(socket);

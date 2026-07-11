@@ -23,18 +23,20 @@
 | `12_BLOCOS_TECNOLOGICOS__CONCLUIDO.md` | Mapa dos 12 blocos — todas as tecnologias implementadas | 2026-06 |
 | `SPRINT_6__ABSORVIDO_PELO_V2.md` | Escala multi-tenant — ficou 8/14 e o restante foi absorvido pelo Plano Mestre V2 | 2026-06 |
 | `PLANO_FIRESTORE_ZERO__CONCLUIDO.md` | Firestore 100% removido; Supabase único banco (R2) | 2026-07-03 |
+| `ia-nextgen/PARTE1_IA01-IA10_backend__CONCLUIDO.md` | IA-01..IA-10 100% (A3 da IA-08 fechou em 2026-07-09) | 2026-07-09 |
+| `ia-nextgen/PARTE2_IA11-IA46_fullstack__CONCLUIDO.md` | Fase 1 + Fase 2 100% (GATED IA-18/20/41 documentadas à parte, reavaliadas na Onda 5) | 2026-07-09 |
+
+**Onda 1 FECHADA** (2026-07-09) — critério de fechamento cumprido: PARTE1 e PARTE2 renomeadas `__CONCLUIDO`.
 
 ### 🔶 Em andamento (código avançado, falta fechar)
 | Plano | Feito | Falta |
 |---|---|---|
 | `PLANO_MESTRE_V2__EM_ANDAMENTO.md` (+ `MAPA_SESSOES_1_a_98.md`) | S68–S98 **code-complete** (gate final codificado em `scripts/cutover/final-gate.ts`) | A OPERAÇÃO: cutovers reais (`ATENDIMENTO_ENGINE=v2`, `COBRAI_ENGINE=v2`) + 10 critérios do gate final verdes em produção (ver `docs/ASTRUM_ESTADO_FINAL_PLANO_V2.md`) → **Onda 2** |
-| `ia-nextgen/PARTE1_IA01-IA10_backend__EM_ANDAMENTO.md` | IA-01..IA-10 ✅ (9,5/10) | **IA-08 fase A3** (tools/identificação na voz) → Onda 1 |
-| `ia-nextgen/PARTE2_IA11-IA46_fullstack__EM_ANDAMENTO.md` | Fase 1 (15 sessões) 100% em main; Fase 2 expandida em densidade total; IA-32 e IA-38 EM EXECUÇÃO em sessões paralelas | Fase 2: 16 sessões executáveis restantes + 3 GATED → **Onda 1** |
 
-### ⬜ Pendentes (planejados em detalhe, zero execução)
+### ⬜ Pendentes (planejados em detalhe, execução iniciada ou zero)
 | Plano | Conteúdo | Desbloqueio |
 |---|---|---|
-| `nextgen-2.0/PLANO_B_PARIDADE_CONCORRENTES__PENDENTE.md` | Escada de entrada via ERP + blocos P0–P6 | Nada — **P0 pode começar já** (Onda 3, intercala com Onda 1) |
+| `nextgen-2.0/PLANO_B_PARIDADE_CONCORRENTES__PENDENTE.md` | Escada de entrada via ERP + blocos P0–P6. **P0 (5 conectores + P0-06) CODE-COMPLETE em 2026-07-09** — falta validar contra ERP real (dever do Lucas) | **P1 é o próximo bloco a executar** (Onda 3) |
 | `nextgen-2.0/PLANO_C_UIUX_OPERACIONAL__PENDENTE.md` | UI/UX fases U0–U7 | U0/U1 liberadas; U2+ **BLOQUEADA nas imagens do Lucas** (GATE-VISUAL) |
 | `nextgen-2.0/PLANO_A_DIFERENCIAL_TECNOLOGIAS_INEDITAS__PENDENTE.md` | 12 tecnologias inéditas D-01..D-12 | Gates de combustível (tráfego real, dados, conectores) — Onda 5 |
 
@@ -55,9 +57,9 @@
 ## §2 — O ROTEIRO: 5 ONDAS ATÉ A ASTRUM COMPLETA
 
 ```
-ONDA 1  Fechar o IA-NEXTGEN (Fase 2 + IA-08 A3)          ← AGORA (motor completo)
-ONDA 2  Operar de verdade (cutovers + gate final do V2)   ← o "ligar a chave"
-ONDA 3  Plano B — entrada no mercado (P0 conectores…)     ← intercala com Onda 1
+ONDA 1  Fechar o IA-NEXTGEN (Fase 2 + IA-08 A3)          ← FECHADA (2026-07-09)
+ONDA 2  Operar de verdade (cutovers + gate final do V2)   ← AGORA (bloqueada no Lucas)
+ONDA 3  Plano B — entrada no mercado (P0 done → P1)       ← AGORA (P0 code-complete)
 ONDA 4  Plano C — UI/UX                                   ← U0/U1 já; resto pós-imagens
 ONDA 5  Plano A — diferenciais inéditos                   ← conforme combustível
 ```
@@ -65,26 +67,13 @@ Regra de paralelismo: nunca 2 sessões tocando os MESMOS arquivos ao mesmo tempo
 (lição da consolidação de 2026-07-06). Ondas 1 e 3 intercalam bem (domínios
 diferentes: `ia/*` × `provedor/erp`).
 
-### ONDA 1 — Fechar o motor (PARTE2 Fase 2 + PARTE1 A3)
-Fonte de detalhe: `PARTE2_IA11-IA46_fullstack__EM_ANDAMENTO.md` (cada sessão já
-está em densidade §4 — arquivos, código, testes, critérios de aceite).
-1. **Consolidar IA-32 e IA-38** (estão rodando em chats paralelos): mergear no
-   main, checkboxes + PROGRESS_LOG. *Lucas:* conferir os prints RN8 das telas.
-2. **Bloco A restante:** IA-42 (spec tracker CI) → IA-23 (LTV).
-3. **Bloco B:** IA-31 → IA-29 → IA-15 → IA-17 → IA-22 → IA-39 → IA-28 → IA-36 →
-   IA-35 (ordem do §3 da PARTE2; uma sessão por vez OU pares em arquivos
-   disjuntos).
-4. **IA-08 A3** (PARTE1): tools/identificação na chamada de voz — destrava o
-   Bloco D. *Lucas:* ter conta Twilio de staging ativa e fazer 1 ligação de
-   teste real.
-5. **Bloco C** (gate de DADOS): verificar ≥30d de `network_metrics` → IA-24
-   (escreve a ADR ML/Python) → IA-25. *Lucas:* **aprovar a ADR** (decisão de
-   arquitetura: serviço Python sim/não, formato).
-6. **Bloco D** (voz): IA-13 → IA-40 → IA-12. *Lucas:* validar custo por chamada
-   no Helicone antes de liberar voz para piloto.
-7. GATED (IA-18/20/41) ficam para pós-Onda 2 — critérios de abertura em cada uma.
-**Critério de fechamento da onda:** PARTE1 e PARTE2 renomeadas para
-`__CONCLUIDO` (exceto sessões GATED, registradas como tal).
+### ONDA 1 — Fechar o motor (PARTE2 Fase 2 + PARTE1 A3) — ✅ FECHADA (2026-07-09)
+Fonte de detalhe: `PARTE2_IA11-IA46_fullstack__CONCLUIDO.md` + `PARTE1_IA01-IA10_backend__CONCLUIDO.md`.
+Todos os blocos A/B/C/D executados (18 sessões da Fase 2 + IA-08 A3). GATED
+(IA-18/20/41) ficam para a Onda 5, documentadas como tal nos planos-filhos.
+**Pendência que sobra (não bloqueia a onda, é homologação, não código):**
+Lucas precisa fazer 1 ligação real em staging (conta Twilio) para validar o
+critério "ligação real" do IA-08 A3 — ver §4 item 6.
 
 ### ONDA 2 — Ligar a chave (pendências operacionais do Plano Mestre V2)
 Fonte: `PLANO_MESTRE_V2__EM_ANDAMENTO.md` + `docs/ASTRUM_ESTADO_FINAL_PLANO_V2.md`.
@@ -104,17 +93,19 @@ Fonte: `PLANO_MESTRE_V2__EM_ANDAMENTO.md` + `docs/ASTRUM_ESTADO_FINAL_PLANO_V2.m
 **Critério de fechamento:** motor novo com 100% do tráfego do piloto por 30 dias
 sem rollback.
 
-### ONDA 3 — Entrada no mercado (Plano B; P0 pode começar HOJE)
+### ONDA 3 — Entrada no mercado (Plano B; P0 CODE-COMPLETE, P1 é o próximo passo)
 Fonte: `PLANO_B_PARIDADE_CONCORRENTES__PENDENTE.md` (blocos P0–P6 com metas RN20).
-1. **P0-01 conector IXC** (a porta de entrada; RN17: expandir a sessão auditando
-   a API real do IXC no dia). *Lucas:* conseguir acesso a uma instância IXC de
-   teste (parceiro/trial) — SEM isso o P0 não anda.
-2. P0-02..05 (Voalle/MK/SGP/Hubsoft) na ordem da demanda dos pilotos.
-3. P0-06 (tools do agente operando o ERP) → P1 (religue, notificação em massa,
-   negociação guiada) → P2 (Instagram/e-mail/inbox) → P3 (vendas) → P4 (portal
-   do assinante) → P5 (dashboard de valor + trial sem fricção + kit compliance)
-   → P6 (parcerias CPE/OZmap — *Lucas:* contato comercial).
-4. Em paralelo com P5: *Lucas* fecha as decisões de PREÇO (doc
+1. ~~P0-01 conector IXC~~ ✅ — feito na S75. *Lucas:* ainda falta conseguir acesso
+   a uma instância IXC de teste (parceiro/trial) para validar contra API real —
+   SEM isso o P0 fica sem homologação (não bloqueia o código de P1 em diante).
+2. ~~P0-02..05 (Voalle/MK/SGP/Hubsoft)~~ ✅ — feito em 2026-07-09 (commit `d3c12fc`).
+3. ~~P0-06 (tools do agente operando o ERP)~~ ✅ — só `check_invoice` migrado;
+   `suspend_signal`/`schedule_technical_visit` via ERP ficam para sessão futura.
+4. **PRÓXIMO: P1** (religue por confiança, notificação de falha em massa,
+   negociação guiada, resumo de transferência) → P2 (Instagram/e-mail/inbox) →
+   P3 (vendas) → P4 (portal do assinante) → P5 (dashboard de valor + trial sem
+   fricção + kit compliance) → P6 (parcerias CPE/OZmap — *Lucas:* contato comercial).
+5. Em paralelo com P5: *Lucas* fecha as decisões de PREÇO (doc
    `__AGUARDANDO_DECISAO`).
 **Critério de fechamento:** 1º ISP externo pagante operando via conector, com
 dashboard de valor mostrando ROI ≥3× medido.
