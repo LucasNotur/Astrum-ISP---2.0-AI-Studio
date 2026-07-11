@@ -215,10 +215,6 @@ import { UpgradePrompt } from "./components/UpgradePrompt";
 import { AppLayout } from "./components/layout/AppLayout";
 import { StatCard } from "./components/ui/StatCard";
 
-import { KnowledgeBasePage } from "./pages/KnowledgeBasePage";
-import { AIConfigPage } from "./pages/AIConfigPage";
-import { TeamPage } from "./pages/TeamPage";
-import { SettingsPage } from "./pages/SettingsPage";
 import { SignupPage } from "./pages/SignupPage";
 
 import { mainRoutes } from './routes/main.routes';
@@ -245,8 +241,6 @@ import {
 } from "lucide-react";
 
 // --- App Component ---
-import { WhatsAppConnectionsPage } from "./pages/WhatsAppPage";
-import { MaskedSensitiveData } from "./components/MaskedSensitiveData";
 import { CustomerDetailsDialog } from "./components/CustomerDetailsDialog";
 
 import WebchatPage from "./pages/WebchatPage";
@@ -2671,16 +2665,6 @@ export default function App() {
         ) : (
           <Routes>
             {mainRoutes(currentUserRole)}
-
-            <Route path="/whatsapp" element={<WhatsAppConnectionsPage />} />
-
-            <Route path="/kb" element={<KnowledgeBasePage />} />
-
-            <Route path="/ai-config" element={<AIConfigPage />} />
-
-            <Route path="/team" element={<TeamPage />} />
-
-            <Route path="/settings" element={<SettingsPage />} />
 
           </Routes>
         )}

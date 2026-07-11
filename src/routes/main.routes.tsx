@@ -22,6 +22,11 @@ import { BIPage } from '../pages/BIPage';
 import { InventoryPage } from '../pages/InventoryPage';
 import { TicketsPage } from '../pages/TicketsPage';
 import { intelligenceRoutes } from './intelligence.routes';
+import { WhatsAppConnectionsPage } from '../pages/WhatsAppPage';
+import { KnowledgeBasePage } from '../pages/KnowledgeBasePage';
+import { AIConfigPage } from '../pages/AIConfigPage';
+import { TeamPage } from '../pages/TeamPage';
+import { SettingsPage } from '../pages/SettingsPage';
 
 /** Wrapper de motion para rotas com animação de entrada. */
 function Animated({ id, children }: { id: string; children: React.ReactNode }) {
@@ -32,12 +37,7 @@ function Animated({ id, children }: { id: string; children: React.ReactNode }) {
   );
 }
 
-/**
- * U1-01 — Rotas autocontidas (não recebem props de estado do App).
- * Rotas que ainda dependem de estado local do App (whatsapp, kb, ai-config,
- * team, settings, tickets) permanecem no App.tsx até refatoração
- * de state management (Zustand stores por domínio).
- */
+/** U1-01 concluído: todas as 5 rotas inline do App.tsx migradas — zero props. */
 export function mainRoutes(currentUserRole: string) {
   return (
     <>
@@ -71,6 +71,11 @@ export function mainRoutes(currentUserRole: string) {
       <Route path="/security"         element={<Animated id="security"><SecurityPage /></Animated>} />
       <Route path="/inventory"        element={<Animated id="inventory"><InventoryPage /></Animated>} />
       <Route path="/tickets"          element={<Animated id="tickets"><TicketsPage /></Animated>} />
+      <Route path="/whatsapp"         element={<WhatsAppConnectionsPage />} />
+      <Route path="/kb"               element={<KnowledgeBasePage />} />
+      <Route path="/ai-config"        element={<AIConfigPage />} />
+      <Route path="/team"             element={<TeamPage />} />
+      <Route path="/settings"         element={<SettingsPage />} />
       {intelligenceRoutes()}
     </>
   );
