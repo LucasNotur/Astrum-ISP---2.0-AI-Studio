@@ -24,6 +24,33 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-11] S69 — ETL backfill runner (build completo, execução pendente)
+Tarefa: Construir CLI runner real para backfill Firestore → Supabase; execução aguarda credenciais.
+Arquivos criados:
+  - scripts/etl/run-backfill.ts — CLI runner com Firebase Admin + Supabase service-role;
+      fetchCollection com fallback subcoleção→top-level; insertRows em chunks de 200;
+      resolveFK genérico; geração de docs/etl/BACKFILL_REPORT_S69.md
+  - .env.etl — template de credenciais (FIREBASE_PROJECT_ID/CLIENT_EMAIL/PRIVATE_KEY + SUPABASE_URL/SERVICE_ROLE_KEY)
+Arquivos modificados:
+  - scripts/etl/lib/transform.ts — +6 builders: buildNetworkCtoRow, buildTechnicianRow, buildInventoryRow,
+      buildNotificationRow, buildTeamMemberRow, buildServiceOrderRow + mappers de enum
+  - scripts/etl/firestore-to-supabase.ts — +6 migrate*() functions cobrindo todas as entidades;
+      resolveFK? adicionado ao EtlDeps; runTenantBackfill expandido (8 entidades, ordem de FK correta)
+  - scripts/etl/firestore-to-supabase.test.ts — assert atualizado para 8 entidades
+  - package.json — scripts db:backfill:dry + db:backfill; firebase-admin@14.1.0 como devDep
+Testes: 40 passando (scripts/etl/)
+Status: ⚠️ Parcial — código e testes prontos; execução real pendente de .env.etl preenchido
+Pendência para execução:
+  1. Preencher .env.etl com FIREBASE_* e SUPABASE_* do staging
+  2. npm run db:backfill:dry → revisar docs/etl/BACKFILL_REPORT_S69.md
+  3. npm run db:backfill → execução live
+  4. Reexecução para provar idempotência
+  5. Marcar checkboxes de S69 no PLANO_MESTRE_V2
+
+---
+
+---
+
 [2026-07-11] NEXTGEN-2.0 / Onda 4 — U1-01 (Desmontar App.tsx — Extração InventoryPage)
 Tarefa: Extrair todo o domínio de estoque do App.tsx monolítico para componente autônomo.
 Arquivos criados:

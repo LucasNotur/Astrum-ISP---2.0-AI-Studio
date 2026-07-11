@@ -30,6 +30,8 @@
     "db:migrate:dry": "tsx packages/db/src/migrate.ts --dry-run",
     "db:baseline": "tsx packages/db/src/migrate.ts --baseline",
     "lint:design": "tsx scripts/design-lint.ts",
+    "db:backfill:dry": "npx dotenv -e .env.etl -- tsx scripts/etl/run-backfill.ts --all --dry-run",
+    "db:backfill": "npx dotenv -e .env.etl -- tsx scripts/etl/run-backfill.ts --all",
     "start": "node dist/server.cjs"
   },
   "dependencies": {
@@ -133,6 +135,7 @@
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^6.0.2",
     "esbuild": "^0.28.0",
+    "firebase-admin": "^14.1.0",
     "ioredis-mock": "^8.13.1",
     "jsdom": "^29.1.1",
     "pino-pretty": "^13.1.3",

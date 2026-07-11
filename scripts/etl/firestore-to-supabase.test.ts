@@ -71,9 +71,12 @@ describe('ETL orchestrator — invoices', () => {
 });
 
 describe('ETL orchestrator — pipeline', () => {
-  it('runTenantBackfill retorna relatório por entidade', async () => {
+  it('runTenantBackfill retorna relatório por todas as entidades (ordem de FK)', async () => {
     const deps = makeDeps();
     const results = await runTenantBackfill(deps, { tenantId: 't1', dryRun: true });
-    expect(results.map((r) => r.entity)).toEqual(['customers', 'invoices']);
+    expect(results.map((r) => r.entity)).toEqual([
+      'customers', 'invoices', 'network_ctos', 'technicians',
+      'inventory', 'team_members', 'service_orders', 'notifications',
+    ]);
   });
 });

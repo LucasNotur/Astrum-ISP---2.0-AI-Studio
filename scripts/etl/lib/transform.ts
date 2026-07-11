@@ -149,3 +149,231 @@ export function buildInvoiceRow(
 export function auditLogTargetTable(): 'ai_performance_logs' {
   return 'ai_performance_logs';
 }
+
+// ─── network_ctos ────────────────────────────────────────────────────────────
+
+export interface LegacyNetworkCto {
+  id: string;
+  name?: string;
+  lat?: number; latitude?: number;
+  lng?: number; longitude?: number;
+  totalPorts?: number; total_ports?: number;
+  usedPorts?: number; used_ports?: number;
+  status?: string;
+  createdAt?: string;
+}
+
+function mapCtoStatus(s: string | null | undefined): 'active' | 'full' | 'maintenance' {
+  switch ((s ?? '').toLowerCase()) {
+    case 'full': return 'full';
+    case 'maintenance': return 'maintenance';
+    default: return 'active';
+  }
+}
+
+export function buildNetworkCtoRow(tenantId: string, c: LegacyNetworkCto): Record<string, unknown> {
+  return {
+    tenant_id: tenantId,
+    legacy_id: c.id,
+    name: c.name ?? 'CTO sem nome',
+    latitude: c.lat ?? c.latitude ?? 0,
+    longitude: c.lng ?? c.longitude ?? 0,
+    total_ports: c.totalPorts ?? c.total_ports ?? 0,
+    used_ports: c.usedPorts ?? c.used_ports ?? 0,
+    status: mapCtoStatus(c.status),
+    created_at: c.createdAt ?? new Date().toISOString(),
+  };
+}
+
+// ─── technicians ─────────────────────────────────────────────────────────────
+
+export interface LegacyTechnician {
+  id: string;
+  name?: string;
+  phone?: string;
+  status?: string;
+  currentTask?: string; current_task?: string;
+  createdAt?: string;
+}
+
+function mapTechStatus(s: string | null | undefined): 'available' | 'break' | 'offline' {
+  switch ((s ?? '').toLowerCase()) {
+    case 'available': return 'available';
+    case 'break': case 'pausa': return 'break';
+    default: return 'offline';
+  }
+}
+
+export function buildTechnicianRow(tenantId: string, t: LegacyTechnician): Record<string, unknown> {
+  return {
+    tenant_id: tenantId,
+    legacy_id: t.id,
+    name: t.name ?? 'Sem nome',
+    phone: t.phone ?? '',
+    status: mapTechStatus(t.status),
+    current_task: t.currentTask ?? t.current_task ?? null,
+    created_at: t.createdAt ?? new Date().toISOString(),
+  };
+}
+
+// ─── inventory ───────────────────────────────────────────────────────────────
+
+export interface LegacyInventoryItem {
+  id: string;
+  name?: string;
+  category?: string;
+  stock?: number;
+  minStock?: number; min_stock?: number;
+  unit?: string;
+  price?: number;        // reais
+  createdAt?: string;
+}
+
+export function buildInventoryRow(tenantId: string, i: LegacyInventoryItem): Record<string, unknown> {
+  return {
+    tenant_id: tenantId,
+    legacy_id: i.id,
+    name: i.name ?? 'Item sem nome',
+    category: i.category ?? 'geral',
+    stock: i.stock ?? 0,
+    min_stock: i.minStock ?? i.min_stock ?? 0,
+    unit: i.unit ?? null,
+    price_cents: reaisToCents(i.price),
+    created_at: i.createdAt ?? new Date().toISOString(),
+  };
+}
+
+// ─── notifications ───────────────────────────────────────────────────────────
+
+const NOTIF_TYPE_MAP: Record<string, 'SLA_BREACH' | 'CRITICAL_ESCALATION' | 'SYSTEM_ERROR'> = {
+  sla_breach: 'SLA_BREACH',
+  sla: 'SLA_BREACH',
+  critical_escalation: 'CRITICAL_ESCALATION',
+  escalation: 'CRITICAL_ESCALATION',
+  system_error: 'SYSTEM_ERROR',
+  error: 'SYSTEM_ERROR',
+};
+
+export interface LegacyNotification {
+  id: string;
+  type?: string;
+  message?: string;
+  ticketId?: string; ticket_id?: string;
+  timestamp?: string;
+  createdAt?: string;
+}
+
+export function buildNotificationRow(
+  tenantId: string,
+  n: LegacyNotification,
+  ticketUuid: string | null,
+): Record<string, unknown> {
+  const key = (n.type ?? '').trim().toLowerCase();
+  const type = NOTIF_TYPE_MAP[key] ?? 'SYSTEM_ERROR';
+  return {
+    tenant_id: tenantId,
+    legacy_id: n.id,
+    type,
+    message: n.message ?? '',
+    ticket_id: ticketUuid,
+    created_at: n.timestamp ?? n.createdAt ?? new Date().toISOString(),
+  };
+}
+
+// ─── team_members ─────────────────────────────────────────────────────────────
+
+const TEAM_ROLE_MAP: Record<string, string> = {
+  admin: 'admin',
+  owner: 'owner',
+  support: 'support',
+  billing: 'billing',
+  sales: 'sales',
+  atendente: 'atendente',
+  agent: 'support',
+  manager: 'admin',
+};
+
+export interface LegacyTeamMember {
+  id: string;
+  name?: string;
+  email?: string;
+  role?: string;
+  status?: string;
+  createdAt?: string;
+}
+
+export function buildTeamMemberRow(tenantId: string, m: LegacyTeamMember): Record<string, unknown> {
+  const role = TEAM_ROLE_MAP[(m.role ?? '').toLowerCase()] ?? 'support';
+  const status = (m.status ?? 'active').toLowerCase() === 'inactive' ? 'inactive' : 'active';
+  return {
+    tenant_id: tenantId,
+    legacy_id: m.id,
+    name: m.name ?? 'Sem nome',
+    email: m.email ?? null,
+    role,
+    status,
+    created_at: m.createdAt ?? new Date().toISOString(),
+  };
+}
+
+// ─── service_orders ──────────────────────────────────────────────────────────
+
+const SO_STATUS_MAP: Record<string, string> = {
+  pendente: 'pendente',
+  pending: 'pendente',
+  open: 'pendente',
+  em_deslocamento: 'em_deslocamento',
+  in_transit: 'em_deslocamento',
+  em_atendimento: 'em_atendimento',
+  in_progress: 'em_atendimento',
+  concluido: 'concluido',
+  completed: 'concluido',
+  done: 'concluido',
+  cancelado: 'cancelado',
+  cancelled: 'cancelado',
+  canceled: 'cancelado',
+};
+
+export interface LegacyServiceOrder {
+  id: string;
+  customerId?: string; customer_id?: string;
+  address?: string;
+  lat?: number; latitude?: number;
+  lng?: number; longitude?: number;
+  status?: string;
+  type?: string;
+  description?: string;
+  cto?: string;
+  port?: number;
+  materials?: string[];
+  assignedTo?: string; assigned_to?: string;
+  aiSummary?: string; ai_summary?: string;
+  createdAt?: string;
+}
+
+export function buildServiceOrderRow(
+  tenantId: string,
+  o: LegacyServiceOrder,
+  customerUuid: string | null,
+  techUuid: string | null,
+  ctoUuid: string | null,
+): Record<string, unknown> {
+  return {
+    tenant_id: tenantId,
+    legacy_id: o.id,
+    customer_id: customerUuid,
+    address: o.address ?? null,
+    latitude: o.lat ?? o.latitude ?? null,
+    longitude: o.lng ?? o.longitude ?? null,
+    status: SO_STATUS_MAP[(o.status ?? '').toLowerCase()] ?? 'pendente',
+    type: o.type ?? 'instalacao',
+    description: o.description ?? null,
+    cto_id: ctoUuid,
+    cto_legacy: ctoUuid ? null : (o.cto ?? null),
+    port: o.port ?? null,
+    materials: o.materials ?? [],
+    assigned_to: techUuid,
+    ai_summary: o.aiSummary ?? o.ai_summary ?? null,
+    created_at: o.createdAt ?? new Date().toISOString(),
+  };
+}
