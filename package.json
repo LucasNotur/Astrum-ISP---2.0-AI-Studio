@@ -29,6 +29,7 @@
     "db:migrate": "tsx packages/db/src/migrate.ts",
     "db:migrate:dry": "tsx packages/db/src/migrate.ts --dry-run",
     "db:baseline": "tsx packages/db/src/migrate.ts --baseline",
+    "lint:design": "tsx scripts/design-lint.ts",
     "start": "node dist/server.cjs"
   },
   "dependencies": {

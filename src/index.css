@@ -21,6 +21,37 @@
   --color-astrum-red: #E5484D;
   --color-astrum-slate: #5B6472;
 
+  /* U1-02 — Elevação (4 níveis; valores reais em :root/.dark) */
+  --shadow-0: none;
+  --shadow-1: var(--shadow-1-raw);
+  --shadow-2: var(--shadow-2-raw);
+  --shadow-3: var(--shadow-3-raw);
+  --shadow-4: var(--shadow-4-raw);
+
+  /* U1-02 — Motion funcional (<200ms; reduced-motion abaixo) */
+  --duration-fast: 100ms;
+  --duration-base: 200ms;
+  --duration-slow: 350ms;
+  --ease-productive: cubic-bezier(0.2, 0, 0, 1);
+  --ease-expressive: cubic-bezier(0.4, 0.14, 0.3, 1);
+
+  /* U1-02 — Z-index semântico */
+  --z-base: 0;
+  --z-raised: 10;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+
+  /* U1-02 — Radius estável (não muda no dark — corrige armadilha C4) */
+  --radius-stable-none: 0px;
+  --radius-stable-xs: 0.25rem;
+  --radius-stable-sm: 0.375rem;
+  --radius-stable: 0.5rem;
+  --radius-stable-lg: 0.75rem;
+  --radius-stable-xl: 1rem;
+
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
 
@@ -83,6 +114,11 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
+    /* U1-02 — Elevação light */
+    --shadow-1-raw: 0 1px 0 hsl(var(--border));
+    --shadow-2-raw: 0 1px 3px rgb(0 0 0 / 0.10), 0 1px 2px rgb(0 0 0 / 0.06);
+    --shadow-3-raw: 0 4px 12px rgb(0 0 0 / 0.12), 0 2px 4px rgb(0 0 0 / 0.08);
+    --shadow-4-raw: 0 8px 30px rgb(0 0 0 / 0.18), 0 4px 8px rgb(0 0 0 / 0.12);
   }
   .dark {
     --background: 228 10% 6%;
@@ -105,6 +141,10 @@
     --input: 228 12% 20%;
     --ring: 45 100% 51%;
     --radius: 1.5rem;
+    /* U1-02 — Elevação dark (mais fortes; background escuro absorve sombra) */
+    --shadow-2-raw: 0 1px 3px rgb(0 0 0 / 0.30), 0 1px 2px rgb(0 0 0 / 0.20);
+    --shadow-3-raw: 0 4px 12px rgb(0 0 0 / 0.40), 0 2px 4px rgb(0 0 0 / 0.25);
+    --shadow-4-raw: 0 8px 30px rgb(0 0 0 / 0.55), 0 4px 8px rgb(0 0 0 / 0.35);
   }
 }
 
@@ -146,5 +186,13 @@
 
 .dark .ticket-shape {
   filter: drop-shadow(0 8px 30px rgba(0, 0, 0, 0.4)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 

@@ -24,6 +24,28 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-11] NEXTGEN-2.0 / Onda 4 — U1-02/03/04 (Tokens 2.0 + Padrões de página + Lint de design)
+Tarefa: Fundações estruturais do design system Astrum — sem dependência do GATE-VISUAL.
+Arquivos criados:
+  - src/components/ui/PageHeader.tsx — title + subtitle + action slot; usa font-display, border-b
+  - src/components/ui/FilterBar.tsx  — search Input + filters slot + sort slot
+  - src/components/ui/DetailSheet.tsx — slide-over direita; ESC fecha; usa novos tokens (shadow-4, z-overlay/modal, duration-base, ease-productive, rounded-stable-sm)
+  - src/components/ui/FormSection.tsx — seção rotulada dentro de formulários
+  - src/components/ui/DangerZone.tsx  — card de ações destrutivas; usa border/bg astrum-red
+  - scripts/design-lint.ts — lint personalizado: erros em hex Tailwind arbitrário + rounded px; avisos em shadow genérico + var(--primary)
+Arquivos modificados:
+  - src/index.css — U1-02: elevação (shadow-0..4 com dark override), motion (duration-fast/base/slow + ease-productive/expressive), z-index semântico (base→toast), radius-stable-* (corrige C4 — não muda no dark), prefers-reduced-motion
+  - package.json — + "lint:design": "tsx scripts/design-lint.ts"
+Testes criados: nenhum (componentes são primitivos de layout; testados visualmente via token system)
+Status: ✅ Concluído
+Observações:
+  Lint revelou dívida do App.tsx monolítico: 69 erros (hex/rounded-px) + 265 avisos (shadow genérico).
+  Esperado — será atacado em U1-01 (desmontar App.tsx) + U4 (redesign por persona).
+  Componentes de página usam os novos tokens imediatamente: shadow-4, rounded-stable, duration-base, z-overlay/z-modal.
+  Próximo: U2 (bloqueado por GATE-VISUAL — imagens do Lucas) ou U1-01 (desmontar App.tsx 5903 linhas).
+
+---
+
 [2026-07-11] IA-38 -- Verificacao de conclusao (churn SHAP + SandboxPage E1)
 Tarefa: code-complete verificado; 58 testes passando; checkboxes PARTE2 atualizados.
 Status: OK Pendencia: CHURN_ENGINE=on em staging p/ waterfall com 3 clientes reais.
