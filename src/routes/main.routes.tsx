@@ -20,6 +20,7 @@ import QualityMonitorPage from '../pages/QualityMonitorPage';
 import TechnicianAppPage from '../pages/TechnicianAppPage';
 import { BIPage } from '../pages/BIPage';
 import { InventoryPage } from '../pages/InventoryPage';
+import { TicketsPage } from '../pages/TicketsPage';
 import { intelligenceRoutes } from './intelligence.routes';
 
 /** Wrapper de motion para rotas com animação de entrada. */
@@ -69,6 +70,7 @@ export function mainRoutes(currentUserRole: string) {
       <Route path="/webhooks"         element={<Animated id="webhooks"><WebhooksPage /></Animated>} />
       <Route path="/security"         element={<Animated id="security"><SecurityPage /></Animated>} />
       <Route path="/inventory"        element={<Animated id="inventory"><InventoryPage /></Animated>} />
+      <Route path="/tickets"          element={<Animated id="tickets"><TicketsPage /></Animated>} />
       {intelligenceRoutes()}
     </>
   );

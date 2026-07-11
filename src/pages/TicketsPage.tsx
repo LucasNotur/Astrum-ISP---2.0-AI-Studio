@@ -1,21 +1,25 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Copy, Bot, LayoutGrid, List as ListIcon, Filter, Clock, CheckCircle, User } from 'lucide-react';
+import { Plus, Copy, Bot, LayoutGrid, List as ListIcon, Filter, Clock, CheckCircle, User, Ticket } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
+import { Input } from '@/src/components/ui/input';
 import { useAppStore } from '@/src/store/useAppStore';
 import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/ui/card";
 import { Badge } from "@/src/components/ui/badge";
 import { ScrollArea } from "@/src/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/src/components/ui/avatar";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/src/components/ui/tooltip";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/src/components/ui/dialog";
 import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
 
 import { supabase } from '@/src/lib/supabase';
+import { logAudit } from '@/src/lib/db';
 import { useTenantDate } from '@/src/hooks/useTenantDate';
 
-export function TicketsPage({ onNewTicketClick }: { onNewTicketClick: () => void }) {
+export function TicketsPage() {
   const { tickets, customers, setSelectedTicket, setIsTicketDetailOpen, userProfile } = useAppStore();
+  const [isNewTicketDialogOpen, setIsNewTicketDialogOpen] = useState(false);
   const { formatDateOnly } = useTenantDate();
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -60,6 +64,30 @@ export function TicketsPage({ onNewTicketClick }: { onNewTicketClick: () => void
      return 'green';
   };
 
+  const handleCreateTicket = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget as HTMLFormElement);
+    const customerId = formData.get("customerId") as string;
+    const subject = formData.get("subject") as string;
+    const priority = formData.get("priority") as string;
+    try {
+      const { data: docRef, error } = await supabase.from("tickets").insert({
+        customer_id: customerId,
+        subject,
+        priority,
+        status: "open",
+        ai_enabled: true,
+        ai_attempts: 0,
+      }).select().single();
+      if (error) throw error;
+      try { await logAudit("TICKET_CREATED", { ticketId: docRef.id, customerId, subject }); } catch {}
+      setIsNewTicketDialogOpen(false);
+      toast.success("Ticket criado com sucesso!");
+    } catch {
+      toast.error("Erro ao criar ticket.");
+    }
+  };
+
   const filteredTickets = useMemo(() => {
     return tickets.filter(t => {
       const matchStatus = filterStatus === 'all' || t.status === filterStatus;
@@ -88,7 +116,7 @@ export function TicketsPage({ onNewTicketClick }: { onNewTicketClick: () => void
               <ListIcon size={16} />
             </Button>
           </div>
-          <Button className="gap-2" onClick={onNewTicketClick}>
+          <Button className="gap-2" onClick={() => setIsNewTicketDialogOpen(true)}>
             <Plus size={18} />
           </Button>
         </div>
@@ -244,6 +272,64 @@ export function TicketsPage({ onNewTicketClick }: { onNewTicketClick: () => void
           </ScrollArea>
         </div>
       )}
+      <Dialog open={isNewTicketDialogOpen} onOpenChange={setIsNewTicketDialogOpen}>
+        <DialogContent className="sm:max-w-[500px] border-none shadow-2xl rounded-3xl p-0 overflow-hidden bg-white dark:bg-zinc-950">
+          <div className="bg-primary/5 dark:bg-primary/10 p-6 border-b border-zinc-100 dark:border-zinc-800">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+                <Ticket className="text-primary" /> Abrir Novo Ticket
+              </DialogTitle>
+              <DialogDescription>
+                Crie um novo chamado de suporte para um cliente.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          <form onSubmit={handleCreateTicket} className="p-6 space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Cliente</label>
+              <select
+                name="customerId"
+                required
+                className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm"
+              >
+                <option value="">Selecione um cliente...</option>
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name} ({c.email})</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Assunto</label>
+              <Input
+                name="subject"
+                placeholder="Ex: Lentidão na conexão, Troca de roteador..."
+                required
+                className="rounded-xl border-zinc-200 dark:border-zinc-800"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Prioridade</label>
+              <select
+                name="priority"
+                className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm"
+              >
+                <option value="low">Baixa</option>
+                <option value="medium">Média</option>
+                <option value="high">Alta</option>
+                <option value="urgent">Urgente</option>
+              </select>
+            </div>
+            <div className="pt-4 flex justify-end gap-3">
+              <Button type="button" variant="ghost" onClick={() => setIsNewTicketDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" className="rounded-xl px-8">
+                Criar Ticket
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }

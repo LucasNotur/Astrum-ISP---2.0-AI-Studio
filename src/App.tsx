@@ -214,7 +214,7 @@ import {
 import { UpgradePrompt } from "./components/UpgradePrompt";
 import { AppLayout } from "./components/layout/AppLayout";
 import { StatCard } from "./components/ui/StatCard";
-import { TicketsPage } from "./pages/TicketsPage";
+
 import { KnowledgeBasePage } from "./pages/KnowledgeBasePage";
 import { AIConfigPage } from "./pages/AIConfigPage";
 import { TeamPage } from "./pages/TeamPage";
@@ -801,8 +801,6 @@ export default function App() {
       setIsSeeding(false);
     }
   };
-
-  const [isNewTicketDialogOpen, setIsNewTicketDialogOpen] = useState(false);
 
   const handleAddMember = async () => {
     if (!newTeamMember.name || !newTeamMember.email) {
@@ -2016,36 +2014,6 @@ export default function App() {
     }
   };
 
-  const handleCreateTicket = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget as HTMLFormElement);
-    const customerId = formData.get("customerId") as string;
-    const subject = formData.get("subject") as string;
-    const priority = formData.get("priority") as string;
-
-    try {
-      const { data: docRef, error } = await supabase.from("tickets").insert({
-        customer_id: customerId,
-        subject,
-        priority,
-        status: "open",
-        ai_enabled: true,
-        ai_attempts: 0,
-      }).select().single();
-      if (error) throw error;
-
-      await logAction("TICKET_CREATED", {
-        ticketId: docRef.id,
-        customerId,
-        subject,
-      });
-      setIsNewTicketDialogOpen(false);
-      toast.success("Ticket criado com sucesso!");
-    } catch (error) {
-      toast.error("Erro ao criar ticket.");
-    }
-  };
-
   const handleToggleAI = async (ticketId: string, currentEnabled: boolean) => {
     const newState = !currentEnabled;
     await toggleTicketAI(ticketId, newState);
@@ -2693,14 +2661,6 @@ export default function App() {
         ) : (
           <Routes>
             {mainRoutes(currentUserRole)}
-            <Route
-              path="/tickets"
-              element={
-                <TicketsPage
-                  onNewTicketClick={() => setIsNewTicketDialogOpen(true)}
-                />
-              }
-            />
 
             <Route
               path="/whatsapp"
@@ -3073,74 +3033,6 @@ export default function App() {
         </DialogContent>
       </Dialog>
 
-      {/* New Ticket Dialog */}
-      <Dialog
-        open={isNewTicketDialogOpen}
-        onOpenChange={setIsNewTicketDialogOpen}
-      >
-        <DialogContent className="sm:max-w-[500px] border-none shadow-2xl rounded-3xl p-0 overflow-hidden bg-white dark:bg-zinc-950">
-          <div className="bg-primary/5 dark:bg-primary/10 p-6 border-b border-zinc-100 dark:border-zinc-800">
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-                <Ticket className="text-primary" /> Abrir Novo Ticket
-              </DialogTitle>
-              <DialogDescription>
-                Crie um novo chamado de suporte para um cliente.
-              </DialogDescription>
-            </DialogHeader>
-          </div>
-          <form onSubmit={handleCreateTicket} className="p-6 space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Cliente</label>
-              <select
-                name="customerId"
-                required
-                className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm"
-              >
-                <option value="">Selecione um cliente...</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.email})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Assunto</label>
-              <Input
-                name="subject"
-                placeholder="Ex: Lentidão na conexão, Troca de roteador..."
-                required
-                className="rounded-xl border-zinc-200 dark:border-zinc-800"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Prioridade</label>
-              <select
-                name="priority"
-                className="w-full p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm"
-              >
-                <option value="low">Baixa</option>
-                <option value="medium">Média</option>
-                <option value="high">Alta</option>
-                <option value="urgent">Urgente</option>
-              </select>
-            </div>
-            <div className="pt-4 flex justify-end gap-3">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setIsNewTicketDialogOpen(false)}
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" className="rounded-xl px-8">
-                Criar Ticket
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       {/* Customer Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
