@@ -23,6 +23,9 @@ export function ServiceOrdersPage() {
   const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
   const [isWhatsappDialogOpen, setIsWhatsappDialogOpen] = useState(false);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
+  const [isPhoneDialogOpen, setIsPhoneDialogOpen] = useState(false);
+  const [pendingNotifyOS, setPendingNotifyOS] = useState<any>(null);
+  const [pendingPhone, setPendingPhone] = useState('');
   const [selectedOS, setSelectedOS] = useState<any>(null);
   const [selectedCalendarOS, setSelectedCalendarOS] = useState<any>(null);
   const [selectedHistoryTech, setSelectedHistoryTech] = useState<any>(null);
@@ -325,56 +328,36 @@ export function ServiceOrdersPage() {
       toast.error("Integração com Evolution API não configurada em Configurações > Integrações.");
       return;
     }
-    
-    // Attempt to find customer phone
-    let customerPhone = '';
     const customer = customers.find(c => c.id === os.customerId);
-    if (customer && customer.phone) {
-      customerPhone = customer.phone.replace(/\D/g, '');
+    if (customer?.phone) {
+      await doNotifyCustomer(os, customer.phone);
     } else {
-      const phoneInput = window.prompt("Número do cliente não encontrado. Digite o número (com DDD):");
-      if (!phoneInput) return;
-      customerPhone = phoneInput.replace(/\D/g, '');
+      setPendingNotifyOS(os);
+      setPendingPhone('');
+      setIsPhoneDialogOpen(true);
     }
-    
-    if (customerPhone.length < 10) {
-      toast.error("Número inválido.");
-      return;
-    }
-    if (!customerPhone.startsWith('55')) {
-      customerPhone = '55' + customerPhone;
-    }
-    
+  };
+
+  const doNotifyCustomer = async (os: any, rawPhone: string) => {
+    let customerPhone = rawPhone.replace(/\D/g, '');
+    if (customerPhone.length < 10) { toast.error("Número inválido."); return; }
+    if (!customerPhone.startsWith('55')) customerPhone = '55' + customerPhone;
+
     const msg = `Olá, *${os.customerName}*! 🔔\n\nSua ordem de serviço de *${os.type}* está com status: *${os.status.replace('_', ' ')}*.\nO técnico responsável é: *${os.assignedTo || 'A Definir'}*.\n\nQualquer dúvida, estamos à disposição!`;
-
     const loadingToast = toast.loading("Enviando notificação via Evolution API...");
-
     try {
       const res = await fetch(`/api/evolution/proxy`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           path: `/message/sendText/${integrationKeys.evolutionInstance}`,
           method: 'POST',
           evolutionUrl: integrationKeys.evolutionUrl,
           evolutionApiKey: integrationKeys.evolutionApiKey,
-          body: {
-            number: customerPhone,
-            options: {
-              delay: 1200,
-              presence: "composing",
-            },
-            textMessage: {
-              text: msg
-            }
-          }
+          body: { number: customerPhone, options: { delay: 1200, presence: "composing" }, textMessage: { text: msg } }
         })
       });
-      
       toast.dismiss(loadingToast);
-      
       if (res.ok) {
         toast.success("Notificação enviada ao cliente via WhatsApp (Evolution API)!");
         addWhatsAppSimulation('Você para Cliente', msg);
@@ -383,8 +366,7 @@ export function ServiceOrdersPage() {
         const data = await res.json();
         toast.error(`Falha Evolution API: ${data?.message || 'Erro desconhecido'}`);
       }
-    } catch (error) {
-      console.error("Evolution API Error:", error);
+    } catch {
       toast.dismiss(loadingToast);
       toast.error("Erro ao conectar com Evolution API.");
     }
@@ -450,7 +432,7 @@ export function ServiceOrdersPage() {
               <ScrollArea className="flex-1 -mx-2 px-2 scrollbar-hide">
                 <div className="space-y-4 pb-10">
                   {column.data.map(item => (
-                       <Card key={item.id} className="border-none shadow-[2px_8px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] hover:scale-[1.02] transition-all duration-300 cursor-pointer group relative dark:bg-[#16171a] bg-white rounded-[16px] overflow-hidden ticket-shape">
+                       <Card key={item.id} className="border-none shadow-[2px_8px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] hover:scale-[1.02] transition-all duration-300 cursor-pointer group relative dark:bg-card bg-white rounded-[16px] overflow-hidden ticket-shape">
                            <div className="absolute top-0 bottom-0 left-6 border-l border-dashed border-zinc-200 dark:border-white/5" />
                            <CardContent className="p-4 pl-8 relative z-10">
                                <div className="flex justify-between items-start mb-2 cursor-pointer" onClick={() => setExpandedBoardOS(expandedBoardOS === item.id ? null : item.id)}>
@@ -486,7 +468,7 @@ export function ServiceOrdersPage() {
                                  )}
                                </div>
                                
-                               <div className="flex items-center gap-2 mb-3 bg-zinc-50 dark:bg-[#111214] p-1.5 rounded-md cursor-pointer" onClick={() => setExpandedBoardOS(expandedBoardOS === item.id ? null : item.id)}>
+                               <div className="flex items-center gap-2 mb-3 bg-zinc-50 dark:bg-muted p-1.5 rounded-md cursor-pointer" onClick={() => setExpandedBoardOS(expandedBoardOS === item.id ? null : item.id)}>
                                  <User size={12} className="text-zinc-400"/>
                                  <span className="text-[11px] font-medium text-zinc-700 dark:text-zinc-300">Téc: {item.assignedTo || 'A Definir'}</span>
                                </div>
@@ -520,7 +502,7 @@ export function ServiceOrdersPage() {
                                     {item.description && (
                                       <div>
                                         <h5 className="text-[10px] uppercase font-bold text-zinc-400 mb-1">Descrição Detalhada</h5>
-                                        <p className="text-[11px] text-zinc-600 dark:text-zinc-300 bg-zinc-50 dark:bg-[#111214] p-2 rounded-md whitespace-pre-wrap">{item.description}</p>
+                                        <p className="text-[11px] text-zinc-600 dark:text-zinc-300 bg-zinc-50 dark:bg-muted p-2 rounded-md whitespace-pre-wrap">{item.description}</p>
                                       </div>
                                     )}
                                     {item.aiSummary && (
@@ -534,7 +516,7 @@ export function ServiceOrdersPage() {
                                         <h5 className="text-[10px] uppercase font-bold text-zinc-400 mb-1 flex items-center gap-1"><Package size={10}/> Materiais Previstos</h5>
                                         <div className="flex flex-wrap gap-1">
                                           {item.materials.map((m: any, i: number) => (
-                                            <Badge key={i} variant="secondary" className="text-[9px] px-1.5 bg-zinc-100 dark:bg-[#111214] border-none font-medium text-zinc-500">{m}</Badge>
+                                            <Badge key={i} variant="secondary" className="text-[9px] px-1.5 bg-zinc-100 dark:bg-muted border-none font-medium text-zinc-500">{m}</Badge>
                                           ))}
                                         </div>
                                       </div>
@@ -565,10 +547,10 @@ export function ServiceOrdersPage() {
                                        )}
 
                                        <div className="grid grid-cols-2 gap-2 mt-2">
-                                         <Button variant="outline" size="sm" className="w-full text-[11px] h-8 gap-1 rounded-[12px] bg-zinc-50 dark:bg-[#111214] border-none" onClick={(e) => { e.stopPropagation(); setSelectedHistoryOS(item); setIsHistoryDialogOpen(true); }}>
+                                         <Button variant="outline" size="sm" className="w-full text-[11px] h-8 gap-1 rounded-[12px] bg-zinc-50 dark:bg-muted border-none" onClick={(e) => { e.stopPropagation(); setSelectedHistoryOS(item); setIsHistoryDialogOpen(true); }}>
                                            <Calendar size={12} /> Histórico
                                          </Button>
-                                         <Button variant="outline" size="sm" className="w-full text-[11px] h-8 gap-1 rounded-[12px] bg-zinc-50 dark:bg-[#111214] border-none" asChild>
+                                         <Button variant="outline" size="sm" className="w-full text-[11px] h-8 gap-1 rounded-[12px] bg-zinc-50 dark:bg-muted border-none" asChild>
                                            <a href={`https://www.google.com/maps/dir/?api=1&destination=${item.lat && item.lng ? `${item.lat},${item.lng}` : encodeURIComponent(item.address)}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
                                              <MapPin size={12} /> Rota
                                            </a>
@@ -629,12 +611,12 @@ export function ServiceOrdersPage() {
              </div>
           </div>
 
-          <div className="flex-1 bg-white dark:bg-[#16171a] border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm flex flex-col h-full relative">
+          <div className="flex-1 bg-white dark:bg-card border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm flex flex-col h-full relative">
             <ScrollArea className="flex-1 relative">
                <div className="min-w-max pb-10">
                  {/* Header Row (Technicians) */}
-                 <div className="flex border-b border-zinc-200 dark:border-zinc-800 sticky top-0 bg-zinc-50 dark:bg-[#1c1d21] z-20 shadow-sm">
-                    <div className="w-20 shrink-0 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#1c1d21] p-3 flex flex-col justify-end text-[10px] font-bold text-zinc-400 text-right uppercase">
+                 <div className="flex border-b border-zinc-200 dark:border-zinc-800 sticky top-0 bg-zinc-50 dark:bg-muted z-20 shadow-sm">
+                    <div className="w-20 shrink-0 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-muted p-3 flex flex-col justify-end text-[10px] font-bold text-zinc-400 text-right uppercase">
                        Horário
                     </div>
                     {technicians.filter(t => t.active !== false).map(tech => (
@@ -654,7 +636,7 @@ export function ServiceOrdersPage() {
                  <div className="relative">
                     {['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map(hour => (
                        <div key={hour} className="flex border-b border-zinc-100 dark:border-zinc-800/50 group relative">
-                          <div className="w-20 shrink-0 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#1c1d21] p-2 text-xs font-bold text-zinc-400 text-right flex items-center justify-end sticky left-0 z-10 transition-colors group-hover:bg-zinc-100 dark:group-hover:bg-zinc-800">
+                          <div className="w-20 shrink-0 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-muted p-2 text-xs font-bold text-zinc-400 text-right flex items-center justify-end sticky left-0 z-10 transition-colors group-hover:bg-zinc-100 dark:group-hover:bg-zinc-800">
                              {hour}
                           </div>
                           
@@ -770,7 +752,7 @@ export function ServiceOrdersPage() {
                   const isExpanded = selectedCalendarOS?.id === os.id;
                   
                   return (
-                    <Card key={os.id} className={`border border-zinc-200 dark:border-zinc-800 shadow-sm transition-all overflow-hidden bg-white dark:bg-[#16171a] ticket-shape relative ${isExpanded ? 'ring-2 ring-blue-500 shadow-md' : 'hover:border-zinc-300 dark:hover:border-zinc-700'}`}>
+                    <Card key={os.id} className={`border border-zinc-200 dark:border-zinc-800 shadow-sm transition-all overflow-hidden bg-white dark:bg-card ticket-shape relative ${isExpanded ? 'ring-2 ring-blue-500 shadow-md' : 'hover:border-zinc-300 dark:hover:border-zinc-700'}`}>
                       <div className="absolute top-0 bottom-0 left-[120px] md:left-[108px] border-l border-dashed border-zinc-200 dark:border-white/5 z-0" />
                       {/* HEADER COMPACT (ALWAYS VISIBLE) */}
                       <div 
@@ -873,7 +855,7 @@ export function ServiceOrdersPage() {
                              {/* Side panel Map integration */}
                              <div className="w-full md:w-64 shrink-0 flex flex-col gap-3">
                                <div className="bg-zinc-100 dark:bg-zinc-800 rounded-xl overflow-hidden relative flex flex-col h-40 border border-zinc-200 dark:border-zinc-700">
-                                  <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'url("https://www.transparenttextures.com/patterns/cubes.png")' }}></div>
+                                  <div className="absolute inset-0 opacity-10 pointer-events-none bg-[size:24px_24px] bg-[radial-gradient(circle,currentColor_1px,transparent_1px)] text-zinc-400 dark:text-zinc-600"></div>
                                   <div className="flex-1 flex items-center justify-center relative z-10 p-4">
                                      <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center absolute animate-ping"></div>
                                      <MapPin size={28} className="text-blue-500 absolute drop-shadow-md" />
@@ -1166,7 +1148,7 @@ export function ServiceOrdersPage() {
       <Dialog open={isWhatsappDialogOpen} onOpenChange={setIsWhatsappDialogOpen}>
         <DialogContent className="sm:max-w-[800px] h-[80vh] flex flex-col p-0 overflow-hidden bg-zinc-50 dark:bg-zinc-950">
           <DialogTitle className="sr-only">Simulador do Telefone do Técnico</DialogTitle>
-          <div className="bg-[#075E54] dark:bg-zinc-900 text-white p-4 flex items-center justify-between shrink-0">
+          <div className="bg-emerald-800 dark:bg-zinc-900 text-white p-4 flex items-center justify-between shrink-0">
              <div className="flex items-center gap-3">
                 <Smartphone size={20} />
                 <div>
@@ -1200,7 +1182,7 @@ export function ServiceOrdersPage() {
              </div>
 
              {/* Chat Mock Area */}
-             <div className="flex-1 flex flex-col bg-[#efeae2] dark:bg-zinc-950 relative" style={{ backgroundImage: 'url("https://w0.peakpx.com/wallpaper/818/148/HD-wallpaper-whatsapp-background-solid-color-dark.jpg")', backgroundSize: 'cover', backgroundBlendMode: 'soft-light' }}>
+             <div className="flex-1 flex flex-col bg-[#efeae2] dark:bg-zinc-950 relative">
                 <ScrollArea className="flex-1 p-4">
                    <div className="space-y-4">
                       {whatsappSimulationLog.length === 0 ? (
@@ -1262,6 +1244,44 @@ export function ServiceOrdersPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* PHONE DIALOG — substitui window.prompt para notificação de cliente */}
+      <Dialog open={isPhoneDialogOpen} onOpenChange={setIsPhoneDialogOpen}>
+        <DialogContent className="sm:max-w-[360px]">
+          <DialogHeader>
+            <DialogTitle>Número do Cliente</DialogTitle>
+            <DialogDescription>
+              Número não encontrado no cadastro. Digite com DDD.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <Input
+              placeholder="Ex: 11999998888"
+              value={pendingPhone}
+              onChange={(e) => setPendingPhone(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && pendingPhone.trim()) {
+                  setIsPhoneDialogOpen(false);
+                  if (pendingNotifyOS) doNotifyCustomer(pendingNotifyOS, pendingPhone);
+                  setPendingNotifyOS(null);
+                }
+              }}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setIsPhoneDialogOpen(false); setPendingNotifyOS(null); }}>Cancelar</Button>
+            <Button
+              disabled={!pendingPhone.trim()}
+              onClick={() => {
+                setIsPhoneDialogOpen(false);
+                if (pendingNotifyOS) doNotifyCustomer(pendingNotifyOS, pendingPhone);
+                setPendingNotifyOS(null);
+              }}
+            >Enviar Notificação</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

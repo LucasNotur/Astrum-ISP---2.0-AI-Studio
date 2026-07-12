@@ -257,7 +257,7 @@ export function TicketsPage() {
                         <span className="text-xs text-zinc-500">{t.category || 'Geral'}</span>
                       </TableCell>
                       <TableCell className="text-xs text-zinc-500">
-                        {t.createdAt?.toDate ? formatDateOnly(t.createdAt.toDate()) : 'Recente'}
+                        {t.createdAt ? formatDateOnly(new Date(t.createdAt?.toDate ? t.createdAt.toDate() : t.createdAt)) : 'Recente'}
                       </TableCell>
                     </TableRow>
                   )
@@ -349,9 +349,9 @@ function TicketColumn({ title, status, tickets, customers, onTicketClick }: any)
           {visibleTickets.map((t: any) => {
             const customer = customers?.find((c: any) => c.id === t.customerId);
             return (
-              <Card 
-                key={t.id} 
-                className={`border-none shadow-[0_8px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] hover:scale-[1.02] transition-all duration-300 cursor-pointer group relative bg-white dark:bg-[#16171a] rounded-[16px] overflow-hidden ticket-shape ${t.status === 'snoozed' ? 'opacity-80 grayscale-[0.3]' : ''}`}
+              <Card
+                key={t.id}
+                className={`border-none shadow-[0_8px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] hover:scale-[1.02] transition-all duration-300 cursor-pointer group relative bg-white dark:bg-card rounded-[16px] overflow-hidden ticket-shape ${t.status === 'snoozed' ? 'opacity-80 grayscale-[0.3]' : ''}`}
                 onClick={() => onTicketClick(t)}
               >
                 <div className="absolute top-0 bottom-0 left-8 border-l border-dashed border-zinc-200 dark:border-white/5" />
@@ -382,7 +382,7 @@ function TicketColumn({ title, status, tickets, customers, onTicketClick }: any)
                     
                     <h4 className="font-bold tracking-tight text-[15px] mb-2 text-zinc-900 dark:text-zinc-100 leading-snug">{t.subject}</h4>
                     
-                    <div className="flex items-center gap-2 mb-4 bg-zinc-50 dark:bg-[#111214] p-2 rounded-lg">
+                    <div className="flex items-center gap-2 mb-4 bg-zinc-50 dark:bg-muted p-2 rounded-lg">
                       <Avatar className="h-6 w-6">
                         <AvatarImage src={customer?.avatar || customer?.photoUrl || customer?.avatarUrl || customer?.profilePicUrl} />
                         <AvatarFallback className="text-[9px] bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">{customer ? customer.name.charAt(0) : 'A'}</AvatarFallback>

@@ -24,6 +24,21 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-12] U4-04 — Tickets + Ordens de Serviço (Onda 4)
+Tarefa: Corrigir tokens dark mode + window.prompt + URLs externas em TicketsPage e ServiceOrdersPage.
+Arquivos modificados:
+  - src/pages/TicketsPage.tsx — dark:bg-[#16171a] → dark:bg-card, dark:bg-[#111214] → dark:bg-muted,
+    date .toDate() guards robustecidos
+  - src/pages/ServiceOrdersPage.tsx — dark:bg-[#16171a/111214/1c1d21] → tokens semânticos,
+    bg-[#075E54] → bg-emerald-800, window.prompt() substituído por Dialog (isPhoneDialogOpen),
+    URLs de imagem externa removidas (peakpx + transparenttextures)
+Testes: todos os testes existentes passam (18 testes)
+Status: ✅ Concluído
+Observações: ServiceOrdersPage 1308L — cirúrgico, sem reescrita. window.prompt foi o único
+  anti-pattern R2a. handleNotifyCustomer dividido em handleNotifyCustomer + doNotifyCustomer.
+
+---
+
 [2026-07-12] U4-03 — CobrAI + Campanhas (IA-26) (Onda 4)
 Tarefa: Redesign CobrAIPage — table dark mode, error states, título Firestore removido, link IA-26.
 Arquivos criados:
