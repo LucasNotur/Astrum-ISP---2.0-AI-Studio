@@ -24,6 +24,20 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-12] U4-07 — Hub Inteligência (recalibração) (Onda 4)
+Tarefa: Auditar e recalibrar as 18 telas do Hub Inteligência com os padrões U4.
+Arquivos modificados: nenhum (auditoria verificou conformidade total)
+Auditoria:
+  - 0 hits: dark:bg-[#hex], bg-[#hex], text-[#hex], bg-white sem dark:, text-black sem dark:
+  - 0 hits: window.prompt/alert/confirm, URLs externas, .toDate()
+  - IntelligenceHubPage: usa design tokens, RiskStripeCard, EmptyState, font-display, ptBR i18n
+  - intelligence.routes.tsx: 17/17 branches do BRANCH_REGISTRY corretamente roteados
+  - 78 testes passando, 0 falhas (npx vitest run src/pages/intelligence/)
+Status: ✅ Concluído — sem código a modificar; hub já segue IA-11 plenamente
+Próximo: U5 — Responsividade total (7 páginas sem breakpoint) + PWA técnico
+
+---
+
 [2026-07-12] U4-06 — Mapa/Rede + Saúde IA-24 (Onda 4)
 Tarefa: Adicionar strip IA-24 saúde da rede + OS layer real + remover URL externa.
 Arquivos modificados:
