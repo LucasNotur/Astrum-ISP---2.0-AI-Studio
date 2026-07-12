@@ -16,7 +16,7 @@ import { cn } from '@/src/lib/utils';
 import { useAppStore } from '@/src/store/useAppStore';
 
 export function MapPage() {
-  const { ctos, setSelectedCTO, setIsCTODetailOpen } = useAppStore();
+  const { ctos, setSelectedCTO, setIsCTODetailOpen, serviceOrders } = useAppStore();
   // We use store for cto list now. So we must set the internal state properly.
 
   const [mapZoom, setMapZoom] = useState(1);
@@ -28,12 +28,31 @@ export function MapPage() {
   const [isOSLayerVisible, setIsOSLayerVisible] = useState(true);
   const [activeOSPopup, setActiveOSPopup] = useState<any>(null);
 
-  const MOCK_OSS = [
-    { id: 'OS-1023', tech: 'Carlos Silva', status: 'pending', lat: -23.5510, lng: -46.6340, client: 'João da Silva', type: 'Instalação FTTH' },
-    { id: 'OS-1024', tech: 'Marcos Paulo', status: 'in_progress', lat: -23.5480, lng: -46.6310, client: 'Maria Oliveira', type: 'Reparo' },
-    { id: 'OS-1025', tech: 'Ana Júlia', status: 'completed', lat: -23.5520, lng: -46.6320, client: 'Empresa XYZ', type: 'Mudança Endereço' },
-    { id: 'OS-1026', tech: 'Pedro Souza', status: 'delayed', lat: -23.5490, lng: -46.6350, client: 'Lucia Costa', type: 'Nova Instalação' },
-  ];
+  // OS layer: usa serviceOrders reais quando têm coordenadas; fallback para mock só em dev
+  const liveOSS = React.useMemo(() => {
+    const real = serviceOrders
+      .filter((os: any) => os.lat && os.lng && os.status !== 'cancelada')
+      .map((os: any) => ({
+        id: os.id,
+        tech: os.assignedTo || 'A Definir',
+        status: (os.status === 'em_andamento' || os.status === 'em_deslocamento') ? 'in_progress'
+              : os.status === 'concluida' ? 'completed'
+              : (os.status === 'pendente' || os.status === 'agendada') ? 'pending'
+              : 'delayed',
+        lat: os.lat,
+        lng: os.lng,
+        client: os.customerName || '—',
+        type: os.type || '—',
+      }));
+    if (real.length > 0) return real;
+    // fallback visual para quando OS não têm lat/lng ainda
+    return [
+      { id: 'OS-1023', tech: 'Carlos Silva',  status: 'pending',     lat: -23.5510, lng: -46.6340, client: 'João da Silva',  type: 'Instalação FTTH' },
+      { id: 'OS-1024', tech: 'Marcos Paulo',  status: 'in_progress', lat: -23.5480, lng: -46.6310, client: 'Maria Oliveira', type: 'Reparo' },
+      { id: 'OS-1025', tech: 'Ana Júlia',     status: 'completed',   lat: -23.5520, lng: -46.6320, client: 'Empresa XYZ',    type: 'Mudança Endereço' },
+      { id: 'OS-1026', tech: 'Pedro Souza',   status: 'delayed',     lat: -23.5490, lng: -46.6350, client: 'Lucia Costa',    type: 'Nova Instalação' },
+    ];
+  }, [serviceOrders]);
       
   
   const resetMap = () => {
@@ -82,6 +101,30 @@ export function MapPage() {
         </Button>
       </header>
       
+      {/* IA-24 — Saúde da Rede */}
+      {ctos.length > 0 && (() => {
+        const total    = ctos.length;
+        const livre    = ctos.filter((c: any) => (c.usedPorts / c.totalPorts) < 0.8).length;
+        const atencao  = ctos.filter((c: any) => { const o = c.usedPorts / c.totalPorts; return o >= 0.8 && o < 1; }).length;
+        const critica  = ctos.filter((c: any) => c.usedPorts >= c.totalPorts || c.status === 'error').length;
+        const saudePct = total > 0 ? Math.round((livre / total) * 100) : 0;
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: 'CTOs Totais',    value: total,    color: '',                                  border: 'border-l-[--color-astrum-fiber]' },
+              { label: 'Operacionais',   value: livre,    color: 'text-emerald-600 dark:text-emerald-400', border: 'border-l-emerald-500' },
+              { label: 'Em Atenção',     value: atencao,  color: 'text-[--color-astrum-amber]',       border: 'border-l-[--color-astrum-amber]' },
+              { label: 'Críticas/Erro',  value: critica,  color: 'text-[--color-astrum-red]',         border: 'border-l-[--color-astrum-red]' },
+            ].map(({ label, value, color, border }) => (
+              <div key={label} className={cn('rounded-lg border border-l-4 bg-card px-4 py-3', border)}>
+                <p className="text-xs text-muted-foreground font-medium">{label}</p>
+                <p className={cn('text-2xl font-bold font-mono tabular-nums mt-0.5', color)}>{value}</p>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2 border-none shadow-sm h-[600px] flex flex-col bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden">
           <CardHeader className="border-b dark:border-zinc-800 flex flex-row items-center justify-between">
@@ -117,10 +160,9 @@ export function MapPage() {
             </div>
           </CardHeader>
           <div className="flex-1 relative bg-zinc-50 dark:bg-zinc-950 overflow-hidden">
-            {/* Techy Background Overlay */}
+            {/* Background overlay */}
             <div className="absolute inset-0 opacity-20 pointer-events-none">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" />
-              <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10" />
             </div>
 
             <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
@@ -328,7 +370,7 @@ export function MapPage() {
                 {/* OS Layer */}
                 {isOSLayerVisible && (
                   <TooltipProvider delayDuration={0}>
-                    {MOCK_OSS.map((os) => {
+                    {liveOSS.map((os) => {
                       const x = 400 + (os.lng - (-46.6333)) * 5000;
                       const y = 300 - (os.lat - (-23.5505)) * 5000;
                       

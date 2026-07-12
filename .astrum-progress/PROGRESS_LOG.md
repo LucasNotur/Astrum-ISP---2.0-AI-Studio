@@ -24,6 +24,16 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-12] U4-06 — Mapa/Rede + Saúde IA-24 (Onda 4)
+Tarefa: Adicionar strip IA-24 saúde da rede + OS layer real + remover URL externa.
+Arquivos modificados:
+  - src/pages/MapPage.tsx — serviceOrders do store (substitui MOCK_OSS hardcoded com fallback
+    quando sem lat/lng), strip IA-24 com 4 tiles (Total/Operacionais/Atenção/Críticas),
+    URL externa transparenttextures.com removida
+Status: ✅ Concluído
+
+---
+
 [2026-07-12] U4-05 — Clientes (IA-28 + IA-38) (Onda 4)
 Tarefa: Adicionar strip de churn IA-38 + card de comunicação IA-28 + fix dark mode.
 Arquivos modificados:
