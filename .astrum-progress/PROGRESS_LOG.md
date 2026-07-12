@@ -24,6 +24,27 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-12] U7 — Qualidade contínua (Playwright e2e, testes componente, /design, bundle splitting) — ONDA 4 FECHADA
+Tarefa: Bloco U7 final do PLANO_C — garantias de qualidade automáticas.
+Arquivos criados:
+  - playwright.config.ts (raiz) — novo config apontando para frontend legado porta 5173; substitui apps/web/playwright.config.ts (C5 corrigido)
+  - e2e/helpers/auth.ts — mock Supabase para e2e (FAKE_SESSION, loginAs, loginViaStorage; LIFO route registration)
+  - e2e/auth.spec.ts (5 cenários), e2e/dashboard.spec.ts (4), e2e/chat.spec.ts (3), e2e/cobrai.spec.ts (4)
+  - src/components/ui/PageHeader.test.tsx (6 testes), FilterBar.test.tsx (6), DetailSheet.test.tsx (8), FormSection.test.tsx (6), DangerZone.test.tsx (7)
+  - src/pages/DesignPage.tsx — living documentation gated super_admin; seções: U1-03 patterns, primitivos, tokens de cor, tipografia, anti-patterns RN21
+Arquivos modificados:
+  - src/routes/main.routes.tsx — lazy import ChatPage/BIPage/DesignPage; rota /design (SuperAdminRoute); Suspense wrapper L
+  - src/components/layout/Sidebar.tsx — NavItem "Design System" (Sparkles icon) para super_admin
+  - vite.config.ts — rollup-plugin-visualizer (ANALYZE=true) + manualChunks: vendor-charts/supabase/query/motion/icons/radix
+  - package.json — test:e2e aponta para raiz; + build:analyze
+  - .astrum-progress/nextgen-2.0/PLANO_C_UIUX_OPERACIONAL__CONCLUIDO.md — U7 marcado ✅
+Testes: 33 novos testes Vitest componentes passando (PageHeader/FilterBar/DetailSheet/FormSection/DangerZone)
+Bundle: vendor-charts 760kB, vendor-supabase 200kB, vendor-radix 161kB, vendor-motion 140kB, ChatPage lazy 108kB
+Status: ✅ Concluído — ONDA 4 (PLANO_C) FECHADA
+Próximo: D-06 (copiloto de campo) — sessão RN17 de expansão (Onda 5)
+
+---
+
 [2026-07-12] U5 — Responsividade total + PWA técnico (Onda 5)
 Tarefa: Tornar as páginas sem breakpoint responsivas + PWA instalável para técnico de campo.
 Arquivos criados:

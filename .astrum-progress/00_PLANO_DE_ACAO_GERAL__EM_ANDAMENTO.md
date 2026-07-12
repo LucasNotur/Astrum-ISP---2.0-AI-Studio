@@ -25,8 +25,10 @@
 | `PLANO_FIRESTORE_ZERO__CONCLUIDO.md` | Firestore 100% removido; Supabase único banco (R2) | 2026-07-03 |
 | `ia-nextgen/PARTE1_IA01-IA10_backend__CONCLUIDO.md` | IA-01..IA-10 100% (A3 da IA-08 fechou em 2026-07-09) | 2026-07-09 |
 | `ia-nextgen/PARTE2_IA11-IA46_fullstack__CONCLUIDO.md` | Fase 1 + Fase 2 100% (GATED IA-18/20/41 documentadas à parte, reavaliadas na Onda 5) | 2026-07-09 |
+| `nextgen-2.0/PLANO_C_UIUX_OPERACIONAL__CONCLUIDO.md` | UI/UX U0–U7: auditoria, tokens, componentes, onboarding, dashboards configuráveis, módulos por tenant, responsividade/PWA, qualidade (Playwright + Vitest + /design + bundle) | 2026-07-12 |
 
 **Onda 1 FECHADA** (2026-07-09) — critério de fechamento cumprido: PARTE1 e PARTE2 renomeadas `__CONCLUIDO`.
+**Onda 4 FECHADA** (2026-07-12) — U0–U7 todos executados; PLANO_C renomeado `__CONCLUIDO`.
 
 ### 🔶 Em andamento (código avançado, falta fechar)
 | Plano | Feito | Falta |
@@ -36,8 +38,7 @@
 ### ⬜ Pendentes (planejados em detalhe, execução iniciada ou zero)
 | Plano | Conteúdo | Desbloqueio |
 |---|---|---|
-| `nextgen-2.0/PLANO_B_PARIDADE_CONCORRENTES__PENDENTE.md` | Escada de entrada via ERP + blocos P0–P6. **P0 CODE-COMPLETE (2026-07-09), P1 CODE-COMPLETE (2026-07-11)** — migrations de 4 tabelas pendentes (dever do Lucas) | **P2 é o próximo bloco a executar** (Onda 3) |
-| `nextgen-2.0/PLANO_C_UIUX_OPERACIONAL__PENDENTE.md` | UI/UX fases U0–U7 | U0/U1 liberadas; U2+ **BLOQUEADA nas imagens do Lucas** (GATE-VISUAL) |
+| `nextgen-2.0/PLANO_B_PARIDADE_CONCORRENTES__PENDENTE.md` | Escada de entrada via ERP + blocos P0–P6. **P0–P5 CODE-COMPLETE (2026-07-09/11)** — migrations pendentes (dever do Lucas: `trust_unlock_*`, `tenant_meta_pages`, `tenant_email_inboxes`, `067_p3_sales_leads`, `068_p5_valor_gerado`) | **P6 bloqueado em parceria comercial CPE/OZmap (Lucas)** — Onda 3 |
 | `nextgen-2.0/PLANO_A_DIFERENCIAL_TECNOLOGIAS_INEDITAS__PENDENTE.md` | 12 tecnologias inéditas D-01..D-12 | Gates de combustível (tráfego real, dados, conectores) — Onda 5 |
 
 ### 📋 Aguardando decisão (dever de casa do LUCAS — §4)
@@ -58,10 +59,10 @@
 
 ```
 ONDA 1  Fechar o IA-NEXTGEN (Fase 2 + IA-08 A3)          ← FECHADA (2026-07-09)
-ONDA 2  Operar de verdade (cutovers + gate final do V2)   ← AGORA (bloqueada no Lucas)
-ONDA 3  Plano B — entrada no mercado (P0 done → P1)       ← AGORA (P0 code-complete)
-ONDA 4  Plano C — UI/UX                                   ← U0/U1 já; resto pós-imagens
-ONDA 5  Plano A — diferenciais inéditos                   ← conforme combustível
+ONDA 2  Operar de verdade (cutovers + gate final do V2)   ← BLOQUEADA no Lucas (cutover + pilot)
+ONDA 3  Plano B — entrada no mercado (P0–P5 done)         ← P6 bloqueado em parceria Lucas
+ONDA 4  Plano C — UI/UX                                   ← FECHADA (2026-07-12, U0–U7 done)
+ONDA 5  Plano A — diferenciais inéditos                   ← conforme combustível (D-06/D-07 desbloqueados)
 ```
 Regra de paralelismo: nunca 2 sessões tocando os MESMOS arquivos ao mesmo tempo
 (lição da consolidação de 2026-07-06). Ondas 1 e 3 intercalam bem (domínios
@@ -93,42 +94,42 @@ Fonte: `PLANO_MESTRE_V2__EM_ANDAMENTO.md` + `docs/ASTRUM_ESTADO_FINAL_PLANO_V2.m
 **Critério de fechamento:** motor novo com 100% do tráfego do piloto por 30 dias
 sem rollback.
 
-### ONDA 3 — Entrada no mercado (Plano B; P0 CODE-COMPLETE, P1 é o próximo passo)
+### ONDA 3 — Entrada no mercado (Plano B; P0–P5 CODE-COMPLETE)
 Fonte: `PLANO_B_PARIDADE_CONCORRENTES__PENDENTE.md` (blocos P0–P6 com metas RN20).
-1. ~~P0-01 conector IXC~~ ✅ — feito na S75. *Lucas:* ainda falta conseguir acesso
-   a uma instância IXC de teste (parceiro/trial) para validar contra API real —
-   SEM isso o P0 fica sem homologação (não bloqueia o código de P1 em diante).
-2. ~~P0-02..05 (Voalle/MK/SGP/Hubsoft)~~ ✅ — feito em 2026-07-09 (commit `d3c12fc`).
-3. ~~P0-06 (tools do agente operando o ERP)~~ ✅ — só `check_invoice` migrado;
-   `suspend_signal`/`schedule_technical_visit` via ERP ficam para sessão futura.
-4. ~~P1 (religue por confiança, notificação de falha, negociação, handover)~~ ✅ CODE-COMPLETE 2026-07-11.
-   **PRÓXIMO: P2** (Instagram/e-mail/inbox) →
-   P3 (vendas) → P4 (portal do assinante) → P5 (dashboard de valor + trial sem
-   fricção + kit compliance) → P6 (parcerias CPE/OZmap — *Lucas:* contato comercial).
-5. Em paralelo com P5: *Lucas* fecha as decisões de PREÇO (doc
-   `__AGUARDANDO_DECISAO`).
+1. ~~P0-01..05 conectores IXC/Voalle/MK/SGP/Hubsoft~~ ✅ — code-complete (S75 + 2026-07-09).
+   *Lucas:* acesso a instância IXC real para homologação pendente (não bloqueia código).
+2. ~~P0-06 (tools do agente operando o ERP)~~ ✅ `check_invoice` migrado; `suspend_signal`/`schedule_technical_visit` via ERP ficam para sessão futura.
+3. ~~P1 (religue, notificação proativa, negociação, handover)~~ ✅ CODE-COMPLETE 2026-07-11.
+   *Lucas:* migrations `trust_unlock_policies`, `trust_unlocks`, `outage_notifications` pendentes.
+4. ~~P2 (Instagram/Messenger/e-mail/inbox unificada)~~ ✅ CODE-COMPLETE 2026-07-11.
+   *Lucas:* migrations `tenant_meta_pages`, `tenant_email_inboxes` pendentes.
+5. ~~P3 (funil de vendas + subgrafo + contrato digital)~~ ✅ CODE-COMPLETE 2026-07-11.
+   *Lucas:* migration `067_p3_sales_leads` + `CLICKSIGN_API_KEY`/`D4SIGN_API_KEY` pendentes.
+6. ~~P4 (central do assinante PWA + diagnóstico self-service)~~ ✅ CODE-COMPLETE 2026-07-11.
+   *Lucas:* popular `customers.cpf`/`legacy_id` no tenant piloto + decidir URL do PWA.
+7. ~~P5 (dashboard Valor Gerado + status page + kit compliance + case engine + trial sem fricção)~~ ✅ CODE-COMPLETE 2026-07-11.
+   *Lucas:* migration `068_p5_valor_gerado` pendente + decisões de PREÇO (`__AGUARDANDO_DECISAO`).
+8. **P6 (CPE/OZmap — parceria comercial):** bloqueado em *Lucas* — contato com Anlix/Flashman ou ACS do ERP.
+**Critério de fechamento:** 1º ISP externo pagante operando via conector, com dashboard de valor ROI ≥3× medido.
 **Critério de fechamento:** 1º ISP externo pagante operando via conector, com
 dashboard de valor mostrando ROI ≥3× medido.
 
-### ONDA 4 — UI/UX (Plano C)
-Fonte: `PLANO_C_UIUX_OPERACIONAL__PENDENTE.md`.
-1. **Já liberadas (sem depender de imagens):** U0-01 auditoria das 38 telas →
-   U0-02 telemetria de uso → U1-01 desmontar App.tsx (5.903 linhas) → U1-02/03/04
-   tokens/padrões/lint.
-2. **GATE-VISUAL (bloqueado no Lucas):** enviar as IMAGENS de referência com
-   observações (incluindo os 2 pins do Pinterest que ficaram atrás de login).
-   ⚠️ A 1ª hipótese (blueprint neon dark) foi REJEITADA — não retomar.
-3. U2: destilar linguagem → **Skill `astrum-design`** → tela piloto → aprovação
-   do Lucas → U3 (shell/command palette) → U4 (redesign por persona) → U5
-   (responsividade/PWA campo) → U6 (white-label/config por ISP) → U7 (qualidade).
-**Critério de fechamento:** 38 telas no padrão da skill, auditoria U0 toda verde.
+### ONDA 4 — UI/UX (Plano C) — ✅ FECHADA (2026-07-12)
+Fonte: `PLANO_C_UIUX_OPERACIONAL__CONCLUIDO.md`.
+Todos os blocos U0–U7 executados:
+- U0 (auditoria + telemetria) · U1 (tokens + componentes + lint) · U2 (design language + skill) ·
+  U3 (command palette) · U4 (redesign por persona — 38 telas) · U5 (responsividade + PWA campo) ·
+  U6 (onboarding tour + central de ajuda + módulos por tenant + dashboard configurável) ·
+  U7 (Playwright e2e raiz, Vitest componentes, /design page, bundle splitting)
+Arquivo renomeado: `PLANO_C_UIUX_OPERACIONAL__CONCLUIDO.md` (2026-07-12).
 
 ### ONDA 5 — Diferenciais inéditos (Plano A; abre por combustível)
 Fonte: `PLANO_A_DIFERENCIAL_TECNOLOGIAS_INEDITAS__PENDENTE.md` (§3 tem o mapa).
+- **DESBLOQUEADOS agora (P0+P3 ✅):** D-06 (copiloto de campo) e D-07 (vendedor com LTV).
+  → Próximo passo: sessão de expansão RN17 para reescrever D-06 ou D-07 em densidade §4.
 - Com Onda 2 fechada → D-05 (KB viva) e D-04 (NOC autônomo).
 - Com 90d de dados → D-02 (backtesting de régua — a máquina de cases) → D-08
   (CFO virtual) → D-01 (gêmeo digital).
-- Com P0+P3 → D-06 (copiloto de campo) e D-07 (vendedor com LTV).
 - Com escala/decisão → D-03, D-10, D-12; com ≥10 tenants → D-09; com parceiros
   → D-11. GATED IA-18/20/41 reavaliadas aqui.
 Cada onda de D-XX começa com sessão de expansão (RN17) — nunca executar direto.
@@ -137,13 +138,13 @@ Cada onda de D-XX começa com sessão de expansão (RN17) — nunca executar dir
 
 ## §3 — MAPA DE DEPENDÊNCIAS (visão de 1 tela)
 ```
-ONDA 1 (motor) ──────────► ONDA 2 (cutover) ──► flags ON ──► ONDA 5 (D-04/05...)
-     │                          ▲                                   ▲
-     └── IA-46 replay ──────────┘                                   │
-ONDA 3 (P0 conectores) ── pode começar JÁ ──► P1..P5 ──► 1º cliente pagante
-     │                                                              │
-     └── P0+P3 ────────────────────────────────────────────► D-06/D-07
-ONDA 4 (UI): U0/U1 JÁ ──► [IMAGENS DO LUCAS] ──► Skill ──► U2..U7
+ONDA 1 (motor) ✅ ───────► ONDA 2 (cutover) ──► flags ON ──► ONDA 5 (D-04/05...)
+     │                          ▲ [bloqueada Lucas]                ▲
+     └── IA-46 replay ──────────┘                                  │
+ONDA 3 (P0–P5 done) ──────────────────────► P6 parceria ──► 1º cliente pagante
+     │                                       [Lucas]               │
+     └── P0+P3 ✅ ────────────────────────────────────────► D-06/D-07 [desbl.]
+ONDA 4 (UI) ✅ ────────────────────────────────────────────────────────────────
 ```
 
 ## §4 — DEVER DE CASA DO LUCAS (tudo que só você pode fazer, consolidado)
