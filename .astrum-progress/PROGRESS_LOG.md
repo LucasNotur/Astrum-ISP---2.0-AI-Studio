@@ -24,6 +24,21 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-12] Fechar pendências de código — outage route + indexing.worker articles
+Tarefa: dois itens identificados como únicos resíduos de código puro pendentes.
+Arquivos criados:
+  - apps/api/src/domain/atendimento/outage-notifier.routes.ts — POST /api/v2/outages/notify (P1-02 completo)
+Arquivos modificados:
+  - packages/queue/src/workers/indexing.worker.ts — suporte a entityType='article' (aiProcessingQueue exportada, payload article_id, update knowledge_articles.ingest_status)
+  - apps/api/src/domain/conhecimento/kb-draft.service.ts — approveAndPublish agora enfileira job de indexação RAG via aiProcessingQueue
+  - apps/api/src/domain/conhecimento/kb-draft.service.test.ts — mock do aiProcessingQueue adicionado
+  - apps/api/src/server.ts — registra outageNotifierRoutes
+  - .astrum-progress/CHECKLIST_PENDENCIAS_EXTERNAS.md — rota outage marcada [x]
+Testes: 16 PASS (11 kb-draft + 5 outage-notifier), FAIL 0
+Status: ✅ Concluído — CODING ENCERRADO. Tudo que resta é operacional (cutovers, credenciais, migrations, tenant piloto).
+
+---
+
 [2026-07-12] D-05 — Memória institucional viva: KB que se escreve sozinha (Onda 5)
 Tarefa: RN17 expansão de D-05 + implementação — detector de conversas resolvidas → gerador de rascunho GPT-4o → curadoria humana → publicação no RAG.
 Arquivos criados:

@@ -272,6 +272,10 @@ export async function buildServer() {
   const { kbDraftRoutes } = await import('./domain/conhecimento/kb-draft.routes');
   await app.register(kbDraftRoutes);
 
+  // P1-02 — Notificação proativa de falha em massa (operador dispara via CTO/região)
+  const { outageNotifierRoutes } = await import('./domain/atendimento/outage-notifier.routes');
+  await app.register(outageNotifierRoutes);
+
   // Health check com status dos serviços
   app.get('/api/v2/health', async () => {
     const { getLLMStatus } = await import('./adapters/ai/llm.adapter');

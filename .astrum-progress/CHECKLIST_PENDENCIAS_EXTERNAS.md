@@ -61,7 +61,7 @@
 - [ ] Testar `trust_unlocks` auditando o fluxo ponta-a-ponta com WhatsApp
 
 ### P1 — Notificação de falha em massa
-- [ ] Criar rota `POST /api/outages/notify` (rota HTTP de invocação ainda não criada)
+- [x] Criar rota `POST /api/v2/outages/notify` — criada em 2026-07-12 (`outage-notifier.routes.ts`)
 - [ ] Validar `outage_notifier.service.ts` enviando notificações reais via Evolution
 
 ### P3 — Funil de vendas

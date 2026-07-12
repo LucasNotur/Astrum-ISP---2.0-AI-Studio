@@ -8,6 +8,7 @@
 import supabase from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
 import { callOpenAI } from '../../adapters/openai/openai.adapter';
+import { aiProcessingQueue } from '../../../../packages/queue/src/workers/indexing.worker';
 
 export interface KbDraft {
   id: string;
@@ -233,7 +234,18 @@ export async function approveAndPublish(
 
   if (updErr) throw new Error(`approveAndPublish/update: ${updErr.message}`);
 
-  infraLogger.info({ tenantId, draftId, articleId: article.id }, 'D-05: artigo publicado');
+  // Enfileira indexação RAG — indexing.worker pega e atualiza ingest_status='indexed'
+  await aiProcessingQueue.add('index-article', {
+    tenantId,
+    documentId: article.id,   // campo obrigatório do tipo; reusado como fallback
+    articleId: article.id,
+    entityType: 'article',
+    filename: draft.draft_title,
+    fileType: 'md',
+    textContent: `# ${draft.draft_title}\n\n${draft.draft_body}`,
+  });
+
+  infraLogger.info({ tenantId, draftId, articleId: article.id }, 'D-05: artigo publicado e enfileirado para RAG');
   return { articleId: article.id };
 }
 
