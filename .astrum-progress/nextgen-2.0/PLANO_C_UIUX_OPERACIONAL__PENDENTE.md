@@ -193,8 +193,10 @@ não num dashboard genérico). `canAccess` (C7) já suporta.
   - `src/components/layout/Sidebar.tsx` — todos 15 itens de nav com `isEnabled()`
   - `src/pages/SettingsPage.tsx` — aba "Módulos" com Switch por módulo + save Supabase
   - `src/hooks/useEnabledModules.test.ts` — 5 testes Vitest (5/5 ✅)
-- **U6-03 — Dashboard configurável:** widgets arrastáveis (`@hello-pangea/dnd` já
-  é dep) por papel; presets por porte de ISP.
+- **U6-03 — Dashboard configurável:** ✅ Implementado:
+  - `src/lib/dashboard-registry.ts` — 3 widgets + 3 presets (small/medium/large ISP)
+  - `src/hooks/useDashboardLayout.ts` — ordem + visibilidade por tenant em localStorage
+  - `src/pages/DashboardPage.tsx` — botão "Configurar", painel DragDropContext com Switch + Draggable, presets aplicáveis; renderWidget() drive o overview tab
 - **U6-04 — Onboarding de USUÁRIO:** tour guiado por papel na 1ª entrada, empty
   states que ensinam (padrão IA-11), central de ajuda embutida.
 

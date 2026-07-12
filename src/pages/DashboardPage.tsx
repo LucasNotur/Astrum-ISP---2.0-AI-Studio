@@ -1,8 +1,12 @@
 import React, { useState, useMemo } from "react";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { useAppStore } from "@/src/store/useAppStore";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/src/components/ui/button";
+import { Switch } from "@/src/components/ui/switch";
+import { useDashboardLayout } from "@/src/hooks/useDashboardLayout";
+import { OVERVIEW_WIDGETS, DASHBOARD_PRESETS } from "@/src/lib/dashboard-registry";
 import {
   Card,
   CardContent,
@@ -48,6 +52,9 @@ import {
   Bot,
   MessageSquare,
   Clock,
+  Settings2,
+  GripVertical,
+  X,
 } from "lucide-react";
 import {
   AreaChart,
@@ -87,6 +94,16 @@ export function DashboardPage() {
 
   const [upsellEvents, setUpsellEvents] = useState<any[]>([]);
   const [csatRatings, setCsatRatings] = useState<any[]>([]);
+
+  const dashTenantId = companySettings?.tenant_id || 'DEFAULT_TENANT';
+  const {
+    items: dashWidgets,
+    editMode: dashEditMode,
+    setEditMode: setDashEditMode,
+    reorder: reorderWidget,
+    toggleVisibility: toggleWidget,
+    applyPreset: applyDashPreset,
+  } = useDashboardLayout(dashTenantId);
 
   React.useEffect(() => {
     const fetchData = async () => {
@@ -632,6 +649,121 @@ export function DashboardPage() {
     );
   };
 
+  const renderWidget = (id: string): React.ReactNode => {
+    switch (id) {
+      case 'operation-summary':
+        return isOwner ? (
+          <div className="mb-8 flex overflow-x-auto pb-4 gap-6 snap-x snap-mandatory scrollbar-hide -mx-2 px-2 md:grid md:grid-cols-3 md:overflow-visible md:pb-0 md:mx-0 md:px-0">
+            <Card className={`min-w-[85vw] snap-center md:min-w-0 border-l-4 ${operationMetrics.statusBorder} shadow-sm`}>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-zinc-500 flex items-center gap-2"><Activity size={16} /> Visão Geral da Operação</CardTitle></CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2 mb-2"><div className={`w-2.5 h-2.5 rounded-full ${operationMetrics.statusColor} animate-pulse`} /><span className="font-semibold text-lg">{operationMetrics.statusText}</span></div>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400">{operationMetrics.statusDesc}</p>
+              </CardContent>
+            </Card>
+            <Card className="min-w-[85vw] snap-center md:min-w-0 border-l-4 border-l-amber-500 shadow-sm">
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-zinc-500 flex items-center gap-2"><AlertTriangle size={16} /> Pontos de Atenção</CardTitle></CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">{operationMetrics.points.map((pt, i) => (<li key={i} className="flex items-start gap-2"><span className="mt-0.5">{pt.icon}</span><span>{pt.text}</span></li>))}</ul>
+              </CardContent>
+            </Card>
+            <Card className={`min-w-[85vw] snap-center md:min-w-0 border-l-4 ${operationMetrics.summaryBorder} shadow-sm ${operationMetrics.summaryBg}`}>
+              <CardHeader className="pb-2"><CardTitle className={`text-sm font-medium ${operationMetrics.summaryColor} flex items-center gap-2`}><Lightbulb size={16} /> Resumo Executivo</CardTitle></CardHeader>
+              <CardContent>
+                <p className="text-sm text-zinc-700 dark:text-zinc-300 mb-3">{operationMetrics.summaryText}</p>
+                <div className="bg-white dark:bg-zinc-800/50 p-2.5 rounded-md border border-inherit border-opacity-30">
+                  <p className={`text-xs font-medium ${operationMetrics.summaryColor} flex items-center gap-1.5`}><Target size={14} /> Recomendação</p>
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">{operationMetrics.recommendationText}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        ) : null;
+
+      case 'stat-cards':
+        return (
+          <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-5">
+            <StatCard loading={loading} title="Tickets Hoje" value={ticketsToday.toString()} icon={<Ticket className="text-orange-600" />} trend={ticketsTrend} up={!ticketsTrend.startsWith("-")} />
+            {isOwner ? (
+              <>
+                <StatCard loading={loading} title="Ticket Médio" value={`R$ ${avgTicket.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<DollarSign className="text-emerald-500" />} trend="" up />
+                <StatCard loading={loading} title="Faturamento (MRR)" value={`R$ ${totalMrr.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<DollarSign className="text-green-600" />} trend={mrrTrend} up={!mrrTrend.startsWith("-")} />
+                <StatCard loading={loading} title="Clientes Ativos" value={activeCustomersCount.toString()} icon={<Users className="text-blue-600" />} trend={customersTrend} up />
+                <StatCard loading={loading} title="Resolução IA" value={`${aiResolutionRate.toFixed(1)}%`} icon={<Bot className="text-purple-600" />} trend={aiResolutionTrend} up={!aiResolutionTrend.startsWith("-")} />
+              </>
+            ) : (
+              <>
+                <StatCard loading={loading} title="Tickets Pendentes" value={tickets.filter((t) => t.status === "open").length.toString()} icon={<AlertTriangle className="text-amber-500" />} trend="" up={false} />
+                <StatCard loading={loading} title="SLA Médio" value={`${avgResponseTime.toFixed(1)}s`} icon={<Clock className="text-blue-600" />} trend="-0.5s" up />
+                <StatCard loading={loading} title="Satisfação (NPS)" value={`${npsData.overallNPS}`} icon={<Smile className="text-green-600" />} trend={`${npsData.count} avaliações (30d)`} up />
+              </>
+            )}
+          </div>
+        );
+
+      case 'feed-and-tickets':
+        return (
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Card className="border-none shadow-sm flex flex-col">
+              <CardHeader><CardTitle>Atividade Recente</CardTitle><CardDescription>Últimas movimentações no sistema.</CardDescription></CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[250px] pr-4">
+                  <div className="space-y-4">
+                    {auditLogs.slice(0, 10).map((log, i) => (
+                      <div key={log.id} className="flex gap-3 relative">
+                        {i !== 9 && (<div className="absolute left-[15px] top-8 bottom-0 w-px bg-zinc-100 dark:bg-zinc-800" />)}
+                        <div className={cn("w-8 h-8 rounded-full shrink-0 flex items-center justify-center border-2 border-white dark:border-zinc-900 z-10", log.sentiment === "POSITIVO" ? "bg-green-100 text-green-600" : log.sentiment === "NEGATIVO" ? "bg-red-100 text-red-600" : "bg-zinc-100 text-zinc-600")}>
+                          {log.sentiment === "POSITIVO" ? <CheckCircle2 size={14} /> : log.sentiment === "NEGATIVO" ? <TrendingDown size={14} /> : <MessageSquare size={14} />}
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium">{log.category === "FATURA" ? "Consulta Financeira" : log.category === "SUPORTE_TECNICO" ? "Suporte Técnico" : "Atendimento Geral"}</p>
+                          <p className="text-[10px] text-zinc-500 line-clamp-1">{log.ticketId ? `Ticket #${log.ticketId.slice(0, 8)}` : log.action}{log.sentiment && ` - Sentimento ${log.sentiment.toLowerCase()}`}</p>
+                          <p className="text-[10px] text-zinc-400">{log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleTimeString() : "Agora"}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+            {isOwner && (
+              <Card className="border-none shadow-sm flex flex-col">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div><CardTitle>Tickets Críticos</CardTitle><CardDescription>Chamados urgentes que precisam de atenção imediata.</CardDescription></div>
+                  <Badge className="bg-red-500 border-none">Urgente</Badge>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {tickets.filter((t) => t.priority === "high" || t.priority === "urgent").length > 0 ? (
+                      tickets.filter((t) => t.priority === "high" || t.priority === "urgent").slice(0, 4).map((t) => (
+                        <div key={t.id} className="relative flex items-center justify-between p-4 rounded-[16px] bg-white dark:bg-[#16171a] shadow-[0_4px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.4)] overflow-hidden ticket-shape">
+                          <div className="absolute top-0 bottom-0 left-3 border-l border-dashed border-zinc-200 dark:border-white/5" />
+                          <div className="flex items-center gap-4 pl-2 relative z-10">
+                            <div className="w-8 shrink-0 flex items-center justify-center"><span className={cn("w-1.5 h-10 rounded-full", t.priority === "urgent" ? "bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]" : "bg-orange-500")} /></div>
+                            <div>
+                              <p className="text-[10px] font-mono font-bold text-zinc-400 mb-0.5">#{t.id.slice(0, 5)}</p>
+                              <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate max-w-[180px]">{t.subject}</p>
+                              <p className="text-[10px] font-medium text-zinc-500 mt-1">{customers.find((c) => c.id === t.customerId)?.name || "Cliente Desconhecido"}</p>
+                            </div>
+                          </div>
+                          <Button variant="secondary" size="sm" className="h-8 text-xs font-bold shrink-0 z-10" onClick={() => { setSelectedTicket(t); navigate("/tickets"); }}>Ver</Button>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-zinc-400 text-sm italic">Nenhum ticket crítico no momento.</div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   return (
     <motion.div
       key="dashboard"
@@ -651,6 +783,17 @@ export function DashboardPage() {
             <FileText size={14} />{" "}
             <span className="hidden md:inline">Exportar PDF</span>
           </Button>
+          {dashboardSubTab === "overview" && (
+            <Button
+              variant={dashEditMode ? "default" : "outline"}
+              size="sm"
+              className="gap-2"
+              onClick={() => setDashEditMode((v) => !v)}
+            >
+              {dashEditMode ? <X size={14} /> : <Settings2 size={14} />}
+              <span className="hidden md:inline">{dashEditMode ? "Fechar" : "Configurar"}</span>
+            </Button>
+          )}
           <div className="flex items-center overflow-x-auto bg-zinc-100 dark:bg-muted p-1.5 rounded-[20px] w-full md:w-auto border border-zinc-200/50 dark:border-white/5 backdrop-blur-md">
             <button
               onClick={() => setDashboardSubTab("overview")}
@@ -679,299 +822,63 @@ export function DashboardPage() {
       {/* P5-01 — Valor Gerado (visível para dono/admin, independe da sub-aba) */}
       {isOwner && <ValorGeradoSection />}
 
-      {dashboardSubTab === "overview" ? (
-        <>
-          {isOwner && (
-            <div className="mb-8 flex overflow-x-auto pb-4 gap-6 snap-x snap-mandatory scrollbar-hide -mx-2 px-2 md:grid md:grid-cols-3 md:overflow-visible md:pb-0 md:mx-0 md:px-0">
-              {/* Visão Geral */}
-              <Card
-                className={`min-w-[85vw] snap-center md:min-w-0 border-l-4 ${operationMetrics.statusBorder} shadow-sm`}
-              >
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-zinc-500 flex items-center gap-2">
-                    <Activity size={16} /> Visão Geral da Operação
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-2 mb-2">
-                    <div
-                      className={`w-2.5 h-2.5 rounded-full ${operationMetrics.statusColor} animate-pulse`}
-                    />
-                    <span className="font-semibold text-lg">
-                      {operationMetrics.statusText}
-                    </span>
-                  </div>
-                  <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                    {operationMetrics.statusDesc}
-                  </p>
-                </CardContent>
-              </Card>
-
-              {/* Pontos de Atenção */}
-              <Card className="min-w-[85vw] snap-center md:min-w-0 border-l-4 border-l-amber-500 shadow-sm">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-zinc-500 flex items-center gap-2">
-                    <AlertTriangle size={16} /> Pontos de Atenção
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2 text-sm">
-                    {operationMetrics.points.map((pt, i) => (
-                      <li key={i} className="flex items-start gap-2">
-                        <span className="mt-0.5">{pt.icon}</span>
-                        <span>{pt.text}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-
-              {/* Resumo Final & Recomendação */}
-              <Card
-                className={`min-w-[85vw] snap-center md:min-w-0 border-l-4 ${operationMetrics.summaryBorder} shadow-sm ${operationMetrics.summaryBg}`}
-              >
-                <CardHeader className="pb-2">
-                  <CardTitle
-                    className={`text-sm font-medium ${operationMetrics.summaryColor} flex items-center gap-2`}
-                  >
-                    <Lightbulb size={16} /> Resumo Executivo
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-zinc-700 dark:text-zinc-300 mb-3">
-                    {operationMetrics.summaryText}
-                  </p>
-                  <div className="bg-white dark:bg-zinc-800/50 p-2.5 rounded-md border border-inherit border-opacity-30">
-                    <p
-                      className={`text-xs font-medium ${operationMetrics.summaryColor} flex items-center gap-1.5`}
-                    >
-                      <Target size={14} /> Recomendação
-                    </p>
-                    <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
-                      {operationMetrics.recommendationText}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+      {dashboardSubTab === "overview" && dashEditMode ? (
+        <Card className="border-none shadow-sm dark:bg-zinc-900 max-w-xl">
+          <CardHeader className="border-b dark:border-zinc-800 pb-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-base"><Settings2 size={16} /> Configurar Dashboard</CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => setDashEditMode(false)}><X size={14} /></Button>
             </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-5">
-            <StatCard
-              loading={loading}
-              title="Tickets Hoje"
-              value={ticketsToday.toString()}
-              icon={<Ticket className="text-orange-600" />}
-              trend={ticketsTrend}
-              up={!ticketsTrend.startsWith("-")}
-            />
-            {isOwner ? (
-              <>
-                <StatCard
-                  loading={loading}
-                  title="Ticket Médio"
-                  value={`R$ ${avgTicket.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                  icon={<DollarSign className="text-emerald-500" />}
-                  trend=""
-                  up
-                />
-                <StatCard
-                  loading={loading}
-                  title="Faturamento (MRR)"
-                  value={`R$ ${totalMrr.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                  icon={<DollarSign className="text-green-600" />}
-                  trend={mrrTrend}
-                  up={!mrrTrend.startsWith("-")}
-                />
-                <StatCard
-                  loading={loading}
-                  title="Clientes Ativos"
-                  value={activeCustomersCount.toString()}
-                  icon={<Users className="text-blue-600" />}
-                  trend={customersTrend}
-                  up
-                />
-                <StatCard
-                  loading={loading}
-                  title="Resolução IA"
-                  value={`${aiResolutionRate.toFixed(1)}%`}
-                  icon={<Bot className="text-purple-600" />}
-                  trend={aiResolutionTrend}
-                  up={!aiResolutionTrend.startsWith("-")}
-                />
-              </>
-            ) : (
-              <>
-                <StatCard
-                  loading={loading}
-                  title="Tickets Pendentes"
-                  value={tickets
-                    .filter((t) => t.status === "open")
-                    .length.toString()}
-                  icon={<AlertTriangle className="text-amber-500" />}
-                  trend=""
-                  up={false}
-                />
-                <StatCard
-                  loading={loading}
-                  title="SLA Médio"
-                  value={`${avgResponseTime.toFixed(1)}s`}
-                  icon={<Clock className="text-blue-600" />}
-                  trend="-0.5s"
-                  up
-                />
-                <StatCard
-                  loading={loading}
-                  title="Satisfação (NPS)"
-                  value={`${npsData.overallNPS}`}
-                  icon={<Smile className="text-green-600" />}
-                  trend={`${npsData.count} avaliações (30d)`}
-                  up
-                />
-              </>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <Card className="border-none shadow-sm flex flex-col">
-              <CardHeader>
-                <CardTitle>Atividade Recente</CardTitle>
-                <CardDescription>
-                  Últimas movimentações no sistema.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[250px] pr-4">
-                  <div className="space-y-4">
-                    {auditLogs.slice(0, 10).map((log, i) => (
-                      <div key={log.id} className="flex gap-3 relative">
-                        {i !== 9 && (
-                          <div className="absolute left-[15px] top-8 bottom-0 w-px bg-zinc-100 dark:bg-zinc-800" />
-                        )}
-                        <div
-                          className={cn(
-                            "w-8 h-8 rounded-full shrink-0 flex items-center justify-center border-2 border-white dark:border-zinc-900 z-10",
-                            log.sentiment === "POSITIVO"
-                              ? "bg-green-100 text-green-600"
-                              : log.sentiment === "NEGATIVO"
-                                ? "bg-red-100 text-red-600"
-                                : "bg-zinc-100 text-zinc-600",
-                          )}
-                        >
-                          {log.sentiment === "POSITIVO" ? (
-                            <CheckCircle2 size={14} />
-                          ) : log.sentiment === "NEGATIVO" ? (
-                            <TrendingDown size={14} />
-                          ) : (
-                            <MessageSquare size={14} />
-                          )}
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-xs font-medium">
-                            {log.category === "FATURA"
-                              ? "Consulta Financeira"
-                              : log.category === "SUPORTE_TECNICO"
-                                ? "Suporte Técnico"
-                                : "Atendimento Geral"}
-                          </p>
-                          <p className="text-[10px] text-zinc-500 line-clamp-1">
-                            {log.ticketId
-                              ? `Ticket #${log.ticketId.slice(0, 8)}`
-                              : log.action}
-                            {log.sentiment &&
-                              ` - Sentimento ${log.sentiment.toLowerCase()}`}
-                          </p>
-                          <p className="text-[10px] text-zinc-400">
-                            {log.timestamp
-                              ? new Date(
-                                  log.timestamp.seconds * 1000,
-                                ).toLocaleTimeString()
-                              : "Agora"}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-
-            {isOwner && (
-              <Card className="border-none shadow-sm flex flex-col">
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <div>
-                    <CardTitle>Tickets Críticos</CardTitle>
-                    <CardDescription>
-                      Chamados urgentes que precisam de atenção imediata.
-                    </CardDescription>
-                  </div>
-                  <Badge className="bg-red-500 border-none">Urgente</Badge>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {tickets.filter(
-                      (t) => t.priority === "high" || t.priority === "urgent",
-                    ).length > 0 ? (
-                      tickets
-                        .filter(
-                          (t) =>
-                            t.priority === "high" || t.priority === "urgent",
-                        )
-                        .slice(0, 4)
-                        .map((t) => (
-                          <div
-                            key={t.id}
-                            className="relative flex items-center justify-between p-4 rounded-[16px] bg-white dark:bg-[#16171a] shadow-[0_4px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.4)] overflow-hidden ticket-shape"
-                          >
-                            <div className="absolute top-0 bottom-0 left-3 border-l border-dashed border-zinc-200 dark:border-white/5" />
-                            <div className="flex items-center gap-4 pl-2 relative z-10">
-                              <div className="w-8 shrink-0 flex items-center justify-center">
-                                <span
-                                  className={cn(
-                                    "w-1.5 h-10 rounded-full",
-                                    t.priority === "urgent"
-                                      ? "bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.5)]"
-                                      : "bg-orange-500",
-                                  )}
-                                />
+            <CardDescription>Arraste para reordenar. Toggle para mostrar/ocultar cada seção.</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-5 space-y-5">
+            <div>
+              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Presets por porte</p>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(DASHBOARD_PRESETS).map(([key, preset]) => (
+                  <Button key={key} variant="outline" size="sm" onClick={() => applyDashPreset(key)}>
+                    {preset.icon} {preset.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">Widgets</p>
+              <DragDropContext onDragEnd={(result) => { if (result.destination) reorderWidget(result.source.index, result.destination.index); }}>
+                <Droppable droppableId="dashboard-widgets">
+                  {(provided) => (
+                    <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-2">
+                      {dashWidgets.map((w, index) => {
+                        const def = OVERVIEW_WIDGETS.find((d) => d.id === w.id);
+                        return (
+                          <Draggable key={w.id} draggableId={w.id} index={index}>
+                            {(provided, snapshot) => (
+                              <div ref={provided.innerRef} {...provided.draggableProps} className={cn("flex items-center gap-3 p-3 rounded-lg border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 transition-shadow", snapshot.isDragging && "shadow-lg", !w.visible && "opacity-50")}>
+                                <span {...provided.dragHandleProps} className="text-zinc-400 cursor-grab active:cursor-grabbing shrink-0"><GripVertical size={16} /></span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium leading-none">{def?.label || w.id}</p>
+                                  <p className="text-xs text-zinc-500 mt-1">{def?.description}</p>
+                                </div>
+                                <Switch checked={w.visible} onCheckedChange={() => toggleWidget(w.id)} className="shrink-0" />
                               </div>
-                              <div>
-                                <p className="text-[10px] font-mono font-bold text-zinc-400 mb-0.5">
-                                  #{t.id.slice(0, 5)}
-                                </p>
-                                <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate max-w-[180px]">
-                                  {t.subject}
-                                </p>
-                                <p className="text-[10px] font-medium text-zinc-500 mt-1">
-                                  {customers.find((c) => c.id === t.customerId)
-                                    ?.name || "Cliente Desconhecido"}
-                                </p>
-                              </div>
-                            </div>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="h-8 text-xs font-bold shrink-0 z-10"
-                              onClick={() => {
-                                setSelectedTicket(t);
-                                navigate("/tickets");
-                              }}
-                            >
-                              Ver
-                            </Button>
-                          </div>
-                        ))
-                    ) : (
-                      <div className="text-center py-8 text-zinc-400 text-sm italic">
-                        Nenhum ticket crítico no momento.
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
+                            )}
+                          </Draggable>
+                        );
+                      })}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
+            </div>
+            <Button onClick={() => setDashEditMode(false)} className="w-full sm:w-auto">Concluir</Button>
+          </CardContent>
+        </Card>
+      ) : dashboardSubTab === "overview" ? (
+        <>
+          {dashWidgets.filter((w) => w.visible).map((w) => (
+            <React.Fragment key={w.id}>{renderWidget(w.id)}</React.Fragment>
+          ))}
         </>
       ) : dashboardSubTab === "performance" ? (
         <div className="space-y-6">
