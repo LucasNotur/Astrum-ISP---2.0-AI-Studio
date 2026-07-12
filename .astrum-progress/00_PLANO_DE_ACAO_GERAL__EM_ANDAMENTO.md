@@ -114,13 +114,14 @@ Fonte: `PLANO_B_PARIDADE_CONCORRENTES__PENDENTE.md` (blocos P0–P6 com metas RN
 **Critério de fechamento:** 1º ISP externo pagante operando via conector, com
 dashboard de valor mostrando ROI ≥3× medido.
 
-### ONDA 4 — UI/UX (Plano C) — ✅ FECHADA (2026-07-12)
+### ONDA 4 — UI/UX (Plano C) — ✅ FECHADA (2026-07-12) + U8 adicionado
 Fonte: `PLANO_C_UIUX_OPERACIONAL__CONCLUIDO.md`.
-Todos os blocos U0–U7 executados:
+Blocos U0–U8 executados:
 - U0 (auditoria + telemetria) · U1 (tokens + componentes + lint) · U2 (design language + skill) ·
   U3 (command palette) · U4 (redesign por persona — 38 telas) · U5 (responsividade + PWA campo) ·
   U6 (onboarding tour + central de ajuda + módulos por tenant + dashboard configurável) ·
-  U7 (Playwright e2e raiz, Vitest componentes, /design page, bundle splitting)
+  U7 (Playwright e2e raiz, Vitest componentes, /design page, bundle splitting) ·
+  U8 (Painel de Vendas — funil P3 + LTV D-07, 7 testes Vitest, rota /sales, sidebar)
 Arquivo renomeado: `PLANO_C_UIUX_OPERACIONAL__CONCLUIDO.md` (2026-07-12).
 
 ### ONDA 5 — Diferenciais inéditos (Plano A; abre por combustível)

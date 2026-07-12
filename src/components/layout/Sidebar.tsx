@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Bot, ChevronLeft, ChevronRight, LayoutDashboard, Users,
   Ticket, MessageSquare, Map, Settings, ShieldCheck,
-  CreditCard, Briefcase, Package, LogOut, Phone, BookOpen, Activity, BarChart2, Sparkles, HelpCircle
+  CreditCard, Briefcase, Package, LogOut, Phone, BookOpen, Activity, BarChart2, Sparkles, HelpCircle, ShoppingBag
 } from 'lucide-react';
 import { HelpCenter } from '@/src/components/HelpCenter';
 import { cn } from '@/src/lib/utils';
@@ -181,7 +181,7 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
           />
         )}
         
-        {(hasAccess('customers') || hasAccess('tickets') || hasAccess('chat') || hasAccess('os')) && (
+        {(hasAccess('customers') || hasAccess('sales') || hasAccess('tickets') || hasAccess('chat') || hasAccess('os')) && (
           <>
             {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Atendimento</div>}
             {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2"></div>}
@@ -196,6 +196,15 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
             label="Clientes"
             collapsed={isSidebarCollapsed}
             shortcut="Alt+2"
+          />
+        )}
+        {hasAccess('sales') && isEnabled('sales') && (
+          <NavItem
+            active={currentPath === 'sales'}
+            onClick={() => navigate('/sales')}
+            icon={<ShoppingBag size={24} />}
+            label="Vendas"
+            collapsed={isSidebarCollapsed}
           />
         )}
         {hasAccess('tickets') && isEnabled('tickets') && (

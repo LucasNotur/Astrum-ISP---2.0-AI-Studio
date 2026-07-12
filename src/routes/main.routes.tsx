@@ -19,6 +19,7 @@ import QualityMonitorPage from '../pages/QualityMonitorPage';
 import TechnicianAppPage from '../pages/TechnicianAppPage';
 import { InventoryPage } from '../pages/InventoryPage';
 import { TicketsPage } from '../pages/TicketsPage';
+import { SalesPage } from '../pages/SalesPage';
 import { intelligenceRoutes } from './intelligence.routes';
 import { WhatsAppConnectionsPage } from '../pages/WhatsAppPage';
 import { KnowledgeBasePage } from '../pages/KnowledgeBasePage';
@@ -89,6 +90,7 @@ export function mainRoutes(currentUserRole: string) {
       <Route path="/security"         element={<Animated id="security"><SecurityPage /></Animated>} />
       <Route path="/inventory"        element={<Animated id="inventory"><InventoryPage /></Animated>} />
       <Route path="/tickets"          element={<Animated id="tickets"><TicketsPage /></Animated>} />
+      <Route path="/sales"            element={<Animated id="sales"><SalesPage /></Animated>} />
       <Route path="/whatsapp"         element={<WhatsAppConnectionsPage />} />
       <Route path="/kb"               element={<KnowledgeBasePage />} />
       <Route path="/ai-config"        element={<AIConfigPage />} />

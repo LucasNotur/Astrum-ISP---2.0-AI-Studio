@@ -204,6 +204,17 @@ não num dashboard genérico). `canAccess` (C7) já suporta.
   - `src/App.tsx` — monta `<OnboardingTour>` após login com role+tenantId
   - `src/components/layout/Sidebar.tsx` — botão "Ajuda" no footer abre HelpCenter
 
+### ✅ U8 — Painel de Vendas (2026-07-12)
+Conecta o backend P3 (funil conversacional) + D-07 (LTV calibrado) a uma tela do operador.
+- **U8-01:** `src/pages/SalesPage.tsx` — 4 KPIs (leads, convertidos, taxa, LTV médio),
+  funil de barras horizontais por estágio (9 etapas, cores semânticas), tabela por canal de origem,
+  tabela por tier de oferta (promotional/premium/standard), seletor de período 30/60/90d,
+  hint de migration pendente quando total_leads=0.
+  Consome `GET /api/v2/vendas/dashboard` (D-07 `vendas-dashboard.routes.ts`).
+- **U8-02:** Rota `/sales` em `src/routes/main.routes.tsx` com `<Animated>`.
+- **U8-03:** Item "Vendas" (`ShoppingBag`) na sidebar secao Atendimento; permissao `sales` em admin e owner.
+- **U8-04:** 7 testes Vitest em `src/__tests__/pages/SalesPage.test.tsx` — todos verdes.
+
 ### ✅ U7 — Qualidade contínua (dev) (2026-07-12)
 - **U7-01:** ✅ Playwright e2e na raiz apontando para o LEGADO (corrige C5):
   - `playwright.config.ts` (raiz) — baseURL 5173, webServer `npm run dev:vite`
