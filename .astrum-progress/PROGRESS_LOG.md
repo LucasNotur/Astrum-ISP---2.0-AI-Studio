@@ -24,6 +24,28 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-11] U4-01 — Redesign ChatPage/Inbox (Onda 4 — UI/UX Operacional)
+Tarefa: Full redesign da ChatPage como Inbox omnichannel 3 colunas, coordenado com P2-04 do PLANO_B.
+Arquivos modificados:
+  - src/pages/ChatPage.tsx — redesign completo: layout 3 colunas (lista|thread|contexto),
+    metrics strip, FilterTabs (Todos/Escalados/Aguardando/Resolvidos/Pipeline),
+    ChannelBadge (WA/IG/FB/email/webchat/telefonia), SlaChip, MessageBubble,
+    DropdownMenu de ações, teclado Enter para enviar, composer com nota interna inline.
+    Bug crítico corrigido: snooze UPDATE tem .eq("id", selectedTicket.id) em todos os calls.
+    Removidos: window.confirm/alert/prompt; viewMode config (form builder — escopo Settings).
+    Preservados: KanbanBoard (pipeline tab), CustomerHistorySidebar, socket.io typing,
+    Evolution API send, VoIP modal, tabulação de encerramento.
+  - src/__tests__/pages/ChatPage.test.tsx — 12 testes unitários dos helpers puros (relativeTime,
+    getSlaStatus com SLA por departamento).
+Arquivos não alterados (P2-04 backend já estava code-complete):
+  - apps/api/src/domain/atendimento/inbox.routes.ts — coordenado (UI pronta para usar na S77)
+Testes: 12 passando (0 falhando); TypeScript: zero erros
+Status: ✅ CODE-COMPLETE
+Observações: P2-04 API (/api/v2/conversations/inbox) está pronta; UI migra para ela na S77
+(data migration phase). Form builder removido da inbox — pertence à tela de Configurações (U4-X).
+
+---
+
 [2026-07-11] P4 — Portal do Assinante (PWA white-label) — CODE-COMPLETE
 Tarefa: Construir casca PWA do portal do assinante (P4-01 + P4-02).
 Arquivos criados:
