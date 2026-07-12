@@ -197,8 +197,12 @@ não num dashboard genérico). `canAccess` (C7) já suporta.
   - `src/lib/dashboard-registry.ts` — 3 widgets + 3 presets (small/medium/large ISP)
   - `src/hooks/useDashboardLayout.ts` — ordem + visibilidade por tenant em localStorage
   - `src/pages/DashboardPage.tsx` — botão "Configurar", painel DragDropContext com Switch + Draggable, presets aplicáveis; renderWidget() drive o overview tab
-- **U6-04 — Onboarding de USUÁRIO:** tour guiado por papel na 1ª entrada, empty
-  states que ensinam (padrão IA-11), central de ajuda embutida.
+- **U6-04 — Onboarding de USUÁRIO:** ✅ Implementado:
+  - `src/lib/onboarding-steps.ts` — passos por papel (admin/owner/support/tecnico) + help links
+  - `src/components/OnboardingTour.tsx` — modal com progress bar, step dots, hint cards, "Pular tour"; completion em localStorage
+  - `src/components/HelpCenter.tsx` — drawer lateral com acesso rápido por papel
+  - `src/App.tsx` — monta `<OnboardingTour>` após login com role+tenantId
+  - `src/components/layout/Sidebar.tsx` — botão "Ajuda" no footer abre HelpCenter
 
 ### U7 — Qualidade contínua (dev)
 - **U7-01:** Playwright e2e apontando para o LEGADO (corrige C5): fluxos críticos

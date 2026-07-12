@@ -131,6 +131,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Skeleton } from "./components/Skeleton";
 import { cn } from "./lib/utils";
+import { OnboardingTour } from "./components/OnboardingTour";
 // FZ-4: autenticação e dados 100% Supabase (Firestore removido).
 import { supabase } from "./lib/supabase";
 import {
@@ -2600,6 +2601,12 @@ export default function App() {
       {/* FZ-4: enrollment de MFA agora é 100% Supabase na SettingsPage (S101) */}
       <UpgradePrompt />
       <Toaster position="top-right" />
+      {userProfile && currentUserRole && (
+        <OnboardingTour
+          role={currentUserRole}
+          tenantId={userProfile.tenantId || 'DEFAULT_TENANT'}
+        />
+      )}
 
       {/* Confirmation Dialog */}
       <Dialog

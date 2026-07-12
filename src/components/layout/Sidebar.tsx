@@ -1,9 +1,10 @@
-import React from 'react';
-import { 
-  Bot, ChevronLeft, ChevronRight, LayoutDashboard, Users, 
-  Ticket, MessageSquare, Map, Settings, ShieldCheck, 
-  CreditCard, Briefcase, Package, LogOut, Phone, BookOpen, Activity, BarChart2, Sparkles
+import React, { useState } from 'react';
+import {
+  Bot, ChevronLeft, ChevronRight, LayoutDashboard, Users,
+  Ticket, MessageSquare, Map, Settings, ShieldCheck,
+  CreditCard, Briefcase, Package, LogOut, Phone, BookOpen, Activity, BarChart2, Sparkles, HelpCircle
 } from 'lucide-react';
+import { HelpCenter } from '@/src/components/HelpCenter';
 import { cn } from '@/src/lib/utils';
 import { useAppStore, canAccess } from '@/src/store/useAppStore';
 import { useFeatureFlags } from '@/src/hooks/useFeatureFlags';
@@ -130,6 +131,7 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
   const isDeveloper = user?.email?.toLowerCase() === 'lucaspferraz123@gmail.com' || user?.email?.toLowerCase() === 'noturcursos1@gmail.com';
   const isProvedorAdmin = currentUserRole === 'admin' || currentUserRole === 'owner';
   const handleLogout = () => supabase.auth.signOut();
+  const [helpOpen, setHelpOpen] = useState(false);
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -398,6 +400,15 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
       </nav>
 
       <div className="mt-auto pt-4 w-full">
+        {/* Help button */}
+        <button
+          onClick={() => setHelpOpen(true)}
+          className={cn("w-full flex items-center gap-2 px-3 py-2 mb-2 rounded-md text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-xs", isSidebarCollapsed && "md:justify-center")}
+        >
+          <HelpCircle size={16} className="shrink-0" />
+          <span className={cn(isSidebarCollapsed ? "block md:hidden" : "block")}>Ajuda</span>
+        </button>
+
         <div className={cn("flex items-center gap-3 rounded-stable bg-muted", isSidebarCollapsed ? "md:justify-center md:p-2 p-3" : "p-3")}>
           <Avatar className="h-10 w-10 shrink-0">
             <AvatarImage src={user?.photoURL} />
@@ -408,10 +419,10 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
                 <Badge variant="outline" className="text-[8px] h-3.5 px-1 uppercase border-zinc-300 dark:border-zinc-700">
                   {currentUserRole}
                 </Badge>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-6 w-6 text-zinc-400 hover:text-destructive transition-colors shrink-0" 
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-zinc-400 hover:text-destructive transition-colors shrink-0"
                   onClick={handleLogout}
                 >
                   <LogOut size={14} />
@@ -435,6 +446,7 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
         </div>
       </div>
     </aside>
+    <HelpCenter open={helpOpen} onClose={() => setHelpOpen(false)} role={currentUserRole} />
     </TooltipProvider>
   );
 }
