@@ -24,6 +24,24 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-12] D-05 — Memória institucional viva: KB que se escreve sozinha (Onda 5)
+Tarefa: RN17 expansão de D-05 + implementação — detector de conversas resolvidas → gerador de rascunho GPT-4o → curadoria humana → publicação no RAG.
+Arquivos criados:
+  - packages/db/src/migrations/071_d05_kb_drafts.sql — table kb_drafts (status pending/approved/rejected/published, conversation_id FK, RLS tenant_own)
+  - apps/api/src/domain/conhecimento/kb-draft.service.ts — findCandidateConversations, generateDraft, listDrafts, approveAndPublish, rejectDraft
+  - apps/api/src/domain/conhecimento/kb-draft.service.test.ts — 11 testes Vitest
+  - apps/api/src/domain/conhecimento/kb-draft.routes.ts — GET /api/v2/kb/drafts, POST /scan, PATCH /:id/approve, PATCH /:id/reject
+  - .astrum-progress/nextgen-2.0/PLANO_A_DIFERENCIAL_TECNOLOGIAS_INEDITAS__PENDENTE.md — §7 D-05 expandido (RN17 cumprido)
+Arquivos modificados:
+  - src/pages/intelligence/LabelingPage.tsx — tabs: "Rascunhos KB" (padrão) + "Rotulagem" (existente); card Publicar/Rejeitar com badge de pendentes
+  - apps/api/src/server.ts — registra kbDraftRoutes
+Testes: 11 PASS (findCandidateConversations: 3, generateDraft: 3, listDrafts: 2, approveAndPublish: 2, rejectDraft: 1)
+Status: ✅ Concluído — infraestrutura 100% pronta; métricas ativam com tráfego real (Onda 2)
+Nota combustível: scanner pode ser acionado via POST /api/v2/kb/drafts/scan desde já em staging
+Pendências Lucas: apply migration 071 no Supabase; indexing.worker precisa verificar knowledge_articles (não só knowledge_documents) — Fase 2 deste D-05
+
+---
+
 [2026-07-12] D-07 — Vendedor autônomo com LTV calibrado na oferta
 Tarefa: RN17 expansão de D-07 + implementação (ltv-offer.service, integração no subgrafo vendas, painel comercial, migration).
 Arquivos criados:

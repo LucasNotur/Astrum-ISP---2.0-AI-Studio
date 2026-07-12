@@ -389,3 +389,68 @@ e usa isso para decidir se oferece bônus (CTO com folga = crescimento barato) o
 - % de leads `completed` com `offer_tier` preenchido: meta 100% após deploy
 - LTV médio dos completados vs estimado (validar modelo em 30d)
 - Taxa conversão collecting_address → completed: meta ≥ 15%
+
+---
+
+## §7 — D-05 EXPANDIDO (RN17 — sessão 2026-07-12)
+
+> Auditoria do código real feita em 2026-07-12. Combustível parcialmente satisfeito:
+> infraestrutura 100% construída; métricas ativam quando tráfego real chegar (Onda 2).
+> Decisão do Lucas: construir a fundação agora, não "no vazio" — o scanner pode ser
+> acionado manualmente desde já em staging com tickets de teste.
+
+### Fundação auditada
+
+| Ativo | Arquivo | Estado |
+|---|---|---|
+| `knowledge_articles` | `packages/db/src/migrations/017_knowledge_articles.sql` | ✅ title, content, tags, category, ingest_status, document_id |
+| `indexing.worker.ts` | `packages/queue/src/workers/indexing.worker.ts` | ✅ pega artigos com ingest_status='pending' no Qdrant |
+| `ai_ragas_scores` | `packages/db/src/migrations/029_ragas_guardrails.sql` | ✅ ticket_id/message_id linkável |
+| `LabelingPage` | `src/pages/intelligence/LabelingPage.tsx` | ✅ padrão de fila de curadoria reutilizado |
+| `callOpenAI` | `apps/api/src/adapters/openai/openai.adapter.ts` | ✅ gpt-4o-mini/gpt-4o com Helicone |
+| `conversations` + `messages` | migration 005 | ✅ status='resolved', role user/assistant, content |
+
+### Sinal de "solução confirmada"
+Conversation `status='resolved'` + `updated_at < NOW() - 7d` + ≥3 mensagens + sem draft gerado ainda.
+(Sem sinal explícito de confirmação do cliente ainda — detectado por inatividade resolvida.)
+
+### O que foi entregue
+
+1. **`packages/db/src/migrations/071_d05_kb_drafts.sql`**
+   - Table `kb_drafts`: id, tenant_id, conversation_id (FK nullable), ticket_id (FK nullable),
+     status (pending/approved/rejected/published), draft_title, draft_body, source_summary,
+     generated_by, reviewed_by, reviewed_at, published_article_id, created_at/updated_at
+   - RLS tenant_own; índices em (tenant_id, status) e conversation_id
+
+2. **`apps/api/src/domain/conhecimento/kb-draft.service.ts`**
+   - `findCandidateConversations(tenantId)` → conversas resolvidas sem draft, ≥3 msg, ≥7d
+   - `generateDraft(tenantId, conversationId)` → transcript → GPT-4o → insert pending
+   - `listDrafts(tenantId, status?)` → lista filtrada
+   - `approveAndPublish(tenantId, draftId, reviewedBy)` → insere em knowledge_articles (ingest_status=pending) → indexing worker pega automaticamente
+   - `rejectDraft(tenantId, draftId, reviewedBy)` → marca rejected
+
+3. **`apps/api/src/domain/conhecimento/kb-draft.routes.ts`**
+   - `GET /api/v2/kb/drafts?status=` — lista rascunhos
+   - `POST /api/v2/kb/drafts/scan` — varre conversas e gera rascunhos em batch
+   - `PATCH /api/v2/kb/drafts/:id/approve` — publica
+   - `PATCH /api/v2/kb/drafts/:id/reject` — rejeita
+
+4. **`src/pages/intelligence/LabelingPage.tsx`** (modificado)
+   - Tabs: "Rascunhos KB" (padrão) + "Rotulagem" (existente)
+   - Tab KB Drafts: botão "Varrer conversas" (POST scan), lista de cards com Publicar/Rejeitar
+   - Badge de contador pendente no tab
+
+5. **`apps/api/src/server.ts`** — registro de `kbDraftRoutes`
+
+### Testes
+11 testes Vitest passando (findCandidateConversations: 3, generateDraft: 3, listDrafts: 2, approveAndPublish: 2, rejectDraft: 1)
+
+### Métricas (RN20 — ativar quando tráfego real disponível)
+- % de conversas resolvidas que viraram artigo KB: meta ≥ 20% em 30d
+- % de rascunhos aprovados vs rejeitados: meta ≥ 60% aprovação (sinal de qualidade do GPT-4o)
+- % de respostas RAG citando artigos com tag `auto-gerado`: meta ≥ 15% em 60d
+
+### Fase 2 — sinal de confirmação explícita (sessão futura)
+- Adicionar coluna `customer_confirmed_at` em `conversations` (customer envia 👍/positivo)
+- Usar esse sinal como critério mais forte que "inatividade 7d"
+- Permitir geração imediata (sem esperar 7d) quando confirmado

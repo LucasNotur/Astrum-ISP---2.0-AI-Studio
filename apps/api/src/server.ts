@@ -268,6 +268,10 @@ export async function buildServer() {
   const { vendasDashboardRoutes } = await import('./domain/vendas/vendas-dashboard.routes');
   await app.register(vendasDashboardRoutes);
 
+  // D-05 — Memória institucional viva: curadoria de rascunhos KB gerados por IA
+  const { kbDraftRoutes } = await import('./domain/conhecimento/kb-draft.routes');
+  await app.register(kbDraftRoutes);
+
   // Health check com status dos serviços
   app.get('/api/v2/health', async () => {
     const { getLLMStatus } = await import('./adapters/ai/llm.adapter');
