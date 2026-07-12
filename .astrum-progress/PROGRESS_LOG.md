@@ -24,6 +24,21 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-11] U4-02 — Dashboard do Dono + P5-01 Valor Gerado (Onda 4)
+Tarefa: Integrar P5-01 "Valor Gerado" no DashboardPage + corrigir tokens dark mode.
+Arquivos modificados:
+  - src/pages/DashboardPage.tsx — adicionada ValorGeradoSection (hook useValorGerado,
+    5 KPIs: R$ recuperado, % IA resolve, horas salvas, tickets evitados, ROI múltiplo),
+    period picker 7d/30d/90d, skeleton de loading, error state gracioso.
+    Corrigidas 2 cores hardcoded: dark:bg-[#111214] → dark:bg-muted / dark:bg-card.
+    Seção injetada acima das sub-abas (sempre visível para admin/owner).
+Testes: 1 passando; TypeScript: zero erros.
+Status: ✅ CODE-COMPLETE
+Pendência: roteamento /api/v2/valor/dashboard precisa do Fastify servindo tráfego
+(previsto S82 cutover) — UI exibe estado gracioso até lá.
+
+---
+
 [2026-07-11] U4-01 — Redesign ChatPage/Inbox (Onda 4 — UI/UX Operacional)
 Tarefa: Full redesign da ChatPage como Inbox omnichannel 3 colunas, coordenado com P2-04 do PLANO_B.
 Arquivos modificados:

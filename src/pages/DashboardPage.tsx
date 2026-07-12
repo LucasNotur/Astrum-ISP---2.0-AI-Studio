@@ -651,7 +651,7 @@ export function DashboardPage() {
             <FileText size={14} />{" "}
             <span className="hidden md:inline">Exportar PDF</span>
           </Button>
-          <div className="flex items-center overflow-x-auto bg-zinc-100 dark:bg-[#111214] p-1.5 rounded-[20px] w-full md:w-auto border border-zinc-200/50 dark:border-white/5 backdrop-blur-md">
+          <div className="flex items-center overflow-x-auto bg-zinc-100 dark:bg-muted p-1.5 rounded-[20px] w-full md:w-auto border border-zinc-200/50 dark:border-white/5 backdrop-blur-md">
             <button
               onClick={() => setDashboardSubTab("overview")}
               className={`text-[11px] px-6 py-2.5 whitespace-nowrap rounded-[16px] transition-all duration-300 font-bold ${dashboardSubTab === "overview" ? "bg-amber-400 text-black shadow-lg shadow-amber-500/20" : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"}`}
@@ -675,6 +675,9 @@ export function DashboardPage() {
           </div>
         </div>
       </header>
+
+      {/* P5-01 — Valor Gerado (visível para dono/admin, independe da sub-aba) */}
+      {isOwner && <ValorGeradoSection />}
 
       {dashboardSubTab === "overview" ? (
         <>
@@ -1616,7 +1619,7 @@ export function DashboardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#111214] overflow-hidden">
+              <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-card overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow className="border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
@@ -1692,5 +1695,167 @@ export function DashboardPage() {
         </>
       ) : null}
     </motion.div>
+  );
+}
+
+// ─── P5-01 — Valor Gerado ────────────────────────────────────────────────────
+
+interface ValorKpis {
+  recoveredBrl: number;
+  aiResolutionRatePct: number;
+  hoursSaved: number;
+  ticketsAvoided: number;
+  roiMultiple: number;
+  aiCostUsd: number;
+  period: string;
+  periodDays: number;
+}
+
+type ValorPeriod = "7d" | "30d" | "90d";
+
+function useValorGerado(period: ValorPeriod) {
+  const [data, setData]       = React.useState<ValorKpis | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError]     = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    (async () => {
+      try {
+        // Obtém o JWT do Supabase para autenticar na Fastify (apps/api)
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) throw new Error("Sessão não encontrada");
+
+        const res = await fetch(`/api/v2/valor/dashboard?period=${period}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json: ValorKpis = await res.json();
+        if (!cancelled) setData(json);
+      } catch (err: any) {
+        if (!cancelled) setError(err.message ?? "Erro ao carregar dados");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [period]);
+
+  return { data, loading, error };
+}
+
+function ValorGeradoSection() {
+  const [period, setPeriod] = React.useState<ValorPeriod>("30d");
+  const { data, loading, error } = useValorGerado(period);
+
+  const kpis: { label: string; value: string; sub: string; accent: boolean }[] = data
+    ? [
+        {
+          label:  "R$ Recuperado",
+          value:  `R$ ${data.recoveredBrl.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+          sub:    "pela CobrAI no período",
+          accent: data.recoveredBrl > 0,
+        },
+        {
+          label:  "IA Resolve",
+          value:  `${data.aiResolutionRatePct.toFixed(1)}%`,
+          sub:    "dos atendimentos sem humano",
+          accent: data.aiResolutionRatePct > 60,
+        },
+        {
+          label:  "Horas Salvas",
+          value:  `${Math.round(data.hoursSaved)}h`,
+          sub:    "de atendimento humano",
+          accent: false,
+        },
+        {
+          label:  "Tickets Evitados",
+          value:  data.ticketsAvoided.toLocaleString("pt-BR"),
+          sub:    "escalações evitadas",
+          accent: false,
+        },
+        {
+          label:  "ROI",
+          value:  `${data.roiMultiple.toFixed(1)}×`,
+          sub:    `custo IA: US$ ${data.aiCostUsd.toFixed(2)}`,
+          accent: data.roiMultiple >= 3,
+        },
+      ]
+    : [];
+
+  return (
+    <section>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Valor Gerado
+          </span>
+          <span className="text-[10px] text-muted-foreground font-mono border border-border rounded px-1.5 py-0.5">
+            {period}
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          {(["7d", "30d", "90d"] as ValorPeriod[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriod(p)}
+              className={cn(
+                "text-[10px] font-mono px-2.5 py-1 rounded transition-colors",
+                period === p
+                  ? "bg-foreground text-background font-bold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
+              )}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-20 rounded-lg bg-muted animate-pulse" />
+          ))}
+        </div>
+      )}
+
+      {!loading && error && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground border border-border rounded-lg p-3">
+          <Zap size={14} className="shrink-0 text-[--color-astrum-amber]" />
+          Dados do Valor Gerado indisponíveis — o motor Fastify ainda não está recebendo tráfego real.
+        </div>
+      )}
+
+      {!loading && !error && data && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {kpis.map((k) => (
+            <div
+              key={k.label}
+              className={cn(
+                "rounded-lg border border-border p-3 flex flex-col gap-1 transition-colors",
+                k.accent
+                  ? "bg-[--color-astrum-signal]/5 border-[--color-astrum-signal]/30"
+                  : "bg-card",
+              )}
+            >
+              <span className="text-[11px] text-muted-foreground font-medium">{k.label}</span>
+              <span className={cn(
+                "text-xl font-bold font-mono tabular-nums leading-none",
+                k.accent ? "text-[--color-astrum-signal]" : "text-foreground",
+              )}>
+                {k.value}
+              </span>
+              <span className="text-[10px] text-muted-foreground">{k.sub}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
