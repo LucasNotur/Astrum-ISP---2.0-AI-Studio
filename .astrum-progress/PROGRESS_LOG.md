@@ -24,6 +24,23 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-12] D-06 Fase 1 — Copiloto de campo: foto → diagnóstico → OS (Onda 5)
+Tarefa: RN17 expansão de D-06 + implementação Fase 1 (diagnosePlusAttach + UI).
+Arquivos criados:
+  - packages/db/src/migrations/069_d06_field_photos.sql — table field_photo_diagnoses (RLS tenant_own)
+  - apps/api/src/domain/campo/field-copilot.service.ts — diagnosePlusAttach + listDiagnoses
+  - apps/api/src/domain/campo/field-copilot.routes.ts — POST /api/v2/field/diagnose + GET /api/v2/field/diagnoses
+  - apps/api/src/domain/campo/field-copilot.service.test.ts — 7 testes
+Arquivos modificados:
+  - apps/api/src/server.ts — registra fieldCopilotRoutes
+  - src/pages/TechnicianAppPage.tsx — hook rede D-06: seção "Diagnóstico IA de Equipamento" no bloco in_progress; handleDiagnoseEquipment (upload S3 → POST /api/v2/field/diagnose → badge severidade colorido)
+  - .astrum-progress/nextgen-2.0/PLANO_A_DIFERENCIAL_TECNOLOGIAS_INEDITAS__PENDENTE.md — §5 D-06 expandido em densidade §4 (RN17 cumprido)
+Testes: 7 novos PASS (diagnosePlusAttach: confidence OK/baixa/null/falha/attachToOS; listDiagnoses: vazia/mapeamento)
+Status: ✅ Concluído — Fase 1
+Próximo: D-06 Fase 2 (checklist guiado por voz — aguarda Twilio do Lucas) ou D-07 (vendedor com LTV)
+
+---
+
 [2026-07-12] U7 — Qualidade contínua (Playwright e2e, testes componente, /design, bundle splitting) — ONDA 4 FECHADA
 Tarefa: Bloco U7 final do PLANO_C — garantias de qualidade automáticas.
 Arquivos criados:

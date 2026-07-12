@@ -268,3 +268,58 @@ não ligaram na última queda").
 Nenhuma sessão D-XX é executável a partir deste texto. Quando uma onda destravar,
 rodar sessão de planejamento dedicada (padrão IA-F2-PLAN) que expande os galhos da
 onda em densidade §4 contra o código real do dia, e só então executar.
+
+---
+
+## §5 — D-06 EXPANDIDO (RN17 — sessão 2026-07-12)
+
+> Auditoria do código real feita em 2026-07-12. Combustível P0+P3 satisfeitos.
+> Esta seção substitui o galho original do D-06 como o plano executável.
+
+### Fundação auditada
+
+| Ativo | Arquivo | Estado |
+|---|---|---|
+| `classifyFieldPhoto()` | `apps/api/src/infrastructure/vision/vision.service.ts` | ✅ pronto — GPT-4o, equipment/issue/severity/recommended_action/confidence |
+| Rota de diagnóstico | `apps/api/src/domain/ia/vision.routes.ts` (`POST /api/v2/ia/vision/diagnose`) | ✅ existe mas NÃO persiste — retorna JSON apenas |
+| Tabela `service_orders` | `packages/db/src/migrations/015_field_operations.sql` | ✅ tem `ai_summary`, `cto_id`, `assigned_to`, `lat/lng`; falta histórico de fotos |
+| Tabela `technicians` | mesma migration 015 | ✅ existe |
+| `TechnicianAppPage.tsx` | `src/pages/TechnicianAppPage.tsx` | ✅ câmera + GPS + upload S3 + checklist por OS; usa MOCK_OSS |
+| `uploadTenantFile` | `src/lib/storage.ts` | ✅ upload S3 direto do browser |
+| Flag `VISION_STRUCTURED_ENABLED` | env | 🔴 default false — precisa ligar |
+
+### Fase 1 — foto → diagnóstico → OS (THIS SESSION)
+
+**Arquivos a criar:**
+1. `packages/db/src/migrations/069_d06_field_photos.sql`
+   - Table `field_photo_diagnoses`: id, tenant_id, service_order_id (FK nullable), cto_id (FK nullable), photo_url, equipment, issue, severity, recommended_action, confidence, technician_id (FK nullable), created_at
+   - RLS: tenant_own
+
+2. `apps/api/src/domain/campo/field-copilot.service.ts`
+   - `diagnosePlusAttach({ tenantId, imageUrl, serviceOrderId?, ctoId?, technicianId? })` → chama `classifyFieldPhoto` → salva em `field_photo_diagnoses` → se serviceOrderId, faz UPSERT no `service_orders.ai_summary` com o diagnóstico → retorna resultado estruturado
+   - Fail-open: se confidence < 0.6, salva mesmo assim mas marca como `low_confidence`
+
+3. `apps/api/src/domain/campo/field-copilot.routes.ts`
+   - `POST /api/v2/field/diagnose` — body: `{ image_url, service_order_id?, cto_id? }`, auth=técnico ou operador
+   - `GET /api/v2/field/diagnoses` — lista diagnósticos por OS (`?service_order_id=`) ou por CTO (`?cto_id=`)
+
+4. `apps/api/src/domain/campo/field-copilot.service.test.ts` — testes Vitest
+
+**Arquivos a modificar:**
+- `apps/api/src/app.ts` — registrar `fieldCopilotRoutes`
+- `src/pages/TechnicianAppPage.tsx` — hook de rede: após upload S3, chama `POST /api/v2/field/diagnose`, mostra diagnóstico com badge de severidade colorido; botão "Confirmar e anexar à OS"
+
+### Fase 2 — checklist guiado por voz (sessão futura)
+- Pré-requisito: IA-08 A3 (conta Twilio staging — dever do Lucas)
+- Checklist da OS gerado como TTS a cada passo; técnico confirma falando
+- `voice-checklist.service.ts` + integra `adapters/telephony/`
+
+### Fase 3 — histórico visual da planta (sessão futura)
+- Pré-requisito: Fase 1 com ≥30d de fotos acumuladas
+- Timeline de `field_photo_diagnoses` por CTO (linha do tempo + foto + severidade)
+- Alimenta D-01 (gêmeo digital) com histórico de falhas visuais
+
+### Métricas (RN20)
+- Tempo diagnóstico foto→laudo: meta <3s
+- % OS com foto diagnóstica anexada: meta ≥60% em 30d de uso
+- Severidades `alta`+`crítica` detectadas antes de o cliente reclamar (comparar timestamp foto vs timestamp abertura de ticket)

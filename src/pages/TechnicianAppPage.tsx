@@ -15,7 +15,10 @@ import {
   ArrowLeft,
   PenTool,
   Upload,
-  QrCode
+  QrCode,
+  ScanSearch,
+  AlertTriangle,
+  CircleCheck,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -89,6 +92,18 @@ export default function TechnicianAppPage() {
 
   const [materials, setMaterials] = useState<string[]>([]);
   const [showScanner, setShowScanner] = useState(false);
+
+  // D-06 — Copiloto de campo: diagnóstico de foto por IA
+  type FieldDiagnosis = {
+    equipment: string;
+    issue: string;
+    severity: 'baixa' | 'media' | 'alta' | 'critica';
+    recommendedAction: string;
+    confidence: number;
+    lowConfidence: boolean;
+  };
+  const [fieldDiagnosis, setFieldDiagnosis] = useState<FieldDiagnosis | null>(null);
+  const [isDiagnosing, setIsDiagnosing] = useState(false);
 
   useEffect(() => {
     if (showScanner) {
@@ -306,6 +321,41 @@ export default function TechnicianAppPage() {
     }
   };
 
+  const handleDiagnoseEquipment = async (file: File) => {
+    if (!navigator.onLine) {
+      toast.error("Diagnóstico de IA requer conexão com a internet.");
+      return;
+    }
+    setIsDiagnosing(true);
+    setFieldDiagnosis(null);
+    const toastId = toast.loading("Analisando equipamento com IA...");
+    try {
+      const blob = file;
+      const tenantId = "default";
+      const osId = selectedOs?.id ?? "unknown";
+      const uploadedUrl = await uploadTenantFile(tenantId, "field-diagnoses", `${osId}_${Date.now()}.jpg`, blob);
+
+      const token = localStorage.getItem("sb-access-token") ?? "";
+      const res = await fetch("/api/v2/field/diagnose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          image_url: uploadedUrl,
+          service_order_id: selectedOs?.id?.startsWith("OS-") ? undefined : selectedOs?.id,
+        }),
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setFieldDiagnosis(data);
+      toast.success("Diagnóstico concluído!", { id: toastId });
+    } catch (e: any) {
+      toast.error("Erro no diagnóstico: " + (e.message ?? "tente novamente"), { id: toastId });
+    } finally {
+      setIsDiagnosing(false);
+    }
+  };
+
   const handleCheckIn = () => {
     openCamera("checkin");
   };
@@ -516,6 +566,55 @@ export default function TechnicianAppPage() {
                              <span className={`text-sm ${item.done ? 'line-through text-zinc-400' : ''}`}>{item.text}</span>
                            </label>
                          ))}
+                      </CardContent>
+                   </Card>
+                </div>
+
+                {/* D-06 — Diagnóstico visual de equipamento */}
+                <div>
+                   <h3 className="text-sm font-semibold text-zinc-500 tracking-wider uppercase mb-3">Diagnóstico IA de Equipamento</h3>
+                   <Card>
+                      <CardContent className="p-4 space-y-3">
+                         <label className={`flex items-center justify-center gap-2 w-full h-12 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${isDiagnosing ? 'opacity-50 pointer-events-none' : 'border-indigo-300 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/10'}`}>
+                            <ScanSearch className="w-5 h-5 text-indigo-500" />
+                            <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+                               {isDiagnosing ? "Analisando..." : "Fotografar equipamento para diagnóstico"}
+                            </span>
+                            <input
+                               type="file"
+                               accept="image/*"
+                               capture="environment"
+                               className="hidden"
+                               disabled={isDiagnosing}
+                               onChange={(e) => { const f = e.target.files?.[0]; if (f) handleDiagnoseEquipment(f); }}
+                            />
+                         </label>
+                         {fieldDiagnosis && (
+                            <div className={`rounded-lg p-3 border space-y-1 text-sm ${
+                               fieldDiagnosis.severity === 'critica' ? 'border-red-400 bg-red-50 dark:bg-red-900/10' :
+                               fieldDiagnosis.severity === 'alta'    ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/10' :
+                               fieldDiagnosis.severity === 'media'   ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/10' :
+                               'border-green-400 bg-green-50 dark:bg-green-900/10'
+                            }`}>
+                               <div className="flex items-center gap-2 font-semibold">
+                                  {fieldDiagnosis.severity === 'critica' || fieldDiagnosis.severity === 'alta'
+                                     ? <AlertTriangle className="w-4 h-4 text-red-500" />
+                                     : <CircleCheck className="w-4 h-4 text-green-500" />
+                                  }
+                                  <span className="capitalize">{fieldDiagnosis.equipment.replace('_', ' ')} — {fieldDiagnosis.issue.replace(/_/g, ' ')}</span>
+                                  <span className={`ml-auto text-xs px-1.5 py-0.5 rounded font-bold uppercase ${
+                                     fieldDiagnosis.severity === 'critica' ? 'bg-red-500 text-white' :
+                                     fieldDiagnosis.severity === 'alta'    ? 'bg-orange-500 text-white' :
+                                     fieldDiagnosis.severity === 'media'   ? 'bg-yellow-500 text-white' :
+                                     'bg-green-500 text-white'
+                                  }`}>{fieldDiagnosis.severity}</span>
+                               </div>
+                               <p className="text-zinc-600 dark:text-zinc-400">{fieldDiagnosis.recommendedAction}</p>
+                               {fieldDiagnosis.lowConfidence && (
+                                  <p className="text-xs text-amber-600">⚠ Confiança baixa — confirmar manualmente</p>
+                               )}
+                            </div>
+                         )}
                       </CardContent>
                    </Card>
                 </div>

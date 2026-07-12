@@ -260,6 +260,10 @@ export async function buildServer() {
   const { trialRoutes } = await import('./domain/provedor/trial.routes');
   await app.register(trialRoutes);
 
+  // D-06 — Copiloto de campo: foto → diagnóstico (classifyFieldPhoto) → anexo na OS
+  const { fieldCopilotRoutes } = await import('./domain/campo/field-copilot.routes');
+  await app.register(fieldCopilotRoutes);
+
   // Health check com status dos serviços
   app.get('/api/v2/health', async () => {
     const { getLLMStatus } = await import('./adapters/ai/llm.adapter');
