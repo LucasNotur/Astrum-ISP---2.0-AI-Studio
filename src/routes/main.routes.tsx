@@ -20,6 +20,7 @@ import TechnicianAppPage from '../pages/TechnicianAppPage';
 import { InventoryPage } from '../pages/InventoryPage';
 import { TicketsPage } from '../pages/TicketsPage';
 import { SalesPage } from '../pages/SalesPage';
+import { ValorGeradoPage } from '../pages/ValorGeradoPage';
 import { intelligenceRoutes } from './intelligence.routes';
 import { WhatsAppConnectionsPage } from '../pages/WhatsAppPage';
 import { KnowledgeBasePage } from '../pages/KnowledgeBasePage';
@@ -91,6 +92,7 @@ export function mainRoutes(currentUserRole: string) {
       <Route path="/inventory"        element={<Animated id="inventory"><InventoryPage /></Animated>} />
       <Route path="/tickets"          element={<Animated id="tickets"><TicketsPage /></Animated>} />
       <Route path="/sales"            element={<Animated id="sales"><SalesPage /></Animated>} />
+      <Route path="/valor"            element={<Animated id="valor"><ValorGeradoPage /></Animated>} />
       <Route path="/whatsapp"         element={<WhatsAppConnectionsPage />} />
       <Route path="/kb"               element={<KnowledgeBasePage />} />
       <Route path="/ai-config"        element={<AIConfigPage />} />

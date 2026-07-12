@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Bot, ChevronLeft, ChevronRight, LayoutDashboard, Users,
   Ticket, MessageSquare, Map, Settings, ShieldCheck,
-  CreditCard, Briefcase, Package, LogOut, Phone, BookOpen, Activity, BarChart2, Sparkles, HelpCircle, ShoppingBag
+  CreditCard, Briefcase, Package, LogOut, Phone, BookOpen, Activity, BarChart2, Sparkles, HelpCircle, ShoppingBag, Award
 } from 'lucide-react';
 import { HelpCenter } from '@/src/components/HelpCenter';
 import { cn } from '@/src/lib/utils';
@@ -283,7 +283,7 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
             shortcut="Alt+7"
           />
         )}
-        {(hasAccess('ai-config') || hasAccess('cobrai') || hasAccess('kb')) && (
+        {(hasAccess('ai-config') || hasAccess('cobrai') || hasAccess('valor') || hasAccess('kb')) && (
           <>
             {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Inteligência & Automação</div>}
             {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2"></div>}
@@ -304,6 +304,15 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
                 onClick={() => navigate('/cobrai')}
                 icon={<Bot size={24} />}
                 label="CobrAI"
+                collapsed={isSidebarCollapsed}
+              />
+            )}
+            {hasAccess('valor') && isEnabled('valor') && (
+              <NavItem
+                active={currentPath === 'valor'}
+                onClick={() => navigate('/valor')}
+                icon={<Award size={24} />}
+                label="Valor Gerado"
                 collapsed={isSidebarCollapsed}
               />
             )}
