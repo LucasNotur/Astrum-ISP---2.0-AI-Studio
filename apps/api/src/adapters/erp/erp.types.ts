@@ -84,6 +84,29 @@ export function supportsErpSales(p: ERPProvider): p is ERPProvider & ERPSalesCap
   return typeof (p as any).checkViability === 'function';
 }
 
+// ── P0-06 — Operações (suspensão / OS via ERP) ───────────────────────────────
+
+/**
+ * Capacidades operacionais que um ERP pode expor opcionalmente.
+ * Verifique o suporte em runtime com `supportsErpOperations(adapter)`.
+ */
+export interface ERPOperationsCapable {
+  /** Suspende o sinal/contrato do cliente no ERP (o oposto de unlockCustomer). */
+  suspendCustomer(customerId: string, reason?: string): Promise<{ success: boolean; raw?: unknown }>;
+  /** Abre uma OS de visita técnica no ERP (a OS mora no ERP quando há conector). */
+  createServiceOrder(data: {
+    customerId: string;
+    description: string;
+    scheduledFor?: string;
+  }): Promise<{ orderId: string; raw?: unknown }>;
+}
+
+/** Type guard — true se o adapter implementa ERPOperationsCapable. */
+export function supportsErpOperations(p: ERPProvider): p is ERPProvider & ERPOperationsCapable {
+  return typeof (p as any).suspendCustomer === 'function'
+    && typeof (p as any).createServiceOrder === 'function';
+}
+
 /**
  * Converte valor monetário de ERP (string ou número) para centavos.
  * Lida com formato brasileiro ("1.234,56" = ponto milhar + vírgula decimal) e

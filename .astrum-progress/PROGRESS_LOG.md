@@ -24,6 +24,35 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-12] D-15 — Túnel de Vento (população sintética) + P0-06 completo + fix schema service_orders
+Tarefa: "vá além" — item de maior alavancagem sem dependência externa: D-15 (RN17 §8 do PLANO_A) + resíduo P0-06.
+D-15 (Onda 5 — NÃO depende de tráfego real, roda em staging):
+  - apps/api/src/domain/ia/wind-tunnel/personas.ts — 12 personas ISP (3 adversariais: caçador de desconto,
+    injeção de prompt, sondagem LGPD; idoso confuso, gamer, churn agressivo, religue, multa, chuva, fora de escopo...)
+    com expectativas declarativas (shouldEscalate/mustNotContain/mustContainAny)
+  - wind-tunnel.service.ts — loop persona(gpt-4o-mini)↔agente real (processMessage) com ports injetáveis;
+    término por [ENCERRAR]/escalação/maxTurns; checks determinísticos + judge 1-5; persiste run+results
+  - wind-tunnel.routes.ts — POST /api/v2/ia/wind-tunnel/run (202 async), GET /personas, /runs, /runs/:id;
+    RBAC ai_config; gate WIND_TUNNEL_ENABLED (default OFF — ligar só em staging)
+  - Migration 072: wind_tunnel_runs + wind_tunnel_results (RLS tenant_own)
+  - PLANO_A §8 (expansão RN17 do D-15) — Fase 2 futura: rodada noturna via PLANO_E + gate de cutover ≥90%
+P0-06 COMPLETO (era "sessão futura"):
+  - erp.types: ERPOperationsCapable (suspendCustomer/createServiceOrder) + type guard supportsErpOperations
+  - ixc.adapter: suspendCustomer (cliente_contrato_btn_susp_parc) + createServiceOrder (su_oss_chamado)
+  - tools.executor: suspend_signal imediato via ERP (agendado continua BullMQ — delay mora na fila);
+    schedule_technical_visit cria OS no ERP + espelho local com external_id; fallback silencioso p/ local
+BUG DE SCHEMA descoberto e corrigido (latente desde P3/P4):
+  - service_orders não tinha scheduled_for/created_by/external_id e o CHECK de status só aceitava pt-BR,
+    mas tools.executor/sales-funnel/subscriber-portal já escreviam status 'open' + scheduled_for → INSERT
+    quebraria em runtime. Migration 073_service_orders_align (colunas + CHECK união pt-BR/en).
+Flake corrigido: realtime.service.test reescrito com vi.hoisted (doMock+import dinâmico falhava ~1/3 sob carga).
+Testes: 19 novos D-15 + 6 novos P0-06. Suíte completa: 169/169 arquivos, 1337/1337 PASS. tsc: 0 erros.
+Pendências Lucas: migrations 072 e 073 no Supabase; WIND_TUNNEL_ENABLED=true em staging quando quiser rodar.
+Próximo sugerido: rodada real do túnel em staging (12 personas ≈ 60-80 chamadas 4o-mini, custo centavos)
+  → relatório vira insumo do gate de cutover da Onda 2.
+
+---
+
 [2026-07-12] CHECKUP GERAL — 103 imports quebrados (boot v2), 39 erros de typecheck, planos estratégicos
 Tarefa: checkup completo do código + auditoria dos planos + documentos de visão/escala/autoevolução.
 ACHADO CRÍTICO: o "CODING ENCERRADO" da sessão anterior estava furado — 103 imports relativos

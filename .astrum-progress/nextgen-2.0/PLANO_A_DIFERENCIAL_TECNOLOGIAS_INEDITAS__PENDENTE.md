@@ -516,3 +516,35 @@ Conversation `status='resolved'` + `updated_at < NOW() - 7d` + ≥3 mensagens + 
 - Adicionar coluna `customer_confirmed_at` em `conversations` (customer envia 👍/positivo)
 - Usar esse sinal como critério mais forte que "inatividade 7d"
 - Permitir geração imediata (sem esperar 7d) quando confirmado
+
+---
+
+## §8 — D-15 EXPANDIDO (RN17 — sessão 2026-07-12)
+
+### Fundação auditada
+- `langGraphService.processMessage` — entrada única do agente, aceita ids sintéticos
+  (mesmo mecanismo do eval ONLINE IA-03/42).
+- `eval/judge.ts` — padrão de LLM-as-judge com gpt-4o-mini (RN3).
+- `callOpenAI` (openai.adapter) — circuit breaker + fallback prontos.
+- Padrão de ports injetáveis (cobrai-rules D6) — o runner é 100% testável sem LLM.
+
+### Fase 1 — população sintética + runner + judge (THIS SESSION)
+- `personas.ts`: catálogo de 12 personas ISP (incl. adversariais: extração de
+  desconto, prompt injection, sondagem LGPD, ameaça de churn) com expectativas
+  declarativas (`shouldEscalate`, `mustNotContain`, `maxTurns`).
+- `wind-tunnel.service.ts`: loop persona↔agente com ports injetáveis
+  (`agent`, `personaLlm`, `judgeLlm`, `db`). Término: `[ENCERRAR]`, escalação
+  ou maxTurns. Score = checks determinísticos (violações) + judge 1-5.
+- Migration 072: `wind_tunnel_runs` + `wind_tunnel_results` (RLS tenant_own).
+- Rotas: `POST /api/v2/ia/wind-tunnel/run` (202, roda async), `GET /runs`, `GET /runs/:id`.
+- Flag `WIND_TUNNEL_ENABLED` (default false — RN habitual). SEMPRE apontar para
+  staging: o runner usa ids sintéticos e NUNCA envia por canal real (só processMessage).
+
+### Fase 2 — integração no ciclo (sessão futura)
+- Rodada noturna automática via nightly-brain (PLANO_E E-01) — regressão diária.
+- Gate de cutover: pass-rate do túnel ≥90% vira critério formal da Onda 2.
+- Tela em /intelligence (ranking de personas que quebram o agente + replay do transcript).
+
+### Métricas (RN20)
+- pass-rate por rodada; nº violações por categoria; score médio do judge;
+- "persona killer": qual persona derruba o agente com menos turnos (prioriza fix).

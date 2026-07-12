@@ -276,6 +276,10 @@ export async function buildServer() {
   const { outageNotifierRoutes } = await import('./domain/atendimento/outage-notifier.routes');
   await app.register(outageNotifierRoutes);
 
+  // D-15 — Túnel de Vento: população sintética de assinantes (staging; flag WIND_TUNNEL_ENABLED)
+  const { windTunnelRoutes } = await import('./domain/ia/wind-tunnel/wind-tunnel.routes');
+  await app.register(windTunnelRoutes);
+
   // Health check com status dos serviços
   app.get('/api/v2/health', async () => {
     const { getLLMStatus } = await import('./adapters/ai/llm.adapter');

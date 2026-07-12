@@ -1,10 +1,10 @@
-import { parseAmountToCents, type ERPProvider, type ERPSalesCapable, type ERPCredentials, type HttpClient, type SecondCopyResult, type ConnectionStatus, type ViabilityResult, type ErpPlan, type LeadRegistration } from './erp.types';
+import { parseAmountToCents, type ERPProvider, type ERPSalesCapable, type ERPOperationsCapable, type ERPCredentials, type HttpClient, type SecondCopyResult, type ConnectionStatus, type ViabilityResult, type ErpPlan, type LeadRegistration } from './erp.types';
 
 /**
  * IXC Adapter — port de src/lib/integrations/ixcClient.ts para apps/api.
  * HTTP injetável para teste; normaliza a 2ª via (boleto/pix) para o formato comum.
  */
-export class IXCAdapter implements ERPProvider, ERPSalesCapable {
+export class IXCAdapter implements ERPProvider, ERPSalesCapable, ERPOperationsCapable {
   readonly name = 'ixc' as const;
 
   constructor(
@@ -65,6 +65,33 @@ export class IXCAdapter implements ERPProvider, ERPSalesCapable {
 
   async unlockCustomer(customerId: string) {
     return this.post('/webservice/v1/cliente_desbloqueio_confianca', { id_cliente: customerId }, false);
+  }
+
+  // ── P0-06 — ERPOperationsCapable ───────────────────────────────────────────
+
+  async suspendCustomer(customerId: string, reason?: string): Promise<{ success: boolean; raw?: unknown }> {
+    // IXC: suspensão de contrato via desbloqueio reverso — endpoint de suspensão
+    // parcial do contrato do cliente (mesmo domínio do desbloqueio de confiança).
+    const raw = await this.post('/webservice/v1/cliente_contrato_btn_susp_parc', {
+      id_contrato: customerId,
+      motivo: reason ?? 'Suspensão automática (CobrAI)',
+    }, false);
+    const success = String(raw?.type ?? raw?.status ?? '').toLowerCase() !== 'error';
+    return { success, raw };
+  }
+
+  async createServiceOrder(data: { customerId: string; description: string; scheduledFor?: string }): Promise<{ orderId: string; raw?: unknown }> {
+    const raw = await this.post('/webservice/v1/su_oss_chamado', {
+      id_cliente: data.customerId,
+      tipo: 'C', // C = corretiva (visita técnica)
+      mensagem: data.description,
+      status: 'A', // A = Aberta
+      data_abertura: new Date().toISOString().slice(0, 10),
+      ...(data.scheduledFor ? { data_agenda: data.scheduledFor.slice(0, 10) } : {}),
+    }, false);
+    const orderId = String(raw?.id ?? raw?.id_chamado ?? '');
+    if (!orderId) throw new Error('IXC: abertura de OS não retornou id');
+    return { orderId, raw };
   }
 
   // ── P3 — ERPSalesCapable ───────────────────────────────────────────────────

@@ -1,70 +1,74 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock supabase antes de qualquer import do módulo
-vi.mock('../database/supabase.client', () => {
-  const channel = {
+// Estado mutável compartilhado com a factory do mock (padrão vi.hoisted).
+// Evita o vi.doMock + import dinâmico por teste, que era flaky sob carga
+// (o doMock ocasionalmente não substituía a factory hoisted — checkup 2026-07-12).
+const mockState = vi.hoisted(() => ({
+  url: 'https://real.supabase.co',
+  channel: {
     on: vi.fn().mockReturnThis(),
     subscribe: vi.fn().mockReturnThis(),
-  };
-  return {
-    supabaseAdmin: { channel: vi.fn().mockReturnValue(channel), removeChannel: vi.fn().mockResolvedValue(undefined) },
-    SUPABASE_URL: 'https://real.supabase.co',
-  };
-});
+  } as { on: ReturnType<typeof vi.fn>; subscribe: ReturnType<typeof vi.fn> },
+  channelFn: vi.fn(),
+  removeChannel: vi.fn(),
+}));
+
+vi.mock('../database/supabase.client', () => ({
+  supabaseAdmin: {
+    channel: (...args: unknown[]) => mockState.channelFn(...args),
+    removeChannel: (...args: unknown[]) => mockState.removeChannel(...args),
+  },
+  get SUPABASE_URL() {
+    return mockState.url;
+  },
+}));
+
+async function freshService() {
+  vi.resetModules();
+  return import('./realtime.service');
+}
 
 describe('realtime.service', () => {
-  beforeEach(() => vi.resetModules());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockState.url = 'https://real.supabase.co';
+    mockState.channel = { on: vi.fn().mockReturnThis(), subscribe: vi.fn().mockReturnThis() };
+    mockState.channelFn.mockReturnValue(mockState.channel);
+    mockState.removeChannel.mockResolvedValue(undefined);
+  });
 
   describe('watchTable', () => {
     it('retorna null e avisa quando SUPABASE_URL é placeholder', async () => {
-      vi.resetModules();
-      vi.doMock('../database/supabase.client', () => ({
-        supabaseAdmin: { channel: vi.fn(), removeChannel: vi.fn() },
-        SUPABASE_URL: 'https://placeholder.supabase.co',
-      }));
-      const { watchTable } = await import('./realtime.service');
+      mockState.url = 'https://placeholder.supabase.co';
+      const { watchTable } = await freshService();
       const result = watchTable({ table: 'messages', event: 'INSERT', handler: vi.fn() });
       expect(result).toBeNull();
+      expect(mockState.channelFn).not.toHaveBeenCalled();
     });
 
     it('cria canal e chama subscribe quando URL é real', async () => {
-      vi.resetModules();
-      const mockSubscribe = vi.fn().mockReturnThis();
-      const mockOn = vi.fn().mockReturnThis();
-      const mockChannel = { on: mockOn, subscribe: mockSubscribe };
-      const mockSupabase = {
-        channel: vi.fn().mockReturnValue(mockChannel),
-        removeChannel: vi.fn(),
-      };
-      vi.doMock('../database/supabase.client', () => ({
-        supabaseAdmin: mockSupabase,
-        SUPABASE_URL: 'https://real.supabase.co',
-      }));
-
-      const { watchTable } = await import('./realtime.service');
+      const { watchTable } = await freshService();
       const channel = watchTable({ table: 'messages', event: 'INSERT', handler: vi.fn() });
 
       expect(channel).not.toBeNull();
-      expect(mockSupabase.channel).toHaveBeenCalled();
-      expect(mockOn).toHaveBeenCalledWith('postgres_changes', expect.objectContaining({ table: 'messages', event: 'INSERT' }), expect.any(Function));
-      expect(mockSubscribe).toHaveBeenCalled();
+      expect(mockState.channelFn).toHaveBeenCalled();
+      expect(mockState.channel.on).toHaveBeenCalledWith(
+        'postgres_changes',
+        expect.objectContaining({ table: 'messages', event: 'INSERT' }),
+        expect.any(Function),
+      );
+      expect(mockState.channel.subscribe).toHaveBeenCalled();
     });
 
     it('handler de payload chama o callback do usuário com new/old/eventType', async () => {
-      vi.resetModules();
-
       let capturedPayloadHandler: ((p: any) => void) | undefined;
-      const mockOn = vi.fn().mockImplementation((_evName: string, _filter: any, cb: any) => {
+      mockState.channel.on = vi.fn().mockImplementation((_evName: string, _filter: any, cb: any) => {
         capturedPayloadHandler = cb;
-        return { subscribe: vi.fn().mockReturnThis() };
+        return mockState.channel;
       });
-      vi.doMock('../database/supabase.client', () => ({
-        supabaseAdmin: { channel: vi.fn().mockReturnValue({ on: mockOn, subscribe: vi.fn().mockReturnThis() }), removeChannel: vi.fn() },
-        SUPABASE_URL: 'https://real.supabase.co',
-      }));
 
       const userHandler = vi.fn();
-      const { watchTable } = await import('./realtime.service');
+      const { watchTable } = await freshService();
       watchTable({ table: 'tickets', event: '*', handler: userHandler });
 
       await capturedPayloadHandler?.({ new: { id: '1' }, old: {}, eventType: 'INSERT' });
@@ -72,18 +76,13 @@ describe('realtime.service', () => {
     });
 
     it('handler de payload absorve erro do callback sem propagar', async () => {
-      vi.resetModules();
       let capturedPayloadHandler: ((p: any) => void) | undefined;
-      const mockOn = vi.fn().mockImplementation((_: string, __: any, cb: any) => {
+      mockState.channel.on = vi.fn().mockImplementation((_: string, __: any, cb: any) => {
         capturedPayloadHandler = cb;
-        return { subscribe: vi.fn().mockReturnThis() };
+        return mockState.channel;
       });
-      vi.doMock('../database/supabase.client', () => ({
-        supabaseAdmin: { channel: vi.fn().mockReturnValue({ on: mockOn, subscribe: vi.fn().mockReturnThis() }), removeChannel: vi.fn() },
-        SUPABASE_URL: 'https://real.supabase.co',
-      }));
 
-      const { watchTable } = await import('./realtime.service');
+      const { watchTable } = await freshService();
       watchTable({ table: 'messages', event: 'INSERT', handler: async () => { throw new Error('handler-boom'); } });
 
       await expect(capturedPayloadHandler?.({ new: {}, old: {}, eventType: 'INSERT' })).resolves.toBeUndefined();
@@ -91,41 +90,24 @@ describe('realtime.service', () => {
   });
 
   describe('unwatchTable', () => {
-    it('remove canal registrado e limpa do Map', async () => {
-      vi.resetModules();
-      const mockRemoveChannel = vi.fn().mockResolvedValue(undefined);
-      const mockChannel = { on: vi.fn().mockReturnThis(), subscribe: vi.fn().mockReturnThis() };
-      vi.doMock('../database/supabase.client', () => ({
-        supabaseAdmin: { channel: vi.fn().mockReturnValue(mockChannel), removeChannel: mockRemoveChannel },
-        SUPABASE_URL: 'https://real.supabase.co',
-      }));
-
-      const { watchTable, unwatchTable } = await import('./realtime.service');
+    it('não lança para canal inexistente e não chama removeChannel', async () => {
+      const { watchTable, unwatchTable } = await freshService();
       watchTable({ table: 'invoices', event: 'UPDATE', handler: vi.fn() });
 
-      // não lança mesmo que não exista
       await expect(unwatchTable('canal-inexistente')).resolves.toBeUndefined();
-      expect(mockRemoveChannel).not.toHaveBeenCalled();
+      expect(mockState.removeChannel).not.toHaveBeenCalled();
     });
   });
 
   describe('closeAllChannels', () => {
     it('remove todos os canais ativos e limpa o Map', async () => {
-      vi.resetModules();
-      const mockRemoveChannel = vi.fn().mockResolvedValue(undefined);
-      const mockChannel = { on: vi.fn().mockReturnThis(), subscribe: vi.fn().mockReturnThis() };
-      vi.doMock('../database/supabase.client', () => ({
-        supabaseAdmin: { channel: vi.fn().mockReturnValue(mockChannel), removeChannel: mockRemoveChannel },
-        SUPABASE_URL: 'https://real.supabase.co',
-      }));
-
-      const { watchTable, closeAllChannels } = await import('./realtime.service');
+      const { watchTable, closeAllChannels } = await freshService();
       watchTable({ table: 'messages', event: 'INSERT', handler: vi.fn() });
       watchTable({ table: 'invoices', event: 'UPDATE', handler: vi.fn() });
 
       await closeAllChannels();
 
-      expect(mockRemoveChannel).toHaveBeenCalledTimes(2);
+      expect(mockState.removeChannel).toHaveBeenCalledTimes(2);
     });
   });
 });

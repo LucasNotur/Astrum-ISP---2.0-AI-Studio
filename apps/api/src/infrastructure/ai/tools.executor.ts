@@ -5,7 +5,7 @@ import { getEnabledTools, recordToolUsage } from './tool-registry';
 import { impactoCto, reincidencia, capacidade, defaultDb as graphDb } from '../../domain/rede/network-graph.service';
 import { decryptCredentials } from '../../adapters/erp/credential-cipher';
 import { createErpProvider, isErpImplemented } from '../../adapters/erp/erp.factory';
-import type { ERPProviderName, ERPCredentials } from '../../adapters/erp/erp.types';
+import { supportsErpOperations, type ERPProviderName, type ERPCredentials, type ERPProvider } from '../../adapters/erp/erp.types';
 import { executeTrustUnlock, defaultTrustUnlockDb } from '../../domain/atendimento/trust-unlock.service';
 import { buildNegotiationMenu, defaultNegotiationDb } from '../../domain/atendimento/debt-negotiation.service';
 import { checkViability, getAvailablePlans } from '../../domain/vendas/sales-funnel.service';
@@ -95,6 +95,19 @@ export class ToolsExecutor {
     return result;
   }
 
+  /** P0-06 — instancia o adapter do ERP ativo do tenant (null se não configurado). */
+  private async _getErpAdapter(): Promise<ERPProvider | null> {
+    const { data: erpCred } = await supabase
+      .from('tenant_erp_credentials')
+      .select('provider, credentials_encrypted')
+      .eq('tenant_id', this.tenantId)
+      .eq('active', true)
+      .maybeSingle();
+    if (!erpCred?.provider || !isErpImplemented(erpCred.provider as ERPProviderName)) return null;
+    const creds = decryptCredentials<ERPCredentials>(erpCred.credentials_encrypted);
+    return createErpProvider(erpCred.provider as ERPProviderName, creds);
+  }
+
   private async _suspendSignal(args: Record<string, unknown>) {
     const { customer_id, reason, scheduled_for } = args as {
       customer_id: string;
@@ -109,6 +122,24 @@ export class ToolsExecutor {
       entity_id: customer_id,
       metadata: { reason, scheduled_for, triggered_by: 'ai_agent' },
     });
+
+    // P0-06 — suspensão imediata direto no ERP quando o conector suporta.
+    // Suspensão AGENDADA continua no BullMQ (o delay mora na fila, não no ERP).
+    if (!scheduled_for) {
+      try {
+        const adapter = await this._getErpAdapter();
+        if (adapter && supportsErpOperations(adapter)) {
+          const r = await adapter.suspendCustomer(customer_id, reason);
+          if (r.success) {
+            infraLogger.info({ tenantId: this.tenantId, provider: adapter.name }, 'suspend_signal via ERP adapter');
+            return { success: true, source: 'erp', message: `Suspensão executada no ERP para ${customer_id}` };
+          }
+        }
+      } catch (erpErr) {
+        // Falha silenciosa: cai de volta para a fila local (resiliência).
+        infraLogger.warn({ err: (erpErr as Error).message, tenantId: this.tenantId }, 'ERP suspend falhou — usando fila local');
+      }
+    }
 
     // Agendar job BullMQ para suspensão
     await suspensionQueue.add('suspend_signal', {
@@ -209,11 +240,39 @@ export class ToolsExecutor {
     return { signal: 'ok', latency_ms: 18, packet_loss: 0, simulated: true, note: 'telemetria real chega na S93 (SNMP/TR-069)' };
   }
 
-  /** schedule_technical_visit — cria uma OS (service_orders). */
+  /** schedule_technical_visit — cria a OS no ERP (P0-06) ou em service_orders. */
   private async _scheduleTechnicalVisit(args: Record<string, unknown>) {
     const { customer_id, reason, address, scheduled_for } = args as {
       customer_id: string; reason: string; address?: string; scheduled_for?: string;
     };
+
+    // P0-06 — quando o tenant tem conector, a OS mora no ERP (fonte da verdade
+    // do técnico). Espelho local em service_orders mantém o mapa/painéis vivos.
+    try {
+      const adapter = await this._getErpAdapter();
+      if (adapter && supportsErpOperations(adapter)) {
+        const erpOs = await adapter.createServiceOrder({
+          customerId: customer_id,
+          description: reason,
+          scheduledFor: scheduled_for,
+        });
+        await supabase.from('service_orders').insert({
+          tenant_id: this.tenantId,
+          customer_id,
+          type: 'technical_visit',
+          status: 'open',
+          description: reason,
+          address: address ?? null,
+          scheduled_for: scheduled_for ?? null,
+          created_by: 'ai_agent',
+          external_id: erpOs.orderId,
+        });
+        infraLogger.info({ tenantId: this.tenantId, provider: adapter.name, orderId: erpOs.orderId }, 'schedule_technical_visit via ERP adapter');
+        return { service_order_id: erpOs.orderId, source: 'erp', success: true };
+      }
+    } catch (erpErr) {
+      infraLogger.warn({ err: (erpErr as Error).message, tenantId: this.tenantId }, 'ERP createServiceOrder falhou — usando service_orders local');
+    }
 
     const { data, error } = await supabase.from('service_orders').insert({
       tenant_id: this.tenantId,

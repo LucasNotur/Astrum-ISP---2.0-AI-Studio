@@ -100,7 +100,7 @@ sem rollback.
 Fonte: `PLANO_B_PARIDADE_CONCORRENTES__PENDENTE.md` (blocos P0–P6 com metas RN20).
 1. ~~P0-01..05 conectores IXC/Voalle/MK/SGP/Hubsoft~~ ✅ — code-complete (S75 + 2026-07-09).
    *Lucas:* acesso a instância IXC real para homologação pendente (não bloqueia código).
-2. ~~P0-06 (tools do agente operando o ERP)~~ ✅ `check_invoice` migrado; `suspend_signal`/`schedule_technical_visit` via ERP ficam para sessão futura.
+2. ~~P0-06 (tools do agente operando o ERP)~~ ✅ COMPLETO 2026-07-12: `check_invoice` + `suspend_signal` + `schedule_technical_visit` via ERP (ERPOperationsCapable, IXC; fallback local). *Lucas:* migration `073_service_orders_align` pendente.
 3. ~~P1 (religue, notificação proativa, negociação, handover)~~ ✅ CODE-COMPLETE 2026-07-11.
    *Lucas:* migrations `trust_unlock_policies`, `trust_unlocks`, `outage_notifications` pendentes.
 4. ~~P2 (Instagram/Messenger/e-mail/inbox unificada)~~ ✅ CODE-COMPLETE 2026-07-11.
