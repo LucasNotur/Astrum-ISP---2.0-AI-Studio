@@ -52,6 +52,11 @@ export interface SalesLead {
   contract_status?: string;
   contract_url?: string | null;
   contract_provider?: string | null;
+  // D-07 — oferta calibrada por LTV
+  source?: string | null;
+  cto_occupancy_pct?: number | null;
+  estimated_ltv_cents?: number | null;
+  offer_tier?: string | null;
 }
 
 export interface SalesFunnelDb {

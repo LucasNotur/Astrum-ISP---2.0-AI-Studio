@@ -264,6 +264,10 @@ export async function buildServer() {
   const { fieldCopilotRoutes } = await import('./domain/campo/field-copilot.routes');
   await app.register(fieldCopilotRoutes);
 
+  // D-07 — Painel comercial: funil de conversão + LTV médio
+  const { vendasDashboardRoutes } = await import('./domain/vendas/vendas-dashboard.routes');
+  await app.register(vendasDashboardRoutes);
+
   // Health check com status dos serviços
   app.get('/api/v2/health', async () => {
     const { getLLMStatus } = await import('./adapters/ai/llm.adapter');

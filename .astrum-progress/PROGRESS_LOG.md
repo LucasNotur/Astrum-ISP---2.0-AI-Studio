@@ -24,6 +24,25 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-12] D-07 — Vendedor autônomo com LTV calibrado na oferta
+Tarefa: RN17 expansão de D-07 + implementação (ltv-offer.service, integração no subgrafo vendas, painel comercial, migration).
+Arquivos criados:
+  - packages/db/src/migrations/070_d07_ltv_offer.sql — ALTER TABLE sales_leads: source, cto_occupancy_pct, estimated_ltv_cents, offer_tier
+  - apps/api/src/domain/vendas/ltv-offer.service.ts — computeLtvOffer + computeCtOccupancy (calibração por ocupação CTO e preço do plano)
+  - apps/api/src/domain/vendas/ltv-offer.service.test.ts — 11 testes
+  - apps/api/src/domain/vendas/vendas-dashboard.routes.ts — GET /api/v2/vendas/dashboard (funil por estágio, LTV médio, por source, por tier)
+  - .astrum-progress/nextgen-2.0/PLANO_A_DIFERENCIAL_TECNOLOGIAS_INEDITAS__PENDENTE.md — §6 D-07 expandido
+Arquivos modificados:
+  - apps/api/src/domain/vendas/sales-funnel.service.ts — SalesLead type: +source, +cto_occupancy_pct, +estimated_ltv_cents, +offer_tier
+  - apps/api/src/domain/agent/subgraphs/vendas.subgraph.ts — presenting_plans: computeCtOccupancy + computeLtvOffer + salva campos D-07 + injeta offerNotes no prompt
+  - apps/api/src/server.ts — registra vendasDashboardRoutes
+Testes: 36 PASS (11 novos + 25 existentes sem regressão). TypeCheck: zero erros nos arquivos D-07.
+Status: ✅ Concluído
+Métricas-alvo: conversão collecting_address→completed ≥15%; LTV médio dos completed validado em 30d
+Pendências Lucas: apply migration 070 no Supabase (junto com 067 e 068 que já estavam pendentes)
+
+---
+
 [2026-07-12] D-06 Fase 1 — Copiloto de campo: foto → diagnóstico → OS (Onda 5)
 Tarefa: RN17 expansão de D-06 + implementação Fase 1 (diagnosePlusAttach + UI).
 Arquivos criados:

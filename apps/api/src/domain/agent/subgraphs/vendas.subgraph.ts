@@ -24,6 +24,13 @@ import {
   type SalesFunnelStage,
 } from '../../vendas/sales-funnel.service';
 import { sendContract, type ContractHttpClient } from '../../vendas/contract.service';
+import {
+  computeLtvOffer,
+  computeCtOccupancy,
+  defaultCtoDb,
+  type CtoDB,
+  type LtvOfferResult,
+} from '../../vendas/ltv-offer.service';
 import { infraLogger } from '../../../infrastructure/logging/logger';
 import type { ErpPlan } from '../../../adapters/erp/erp.types';
 
@@ -31,6 +38,7 @@ const miniModel = openai('gpt-4o-mini');
 
 export interface VendasSubgraphDeps {
   funnelDb?: SalesFunnelDb;
+  ctoDb?: CtoDB;
   checkViabilityFn?: typeof checkViability;
   getPlansFn?: typeof getAvailablePlans;
   registerLeadFn?: typeof registerLeadInErp;
@@ -38,6 +46,8 @@ export interface VendasSubgraphDeps {
   sendContractFn?: typeof sendContract;
   generateTextFn?: typeof generateText;
   contractHttp?: ContractHttpClient;
+  computeLtvOfferFn?: typeof computeLtvOffer;
+  computeCtOccupancyFn?: typeof computeCtOccupancy;
 }
 
 export async function runVendasSubgraph(
@@ -47,12 +57,15 @@ export async function runVendasSubgraph(
   const { tenantId, conversationId, userMessage } = state;
 
   const db = deps.funnelDb ?? defaultFunnelDb;
+  const ctoDb = deps.ctoDb ?? defaultCtoDb;
   const doCheckViability = deps.checkViabilityFn ?? checkViability;
   const doGetPlans = deps.getPlansFn ?? getAvailablePlans;
   const doRegisterLead = deps.registerLeadFn ?? registerLeadInErp;
   const doSchedule = deps.scheduleInstallationFn ?? scheduleInstallation;
   const doSendContract = deps.sendContractFn ?? sendContract;
   const generate = deps.generateTextFn ?? generateText;
+  const doComputeLtvOffer = deps.computeLtvOfferFn ?? computeLtvOffer;
+  const doComputeCtOccupancy = deps.computeCtOccupancyFn ?? computeCtOccupancy;
 
   try {
     const lead = await getOrCreateLead(db, tenantId, conversationId);
@@ -88,16 +101,33 @@ export async function runVendasSubgraph(
           });
           return response(text, state.steps, 'vendas_presenting_plans');
         }
+
+        // D-07 — calcular LTV + ocupação da CTO para calibrar a oferta
+        const viabilityRaw = lead.viability_raw as any;
+        const ctoId: string | undefined = viabilityRaw?.ctoId;
+        const ctoOccupancyPct = ctoId
+          ? await doComputeCtOccupancy(ctoDb, tenantId, ctoId)
+          : null;
+        const ltvOffer = doComputeLtvOffer({ planPriceCents: extracted.priceCents, ctoOccupancyPct });
+
         await updateLead(db, lead.id, {
           stage: 'collecting_data',
           selected_plan_id: extracted.id,
           selected_plan_name: extracted.name,
           selected_plan_price_cents: extracted.priceCents,
+          cto_occupancy_pct: ctoOccupancyPct,
+          estimated_ltv_cents: ltvOffer.estimatedLtvCents,
+          offer_tier: ltvOffer.offerTier,
         });
+        infraLogger.info(
+          { tenantId, leadId: lead.id, offerTier: ltvOffer.offerTier, ltvCents: ltvOffer.estimatedLtvCents, ctoOccupancyPct },
+          'D-07 oferta calibrada',
+        );
+
         const { text } = await generate({
           model: miniModel as any,
           system: SYSTEM_VENDAS,
-          prompt: `Cliente selecionou: ${extracted.name}. Agora colete: nome completo, CPF, e-mail e telefone. Peça tudo de uma vez.`,
+          prompt: `Cliente selecionou: ${extracted.name}. [Contexto interno — não revelar ao cliente: ${ltvOffer.offerNotes}] Agora colete: nome completo, CPF, e-mail e telefone. Peça tudo de uma vez.`,
         });
         return response(text, state.steps, 'vendas_collecting_data');
       }

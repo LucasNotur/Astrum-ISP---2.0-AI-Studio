@@ -323,3 +323,69 @@ onda em densidade §4 contra o código real do dia, e só então executar.
 - Tempo diagnóstico foto→laudo: meta <3s
 - % OS com foto diagnóstica anexada: meta ≥60% em 30d de uso
 - Severidades `alta`+`crítica` detectadas antes de o cliente reclamar (comparar timestamp foto vs timestamp abertura de ticket)
+
+---
+
+## §6 — D-07 EXPANDIDO (RN17 — sessão 2026-07-12)
+
+> Auditoria do código real feita em 2026-07-12. Combustível P0+P3 satisfeitos.
+> Esta seção é o plano executável do D-07 (vendedor autônomo com LTV na oferta).
+
+### Fundação auditada
+
+| Ativo | Arquivo | Estado |
+|---|---|---|
+| `computeLtv()` | `apps/api/src/domain/ml/ltv.ts` | ✅ mrrCents × 0.35 × lifetime por churn band |
+| Funil P3 completo | `apps/api/src/domain/vendas/sales-funnel.service.ts` | ✅ state machine address→viability→plans→data→ERP→scheduling→contrato |
+| `runVendasSubgraph()` | `apps/api/src/domain/agent/subgraphs/vendas.subgraph.ts` | ✅ orquestra o funil via multi-agente |
+| `checkViability()` | `sales-funnel.service.ts` | ✅ retorna ctoId + ctoName + availablePorts |
+| `capacidade()` + `CapacidadeRow.occupancy` | `apps/api/src/domain/rede/network-graph.service.ts` | ✅ occupancy 0–1 por CTO; filtra >85% |
+| `sales_leads` | `packages/db/src/migrations/067_p3_sales_leads.sql` | ✅ pronto; faltam 4 colunas D-07 |
+| Rotas de vendas | `apps/api/src/server.ts` | 🔴 não registradas — só o subgrafo no multi-agente |
+
+### O que D-07 ADICIONA sobre P3 (o diferencial inédito)
+
+P3 = funil que fecha venda. D-07 = oferta CALIBRADA: o agente sabe o LTV do lead e a ocupação da CTO,
+e usa isso para decidir se oferece bônus (CTO com folga = crescimento barato) ou mantém preço cheio
+(CTO saturada = custo de infra sobe se fechar; melhor não dar desconto).
+
+### Arquivos a criar
+
+1. **`packages/db/src/migrations/070_d07_ltv_offer.sql`**
+   - ALTER TABLE sales_leads ADD COLUMN IF NOT EXISTS:
+     - `source` text check in ('whatsapp','site','indicacao','anuncio','outro') default 'whatsapp'
+     - `cto_occupancy_pct` smallint (0–100, snapshot no momento da oferta)
+     - `estimated_ltv_cents` integer
+     - `offer_tier` text check in ('standard','premium','promotional') default 'standard'
+
+2. **`apps/api/src/domain/vendas/ltv-offer.service.ts`**
+   - `computeCtOccupancy(db, tenantId, ctoId)` → busca `network_ctos` direto, retorna occupancy % (0–100)
+   - `computeLtvOffer({ planPriceCents, ctoOccupancyPct })` → retorna `{ estimatedLtvCents, offerTier, offerNotes }`
+     - LTV: `computeLtv({ mrrCents: planPriceCents, band: 'low' })` (novo cliente → band padrão 'low')
+     - tier = 'promotional' se ctoOccupancyPct < 70; 'premium' se planPriceCents > 10000; 'standard' caso contrário
+     - offerNotes: frase curta para o agente (ex: "CTO com 35% livre — ótimo momento para oferecer instalação grátis")
+
+3. **`apps/api/src/domain/vendas/ltv-offer.service.test.ts`** — testes Vitest
+
+4. **`apps/api/src/domain/vendas/vendas-dashboard.routes.ts`**
+   - `GET /api/v2/vendas/dashboard` (auth: operador/admin/super_admin)
+   - Agrega `sales_leads`: counts por stage, LTV médio dos completed, taxa conversão, top sources
+
+### Arquivos a modificar
+
+- `apps/api/src/domain/agent/subgraphs/vendas.subgraph.ts`
+  - No estágio `presenting_plans` (logo após `checkViability` retornar), chamar `computeLtvOffer`
+  - Salvar `cto_occupancy_pct`, `estimated_ltv_cents`, `offer_tier` via `updateLead`
+  - Injetar `offerNotes` no prompt do agente junto com os planos
+  - Novo dep injetável `computeLtvOfferFn` (para testabilidade)
+
+- `apps/api/src/domain/vendas/sales-funnel.service.ts`
+  - Adicionar campos D-07 ao tipo `SalesLead`
+
+- `apps/api/src/server.ts`
+  - Registrar `vendasDashboardRoutes`
+
+### Métricas (RN20)
+- % de leads `completed` com `offer_tier` preenchido: meta 100% após deploy
+- LTV médio dos completados vs estimado (validar modelo em 30d)
+- Taxa conversão collecting_address → completed: meta ≥ 15%
