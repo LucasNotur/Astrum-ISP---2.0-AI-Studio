@@ -269,7 +269,7 @@ export function KnowledgeBasePage() {
       </div>
 
       <Tabs defaultValue="knowledge" className="w-full">
-        <TabsList>
+        <TabsList className="flex flex-wrap h-auto gap-1">
           <TabsTrigger value="knowledge">Artigos (Knowledge Base)</TabsTrigger>
           <TabsTrigger value="searchtest">Testar Busca Semântica</TabsTrigger>
         </TabsList>
@@ -286,26 +286,26 @@ export function KnowledgeBasePage() {
                 </div>
               </div>
             )}
-            <div className="flex justify-between items-center bg-zinc-50 border border-zinc-200 dark:bg-zinc-800/50 dark:border-zinc-700 p-4 rounded-xl gap-4">
-              <div className="flex flex-1 gap-2 items-center">
-                <Input 
-                  placeholder="Exemplo: https://site-do-provedor.com.br/planos" 
-                  value={urlToScrape} 
-                  onChange={(e) => setUrlToScrape(e.target.value)} 
-                  className="max-w-xl"
+            <div className="flex flex-col sm:flex-row sm:items-center bg-zinc-50 border border-zinc-200 dark:bg-zinc-800/50 dark:border-zinc-700 p-4 rounded-xl gap-3">
+              <div className="flex flex-1 flex-col sm:flex-row gap-2">
+                <Input
+                  placeholder="Exemplo: https://site-do-provedor.com.br/planos"
+                  value={urlToScrape}
+                  onChange={(e) => setUrlToScrape(e.target.value)}
+                  className="flex-1"
                 />
-                <Button onClick={handleScrapeUrl} disabled={isScrapingUrl || !urlToScrape} variant="secondary">
+                <Button onClick={handleScrapeUrl} disabled={isScrapingUrl || !urlToScrape} variant="secondary" className="shrink-0">
                   {isScrapingUrl ? 'Importando...' : 'Importar do Site'}
                 </Button>
               </div>
-              
-              <div className="flex gap-2 items-center">
-                <div className="text-sm text-zinc-500 mr-2">
-                  Total de artigos: <b>{kbArticles.length}</b> ({indexedCount} indexados no vetor)
-                </div>
-                <Button onClick={startReindex} variant="secondary"><RotateCcw size={16} className="mr-2"/> Reindexar</Button>
-                <Button onClick={() => { setEditingArticle(null); setArticleForm({ title: '', category: 'geral', content: '' }); setIsArticleModalOpen(true); }}>
-                  <Plus size={16} className="mr-2" /> Novo Artigo
+
+              <div className="flex flex-wrap gap-2 items-center sm:border-l sm:border-zinc-200 sm:dark:border-zinc-600 sm:pl-3">
+                <span className="text-sm text-zinc-500 whitespace-nowrap">
+                  <b>{kbArticles.length}</b> artigos ({indexedCount} no vetor)
+                </span>
+                <Button onClick={startReindex} variant="secondary" size="sm"><RotateCcw size={14} className="mr-1.5"/> Reindexar</Button>
+                <Button size="sm" onClick={() => { setEditingArticle(null); setArticleForm({ title: '', category: 'geral', content: '' }); setIsArticleModalOpen(true); }}>
+                  <Plus size={14} className="mr-1.5" /> Novo Artigo
                 </Button>
               </div>
             </div>

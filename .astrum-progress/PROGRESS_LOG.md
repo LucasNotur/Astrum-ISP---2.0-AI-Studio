@@ -24,6 +24,23 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-12] U5 — Responsividade total + PWA técnico (Onda 5)
+Tarefa: Tornar as páginas sem breakpoint responsivas + PWA instalável para técnico de campo.
+Arquivos criados:
+  - public/icons/astrum-tech.svg — ícone SVG local para PWA (substitui URLs Unsplash externas)
+  - public/offline.html — tela offline com auto-reload ao reconectar
+Arquivos modificados:
+  - src/pages/OperatorMobilePage.tsx — layout two-panel (lista+chat side-by-side em md+); mobile mantém navegação single-panel
+  - src/pages/KnowledgeBasePage.tsx — toolbar flex-col sm:flex-row; tabs flex-wrap; botões flex-wrap
+  - src/pages/ERPIntegrationsPage.tsx — card headers flex-wrap com shrink-0; botões flex-wrap
+  - src/pages/TechnicianAppPage.tsx — renomeia syncWithFirestore→syncPendingActions; SW message listener TRIGGER_SYNC; remove console.log de registro SW
+  - public/manifest.json — name "Astrum Técnico de Campo", start_url /tecnico, ícone SVG local, shortcut "Minhas OS do dia", lang pt-BR
+  - public/sw.js — estratégia cache-first (estáticos) / network-first (API+navegação) / offline.html fallback / background sync via postMessage
+  - index.html — manifest link, theme-color #3D5AFE, apple-touch-icon, lang=pt-BR, título "Astrum ISP"
+Testes: 1808 passando, 2 falhas pré-existentes (timeout LangGraph/BullMQ sem serviços externos)
+Status: ✅ Concluído
+Próximo: U6 — White-label por tenant + módulos configuráveis
+
 [2026-07-12] U4-07 — Hub Inteligência (recalibração) (Onda 4)
 Tarefa: Auditar e recalibrar as 18 telas do Hub Inteligência com os padrões U4.
 Arquivos modificados: nenhum (auditoria verificou conformidade total)

@@ -1,20 +1,29 @@
 {
-  "name": "Astrum Operador",
-  "short_name": "Operador",
-  "start_url": "/operador-mobile",
+  "name": "Astrum — Técnico de Campo",
+  "short_name": "Astrum Tech",
+  "description": "App do técnico de campo: ordens de serviço, checklist e sincronização offline.",
+  "start_url": "/tecnico",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#4f46e5",
+  "orientation": "portrait-primary",
+  "background_color": "#0f0f11",
+  "theme_color": "#3D5AFE",
   "icons": [
     {
-      "src": "https://images.unsplash.com/photo-1611162617474-5b21e879e113?q=80&w=192&auto=format&fit=crop",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "https://images.unsplash.com/photo-1611162617474-5b21e879e113?q=80&w=512&auto=format&fit=crop",
-      "sizes": "512x512",
-      "type": "image/png"
+      "src": "/icons/astrum-tech.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     }
-  ]
+  ],
+  "shortcuts": [
+    {
+      "name": "Minhas OS do dia",
+      "short_name": "Hoje",
+      "url": "/tecnico",
+      "icons": [{ "src": "/icons/astrum-tech.svg", "sizes": "any" }]
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "lang": "pt-BR"
 }

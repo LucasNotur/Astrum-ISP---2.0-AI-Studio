@@ -168,10 +168,19 @@ não num dashboard genérico). `canAccess` (C7) já suporta.
 - **U4-06:** Mapa/rede (+ saúde IA-24). **U4-07:** Hub Inteligência (as 10 telas
   novas já seguem IA-11 — só recalibrar com a skill).
 
-### U5 — Responsividade total + campo
-- **U5-01:** as 7 páginas sem breakpoint (lista da U0) → responsivas.
-- **U5-02:** PWA instalável para técnico (manifest + offline básico de OS) —
-  base do copiloto D-06.
+### ✅ U5 — Responsividade total + campo (2026-07-12)
+- **U5-01:** ✅ Páginas sem breakpoint tornadas responsivas:
+  - `OperatorMobilePage` — split-panel (lista+chat) em md+; mobile mantém navegação single-panel
+  - `KnowledgeBasePage` — toolbar flex-col→sm:flex-row; tabs flex-wrap; botões flex-wrap
+  - `ERPIntegrationsPage` — card headers flex-wrap; botões flex-wrap
+  - `CobrAIPage`, `MapPage`, `InventoryPage` — já corrigidos em U4
+- **U5-02:** ✅ PWA para técnico de campo:
+  - `public/manifest.json` — name/start_url/icons corrigidos (sem URLs externas); shortcut OS do dia
+  - `public/sw.js` — cache-first estático / network-first API+nav / offline.html fallback / TRIGGER_SYNC via postMessage
+  - `public/offline.html` — tela offline com auto-reload quando volta conexão
+  - `public/icons/astrum-tech.svg` — ícone SVG local (substitui URLs Unsplash)
+  - `index.html` — manifest link, theme-color, apple-touch-icon, lang=pt-BR, título "Astrum ISP"
+  - `TechnicianAppPage` — syncWithFirestore → syncPendingActions (API REST); SW message listener
 
 ### U6 — Configuração pelo ISP (o "configurável" que o Lucas pediu)
 - **U6-01 — White-label por tenant:** logo, cor de acento (sobre os tokens — a

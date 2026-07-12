@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Astrum — Sem conexão</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f0f11;
+      color: #e4e4e7;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      text-align: center;
+    }
+    .icon {
+      width: 64px;
+      height: 64px;
+      background: #3D5AFE;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.5rem;
+    }
+    .icon svg { width: 36px; height: 36px; fill: none; stroke: white; stroke-width: 2; stroke-linecap: round; }
+    h1 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; }
+    p  { font-size: 0.875rem; color: #a1a1aa; max-width: 280px; line-height: 1.5; }
+    .note {
+      margin-top: 2rem;
+      font-size: 0.75rem;
+      color: #52525b;
+      border: 1px solid #27272a;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      max-width: 320px;
+    }
+    button {
+      margin-top: 1.5rem;
+      padding: 0.625rem 1.5rem;
+      background: #3D5AFE;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    button:hover { background: #3451e8; }
+  </style>
+</head>
+<body>
+  <div class="icon">
+    <svg viewBox="0 0 24 24">
+      <path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0119 12.55M5 12.55a10.94 10.94 0 015.17-2.39M10.71 5.05A16 16 0 0122.56 9M1.42 9a15.91 15.91 0 014.7-2.88M8.53 16.11a6 6 0 016.95 0M12 20h.01"/>
+    </svg>
+  </div>
+
+  <h1>Sem conexão</h1>
+  <p>Você está offline. Os dados já baixados continuam disponíveis localmente.</p>
+
+  <div class="note">
+    As ordens de serviço abertas continuam acessíveis. Alterações feitas offline serão sincronizadas automaticamente quando a conexão retornar.
+  </div>
+
+  <button onclick="window.location.reload()">Tentar novamente</button>
+
+  <script>
+    window.addEventListener('online', () => window.location.reload());
+  </script>
+</body>
+</html>

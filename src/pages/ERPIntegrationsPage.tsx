@@ -215,20 +215,20 @@ export function ERPIntegrationsPage() {
                 className="pb-0 cursor-pointer select-none"
                 onClick={() => setExpanded(isOpen ? null : provider.id)}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">{provider.icon}</span>
-                    <div>
+                <div className="flex flex-wrap items-center gap-2 justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-2xl shrink-0">{provider.icon}</span>
+                    <div className="min-w-0">
                       <CardTitle className="text-base">{provider.label}</CardTitle>
                       <CardDescription className="text-xs mt-0.5">
                         {isConnected ? 'Conectado e ativo' : 'Não configurado'}
                       </CardDescription>
                     </div>
-                    <Badge variant={isConnected ? 'default' : 'secondary'} className="text-[10px] ml-2">
+                    <Badge variant={isConnected ? 'default' : 'secondary'} className="text-[10px] shrink-0">
                       {isConnected ? 'Ativo' : 'Inativo'}
                     </Badge>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     {isConnected && (
                       <Button
                         variant="outline"
@@ -268,7 +268,7 @@ export function ERPIntegrationsPage() {
                           </div>
                         ))}
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <Button
                           size="sm"
                           onClick={() => saveProvider(provider.id)}

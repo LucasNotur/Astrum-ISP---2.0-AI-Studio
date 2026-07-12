@@ -136,37 +136,41 @@ export default function TechnicianAppPage() {
     };
     loadOss();
     
-    // Service Worker Registration
+    // Service Worker registration
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
         .register("/sw.js")
-        .then((registration) => {
-          console.log("SW registered: ", registration);
-        })
-        .catch((registrationError) => {
-          console.log("SW registration failed: ", registrationError);
-        });
+        .catch((err) => console.warn("SW registration failed:", err));
     }
 
-    const handler = (e: any) => {
+    // Listen for TRIGGER_SYNC message from SW (background sync event)
+    const handleSwMessage = (event: MessageEvent) => {
+      if (event.data?.type === "TRIGGER_SYNC") {
+        syncPendingActions();
+      }
+    };
+    navigator.serviceWorker?.addEventListener("message", handleSwMessage);
+
+    const handleInstallPrompt = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
     };
-    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener("beforeinstallprompt", handleInstallPrompt);
 
     const handleOnline = () => {
       setIsOnline(true);
-      syncWithFirestore();
+      syncPendingActions();
     };
     const handleOffline = () => setIsOnline(false);
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', handler);
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener("beforeinstallprompt", handleInstallPrompt);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      navigator.serviceWorker?.removeEventListener("message", handleSwMessage);
     };
   }, []);
 
@@ -188,22 +192,25 @@ export default function TechnicianAppPage() {
     }
   };
 
-  const syncWithFirestore = async () => {
+  const syncPendingActions = async () => {
     if (!navigator.onLine) return;
     const db = await dbPromise;
     const queue = await db.getAll('sync-queue');
     if (queue.length === 0) return;
-    
+
     toast.loading("Sincronizando dados offline...", { id: "sync" });
     try {
       for (const item of queue) {
-        // Simulando envio pro Firebase/Firestore
-        console.log("Sincronizando via background sync ou reconnect:", item);
-        await new Promise(r => setTimeout(r, 500)); 
+        // Send each queued action to the API via Supabase REST
+        await fetch('/api/service-orders/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(item),
+        });
         await db.delete('sync-queue', item.id);
       }
       toast.success("Sincronização concluída!", { id: "sync" });
-    } catch (e) {
+    } catch {
       toast.error("Erro na sincronização.", { id: "sync" });
     }
   };
