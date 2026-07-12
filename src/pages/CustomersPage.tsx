@@ -11,8 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/src/components/ui/avatar";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/src/components/ui/tooltip";
-import { 
-  Users, Plus, Search, Filter, MoreVertical, Edit2, ShieldAlert, Zap, X, MapPin, Phone, Mail, Building, Bell, Copy, CheckCircle2, Eye, Upload, Download, Clock
+import {
+  Users, Plus, Search, Filter, MoreVertical, Edit2, ShieldAlert, Zap, X, MapPin, Phone, Mail, Building, Bell, Copy, CheckCircle2, Eye, Upload, Download, Clock, TrendingDown, MessageSquare
 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuCheckboxItem } from "@/src/components/ui/dropdown-menu";
 import { toast } from "sonner";
@@ -38,6 +38,7 @@ export function CustomersPage() {
   const [customerPlanFilter, setCustomerPlanFilter] = useState('all');
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const [selectedTagsFilter, setSelectedTagsFilter] = useState<string[]>([]);
+  const [churnFilter, setChurnFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
   
   const allTags = useMemo(() => {
     const tags = new Set<string>();
@@ -169,10 +170,16 @@ export function CustomersPage() {
         (customerPlanFilter === 'Radio' && c.plan?.includes('Rádio'));
         
       const matchesTags = selectedTagsFilter.length === 0 || selectedTagsFilter.some(tag => c.tags?.includes(tag));
-        
-      return matchesSearch && matchesStatus && matchesPlan && matchesTags;
+
+      const rs = c.riskScore ?? 0;
+      const matchesChurn = churnFilter === 'all'
+        || (churnFilter === 'high'   && rs > 70)
+        || (churnFilter === 'medium' && rs > 30 && rs <= 70)
+        || (churnFilter === 'low'    && rs <= 30);
+
+      return matchesSearch && matchesStatus && matchesPlan && matchesTags && matchesChurn;
     });
-  }, [customers, customerSearch, customerStatusFilter, customerPlanFilter, selectedTagsFilter]);
+  }, [customers, customerSearch, customerStatusFilter, customerPlanFilter, selectedTagsFilter, churnFilter]);
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -353,6 +360,58 @@ export function CustomersPage() {
                   )}
                 </div>
               </header>
+
+              {/* IA-38 — Distribuição de Risco de Churn */}
+              {(() => {
+                const high   = customers.filter(c => (c.riskScore ?? 0) > 70).length;
+                const medium = customers.filter(c => (c.riskScore ?? 0) > 30 && (c.riskScore ?? 0) <= 70).length;
+                const low    = customers.filter(c => (c.riskScore ?? 0) <= 30).length;
+                const hasData = customers.some(c => (c.riskScore ?? 0) > 0);
+                return (
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    {[
+                      { label: 'Alto Risco', count: high,   key: 'high'   as const, color: 'border-l-[--color-astrum-red]',   active: 'ring-1 ring-[--color-astrum-red]/40 bg-red-50/60 dark:bg-red-950/10' },
+                      { label: 'Risco Médio', count: medium, key: 'medium' as const, color: 'border-l-[--color-astrum-amber]', active: 'ring-1 ring-[--color-astrum-amber]/40 bg-amber-50/60 dark:bg-amber-950/10' },
+                      { label: 'Baixo Risco', count: low,    key: 'low'    as const, color: 'border-l-emerald-500',             active: 'ring-1 ring-emerald-500/40 bg-emerald-50/60 dark:bg-emerald-950/10' },
+                    ].map(({ label, count, key, color, active }) => (
+                      <button
+                        key={key}
+                        onClick={() => setChurnFilter(churnFilter === key ? 'all' : key)}
+                        className={cn(
+                          'flex-1 text-left rounded-lg border border-l-4 px-4 py-3 transition-all',
+                          color,
+                          churnFilter === key ? active : 'bg-card hover:bg-muted/60'
+                        )}
+                      >
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-muted-foreground font-medium">{label}</p>
+                          <TrendingDown size={13} className="text-muted-foreground" />
+                        </div>
+                        <p className="text-2xl font-bold font-mono tabular-nums mt-0.5">{count}</p>
+                        {!hasData && <p className="text-[10px] text-muted-foreground mt-1">IA-38 pendente</p>}
+                      </button>
+                    ))}
+
+                    {/* IA-28 — hint de comunicação em massa */}
+                    <button
+                      onClick={() => {
+                        if (filteredCustomers.length > 0) {
+                          setSelectedCustomers(filteredCustomers.map(c => c.id));
+                          setIsNotificarOpen(true);
+                        }
+                      }}
+                      className="flex-1 text-left rounded-lg border border-l-4 border-l-[--color-astrum-fiber] px-4 py-3 bg-card hover:bg-muted/60 transition-all"
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-muted-foreground font-medium">Campanha de Comunicação</p>
+                        <MessageSquare size={13} className="text-[--color-astrum-fiber]" />
+                      </div>
+                      <p className="text-2xl font-bold font-mono tabular-nums mt-0.5 text-[--color-astrum-fiber]">{filteredCustomers.length}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">clientes visíveis · IA-28</p>
+                    </button>
+                  </div>
+                );
+              })()}
 
               <Card className="border-none shadow-sm">
                 <CardHeader>
@@ -598,7 +657,11 @@ export function CustomersPage() {
                             <TableCell>
                               {(() => {
                                 const riskLevel = riskScore > 70 ? 'Crítico' : riskScore > 30 ? 'Médio' : 'Baixo';
-                                const riskColor = riskScore > 70 ? 'text-red-600 bg-red-50' : riskScore > 30 ? 'text-orange-600 bg-orange-50' : 'text-green-600 bg-green-50';
+                                const riskColor = riskScore > 70
+                                  ? 'text-[--color-astrum-red] bg-red-50 dark:bg-red-950/20'
+                                  : riskScore > 30
+                                  ? 'text-[--color-astrum-amber] bg-amber-50 dark:bg-amber-950/20'
+                                  : 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20';
                                 return (
                                   <Badge variant="outline" className={cn("text-[10px] border-none", riskColor)}>
                                     {riskLevel} ({Math.min(riskScore, 100)}%)

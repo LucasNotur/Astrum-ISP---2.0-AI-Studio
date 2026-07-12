@@ -24,6 +24,20 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-12] U4-05 — Clientes (IA-28 + IA-38) (Onda 4)
+Tarefa: Adicionar strip de churn IA-38 + card de comunicação IA-28 + fix dark mode.
+Arquivos modificados:
+  - src/pages/CustomersPage.tsx — imports TrendingDown/MessageSquare, state churnFilter,
+    filteredCustomers com matchesChurn, strip IA-38 (3 tiles Alto/Médio/Baixo com click-to-filter),
+    card IA-28 "Campanha de Comunicação" (abre notificação em massa nos clientes visíveis),
+    churn badge dark mode (dark:bg-red-950/20 etc. + tokens astrum-red/amber)
+Testes: sem testes unitários necessários (lógica computada derivada de riskScore)
+Status: ✅ Concluído
+Observações: riskScore já existia no modelo. IA-38 aparece como "pendente" se nenhum
+  cliente tiver riskScore > 0 (IA não rodou ainda). IA-28 flow existia mas era invisível.
+
+---
+
 [2026-07-12] U4-04 — Tickets + Ordens de Serviço (Onda 4)
 Tarefa: Corrigir tokens dark mode + window.prompt + URLs externas em TicketsPage e ServiceOrdersPage.
 Arquivos modificados:
