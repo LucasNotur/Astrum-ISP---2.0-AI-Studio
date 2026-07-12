@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-// import * as plans from '../../src/lib/plans';
+// import * as plans from '../../lib/plans';
 
 describe('plans', () => {
   it('should be defined', () => {

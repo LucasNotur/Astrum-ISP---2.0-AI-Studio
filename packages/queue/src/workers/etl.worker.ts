@@ -1,7 +1,7 @@
 import { Worker, type Job } from 'bullmq';
-import { connection } from '../../../apps/api/src/infrastructure/cache/redis.client';
-import { runFullETL } from '../../../apps/api/src/infrastructure/analytics/etl.service';
-import { infraLogger } from '../../../apps/api/src/infrastructure/logging/logger';
+import { connection } from '../../../../apps/api/src/infrastructure/cache/redis.client';
+import { runFullETL } from '../../../../apps/api/src/infrastructure/analytics/etl.service';
+import { infraLogger } from '../../../../apps/api/src/infrastructure/logging/logger';
 
 export interface ETLJobData {
   tenantId?: string; // undefined = todos os tenants

@@ -1,13 +1,13 @@
 import { Worker, Queue, type Job } from 'bullmq';
-import { connection } from '../../../apps/api/src/infrastructure/cache/redis.client';
-import { setupDLQ } from '../../../apps/api/src/infrastructure/queue/bullmq.client';
-import { chunkTechnicalManual } from '../../../apps/api/src/infrastructure/rag/document-chunker.service';
-import { generateEmbeddingsBatch } from '../../../apps/api/src/adapters/ai/embedding.service';
-import { ensureCollection, upsertPoints } from '../../../apps/api/src/adapters/vector/qdrant.adapter';
-import { supabaseAdmin } from '../../../apps/api/src/infrastructure/database/supabase.client';
-import { iaLogger } from '../../../apps/api/src/infrastructure/logging/logger';
+import { connection } from '../../../../apps/api/src/infrastructure/cache/redis.client';
+import { setupDLQ } from '../../../../apps/api/src/infrastructure/queue/bullmq.client';
+import { chunkTechnicalManual } from '../../../../apps/api/src/infrastructure/rag/document-chunker.service';
+import { generateEmbeddingsBatch } from '../../../../apps/api/src/adapters/ai/embedding.service';
+import { ensureCollection, upsertPoints } from '../../../../apps/api/src/adapters/vector/qdrant.adapter';
+import { supabaseAdmin } from '../../../../apps/api/src/infrastructure/database/supabase.client';
+import { iaLogger } from '../../../../apps/api/src/infrastructure/logging/logger';
 import crypto from 'node:crypto';
-import { addSentryToWorker } from '../../../apps/api/src/infrastructure/observability/sentry-worker.helper';
+import { addSentryToWorker } from '../../../../apps/api/src/infrastructure/observability/sentry-worker.helper';
 
 export type IndexingEntityType = 'document' | 'article';
 
@@ -44,9 +44,12 @@ async function indexDocument(job: Job<IndexingJobData>): Promise<void> {
   const embeddings = await generateEmbeddingsBatch(chunkTexts, tenantId);
 
   // 4. Inserir no Qdrant (payload diferencia documento de artigo para permitir filtros futuros)
-  const points = chunks.map((chunk, i) => ({
+  const points = chunks.map((chunk, i) => {
+    const vector = embeddings[i];
+    if (!vector) throw new Error(`Embedding ausente para o chunk ${i} (${chunks.length} chunks, ${embeddings.length} embeddings)`);
+    return {
     id: crypto.randomUUID(),
-    vector: embeddings[i],
+    vector,
     payload: {
       document_id: entityType === 'document' ? documentId : null,
       article_id: entityType === 'article' ? articleId : null,
@@ -58,7 +61,8 @@ async function indexDocument(job: Job<IndexingJobData>): Promise<void> {
       file_type: fileType,
       created_at: new Date().toISOString(),
     },
-  }));
+  };
+  });
 
   await upsertPoints(tenantId, points);
 

@@ -1,11 +1,11 @@
 import { Worker, Queue } from 'bullmq';
 import type { Job } from 'bullmq';
-import { connection } from '../../../apps/api/src/infrastructure/cache/redis.client';
-import { setupDLQ } from '../../../apps/api/src/infrastructure/queue/bullmq.client';
-import { supabaseAdmin } from '../../../apps/api/src/infrastructure/database/supabase.client';
-import { infraLogger } from '../../../apps/api/src/infrastructure/logging/logger';
-import { addSentryToWorker } from '../../../apps/api/src/infrastructure/observability/sentry-worker.helper';
-import { computeAllForTenant } from '../../../apps/api/src/domain/ml/feature-store.service';
+import { connection } from '../../../../apps/api/src/infrastructure/cache/redis.client';
+import { setupDLQ } from '../../../../apps/api/src/infrastructure/queue/bullmq.client';
+import { supabaseAdmin } from '../../../../apps/api/src/infrastructure/database/supabase.client';
+import { infraLogger } from '../../../../apps/api/src/infrastructure/logging/logger';
+import { addSentryToWorker } from '../../../../apps/api/src/infrastructure/observability/sentry-worker.helper';
+import { computeAllForTenant } from '../../../../apps/api/src/domain/ml/feature-store.service';
 
 /**
  * IA-27 — Feature Store Worker.

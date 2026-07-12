@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-// import * as upsellEngine from '../../src/lib/upsellEngine';
+// import * as upsellEngine from '../../lib/upsellEngine';
 
 describe('upsellEngine', () => {
   it('should calculate upsell opportunities', () => {

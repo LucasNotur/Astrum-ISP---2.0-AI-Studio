@@ -64,7 +64,7 @@ export async function guardUrl(
     const addresses = await dnsResolve(domain);
     if (!addresses.length) return { ok: false, error: 'DNS não resolveu' };
 
-    const ip = addresses[0];
+    const ip = addresses[0]!;
     if (isPrivateIp(ip)) {
       return { ok: false, error: 'Endereço IP privado não permitido (SSRF protection)' };
     }

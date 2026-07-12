@@ -1,10 +1,10 @@
 import { Worker, type Job } from 'bullmq';
-import { connection } from '../../../apps/api/src/infrastructure/cache/redis.client';
-import { setupDLQ } from '../../../apps/api/src/infrastructure/queue/bullmq.client';
-import { supabaseAdmin } from '../../../apps/api/src/infrastructure/database/supabase.client';
-import { infraLogger } from '../../../apps/api/src/infrastructure/logging/logger';
-import { addSentryToWorker } from '../../../apps/api/src/infrastructure/observability/sentry-worker.helper';
-import { svixEvents } from '../../../apps/api/src/adapters/webhooks/svix.service';
+import { connection } from '../../../../apps/api/src/infrastructure/cache/redis.client';
+import { setupDLQ } from '../../../../apps/api/src/infrastructure/queue/bullmq.client';
+import { supabaseAdmin } from '../../../../apps/api/src/infrastructure/database/supabase.client';
+import { infraLogger } from '../../../../apps/api/src/infrastructure/logging/logger';
+import { addSentryToWorker } from '../../../../apps/api/src/infrastructure/observability/sentry-worker.helper';
+import { svixEvents } from '../../../../apps/api/src/adapters/webhooks/svix.service';
 
 export interface TicketJobData {
   tenantId: string;

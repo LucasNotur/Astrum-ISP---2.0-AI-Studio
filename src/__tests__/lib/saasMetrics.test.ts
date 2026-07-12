@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-// import * as saasMetrics from '../../src/lib/saasMetrics';
+// import * as saasMetrics from '../../lib/saasMetrics';
 
 describe('saasMetrics', () => {
   it('should aggregate metrics', () => {

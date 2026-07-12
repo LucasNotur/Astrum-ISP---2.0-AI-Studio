@@ -39,7 +39,8 @@
 | Plano | Conteúdo | Desbloqueio |
 |---|---|---|
 | `nextgen-2.0/PLANO_B_PARIDADE_CONCORRENTES__PENDENTE.md` | Escada de entrada via ERP + blocos P0–P6. **P0–P5 CODE-COMPLETE (2026-07-09/11)** — migrations pendentes (dever do Lucas: `trust_unlock_*`, `tenant_meta_pages`, `tenant_email_inboxes`, `067_p3_sales_leads`, `068_p5_valor_gerado`) | **P6 bloqueado em parceria comercial CPE/OZmap (Lucas)** — Onda 3 |
-| `nextgen-2.0/PLANO_A_DIFERENCIAL_TECNOLOGIAS_INEDITAS__PENDENTE.md` | 12 tecnologias inéditas D-01..D-12 | Gates de combustível (tráfego real, dados, conectores) — Onda 5 |
+| `nextgen-2.0/PLANO_A_DIFERENCIAL_TECNOLOGIAS_INEDITAS__PENDENTE.md` | 18 tecnologias inéditas D-01..D-18 (§2b D-13..D-18 adicionadas no checkup 2026-07-12; D-05/D-06 F1/D-07 já executadas) | Gates de combustível (tráfego real, dados, conectores) — Onda 5 |
+| `nextgen-2.0/PLANO_E_AUTOEVOLUCAO__PENDENTE.md` | Cérebro noturno: loop reflexão→hipótese→experimento→promoção por eval (sessões E-01..E-05) | Onda 2 (tráfego real) — D-15 (túnel de vento) não depende e pode antes |
 
 ### 📋 Aguardando decisão (dever de casa do LUCAS — §4)
 | Doc | Decisões |
@@ -48,6 +49,7 @@
 
 ### 📚 Documentos de apoio (não são planos — não recebem status)
 `PROGRESS_LOG.md` (diário) · `CHECKLIST_MASTER.md` (rastreio dos 12 blocos) ·
+`nextgen-2.0/VISAO_5_ANOS_E_PLANO_DE_ESCALA.md` (visão de mercado + funil de clientes, 2026-07-12) ·
 `MAPA_SESSOES_1_a_98.md` · `TECH_DEBT.md` · `REGRAS_AI_STUDIO.md` ·
 `ia-nextgen/AUDITORIA_FRONTEND.md` · `ia-nextgen/IA-10_DESIGN.md` ·
 `docs/LEGACY_RETIREMENT_PLAN.md` · `docs/DB_MIGRATION_GAP_REPORT.md` ·

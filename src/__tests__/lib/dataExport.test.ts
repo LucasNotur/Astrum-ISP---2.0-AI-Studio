@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-// import * as dataExport from '../../src/lib/dataExport';
+// import * as dataExport from '../../lib/dataExport';
 
 describe('dataExport', () => {
   it('should be defined', () => {

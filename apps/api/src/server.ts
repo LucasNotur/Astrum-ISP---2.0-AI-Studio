@@ -377,7 +377,7 @@ export async function startFastifyServer() {
 
     // Agendar ETL a cada 15 minutos
     // @ts-ignore
-    const { aiProcessingQueue } = await import('../../packages/queue/src/queues');
+    const { aiProcessingQueue } = await import('../../../packages/queue/src/queues');
     await aiProcessingQueue.add(
       'etl:scheduled',
       { trigger: 'scheduled' },
@@ -394,12 +394,12 @@ export async function startFastifyServer() {
 
     // Iniciar poller do Outbox
     // @ts-ignore
-    const { startOutboxPoller } = await import('../../packages/queue/src/workers/outbox.worker');
+    const { startOutboxPoller } = await import('../../../packages/queue/src/workers/outbox.worker');
     await startOutboxPoller();
 
     // S74 — Worker v2 de mensagens (shadow mode quando ATENDIMENTO_ENGINE=legacy).
     // @ts-ignore
-    const { createMessageWorker } = await import('../../packages/queue/src/workers/message.worker');
+    const { createMessageWorker } = await import('../../../packages/queue/src/workers/message.worker');
     const msgWorker = createMessageWorker();
     app.log.info('[message-worker] v2 iniciado (shadow mode ativo enquanto ATENDIMENTO_ENGINE=legacy)');
 
@@ -446,7 +446,7 @@ export async function startFastifyServer() {
     // 3. Fechar filas BullMQ (aguardar jobs em andamento)
     try {
       // @ts-ignore
-      const { closeAllQueues } = await import('../../packages/queue/src/queues');
+      const { closeAllQueues } = await import('../../../packages/queue/src/queues');
       await closeAllQueues();
       app.log.info('[FASTIFY] Filas BullMQ encerradas.');
     } catch(e) { /* ignore se não buildado */ }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-// import { logger } from '../../src/lib/logger';
+// import { logger } from '../../lib/logger';
 
 describe('logger', () => {
   it('should have standard logging methods', () => {

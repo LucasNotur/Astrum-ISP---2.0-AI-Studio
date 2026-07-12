@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-// import { syncErp } from '../../src/workers/erpSyncWorker';
+// import { syncErp } from '../../workers/erpSyncWorker';
 
 describe('erpSyncWorker', () => {
   it('should sync erp data correctly', () => {

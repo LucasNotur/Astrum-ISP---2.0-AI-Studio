@@ -244,7 +244,69 @@ só texto. Voz é onde o cliente do ISP mais sofre (fila de telefone).
 
 ---
 
-## §3 — SEQUÊNCIA E DEPENDÊNCIAS
+## §2b — SEGUNDA GERAÇÃO (D-13 a D-18) — adicionada no checkup 2026-07-12
+
+> Mesmo critério do §2 (inédito no segmento + fundação real no repo), mas com um
+> ingrediente novo: usar **IA que escreve código** (Claude Code/agentes) como parte
+> do PRODUTO, não só do desenvolvimento. É a fronteira que nenhum concorrente
+> consegue nem começar — eles não têm nem CI com testes, quanto mais agente codificador.
+
+### D-13 — Conectores que se escrevem sozinhos
+**O que é:** pipeline onde um agente codificador recebe a doc da API de um ERP
+regional (há dezenas além dos 5 grandes), gera o adapter no padrão `erp.factory`,
+gera os testes de contrato, roda a suíte e abre PR. Humano revisa e mergeia.
+Tempo de suporte a ERP novo: de semanas para **horas**.
+**Fundação real:** 5 adapters existentes como few-shot perfeito (`apps/api/src/adapters/erp/*`
+com testes), interface `IErpAdapter` estável, CI com vitest.
+**Combustível:** 2+ pedidos de ERP fora do top-5 (sinal de demanda real).
+
+### D-14 — Cérebro noturno (autoevolução)
+**O que é:** a Astrum melhora sozinha toda noite — replay do dia, hipóteses,
+experimentos dentro de alçada, diário para o dono. Detalhado no **PLANO_E_AUTOEVOLUCAO**.
+**Fundação:** IA-26/31/34/42/46 + D-05. **Combustível:** Onda 2 (tráfego).
+
+### D-15 — Túnel de vento: população sintética de assinantes
+**O que é:** 200 personas LLM (o idoso confuso, o gamer irritado com ping, o
+inadimplente cronicamente educado, o que ameaça ir pro concorrente) conversam com
+o agente de staging 24/7, cobrindo TODO o espaço de cenários antes de qualquer
+cliente real encontrar o bug. Cada release passa pelo túnel antes do cutover —
+métrica de regressão em conversa, não em unit test.
+**Por que é inédito:** eval estático todo mundo grande tem; população adversarial
+persistente e específica de ISP não existe nem fora do segmento.
+**Fundação real:** eval harness (IA-42), replay (IA-46), guardrails como alvo de
+red-team, dataset de jargão (IA-29).
+**Combustível:** nenhum — dá para construir HOJE em staging (não depende de tráfego).
+
+### D-16 — Foundry: automações sob medida geradas por linguagem natural
+**O que é:** o dono escreve "toda sexta 18h, me manda no WhatsApp os 10 clientes
+com maior risco de churn que ainda não receberam oferta" → um agente gera a
+automação (query + schedule + template), testa em sandbox e instala PARA AQUELE
+tenant. Cada ISP esculpe o próprio produto — sem esperar roadmap.
+**Por que é inédito:** é o fim da guerra de features. Concorrente lança feature;
+a Astrum lança a FÁBRICA de features.
+**Fundação real:** tool registry (IA-19), sql-guard (IA-44 — validador de query
+segura já existe!), BullMQ repeat, templates HSM, MCP (IA-17).
+**Combustível:** 5+ tenants ativos pedindo coisas diferentes (sinal para priorizar).
+
+### D-17 — Marketplace de playbooks com prova
+**O que é:** régua de cobrança do ISP de Minas que recupera 22% a mais vira
+"playbook" instalável por qualquer tenant — **com backtesting D-02 provando o
+ganho no histórico do comprador ANTES de ativar**. ISPs não competem entre si
+(geografia) → compartilham de graça ou por revenue share. Efeito de rede que
+nenhum ERP tem.
+**Fundação:** D-02 (validador), IA-26 (execução), D-09 (anonimização).
+**Combustível:** ≥10 tenants + D-02 rodando.
+
+### D-18 — Cartório de IA: compliance como produto
+**O que é:** todo ato do agente (negociação D-03, suspensão, promessa de visita)
+sai com certificado auditável da cadeia hash (IA-06): o que a IA sabia, que regra
+aplicou, quem aprovou a alçada. PDF assinado para ANATEL/Procon/juizado. Vende
+para o ISP como "seguro jurídico da IA" — e vira barreira regulatória a favor da
+Astrum quando a fiscalização de IA apertar (é questão de tempo).
+**Fundação:** IA-06 hash-chain pronto, IA-40 (PII), kit compliance P5.
+**Combustível:** primeiro caso real de contestação (ou venda proativa no enterprise).
+
+
 
 ```
 Trilho de combustível (pré-requisitos externos a este plano):

@@ -14,7 +14,9 @@ describe('Servidor Fastify v2', () => {
     
     app = await buildServer();
     await app.ready();
-  });
+    // 60s: sob a suíte completa (167 arquivos em paralelo) o buildServer
+    // passa de 10s por contenção de CPU — em isolamento leva ~3s.
+  }, 60_000);
 
   afterAll(() => app.close());
 

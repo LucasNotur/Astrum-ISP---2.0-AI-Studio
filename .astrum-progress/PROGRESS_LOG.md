@@ -24,6 +24,42 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-12] CHECKUP GERAL — 103 imports quebrados (boot v2), 39 erros de typecheck, planos estratégicos
+Tarefa: checkup completo do código + auditoria dos planos + documentos de visão/escala/autoevolução.
+ACHADO CRÍTICO: o "CODING ENCERRADO" da sessão anterior estava furado — 103 imports relativos
+  quebrados (1 nível `../` a menos) impediam o BOOT real do motor v2:
+  - TODOS os workers de packages/queue ('../../../apps/' → apps inexistente dentro de packages/)
+  - apps/api/src/server.ts (4 dynamic imports '../../packages/' → falhavam pós-listen, engolidos pelo catch:
+    ETL, outbox poller, message.worker v2 e batch jobs NUNCA subiam; boot-state marcava failed)
+  - kb-draft.service (D-05) importava indexing.worker com path inexistente → server v2 nem carregava
+  - src/__tests__/* (15 arquivos, '../../src/' → src/src) nunca rodavam
+  - Os testes passavam porque o vitest mocka pelos specifiers crus — o bug só aparecia em runtime real.
+Correções (código):
+  - Paths corrigidos em packages/queue/src/workers/*.ts, server.ts, kb-draft.service(.test), src/__tests__/*
+  - message.worker: isVisionEnabled (não existia) → isVisionStructuredEnabled; @/ alias → path relativo
+  - conversation.port: channel ampliado p/ instagram/messenger/email/telephony (P2 nunca tinha atualizado o port)
+  - rbac.middleware: resource 'service_orders' adicionado ao tipo E À MATRIZ (D-06 dava 403 p/ técnico!)
+  - forecast.routes: faltava await getDuckDB() (crash garantido na rota) + peak com staffing vazio
+  - mcp-admin.routes: ToolsExecutor com assinatura errada (tenantId no lugar errado)
+  - indexing.worker: guarda p/ embedding ausente; qdrant VectorPoint ampliado p/ article_id/entity_type (D-05)
+  - anomaly.ts/ml-forecast/url-guard/latency-budget/kb-draft/field-copilot: noUncheckedIndexedAccess fixes
+  - Deps instaladas: @opentelemetry/sdk-node, exporter-trace-otlp-http, context-async-hooks (otel.ts TS2307 + teste)
+  - Scripts mortos de Firestore removidos (migrate_cto_ids, reindex-knowledge, system_test) — resíduo pós-FZ (R2)
+  - server.test.ts: hookTimeout 60s (flake por contenção na suíte completa)
+Verificação: tsc apps/api 39→0 erros · backend 167/167 arquivos, 1312/1312 testes PASS (antes: 4 files FAIL) ·
+  src/__tests__ agora RODAM (297 pass | 6 skip).
+Documentos criados (pedido do Lucas):
+  - nextgen-2.0/PLANO_E_AUTOEVOLUCAO__PENDENTE.md — os 3 loops de pensamento diário (reflexo/sono/estação), sessões E-01..E-05
+  - nextgen-2.0/VISAO_5_ANOS_E_PLANO_DE_ESCALA.md — análise 2026→2031 + funil de aquisição de clientes
+  - PLANO_A §2b — D-13..D-18 (conectores que se escrevem sozinhos, cérebro noturno, túnel de vento,
+    Foundry, marketplace de playbooks, cartório de IA)
+  - 00_PLANO atualizado (§1 pendentes + docs de apoio)
+Status: ✅ Concluído — agora sim: código íntegro de ponta a ponta; resíduo é operacional (cutover, migrations, preço).
+Observação de processo: "code-complete" só pode ser declarado com `tsc --noEmit` zerado no workspace —
+  vitest com mocks NÃO prova que o boot funciona. Adicionar tsc ao DoD (§0.4).
+
+---
+
 [2026-07-12] Fechar pendências de código — outage route + indexing.worker articles
 Tarefa: dois itens identificados como únicos resíduos de código puro pendentes.
 Arquivos criados:

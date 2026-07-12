@@ -1,7 +1,7 @@
 import { Worker, Queue } from 'bullmq';
-import { outboxService } from '../../../apps/api/src/infrastructure/queue/outbox.service';
-import { getRedisClient } from '../../../apps/api/src/infrastructure/cache/redis.client';
-import { infraLogger } from '../../../apps/api/src/infrastructure/logging/logger';
+import { outboxService } from '../../../../apps/api/src/infrastructure/queue/outbox.service';
+import { getRedisClient } from '../../../../apps/api/src/infrastructure/cache/redis.client';
+import { infraLogger } from '../../../../apps/api/src/infrastructure/logging/logger';
 
 const connection = getRedisClient();
 

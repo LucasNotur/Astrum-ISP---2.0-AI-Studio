@@ -1,17 +1,17 @@
 import { Worker, type Job } from 'bullmq';
-import { connection } from '../../../apps/api/src/infrastructure/cache/redis.client';
-import { setupDLQ } from '../../../apps/api/src/infrastructure/queue/bullmq.client';
-import { runGuardrails, BLOCK_RESPONSE } from '../../../apps/api/src/infrastructure/guardrails/guardrails.pipeline';
-import { queryRAG } from '../../../apps/api/src/infrastructure/rag/rag-query.service';
-import { getConversationContext, ConversationMessage } from '../../../apps/api/src/infrastructure/rag/context-window.service';
-import { getOrCreateConversation, saveMessage, shouldEscalate, escalateConversation } from '../../../apps/api/src/infrastructure/adapters/conversation-db.adapter';
-import { sendChannelResponse } from '../../../apps/api/src/adapters/channel/channel-sender.service';
-import { supabaseAdmin } from '../../../apps/api/src/infrastructure/database/supabase.client';
-import { atendimentoLogger } from '../../../apps/api/src/infrastructure/logging/logger';
-import { addSentryToWorker } from '../../../apps/api/src/infrastructure/observability/sentry-worker.helper';
-import { processInboundMedia, type MediaDeps } from '../../../apps/api/src/adapters/whatsapp/media-processor.service';
-import { isVisionEnabled, extractBoleto, classifyFieldPhoto } from '../../../apps/api/src/infrastructure/vision/vision.service';
-import { decideSend, buildShadowRecord } from '@/apps/api/src/domain/atendimento/shadow-mode';
+import { connection } from '../../../../apps/api/src/infrastructure/cache/redis.client';
+import { setupDLQ } from '../../../../apps/api/src/infrastructure/queue/bullmq.client';
+import { runGuardrails, BLOCK_RESPONSE } from '../../../../apps/api/src/infrastructure/guardrails/guardrails.pipeline';
+import { queryRAG } from '../../../../apps/api/src/infrastructure/rag/rag-query.service';
+import { getConversationContext, ConversationMessage } from '../../../../apps/api/src/infrastructure/rag/context-window.service';
+import { getOrCreateConversation, saveMessage, shouldEscalate, escalateConversation } from '../../../../apps/api/src/infrastructure/adapters/conversation-db.adapter';
+import { sendChannelResponse } from '../../../../apps/api/src/adapters/channel/channel-sender.service';
+import { supabaseAdmin } from '../../../../apps/api/src/infrastructure/database/supabase.client';
+import { atendimentoLogger } from '../../../../apps/api/src/infrastructure/logging/logger';
+import { addSentryToWorker } from '../../../../apps/api/src/infrastructure/observability/sentry-worker.helper';
+import { processInboundMedia, type MediaDeps } from '../../../../apps/api/src/adapters/whatsapp/media-processor.service';
+import { isVisionStructuredEnabled, extractBoleto, classifyFieldPhoto } from '../../../../apps/api/src/infrastructure/vision/vision.service';
+import { decideSend, buildShadowRecord } from '../../../../apps/api/src/domain/atendimento/shadow-mode';
 
 export interface MessageJobData {
   tenantId: string;
@@ -45,7 +45,7 @@ async function processShadowMessage(job: Job<MessageJobData>): Promise<void> {
     // Media: shadow usa apenas o texto (caption/filename) sem transcrição real.
     const userMessage = messageContent || '[mídia sem legenda]';
 
-    const { langGraphService } = await import('../../../apps/api/src/domain/agent/langgraph.service');
+    const { langGraphService } = await import('../../../../apps/api/src/domain/agent/langgraph.service');
     const result = await langGraphService.processMessage({
       tenantId,
       customerId: customerId ?? 'unknown',
@@ -116,7 +116,7 @@ async function processMessage(job: Job<MessageJobData>): Promise<void> {
       },
       visionEnabled: false,
     };
-    if (isVisionEnabled()) {
+    if (isVisionStructuredEnabled()) {
       mediaDeps.extractBoleto = extractBoleto;
       mediaDeps.classifyFieldPhoto = classifyFieldPhoto;
     }
@@ -144,7 +144,7 @@ async function processMessage(job: Job<MessageJobData>): Promise<void> {
   }
 
   // 3. EXECUTAR LANGGRAPH STATE MACHINE
-  const { langGraphService } = await import('../../../apps/api/src/domain/agent/langgraph.service');
+  const { langGraphService } = await import('../../../../apps/api/src/domain/agent/langgraph.service');
   
   const result = await langGraphService.processMessage({
     tenantId,
@@ -166,7 +166,7 @@ async function processMessage(job: Job<MessageJobData>): Promise<void> {
     },
   }).select('*').single();
 
-  const { wsPublisher } = await import('../../../apps/api/src/domain/realtime/websocket.routes');
+  const { wsPublisher } = await import('../../../../apps/api/src/domain/realtime/websocket.routes');
   await wsPublisher.newMessage(tenantId, conversationId, {
     id: savedMsg?.id,
     content: result.response,

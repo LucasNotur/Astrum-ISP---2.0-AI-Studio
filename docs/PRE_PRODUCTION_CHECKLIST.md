@@ -75,8 +75,9 @@
 ### Migração de clientes existentes com cto_id
 - **O que é:** Campo que vincula cada cliente à sua caixa óptica (CTO) 
   para detecção de incidentes em massa
-- **Como fazer:** Pedir planilha cpf → cto_id para o ISP e rodar 
-  script scripts/migrate_cto_ids.ts
+- **Como fazer:** Pedir planilha cpf → cto_id para o ISP e importar
+  via ETL (scripts/etl) — o script antigo migrate_cto_ids.ts era Firestore
+  e foi removido no checkup 2026-07-12 (pós-FZ)
 - **Status:** ⏳ Executar com dados reais do ISP
 
 ---

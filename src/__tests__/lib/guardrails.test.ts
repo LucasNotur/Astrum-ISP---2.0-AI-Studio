@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-// import { applyGuardrails } from '../../src/lib/guardrails';
+// import { applyGuardrails } from '../../lib/guardrails';
 
 describe('guardrails', () => {
   it('should evaluate boundaries properly', () => {

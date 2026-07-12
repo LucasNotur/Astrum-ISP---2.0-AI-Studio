@@ -39,7 +39,7 @@ export function seasonalMovingAverage(
     residuals.reduce((s, r) => s + r * r, 0) / residuals.length,
   );
 
-  const lastDate = new Date(daily[daily.length - 1].date);
+  const lastDate = new Date(daily[daily.length - 1]!.date);
   const result: ForecastPoint[] = [];
 
   for (let i = 1; i <= horizon; i++) {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-// import { processCobraiJobs } from '../../src/workers/cobraiWorker';
+// import { processCobraiJobs } from '../../workers/cobraiWorker';
 
 describe('cobraiWorker', () => {
   it('should correctly process incoming queue jobs', () => {

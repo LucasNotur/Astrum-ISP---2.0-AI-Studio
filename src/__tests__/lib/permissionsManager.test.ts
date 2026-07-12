@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-// import * as permissionsManager from '../../src/lib/permissionsManager';
+// import * as permissionsManager from '../../lib/permissionsManager';
 
 describe('permissionsManager', () => {
   it('should validate permissions correctly', () => {

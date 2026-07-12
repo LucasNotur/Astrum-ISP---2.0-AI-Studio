@@ -1,7 +1,7 @@
 import { Worker } from 'bullmq';
-import { batchService } from '../../../apps/api/src/infrastructure/ai/batch.service';
-import { infraLogger } from '../../../apps/api/src/infrastructure/logging/logger';
-import { getRedisClient } from '../../../apps/api/src/infrastructure/cache/redis.client';
+import { batchService } from '../../../../apps/api/src/infrastructure/ai/batch.service';
+import { infraLogger } from '../../../../apps/api/src/infrastructure/logging/logger';
+import { getRedisClient } from '../../../../apps/api/src/infrastructure/cache/redis.client';
 
 /**
  * BullMQ Worker para Batch API da OpenAI

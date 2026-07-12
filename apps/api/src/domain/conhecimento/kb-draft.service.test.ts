@@ -14,7 +14,7 @@ vi.mock('../../adapters/openai/openai.adapter', () => ({
   callOpenAI: vi.fn(),
 }));
 
-vi.mock('../../../../packages/queue/src/workers/indexing.worker', () => ({
+vi.mock('../../../../../packages/queue/src/workers/indexing.worker', () => ({
   aiProcessingQueue: { add: vi.fn().mockResolvedValue({ id: 'mock-job' }) },
 }));
 

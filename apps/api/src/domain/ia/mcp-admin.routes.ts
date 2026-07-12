@@ -94,11 +94,10 @@ export async function mcpAdminRoutes(app: FastifyInstance) {
         return reply.code(403).send({ error: `Tool "${toolName}" não disponível` });
       }
       try {
-        const executor = new ToolsExecutor();
+        const executor = new ToolsExecutor(keyInfo.tenantId);
         const result = await executor.execute(
           toolName,
           body.params?.arguments ?? {},
-          keyInfo.tenantId,
         );
         recordToolUsage(keyInfo.tenantId, toolName, result);
         return { content: [{ type: 'text', text: JSON.stringify(result) }] };

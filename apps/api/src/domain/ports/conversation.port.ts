@@ -1,7 +1,16 @@
+export type ConversationChannel =
+  | 'whatsapp'
+  | 'webchat'
+  | 'facebook'
+  | 'instagram'
+  | 'messenger'
+  | 'email'
+  | 'telephony';
+
 export interface ICreateConversationInput {
   tenantId: string;
   customerId?: string;
-  channel: 'whatsapp' | 'webchat' | 'facebook';
+  channel: ConversationChannel;
   externalId?: string;
 }
 

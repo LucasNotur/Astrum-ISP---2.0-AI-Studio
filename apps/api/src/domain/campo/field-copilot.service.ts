@@ -132,7 +132,7 @@ export async function listDiagnoses(params: ListDiagnosesParams): Promise<Diagno
     return [];
   }
 
-  return (data ?? []).map((r) => ({
+  return (data ?? []).map((r: any) => ({
     id: r.id,
     photoUrl: r.photo_url,
     equipment: r.equipment,

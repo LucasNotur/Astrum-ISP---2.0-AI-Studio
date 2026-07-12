@@ -12,9 +12,9 @@
  */
 
 import { Worker, Queue, type Job } from 'bullmq';
-import { connection } from '../../../apps/api/src/infrastructure/cache/redis.client';
-import { supabaseAdmin } from '../../../apps/api/src/infrastructure/database/supabase.client';
-import { infraLogger } from '../../../apps/api/src/infrastructure/logging/logger';
+import { connection } from '../../../../apps/api/src/infrastructure/cache/redis.client';
+import { supabaseAdmin } from '../../../../apps/api/src/infrastructure/database/supabase.client';
+import { infraLogger } from '../../../../apps/api/src/infrastructure/logging/logger';
 
 export const DELTA_SYNC_QUEUE = 'astrum:delta-sync';
 

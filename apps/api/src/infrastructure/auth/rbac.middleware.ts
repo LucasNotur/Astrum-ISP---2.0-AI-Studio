@@ -2,11 +2,11 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import { securityLogger } from '../logging/logger';
 
 export type Role = 'super_admin' | 'admin' | 'operator' | 'viewer';
-export type Resource = 'tickets' | 'customers' | 'billing' | 'ai_config' | 'reports' | 'users' | '*';
+export type Resource = 'tickets' | 'customers' | 'billing' | 'ai_config' | 'reports' | 'users' | 'service_orders' | '*';
 export type Action = 'read' | 'write' | 'delete' | 'admin' | '*';
 
 const ROLE_PERMISSIONS: Record<Role, Record<Resource, Action[]>> = {
-  super_admin: { '*': ['*'], tickets: ['*'], customers: ['*'], billing: ['*'], ai_config: ['*'], reports: ['*'], users: ['*'] },
+  super_admin: { '*': ['*'], tickets: ['*'], customers: ['*'], billing: ['*'], ai_config: ['*'], reports: ['*'], users: ['*'], service_orders: ['*'] },
   admin: {
     '*': [],
     tickets: ['read', 'write', 'delete'],
@@ -15,6 +15,7 @@ const ROLE_PERMISSIONS: Record<Role, Record<Resource, Action[]>> = {
     ai_config: ['read', 'write'],
     reports: ['read'],
     users: ['read', 'write'],
+    service_orders: ['read', 'write', 'delete'],
   },
   operator: {
     '*': [],
@@ -24,6 +25,8 @@ const ROLE_PERMISSIONS: Record<Role, Record<Resource, Action[]>> = {
     ai_config: [],
     reports: ['read'],
     users: [],
+    // Técnico de campo (D-06) usa role operator: diagnostica e anexa na OS.
+    service_orders: ['read', 'write'],
   },
   viewer: {
     '*': [],
@@ -33,6 +36,7 @@ const ROLE_PERMISSIONS: Record<Role, Record<Resource, Action[]>> = {
     ai_config: [],
     reports: ['read'],
     users: [],
+    service_orders: ['read'],
   },
 };
 

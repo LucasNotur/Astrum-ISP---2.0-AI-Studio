@@ -1,10 +1,10 @@
 import { Worker, Queue } from 'bullmq';
 import type { Job } from 'bullmq';
-import { connection } from '../../../apps/api/src/infrastructure/cache/redis.client';
-import { supabaseAdmin } from '../../../apps/api/src/infrastructure/database/supabase.client';
-import { infraLogger } from '../../../apps/api/src/infrastructure/logging/logger';
-import { extractFeatures, getActiveCustomers } from '../../../apps/api/src/domain/ml/churn-features.service';
-import { computeChurnScore } from '../../../apps/api/src/domain/ml/churn-score';
+import { connection } from '../../../../apps/api/src/infrastructure/cache/redis.client';
+import { supabaseAdmin } from '../../../../apps/api/src/infrastructure/database/supabase.client';
+import { infraLogger } from '../../../../apps/api/src/infrastructure/logging/logger';
+import { extractFeatures, getActiveCustomers } from '../../../../apps/api/src/domain/ml/churn-features.service';
+import { computeChurnScore } from '../../../../apps/api/src/domain/ml/churn-score';
 
 /**
  * IA-07 — Churn Worker.

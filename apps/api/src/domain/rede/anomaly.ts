@@ -1,8 +1,8 @@
 export function ewma(series: number[], alpha = 0.3): number[] {
   if (series.length === 0) return [];
-  const result = [series[0]];
+  const result: number[] = [series[0]!];
   for (let i = 1; i < series.length; i++) {
-    result.push(alpha * series[i] + (1 - alpha) * result[i - 1]);
+    result.push(alpha * series[i]! + (1 - alpha) * result[i - 1]!);
   }
   return result;
 }
@@ -29,7 +29,7 @@ export function detectAnomalies(
 
   const values = points.map((p) => p.v);
   const smoothed = ewma(values);
-  const residuals = values.map((v, i) => v - smoothed[i]);
+  const residuals = values.map((v, i) => v - smoothed[i]!);
   const mean = residuals.reduce((a, b) => a + b, 0) / residuals.length;
   const std = Math.sqrt(
     residuals.reduce((s, r) => s + (r - mean) ** 2, 0) / residuals.length,
@@ -37,15 +37,15 @@ export function detectAnomalies(
 
   const bands: Band[] = points.map((p, i) => ({
     t: p.t,
-    expected: smoothed[i],
-    upper: smoothed[i] + zThreshold * std,
+    expected: smoothed[i]!,
+    upper: smoothed[i]! + zThreshold * std,
   }));
 
   const anomalies: Anomaly[] = [];
   for (let i = 0; i < points.length; i++) {
-    const z = zscore(values[i], smoothed[i], std);
+    const z = zscore(values[i]!, smoothed[i]!, std);
     if (Math.abs(z) >= zThreshold) {
-      anomalies.push({ t: points[i].t, v: values[i], z });
+      anomalies.push({ t: points[i]!.t, v: values[i]!, z });
     }
   }
 

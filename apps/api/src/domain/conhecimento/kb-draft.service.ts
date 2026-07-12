@@ -8,7 +8,7 @@
 import supabase from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
 import { callOpenAI } from '../../adapters/openai/openai.adapter';
-import { aiProcessingQueue } from '../../../../packages/queue/src/workers/indexing.worker';
+import { aiProcessingQueue } from '../../../../../packages/queue/src/workers/indexing.worker';
 
 export interface KbDraft {
   id: string;
@@ -86,7 +86,7 @@ export async function findCandidateConversations(
 
     if (!msgs || msgs.length < 3) continue;
 
-    const lastMsg = msgs[msgs.length - 1];
+    const lastMsg = msgs[msgs.length - 1]!;
     results.push({
       id: conv.id,
       messageCount: msgs.length,

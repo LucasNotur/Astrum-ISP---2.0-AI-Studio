@@ -1,12 +1,12 @@
 import { Worker, type Job } from 'bullmq';
-import { connection } from '../../../apps/api/src/infrastructure/cache/redis.client';
-import { setupDLQ } from '../../../apps/api/src/infrastructure/queue/bullmq.client';
-import { sendWhatsAppResponse } from '../../../apps/api/src/adapters/whatsapp/message-sender.service';
-import { supabaseAdmin } from '../../../apps/api/src/infrastructure/database/supabase.client';
-import { cobrancaLogger } from '../../../apps/api/src/infrastructure/logging/logger';
-import { addSentryToWorker } from '../../../apps/api/src/infrastructure/observability/sentry-worker.helper';
-import { svixEvents } from '../../../apps/api/src/adapters/webhooks/svix.service';
-import { shouldBootWorker } from '../../../apps/api/src/infrastructure/config/engine-flags';
+import { connection } from '../../../../apps/api/src/infrastructure/cache/redis.client';
+import { setupDLQ } from '../../../../apps/api/src/infrastructure/queue/bullmq.client';
+import { sendWhatsAppResponse } from '../../../../apps/api/src/adapters/whatsapp/message-sender.service';
+import { supabaseAdmin } from '../../../../apps/api/src/infrastructure/database/supabase.client';
+import { cobrancaLogger } from '../../../../apps/api/src/infrastructure/logging/logger';
+import { addSentryToWorker } from '../../../../apps/api/src/infrastructure/observability/sentry-worker.helper';
+import { svixEvents } from '../../../../apps/api/src/adapters/webhooks/svix.service';
+import { shouldBootWorker } from '../../../../apps/api/src/infrastructure/config/engine-flags';
 
 export interface CobraiJobData {
   tenantId: string;
@@ -45,7 +45,7 @@ async function executeCobraiAction(job: Job<CobraiJobData>): Promise<void> {
       invoiceId, customerId, amountCents, paidAt: new Date().toISOString(),
     });
     
-    const { wsPublisher } = await import('../../../apps/api/src/domain/realtime/websocket.routes');
+    const { wsPublisher } = await import('../../../../apps/api/src/domain/realtime/websocket.routes');
     await wsPublisher.paymentReceived(tenantId, invoiceId, amountCents ?? 0);
     return;
   }
@@ -73,7 +73,7 @@ async function executeCobraiAction(job: Job<CobraiJobData>): Promise<void> {
 
   // Guardas portadas do legado (S76): janela de horário, limites, opt-out.
   if (action === 'send_message') {
-    const { evaluateCobraiGate } = await import('../../../apps/api/src/domain/cobranca/cobrai-guards');
+    const { evaluateCobraiGate } = await import('../../../../apps/api/src/domain/cobranca/cobrai-guards');
     const { data: tenantCfg } = await supabaseAdmin
       .from('tenants')
       .select('cobrai_window, cobrai_hourly_limit, cobrai_daily_limit, cobrai_stages')
@@ -119,7 +119,7 @@ async function executeCobraiAction(job: Job<CobraiJobData>): Promise<void> {
         const variantKey = (job.data as CobraiJobData).campaignKey;
         try {
           const { isBanditEnabled, tryPickVariant, recordVariantSend, buildMessageFromVariant } =
-            await import('../../../apps/api/src/domain/cobranca/variant-picker.service');
+            await import('../../../../apps/api/src/domain/cobranca/variant-picker.service');
           if (isBanditEnabled()) {
             const picked = await tryPickVariant(tenantId, variantKey);
             if (picked) {

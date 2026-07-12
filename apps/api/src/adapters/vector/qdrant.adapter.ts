@@ -76,7 +76,11 @@ export interface VectorPoint {
   id: string;
   vector: number[];
   payload: {
-    document_id: string;
+    // D-05: pontos podem vir de documento (knowledge_documents) OU artigo
+    // auto-gerado (knowledge_articles) — exatamente um dos dois é não-nulo.
+    document_id: string | null;
+    article_id?: string | null;
+    entity_type?: 'document' | 'article';
     tenant_id: string;
     filename: string;
     chunk_index: number;

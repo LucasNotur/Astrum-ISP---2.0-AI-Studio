@@ -12,7 +12,7 @@ export async function forecastRoutes(app: FastifyInstance) {
 
     try {
       const { getDuckDB } = await import('../../infrastructure/analytics/duckdb.service');
-      const db = getDuckDB();
+      const db = await getDuckDB();
       const result = await db.all(`
         SELECT CAST(created_at AS DATE) as day, COUNT(*)::INT as count
         FROM tickets
@@ -42,7 +42,7 @@ export async function forecastRoutes(app: FastifyInstance) {
       return {
         history: daily.slice(-28),
         forecast: staffing,
-        peak: staffing.reduce((max, s) => s.forecast > max.forecast ? s : max, staffing[0]),
+        peak: staffing.reduce((max, s) => s.forecast > max.forecast ? s : max, staffing[0]!),
       };
     } catch (err) {
       return reply.code(500).send({ error: (err as Error).message });

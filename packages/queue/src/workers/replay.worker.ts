@@ -1,9 +1,9 @@
 import { Worker, type Job } from 'bullmq';
-import { connection } from '../../../apps/api/src/infrastructure/cache/redis.client';
-import { setupDLQ } from '../../../apps/api/src/infrastructure/queue/bullmq.client';
-import { iaLogger } from '../../../apps/api/src/infrastructure/logging/logger';
-import { addSentryToWorker } from '../../../apps/api/src/infrastructure/observability/sentry-worker.helper';
-import { executeReplayRun } from '../../../apps/api/src/domain/atendimento/replay.service';
+import { connection } from '../../../../apps/api/src/infrastructure/cache/redis.client';
+import { setupDLQ } from '../../../../apps/api/src/infrastructure/queue/bullmq.client';
+import { iaLogger } from '../../../../apps/api/src/infrastructure/logging/logger';
+import { addSentryToWorker } from '../../../../apps/api/src/infrastructure/observability/sentry-worker.helper';
+import { executeReplayRun } from '../../../../apps/api/src/domain/atendimento/replay.service';
 
 export interface ReplayJobData {
   runId: string;
