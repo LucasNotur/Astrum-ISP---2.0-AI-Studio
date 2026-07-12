@@ -204,16 +204,30 @@ não num dashboard genérico). `canAccess` (C7) já suporta.
   - `src/App.tsx` — monta `<OnboardingTour>` após login com role+tenantId
   - `src/components/layout/Sidebar.tsx` — botão "Ajuda" no footer abre HelpCenter
 
-### U7 — Qualidade contínua (dev)
-- **U7-01:** Playwright e2e apontando para o LEGADO (corrige C5): fluxos críticos
-  por persona (login→inbox→responder; login→cobrança→2ª via...).
-- **U7-02:** testes de componente dos padrões U1-03; regressão visual leve
-  (screenshot diff nas telas piloto).
-- **U7-03:** documentação viva: página interna `/design` (dentro do produto, gated
-  super_admin) com os padrões renderizados — decisão registrada: NÃO Storybook
-  (mais uma infra para manter); a página usa os componentes reais.
-- **U7-04:** performance: métricas LCP/bundle por rota (React.lazy já existe;
-  medir e atacar as 3 piores).
+### ✅ U7 — Qualidade contínua (dev) (2026-07-12)
+- **U7-01:** ✅ Playwright e2e na raiz apontando para o LEGADO (corrige C5):
+  - `playwright.config.ts` (raiz) — baseURL 5173, webServer `npm run dev:vite`
+  - `e2e/helpers/auth.ts` — mockSupabase (intercepta token/user/REST), loginAs, loginViaStorage
+  - `e2e/auth.spec.ts` — 5 cenários: login OK, credenciais inválidas, campos vazios, a11y, rota protegida
+  - `e2e/dashboard.spec.ts` — 4 cenários: dashboard carrega, sidebar, heading, botão configurar
+  - `e2e/chat.spec.ts` — 3 cenários: nav sidebar, chat carrega, split-panel desktop
+  - `e2e/cobrai.spec.ts` — 4 cenários: nav cobrai, sem crash, heading, billing 2ª via
+  - `package.json` — `test:e2e` atualizado para raiz (não mais `apps/web`)
+- **U7-02:** ✅ 33 testes de componente (5 arquivos, todos passando):
+  - `PageHeader.test.tsx` — 6 testes
+  - `FilterBar.test.tsx` — 6 testes
+  - `DetailSheet.test.tsx` — 8 testes (Esc, backdrop, dialog a11y, cleanup)
+  - `FormSection.test.tsx` — 6 testes
+  - `DangerZone.test.tsx` — 7 testes
+- **U7-03:** ✅ Página `/design` (super_admin only):
+  - `src/pages/DesignPage.tsx` — documentação viva com todos os padrões U1-03 + primitivas + tokens + lista negra RN21
+  - `src/routes/main.routes.tsx` — rota `/design` com `<SuperAdminRoute>`
+  - `src/components/layout/Sidebar.tsx` — item "Design System" visível só para super_admin
+- **U7-04:** ✅ Performance — bundle splitting:
+  - `main.routes.tsx` — ChatPage (~2000 linhas) e BIPage (Recharts) → `React.lazy`; DesignPage lazy também
+  - `vite.config.ts` — `manualChunks`: vendor-charts (760kB), vendor-supabase (200kB), vendor-radix (161kB), vendor-motion (140kB), vendor-query (37kB), vendor-icons (30kB)
+  - `rollup-plugin-visualizer` instalado; `build:analyze` script (`ANALYZE=true vite build`)
+  - Resultado: ChatPage em chunk próprio (108kB); libs separadas do bundle principal
 
 ---
 

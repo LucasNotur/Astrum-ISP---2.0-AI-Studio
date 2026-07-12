@@ -387,13 +387,22 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
               />
             )}
             {isSuperAdmin && (
-              <NavItem 
-                active={currentPath === 'super-admin'} 
-                onClick={() => navigate('/super-admin')} 
-                icon={<ShieldCheck size={24} />} 
-                label="Super Admin" 
-                collapsed={isSidebarCollapsed}
-              />
+              <>
+                <NavItem
+                  active={currentPath === 'super-admin'}
+                  onClick={() => navigate('/super-admin')}
+                  icon={<ShieldCheck size={24} />}
+                  label="Super Admin"
+                  collapsed={isSidebarCollapsed}
+                />
+                <NavItem
+                  active={currentPath === 'design'}
+                  onClick={() => navigate('/design')}
+                  icon={<Sparkles size={24} />}
+                  label="Design System"
+                  collapsed={isSidebarCollapsed}
+                />
+              </>
             )}
           </>
         )}

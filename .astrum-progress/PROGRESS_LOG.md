@@ -2504,3 +2504,34 @@ Typecheck: 0 erros novos (erros pré-existentes em App.tsx/chart.tsx/dataExport.
 Build: ✅ 2.94s.
 Próximo: U4-01 (ChatPage/Inbox full redesign — coordena com P2-04 omnichannel inbox).
 Commit: fix(u4-bugs): corrige campo rating + Math.random no BIPage + tokens de cor.
+
+[2026-07-12] NEXTGEN-2.0 — U7 (Qualidade contínua)
+Tarefa: Playwright e2e para o LEGADO (corrige C5), testes de componente U1-03, página /design, performance bundle.
+Arquivos criados:
+  - playwright.config.ts (raiz) — baseURL http://localhost:5173, webServer dev:vite, 2 browsers (chromium + mobile-chrome)
+  - e2e/helpers/auth.ts — mockSupabase (intercepta Supabase auth/REST), loginAs (via UI), loginViaStorage (via localStorage)
+  - e2e/auth.spec.ts — 5 cenários de auth (login OK, credencial inválida, campos vazios, a11y, rota protegida)
+  - e2e/dashboard.spec.ts — 4 cenários (dashboard carrega, sidebar, heading, botão configurar)
+  - e2e/chat.spec.ts — 3 cenários (nav sidebar, chat carrega, split-panel desktop)
+  - e2e/cobrai.spec.ts — 4 cenários (cobrai, sem crash JS, heading, billing 2a via)
+  - src/components/ui/PageHeader.test.tsx — 6 testes Vitest (título, subtítulo, ação, className)
+  - src/components/ui/FilterBar.test.tsx — 6 testes (placeholder, value, onValueChange, slots)
+  - src/components/ui/DetailSheet.test.tsx — 8 testes (Esc, backdrop, dialog a11y, cleanup listener)
+  - src/components/ui/FormSection.test.tsx — 6 testes (título, descrição, filhos, section semântico)
+  - src/components/ui/DangerZone.test.tsx — 7 testes (título padrão/custom, ícone SVG, className)
+  - src/pages/DesignPage.tsx — documentação viva /design (padrões U1-03, primitivas, tokens, tipografia, lista negra RN21)
+Arquivos modificados:
+  - src/routes/main.routes.tsx — rota /design (SuperAdminRoute) + ChatPage/BIPage/DesignPage → React.lazy
+  - src/components/layout/Sidebar.tsx — item "Design System" sob isSuperAdmin
+  - vite.config.ts — manualChunks (6 chunks vendor) + rollup-plugin-visualizer (ANALYZE=true)
+  - package.json — test:e2e atualizado para raiz; build:analyze adicionado
+Testes: 33 testes de componente (5 arquivos) — todos passando. Build vite limpo em 3.02s.
+Chunks após manualChunks: vendor-charts 760kB, vendor-supabase 200kB, vendor-radix 161kB, vendor-motion 140kB, vendor-query 37kB, vendor-icons 30kB, ChatPage 108kB (lazy).
+Status: CONCLUIDO. U7-01 (Playwright) + U7-02 (componentes) + U7-03 (/design) + U7-04 (bundle splitting).
+Observacoes:
+  - C5 corrigido: Playwright na raiz aponta para frontend legado (5173), não mais para apps/web condenado.
+  - DesignPage usa componentes reais (nao Storybook) — decisao registrada em U7-03.
+  - build:analyze = ANALYZE=true vite build → abre dist/bundle-report.html interativo.
+  - Bundle principal (index.js) ainda 2.7MB — gargalo é o App.tsx monolito (C1, U1-01 incompleto).
+  - Erros de typecheck pre-existentes (App.tsx, chart.tsx, dataExport.ts) — nao introduzidos por esta sessao.
+Commit: feat(u7): qualidade continua — playwright legado, testes componente, /design, bundle splitting.

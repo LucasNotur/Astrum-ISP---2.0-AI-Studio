@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Route, Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { DashboardPage } from '../pages/DashboardPage';
@@ -6,7 +6,6 @@ import { SuperAdminPage } from '../pages/SuperAdminPage';
 import { SuperAdminRoute } from '../components/SuperAdminRoute';
 import { CustomersPage } from '../pages/CustomersPage';
 import { ServiceOrdersPage } from '../pages/ServiceOrdersPage';
-import { ChatPage } from '../pages/ChatPage';
 import { MapPage } from '../pages/MapPage';
 import { BillingPage } from '../pages/BillingPage';
 import { MonitoringPage } from '../pages/MonitoringPage';
@@ -18,7 +17,6 @@ import { WebhooksPage } from '../pages/WebhooksPage';
 import { SecurityPage } from '../pages/SecurityPage';
 import QualityMonitorPage from '../pages/QualityMonitorPage';
 import TechnicianAppPage from '../pages/TechnicianAppPage';
-import { BIPage } from '../pages/BIPage';
 import { InventoryPage } from '../pages/InventoryPage';
 import { TicketsPage } from '../pages/TicketsPage';
 import { intelligenceRoutes } from './intelligence.routes';
@@ -27,6 +25,16 @@ import { KnowledgeBasePage } from '../pages/KnowledgeBasePage';
 import { AIConfigPage } from '../pages/AIConfigPage';
 import { TeamPage } from '../pages/TeamPage';
 import { SettingsPage } from '../pages/SettingsPage';
+
+// U7-04: lazy loading nas 3 rotas mais pesadas para reduzir bundle inicial
+const ChatPage   = lazy(() => import('../pages/ChatPage').then((m) => ({ default: m.ChatPage })));
+const BIPage     = lazy(() => import('../pages/BIPage').then((m) => ({ default: m.BIPage })));
+const DesignPage = lazy(() => import('../pages/DesignPage').then((m) => ({ default: m.DesignPage })));
+
+const fallback = <div className="p-10 text-center text-muted-foreground">Carregando...</div>;
+function L({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={fallback}>{children}</Suspense>;
+}
 
 /** Wrapper de motion para rotas com animação de entrada. */
 function Animated({ id, children }: { id: string; children: React.ReactNode }) {
@@ -49,16 +57,26 @@ export function mainRoutes(currentUserRole: string) {
           </SuperAdminRoute>
         }
       />
+      {/* U7-03: página /design — documentação viva, gated super_admin */}
+      <Route
+        path="/design"
+        element={
+          <SuperAdminRoute>
+            <L><DesignPage /></L>
+          </SuperAdminRoute>
+        }
+      />
       <Route
         path="/"
         element={<Navigate to={currentUserRole === 'tecnico' ? '/tecnico' : '/dashboard'} replace />}
       />
       <Route path="/dashboard"        element={<DashboardPage />} />
       <Route path="/tecnico"          element={<TechnicianAppPage />} />
-      <Route path="/bi"               element={<BIPage />} />
+      {/* U7-04: ChatPage (~2000 linhas) e BIPage (Recharts pesado) → lazy */}
+      <Route path="/bi"               element={<L><BIPage /></L>} />
+      <Route path="/chat"             element={<L><ChatPage /></L>} />
       <Route path="/customers"        element={<CustomersPage />} />
       <Route path="/os"               element={<ServiceOrdersPage />} />
-      <Route path="/chat"             element={<ChatPage />} />
       <Route path="/map"              element={<MapPage />} />
       <Route path="/billing"          element={<BillingPage />} />
       <Route path="/monitoring"       element={<MonitoringPage />} />
