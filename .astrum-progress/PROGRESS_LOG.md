@@ -24,6 +24,22 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-12] U4-03 — CobrAI + Campanhas (IA-26) (Onda 4)
+Tarefa: Redesign CobrAIPage — table dark mode, error states, título Firestore removido, link IA-26.
+Arquivos criados:
+  - src/__tests__/pages/CobrAIPage.test.ts — 6 testes do helper formatTs
+Arquivos modificados:
+  - src/pages/CobrAIPage.tsx — reescrito: shadcn Table (dark mode), estados de erro em
+    fetchMetrics/Queue/Logs, título "Firestore Logs" → "Histórico de Disparos", botão
+    "Campanhas IA-26" → /intelligence/campaigns, formatTs via date-fns (sem .toDate()),
+    tenantId via companySettings?.tenant_id
+Testes: src/__tests__/pages/CobrAIPage.test.ts (6 testes, 0 falhas)
+Status: ✅ Concluído
+Observações: Não havia erros novos de TypeScript introduzidos. CampaignsPage já era padrão
+  de referência e não necessitou modificações (botão de navegação adicionado no CobrAIPage).
+
+---
+
 [2026-07-11] U4-02 — Dashboard do Dono + P5-01 Valor Gerado (Onda 4)
 Tarefa: Integrar P5-01 "Valor Gerado" no DashboardPage + corrigir tokens dark mode.
 Arquivos modificados:
