@@ -7,6 +7,7 @@ import {
 import { cn } from '@/src/lib/utils';
 import { useAppStore, canAccess } from '@/src/store/useAppStore';
 import { useFeatureFlags } from '@/src/hooks/useFeatureFlags';
+import { useEnabledModules } from '@/src/hooks/useEnabledModules';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/src/components/ui/avatar';
 import { Button } from '@/src/components/ui/button';
@@ -125,6 +126,7 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
 
   const hasAccess = (tab: string) => canAccess(currentUserRole, tab, rolePermissions && Object.keys(rolePermissions).length > 0 ? rolePermissions : companySettings?.rolePermissions);
   const { flags } = useFeatureFlags();
+  const { isEnabled } = useEnabledModules();
   const isDeveloper = user?.email?.toLowerCase() === 'lucaspferraz123@gmail.com' || user?.email?.toLowerCase() === 'noturcursos1@gmail.com';
   const isProvedorAdmin = currentUserRole === 'admin' || currentUserRole === 'owner';
   const handleLogout = () => supabase.auth.signOut();
@@ -184,42 +186,42 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
           </>
         )}
         
-        {hasAccess('customers') && (
-          <NavItem 
-            active={currentPath === 'customers'} 
-            onClick={() => navigate('/customers')} 
-            icon={<Users size={24} />} 
-            label="Clientes" 
+        {hasAccess('customers') && isEnabled('customers') && (
+          <NavItem
+            active={currentPath === 'customers'}
+            onClick={() => navigate('/customers')}
+            icon={<Users size={24} />}
+            label="Clientes"
             collapsed={isSidebarCollapsed}
             shortcut="Alt+2"
           />
         )}
-        {hasAccess('tickets') && (
-          <NavItem 
-            active={currentPath === 'tickets'} 
-            onClick={() => navigate('/tickets')} 
-            icon={<Ticket size={24} />} 
-            label="Tickets (Suporte)" 
+        {hasAccess('tickets') && isEnabled('tickets') && (
+          <NavItem
+            active={currentPath === 'tickets'}
+            onClick={() => navigate('/tickets')}
+            icon={<Ticket size={24} />}
+            label="Tickets (Suporte)"
             collapsed={isSidebarCollapsed}
             shortcut="Alt+3"
           />
         )}
-        {hasAccess('chat') && (
-          <NavItem 
-            active={currentPath === 'chat'} 
-            onClick={() => navigate('/chat')} 
-            icon={<MessageSquare size={24} />} 
-            label="Chat" 
+        {hasAccess('chat') && isEnabled('chat') && (
+          <NavItem
+            active={currentPath === 'chat'}
+            onClick={() => navigate('/chat')}
+            icon={<MessageSquare size={24} />}
+            label="Chat"
             collapsed={isSidebarCollapsed}
             shortcut="Alt+4"
           />
         )}
-        {hasAccess('os') && (
-          <NavItem 
-            active={currentPath === 'os'} 
-            onClick={() => navigate('/os')} 
-            icon={<Briefcase size={24} />} 
-            label="CRM Técnico / OS" 
+        {hasAccess('os') && isEnabled('os') && (
+          <NavItem
+            active={currentPath === 'os'}
+            onClick={() => navigate('/os')}
+            icon={<Briefcase size={24} />}
+            label="CRM Técnico / OS"
             collapsed={isSidebarCollapsed}
             shortcut="Alt+O"
           />
@@ -231,41 +233,41 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
           </>
         )}
         
-        {isProvedorAdmin && (
-          <NavItem 
-            active={currentPath === 'billing'} 
-            onClick={() => navigate('/billing')} 
-            icon={<CreditCard size={24} />} 
-            label="Financeiro" 
+        {isProvedorAdmin && isEnabled('billing') && (
+          <NavItem
+            active={currentPath === 'billing'}
+            onClick={() => navigate('/billing')}
+            icon={<CreditCard size={24} />}
+            label="Financeiro"
             collapsed={isSidebarCollapsed}
             shortcut="Alt+6"
           />
         )}
-        {hasAccess('inventory') && (
-          <NavItem 
-            active={currentPath === 'inventory'} 
-            onClick={() => navigate('/inventory')} 
-            icon={<Package size={24} />} 
-            label="Estoque" 
+        {hasAccess('inventory') && isEnabled('inventory') && (
+          <NavItem
+            active={currentPath === 'inventory'}
+            onClick={() => navigate('/inventory')}
+            icon={<Package size={24} />}
+            label="Estoque"
             collapsed={isSidebarCollapsed}
           />
         )}
-        {hasAccess('map') && (
-          <NavItem 
-            active={currentPath === 'map'} 
-            onClick={() => navigate('/map')} 
-            icon={<Map size={24} />} 
-            label="Mapa de Cobertura" 
+        {hasAccess('map') && isEnabled('map') && (
+          <NavItem
+            active={currentPath === 'map'}
+            onClick={() => navigate('/map')}
+            icon={<Map size={24} />}
+            label="Mapa de Cobertura"
             collapsed={isSidebarCollapsed}
             shortcut="Alt+5"
           />
         )}
-        {hasAccess('team') && (
-          <NavItem 
-            active={currentPath === 'team'} 
-            onClick={() => navigate('/team')} 
-            icon={<ShieldCheck size={24} />} 
-            label="Equipe" 
+        {hasAccess('team') && isEnabled('team') && (
+          <NavItem
+            active={currentPath === 'team'}
+            onClick={() => navigate('/team')}
+            icon={<ShieldCheck size={24} />}
+            label="Equipe"
             collapsed={isSidebarCollapsed}
             shortcut="Alt+7"
           />
@@ -285,28 +287,28 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
                 shortcut="Alt+8"
               />
             )}
-            {hasAccess('cobrai') && (
-              <NavItem 
-                active={currentPath === 'cobrai'} 
-                onClick={() => navigate('/cobrai')} 
-                icon={<Bot size={24} />} 
-                label="CobrAI" 
+            {hasAccess('cobrai') && isEnabled('cobrai') && (
+              <NavItem
+                active={currentPath === 'cobrai'}
+                onClick={() => navigate('/cobrai')}
+                icon={<Bot size={24} />}
+                label="CobrAI"
                 collapsed={isSidebarCollapsed}
               />
             )}
-            {hasAccess('kb') && (
-              <NavItem 
-                active={currentPath === 'kb'} 
-                onClick={() => navigate('/kb')} 
-                icon={<BookOpen size={24} />} 
-                label="Base de Conhecimento" 
+            {hasAccess('kb') && isEnabled('kb') && (
+              <NavItem
+                active={currentPath === 'kb'}
+                onClick={() => navigate('/kb')}
+                icon={<BookOpen size={24} />}
+                label="Base de Conhecimento"
                 collapsed={isSidebarCollapsed}
               />
             )}
           </>
         )}
 
-        {flags.hub && hasAccess('intelligence') && (
+        {flags.hub && hasAccess('intelligence') && isEnabled('intelligence') && (
           <>
             {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Inteligência</div>}
             {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2"></div>}
@@ -328,21 +330,21 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
             
             {(hasAccess('bi') || hasAccess('quality-monitor')) && (
                <div className="space-y-1">
-                 {hasAccess('bi') && (
-                    <NavItem 
-                      active={currentPath === 'bi'} 
-                      onClick={() => navigate('/bi')} 
-                      icon={<BarChart2 size={isSidebarCollapsed?24:18} />} 
-                      label="Business Intelligence" 
+                 {hasAccess('bi') && isEnabled('bi') && (
+                    <NavItem
+                      active={currentPath === 'bi'}
+                      onClick={() => navigate('/bi')}
+                      icon={<BarChart2 size={isSidebarCollapsed?24:18} />}
+                      label="Business Intelligence"
                       collapsed={isSidebarCollapsed}
                     />
                   )}
-                  {hasAccess('quality-monitor') && (
-                    <NavItem 
-                      active={currentPath === 'quality-monitor'} 
-                      onClick={() => navigate('/quality-monitor')} 
-                      icon={<ShieldCheck size={isSidebarCollapsed?24:18} />} 
-                      label="Monitor de Qualidade" 
+                  {hasAccess('quality-monitor') && isEnabled('quality-monitor') && (
+                    <NavItem
+                      active={currentPath === 'quality-monitor'}
+                      onClick={() => navigate('/quality-monitor')}
+                      icon={<ShieldCheck size={isSidebarCollapsed?24:18} />}
+                      label="Monitor de Qualidade"
                       collapsed={isSidebarCollapsed}
                     />
                   )}
@@ -351,8 +353,8 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
 
             {(hasAccess('observability') || hasAccess('monitoring')) && (
                 <div className="space-y-1 mt-2">
-                  {hasAccess('observability') && <NavItem active={currentPath === 'observability'} onClick={() => navigate('/observability')} icon={<Activity size={isSidebarCollapsed?24:18} />} label="Logs e Auditoria IA" collapsed={isSidebarCollapsed} />}
-                  {hasAccess('monitoring') && <NavItem active={currentPath === 'monitoring'} onClick={() => navigate('/monitoring')} icon={<Activity size={isSidebarCollapsed?24:18} />} label="Monitoramento (Falhas)" collapsed={isSidebarCollapsed} badge={dlqCount} />}
+                  {hasAccess('observability') && isEnabled('observability') && <NavItem active={currentPath === 'observability'} onClick={() => navigate('/observability')} icon={<Activity size={isSidebarCollapsed?24:18} />} label="Logs e Auditoria IA" collapsed={isSidebarCollapsed} />}
+                  {hasAccess('monitoring') && isEnabled('monitoring') && <NavItem active={currentPath === 'monitoring'} onClick={() => navigate('/monitoring')} icon={<Activity size={isSidebarCollapsed?24:18} />} label="Monitoramento (Falhas)" collapsed={isSidebarCollapsed} badge={dlqCount} />}
                 </div>
             )}
           </>

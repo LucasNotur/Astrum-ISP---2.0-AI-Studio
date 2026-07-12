@@ -1421,9 +1421,12 @@ export default function App() {
 
   useEffect(() => {
     if (!userProfile?.tenantId) return;
-    // S99 — lê configurações de tema do tenant no Supabase
+    // S99 — lê configurações de tema + módulos habilitados do tenant no Supabase
     const unsub = sbGetTenantSettings(userProfile.tenantId, (settings) => {
       if (settings?.theme) applyTheme(settings.theme);
+      if (settings?.enabled_modules) {
+        useAppStore.getState().setEnabledModules(settings.enabled_modules);
+      }
     });
     return () => unsub();
   }, [userProfile?.tenantId]);

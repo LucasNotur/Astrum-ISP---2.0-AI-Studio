@@ -182,11 +182,17 @@ não num dashboard genérico). `canAccess` (C7) já suporta.
   - `index.html` — manifest link, theme-color, apple-touch-icon, lang=pt-BR, título "Astrum ISP"
   - `TechnicianAppPage` — syncWithFirestore → syncPendingActions (API REST); SW message listener
 
-### U6 — Configuração pelo ISP (o "configurável" que o Lucas pediu)
-- **U6-01 — White-label por tenant:** logo, cor de acento (sobre os tokens — a
-  camada de tema da U1-02), nome. Preparado para revenda.
-- **U6-02 — Módulos ligáveis com UX:** as flags já existem (IA-11/RN11); dar ao
-  admin a tela de "o que aparece para minha equipe" (liga módulo → nav muda).
+### ✅ U6 — Configuração pelo ISP (2026-07-12)
+- **U6-01 — White-label por tenant:** ✅ Já implementado via `themeManager` +
+  `sbGetTenantSettings` em `App.tsx`. Auditado e confirmado funcional.
+- **U6-02 — Módulos ligáveis com UX:** ✅ Sistema completo:
+  - `src/lib/modules-registry.ts` — 15 módulos em 4 categorias
+  - `src/hooks/useEnabledModules.ts` — hook com padrão "default enabled"
+  - `src/store/useAppStore.ts` — `enabledModules` state + `setEnabledModules`
+  - `src/App.tsx` — carrega `enabled_modules` do tenant no boot
+  - `src/components/layout/Sidebar.tsx` — todos 15 itens de nav com `isEnabled()`
+  - `src/pages/SettingsPage.tsx` — aba "Módulos" com Switch por módulo + save Supabase
+  - `src/hooks/useEnabledModules.test.ts` — 5 testes Vitest (5/5 ✅)
 - **U6-03 — Dashboard configurável:** widgets arrastáveis (`@hello-pangea/dnd` já
   é dep) por papel; presets por porte de ISP.
 - **U6-04 — Onboarding de USUÁRIO:** tour guiado por papel na 1ª entrada, empty

@@ -31,6 +31,7 @@ import { seedSystem, seedInventory, seedKnowledgeBase, logAudit } from '@/src/li
 import { seedServiceOrdersAndTechnicians } from '@/src/lib/db';
 import { seedPopularAstrum, wipeSystemData } from '@/src/lib/seedAstrum';
 import { getTeamMembers as sbGetTeamMembers, upsertTenantOperator } from '@/src/lib/supabaseDb';
+import { MODULES_REGISTRY, MODULE_CATEGORIES } from '@/src/lib/modules-registry';
 
 const AVAILABLE_MENUS = [
   { id: 'dashboard', label: 'Dashboard', group: 'Operação Diária' },
@@ -407,6 +408,25 @@ export function SettingsPage() {
      const { error } = await supabase.from('tenants').update({ theme: themeConfig }).eq('id', tenantId);
      if (error) toast.error("Erro ao salvar tema."); else toast.success("Tema salvo com sucesso!");
      setIsSavingTheme(false);
+  };
+
+  const [modulesConfig, setModulesConfig] = useState<Record<string, boolean>>({});
+  const [isSavingModules, setIsSavingModules] = useState(false);
+
+  useEffect(() => {
+    if (!tenantId || tenantId === 'DEFAULT_TENANT') return;
+    supabase.from('tenants').select('enabled_modules').eq('id', tenantId).maybeSingle()
+      .then(({ data }) => { if (data?.enabled_modules) setModulesConfig(data.enabled_modules); });
+  }, [tenantId]);
+
+  const saveModulesConfig = async () => {
+    setIsSavingModules(true);
+    const { error } = await supabase.from('tenants').update({ enabled_modules: modulesConfig }).eq('id', tenantId);
+    if (error) toast.error("Erro ao salvar módulos."); else {
+      toast.success("Módulos atualizados!");
+      useAppStore.getState().setEnabledModules(modulesConfig);
+    }
+    setIsSavingModules(false);
   };
 
   useEffect(() => {
@@ -1647,6 +1667,7 @@ export function SettingsPage() {
                   <TabsTrigger value="departments">Departamentos</TabsTrigger>
                   <TabsTrigger value="holidays">Feriados</TabsTrigger>
                   <TabsTrigger value="theme">Personalização (Tema)</TabsTrigger>
+                  <TabsTrigger value="modules">Módulos</TabsTrigger>
                   <TabsTrigger value="security">Segurança (MFA)</TabsTrigger>
                   <TabsTrigger value="sso">SSO (Google)</TabsTrigger>
                   <TabsTrigger value="custom_domain">Domínio Customizado</TabsTrigger>
@@ -2562,6 +2583,47 @@ export function SettingsPage() {
                               Salvar Alterações Regionais
                             </Button>
                           </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="modules" className="mt-6">
+                  <div className="grid grid-cols-1 gap-6 max-w-3xl">
+                    <Card className="border-none shadow-sm dark:bg-zinc-900">
+                      <CardHeader className="border-b dark:border-zinc-800 pb-4">
+                        <CardTitle className="text-xl">Módulos Ativos</CardTitle>
+                        <CardDescription>Escolha quais seções aparecem no menu lateral da sua equipe. Módulos desligados ficam invisíveis para todos os perfis.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="pt-6 space-y-8">
+                        {MODULE_CATEGORIES.map((category) => (
+                          <div key={category}>
+                            <h3 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3">{category}</h3>
+                            <div className="space-y-3">
+                              {MODULES_REGISTRY.filter((m) => m.category === category).map((mod) => {
+                                const enabled = modulesConfig[mod.key] !== false;
+                                return (
+                                  <div key={mod.key} className="flex items-center justify-between p-3 rounded-lg border border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-medium leading-none">{mod.label}</p>
+                                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{mod.description}</p>
+                                    </div>
+                                    <Switch
+                                      checked={enabled}
+                                      onCheckedChange={(checked) => setModulesConfig((prev) => ({ ...prev, [mod.key]: checked }))}
+                                      className="ml-4 shrink-0"
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                        <div className="pt-2">
+                          <Button onClick={saveModulesConfig} disabled={isSavingModules} className="w-full sm:w-auto">
+                            {isSavingModules ? 'Salvando...' : 'Salvar Módulos'}
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>

@@ -63,6 +63,10 @@ interface AppState {
   setIsConfiguringAI: (isConfiguringAI: boolean) => void;
   settings?: any;
 
+  // Module visibility (per-tenant toggles, stored in tenants.enabled_modules)
+  enabledModules: Record<string, boolean>;
+  setEnabledModules: (m: Record<string, boolean>) => void;
+
   // Role & Permissions Granular
   rolePermissions: Record<string, any>;
   setRolePermissions: (permissions: Record<string, any>) => void;
@@ -253,6 +257,10 @@ export const useAppStore = create<AppState>((set) => ({
 
   isConfiguringAI: false,
   setIsConfiguringAI: (isConfiguringAI) => set({ isConfiguringAI }),
+
+  // Module visibility (per-tenant toggles)
+  enabledModules: {},
+  setEnabledModules: (enabledModules) => set({ enabledModules }),
 
   // Role & Permissions Granular
   rolePermissions: {},
