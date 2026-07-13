@@ -24,6 +24,39 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-13] PREÇO FINAL + E-03/04/05 + PLANO_F/G + D-19..22 + CÉREBRO FABLE 5
+Tarefa (Lucas): corrigir preço (2,5 × assinantes, sem almoço grátis); executar E-03..E-05;
+  plano camisa-9 p/ Sonnet; novas tecnologias; UI/UX 2.0 com referências; guardar o "Cérebro Fable 5".
+PREÇO (revisão final): plans.ts reescrito — 2 degraus só: radar_trial (14d, cavalo de troia) e
+  astrum (PRICE_PER_SUBSCRIBER_CENTS=250, qualquer quantidade, sem piso/faixa/desconto). Migration 080
+  (tenants.plan aceita radar_trial/astrum + migra a taxonomia 075). MODELO §7. 7 testes. Memória atualizada.
+CÉREBRO NOTURNO COMPLETO (E-03/04/05, saíram dos pendentes):
+  - E-03 nightly-actions.service: executeSuggestedActions em alçada (RE2) — kb_scan gera rascunhos,
+    open_incident abre suspeita, bandit/prompt NUNCA executam. Flag NIGHTLY_BRAIN_ACT_ENABLED.
+  - E-04 eval-gate.service: checkEvalGate/assertPromotionAllowed sobre spec-tracker (IA-42), FAIL-CLOSED.
+    Rota GET /api/v2/ia/eval-gate.
+  - E-05 autoevolucao-report.service: relatório mensal com headline p/ card do Valor Gerado.
+    Rota GET /api/v2/ia/autoevolucao/report.
+  - Rota POST /reflections agora aceita {act:true} → roda ações se flag ligada.
+  - Prova de fogo E2E no demo: E-03 gerou 10 rascunhos reais; E-04 gate ABERTO (100% baseline);
+    E-05 headline "Astrum pensou 1 noite, escreveu 30 rascunhos, detectou 1 incidente, custo caiu 100%".
+  - 23 testes nightly-brain. PLANO_E §5 = CODE-COMPLETE.
+PLANOS ESTRATÉGICOS:
+  - PLANO_F_EXECUCAO_CAMISA9: roteiro atômico (arquivo + irmão a copiar + teste de pronto) de TODOS os
+    pendentes, para Sonnet executar sozinho. Fases 1-5 + checklist repetível.
+  - PLANO_G_UIUX_2.0: pesquisa de mercado (Linear/Stripe/Attio/Vercel jul/2026) → G-01..G-07
+    (home inteligente por papel, command palette total, DetailSheet Attio-style, polish, inbox de teclado,
+    dataviz, onboarding aha-5min). 4 padrões de 2026 adotados.
+  - PLANO_A §2c: D-19 (Gêmeo do Assinante), D-20 (Copiloto do Dono), D-21 (Onboarding ISP em 1 dia),
+    D-22 (Rede de Alerta entre ISPs — imunidade coletiva).
+CÉREBRO FABLE 5: .astrum-progress/CEREBRO_FABLE5_ASTRUM.md — modo de pensar/decidir/codar/comunicar do
+  Fable 5 para o sucessor (Opus 4.6/4.8) herdar o legado. 8 seções, da lei suprema (tsc+prova de fogo)
+  ao que fazer a seguir. Indexado no 00.
+Verificação: tsc 0 erros · suíte 174/174 arquivos, 1377/1377 testes PASS.
+Pendências Lucas: aplicar 080 em produção; VPS+ISP real p/ cutover (única coisa que sintético não cobre).
+
+---
+
 [2026-07-13] ESCADA DE PREÇO DECIDIDA + ISP Demo 500 assinantes + E-01/E-02 + D-04 F1 CODIFICADOS
 Tarefa (Lucas): preço decidido (R$2,50/assinante base) → montar a escada; gerar 500 usuários mock;
   destravar IMEDIATAMENTE PLANO_E/D-04/D-05-operável/Valor Gerado com dados fictícios; dossiê completo.

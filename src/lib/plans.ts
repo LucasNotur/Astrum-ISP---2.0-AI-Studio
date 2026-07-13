@@ -1,127 +1,81 @@
 /**
- * A ESCADA ASTRUM — modelo de cobrança decidido pelo Lucas em 2026-07-13.
+ * A ESCADA ASTRUM — modelo de cobrança do Lucas (revisão final 2026-07-13).
  *
- * Mapa: R$ 2,50/assinante do ISP é o preço-base da Astrum completa (acima de
- * 1.000 assinantes). Abaixo de 1.000, degrau de entrada com ferramentas
- * limitadas e preço calibrado pelo mercado (bots do Anel 2 cobram R$ 500–1.500
- * fixos — a Operação fica competitiva SEM canibalizar a Autonomia).
- * O RADAR é o cavalo de troia: grátis para sempre, lê o ERP e mostra o
- * dinheiro vazando. O upgrade é um botão, não uma reunião.
+ * REGRA ÚNICA: **R$ 2,50 × assinantes do ISP, em qualquer quantidade.**
+ * Sem faixas, sem desconto por volume, sem piso, sem almoço grátis.
+ * 1 ISP de 200 assinantes paga R$ 500; 1 de 50.000 paga R$ 125.000.
  *
- * Fonte da decisão: .astrum-progress/nextgen-2.0/MODELO_DE_COBRANCA_E_CENARIOS__DECIDIDO.md
+ * O cavalo de troia continua sendo o RADAR — mas como TRIAL de 14 dias
+ * (P5-05), não como plano grátis permanente: o prospect conecta o ERP,
+ * vê o dinheiro vazando, e no 14º dia recebe o relatório "quanto a Astrum
+ * teria te economizado" com o botão de assinar.
+ *
+ * Fonte: MODELO_DE_COBRANCA_E_CENARIOS__DECIDIDO.md §5–§7.
  */
 
-export type AstrumTier = 'radar' | 'operacao' | 'autonomia' | 'enterprise';
+export type AstrumTier = 'radar_trial' | 'astrum';
+
+/** R$ 2,50 por assinante — o único preço da casa. */
+export const PRICE_PER_SUBSCRIBER_CENTS = 250;
+/** Duração do trial Radar (P5-05). */
+export const RADAR_TRIAL_DAYS = 14;
 
 export interface AstrumTierDef {
   id: AstrumTier;
   name: string;
   tagline: string;
-  /** Preço por assinante do ISP, em centavos/mês. 0 = grátis. -1 = sob consulta. */
+  /** Preço por assinante em centavos/mês (0 = trial). */
   pricePerSubscriberCents: number;
-  /** Piso mensal em centavos (cobre ISPs muito pequenos). */
-  floorCents: number;
-  /** Teto de assinantes do degrau (null = sem teto). */
-  maxSubscribers: number | null;
+  /** Dias de validade (null = permanente enquanto pagar). */
+  trialDays: number | null;
   /** Chaves do MODULES_REGISTRY liberadas ('all' = tudo). */
   modules: string[] | 'all';
-  /** O que o degrau entrega, em linguagem de venda. */
   features: string[];
 }
 
 export const ASTRUM_LADDER: Record<AstrumTier, AstrumTierDef> = {
-  radar: {
-    id: 'radar',
-    name: 'Radar',
-    tagline: 'Veja o dinheiro vazando. Grátis, para sempre.',
+  radar_trial: {
+    id: 'radar_trial',
+    name: 'Radar (trial 14 dias)',
+    tagline: 'Conecte o ERP e veja o dinheiro vazando. 14 dias, sem cartão.',
     pricePerSubscriberCents: 0,
-    floorCents: 0,
-    maxSubscribers: 1000,
+    trialDays: RADAR_TRIAL_DAYS,
     modules: ['customers', 'bi', 'map', 'intelligence'],
     features: [
       'Conector ERP somente-leitura (IXC, Voalle, MKAuth, SGP, HubSoft)',
       'Radar de churn: quem vai cancelar e quanto custa',
       'Radar de inadimplência: quanto dá para recuperar',
-      'Relatório mensal "quanto a Astrum teria te economizado"',
       'Mapa de rede com saúde por CTO',
+      'No 14º dia: relatório "quanto a Astrum teria te economizado ESTE mês"',
     ],
   },
-  operacao: {
-    id: 'operacao',
-    name: 'Operação',
-    tagline: 'A IA atende e cobra por você.',
-    pricePerSubscriberCents: 190, // R$ 1,90 — degrau <1k calibrado pelo mercado
-    floorCents: 34900,            // piso R$ 349/mês
-    maxSubscribers: 1000,
-    modules: [
-      'customers', 'bi', 'map', 'intelligence',
-      'tickets', 'chat', 'os', 'billing', 'cobrai', 'kb', 'quality-monitor', 'team',
-    ],
-    features: [
-      'Tudo do Radar',
-      'Atendimento IA no WhatsApp com 2ª via na conversa',
-      'CobrAI: régua de cobrança com variantes que aprendem',
-      'Inbox unificada + tickets + ordens de serviço',
-      'Base de conhecimento que se escreve sozinha (curadoria 1-clique)',
-      'Monitor de qualidade (CSAT) e gestão de equipe',
-    ],
-  },
-  autonomia: {
-    id: 'autonomia',
-    name: 'Autonomia',
-    tagline: 'A Astrum 100%: opera, vende, previne e aprende.',
-    pricePerSubscriberCents: 250, // R$ 2,50 — o preço-base da Astrum completa
-    floorCents: 99000,            // piso R$ 990/mês
-    maxSubscribers: null,
+  astrum: {
+    id: 'astrum',
+    name: 'Astrum',
+    tagline: 'A operação inteira por R$ 2,50 por assinante. Simples assim.',
+    pricePerSubscriberCents: PRICE_PER_SUBSCRIBER_CENTS,
+    trialDays: null,
     modules: 'all',
     features: [
-      'Tudo da Operação',
-      'Omnichannel completo (Instagram, Messenger, e-mail, voz)',
+      'Atendimento IA omnichannel (WhatsApp, Instagram, Messenger, e-mail, voz)',
+      'CobrAI: régua de cobrança com variantes que aprendem + 2ª via na conversa',
       'Vendedor autônomo com oferta calibrada por LTV e ocupação de rede',
-      'Copiloto de campo (foto → diagnóstico → OS)',
+      'Copiloto de campo (foto → diagnóstico → OS) + central do assinante',
       'Religue por confiança, negociação de dívida, suspensão via ERP',
-      'Notificação proativa de falha em massa',
-      'Dashboard Valor Gerado + status page pública + central do assinante',
+      'NOC: detecção de anomalia + notificação proativa de falha em massa',
+      'Dashboard Valor Gerado + status page + kit compliance',
+      'Cérebro noturno: a Astrum melhora sozinha e mostra o diário',
       'API/MCP, webhooks e observabilidade completa de custo de IA',
-    ],
-  },
-  enterprise: {
-    id: 'enterprise',
-    name: 'Enterprise',
-    tagline: 'Para consolidadores e ISPs 30k+.',
-    pricePerSubscriberCents: -1, // sob consulta — base 2,50 com volume negociado
-    floorCents: -1,
-    maxSubscribers: null,
-    modules: 'all',
-    features: [
-      'Tudo da Autonomia',
-      'Desconto por volume sobre a base de R$ 2,50/assinante',
-      'CSM dedicado + SLA contratual',
-      'Success fee opcional sobre recuperação de inadimplência',
-      'Kit compliance/auditoria (trilha imutável das ações da IA)',
     ],
   },
 };
 
-/** Preço mensal em centavos para um degrau e nº de assinantes do ISP. */
+/**
+ * Preço mensal em centavos: SEMPRE 2,50 × assinantes.
+ * Sem piso, sem teto, sem faixa — a régua que o Lucas definiu.
+ */
 export function monthlyPriceCents(tier: AstrumTier, subscribers: number): number {
-  const def = ASTRUM_LADDER[tier];
-  if (def.pricePerSubscriberCents < 0) return -1; // sob consulta
-  const raw = def.pricePerSubscriberCents * Math.max(0, subscribers);
-  return Math.max(def.floorCents, raw);
-}
-
-/** Degrau recomendado pelo tamanho do ISP (a venda pode subir, nunca descer). */
-export function tierForSubscribers(subscribers: number): AstrumTier {
-  if (subscribers > 30000) return 'enterprise';
-  if (subscribers > 1000) return 'autonomia';
-  return 'operacao'; // <1k: entrada paga é Operação; Radar é a isca grátis
-}
-
-/** O degrau comporta esse nº de assinantes? (Radar/Operação travam em 1.000) */
-export function tierAllowsSubscribers(tier: AstrumTier, subscribers: number): boolean {
-  const max = ASTRUM_LADDER[tier].maxSubscribers;
-  return max === null || subscribers <= max;
+  return ASTRUM_LADDER[tier].pricePerSubscriberCents * Math.max(0, subscribers);
 }
 
 /** Módulos (chaves do MODULES_REGISTRY) liberados no degrau. */

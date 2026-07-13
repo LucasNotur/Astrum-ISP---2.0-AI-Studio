@@ -203,3 +203,21 @@ Valor Gerado) fecha a conta: meta contratual de ROI ≥3× o custo.
 Decisões §3d fechadas: faixas = régua marginal simples por assinante (acima);
 success fee = só no Enterprise (opcional); **Radar = grátis permanente até 1.000**;
 limiar enterprise = 30k assinantes.
+
+
+---
+
+## §7 — REVISÃO FINAL (Lucas, 2026-07-13): PREÇO ÚNICO, SEM ALMOÇO GRÁTIS
+
+> Correção do Lucas sobre o §5: **"são 2,5 × a quantidade de assinantes, padrão
+> em qualquer quantidade, sem almoço grátis."** O §5 fica como histórico; VALE ESTA:
+
+| Degrau | Preço | O que é |
+|---|---|---|
+| **Radar** | R$ 0 por **14 dias** (trial P5-05, sem cartão) | O cavalo de troia: conecta o ERP, mostra o dinheiro vazando, termina no relatório "quanto você teria economizado" |
+| **Astrum** | **R$ 2,50 × assinantes — qualquer quantidade** | Tudo. Sem faixas, sem piso, sem desconto por volume, sem enterprise negociado. 200 assinantes = R$ 500; 50.000 = R$ 125.000 |
+
+Implementação: `src/lib/plans.ts` (PRICE_PER_SUBSCRIBER_CENTS = 250) + migration 080.
+A tabela de valor por ferramenta (§6) continua sendo o argumento: a soma avulsa
+custa R$ 6,5–13k/mês — a Astrum entrega tudo integrado pela régua mais simples
+do mercado. Um número, uma multiplicação, zero letra miúda.

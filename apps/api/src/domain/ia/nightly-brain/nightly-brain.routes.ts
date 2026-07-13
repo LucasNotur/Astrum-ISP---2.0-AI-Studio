@@ -8,6 +8,9 @@ import supabase from '../../../infrastructure/database/supabase.client';
 import { requirePermission } from '../../../infrastructure/auth/rbac.middleware';
 import { runNightlyReflection } from './nightly-brain.service';
 import { scanForIncidents } from '../../rede/incident-orchestrator.service';
+import { executeSuggestedActions, recordExecutedActions, isNightlyActEnabled } from './nightly-actions.service';
+import { checkEvalGate } from './eval-gate.service';
+import { buildAutoevolucaoReport } from './autoevolucao-report.service';
 
 export async function nightlyBrainRoutes(app: FastifyInstance) {
   app.get('/api/v2/ia/reflections', {
@@ -38,9 +41,36 @@ export async function nightlyBrainRoutes(app: FastifyInstance) {
 
     try {
       const reflection = await runNightlyReflection(tenantId, target, undefined, anomalies);
+
+      // E-03 — com a flag ligada, o cérebro AGE dentro de alçada e registra tudo.
+      const { act } = (request.body ?? {}) as { act?: boolean };
+      if (act && isNightlyActEnabled()) {
+        const executed = await executeSuggestedActions(tenantId, reflection.actions);
+        await recordExecutedActions(tenantId, target, executed);
+        return reply.code(201).send({ ...reflection, actions: executed });
+      }
+
       return reply.code(201).send(reflection);
     } catch (err) {
       return reply.code(500).send({ error: (err as Error).message });
     }
+  });
+
+  // E-04 — o veredito do juiz (usado por qualquer fluxo de promoção)
+  app.get('/api/v2/ia/eval-gate', {
+    preHandler: [app.authenticate, requirePermission('ai_config', 'read')],
+  }, async () => checkEvalGate());
+
+  // E-05 — relatório mensal de autoevolução (card do Valor Gerado)
+  app.get('/api/v2/ia/autoevolucao/report', {
+    preHandler: [app.authenticate, requirePermission('reports', 'read')],
+  }, async (request, reply) => {
+    const { tenantId } = request.user as { tenantId: string };
+    const { month } = request.query as { month?: string };
+    const target = month ?? new Date().toISOString().slice(0, 7);
+    if (!/^\d{4}-\d{2}$/.test(target)) {
+      return reply.code(400).send({ error: 'month deve ser YYYY-MM' });
+    }
+    return buildAutoevolucaoReport(tenantId, target);
   });
 }

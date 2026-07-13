@@ -81,3 +81,35 @@ atribuição de custo (IA-34), KB auto-gerada (D-05), drift (IA-31) e auditoria
 hash-chain (IA-06) — **sete sistemas que já existem neste repo** e que os
 concorrentes (Mundiale, Elleven, bots de ERP) não têm nem o primeiro. Copiar o
 marketing é fácil; copiar o organismo é reescrever 98 sessões de engenharia.
+
+
+---
+
+## §5 — EXECUÇÃO REGISTRADA (2026-07-13) — E-01..E-05 CODIFICADOS
+
+Destravado com combustível sintético (ISP Demo Astrolândia, IA-45) a pedido do
+Lucas ("por que não codar com exemplos e calibrar depois?"). TUDO rodou E2E no
+tenant demo local:
+
+- **E-01/E-02** — `nightly-brain.service.ts` (migration 077 `ai_reflections`):
+  gatherDailyMetrics → generateHypotheses POR REGRAS (o LLM só refinaria texto,
+  RE1) → suggestActions em alçada → diário upsert. Rotas GET/POST
+  `/api/v2/ia/reflections`. Flag NIGHTLY_BRAIN_ENABLED.
+- **E-03** — `nightly-actions.service.ts`: executeSuggestedActions dentro de
+  alçada (RE2) — kb_scan gera RASCUNHOS (humano aprova), open_incident abre
+  'suspeita' (comunicar tem gate humano), bandit/prompt NUNCA executam.
+  Flag NIGHTLY_BRAIN_ACT_ENABLED. Prova de fogo: 10 rascunhos gerados no demo.
+- **E-04** — `eval-gate.service.ts`: checkEvalGate/assertPromotionAllowed sobre
+  o spec-tracker (IA-42). FAIL-CLOSED (sem baseline/resultado = bloqueia).
+  Rota GET `/api/v2/ia/eval-gate`. É o juiz obrigatório de qualquer promoção (RE1).
+- **E-05** — `autoevolucao-report.service.ts`: relatório mensal (noites,
+  hipóteses, ações, KB gerada/publicada, incidentes, tendência de custo) com
+  headline pronta para o card do Valor Gerado (P5). Rota GET
+  `/api/v2/ia/autoevolucao/report`.
+- Testes: 23 (E-01..E-05). Prova de fogo em `scripts/seed/run-brain-demo.ts`.
+
+**O que resta (calibragem com tráfego real, não código):** afinar os limiares
+das regras (E-02) com dados reais; ligar o worker noturno 03:00 (hoje é sob
+demanda via rota); refino LLM opcional (E-02, flag NIGHTLY_BRAIN_LLM).
+Status do plano: de PENDENTE para **CODE-COMPLETE** — renomear na próxima sessão
+que ligar o worker cron.

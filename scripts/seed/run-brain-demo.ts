@@ -8,6 +8,9 @@ import { createClient } from '@supabase/supabase-js';
 import { DEMO_TENANT_ID } from './seed-demo-tenant';
 import { scanForIncidents, transitionIncident, communicateIncident } from '../../apps/api/src/domain/rede/incident-orchestrator.service';
 import { runNightlyReflection } from '../../apps/api/src/domain/ia/nightly-brain/nightly-brain.service';
+import { executeSuggestedActions, recordExecutedActions } from '../../apps/api/src/domain/ia/nightly-brain/nightly-actions.service';
+import { checkEvalGate } from '../../apps/api/src/domain/ia/nightly-brain/eval-gate.service';
+import { buildAutoevolucaoReport } from '../../apps/api/src/domain/ia/nightly-brain/autoevolucao-report.service';
 
 const LOCAL_URL = process.env.SUPABASE_LOCAL_URL ?? 'http://127.0.0.1:54321';
 // Chave local: `npx supabase status` → SECRET_KEY. Nunca commitar chave literal
@@ -45,7 +48,43 @@ async function main() {
   console.log(`  métricas: tickets=${reflection.metrics.ticketsTotal} · escalação=${(reflection.metrics.escalationRate * 100).toFixed(0)}% · custo=US$${reflection.metrics.aiCostUsd} · candidatos KB=${reflection.metrics.kbDraftCandidates}`);
   console.log('  o que a Astrum pensou esta noite:');
   for (const h of reflection.hypotheses) console.log(`   [${h.severity}] ${h.code}: ${h.text}`);
-  for (const a of reflection.actions) console.log(`   → ação sugerida: ${a.type} — ${a.detail}`);
+
+  // E-03 — AGE dentro de alçada (kbScan local sem LLM: título = 1ª linha da conversa)
+  console.log('— E-03: executando ações em alçada…');
+  const executed = await executeSuggestedActions(DEMO_TENANT_ID, reflection.actions, {
+    db,
+    evalGate: checkEvalGate,
+    incidentScan: (t) => scanForIncidents(t, { db }),
+    kbScan: async (t) => {
+      const { data: convs } = await db.from('conversations').select('id')
+        .eq('tenant_id', t).eq('status', 'resolved').limit(10);
+      let generated = 0;
+      for (const c of convs ?? []) {
+        const { data: msgs } = await db.from('messages').select('content')
+          .eq('conversation_id', c.id).order('created_at').limit(1);
+        const { error } = await db.from('kb_drafts').insert({
+          tenant_id: t, conversation_id: c.id,
+          draft_title: `[demo] ${String(msgs?.[0]?.content ?? 'conversa').slice(0, 60)}`,
+          draft_body: 'Rascunho sintético gerado pela prova de fogo E-03 (sem LLM).',
+          source_summary: 'demo', generated_by: 'auto',
+        });
+        if (!error) generated++;
+      }
+      return { generated, candidates: (convs ?? []).length };
+    },
+  });
+  await recordExecutedActions(DEMO_TENANT_ID, yesterday, executed, db);
+  for (const a of executed) console.log(`   ${a.executed ? '✅' : '⏸'} ${a.type}: ${a.result}`);
+
+  // E-04 — o juiz
+  const gate = checkEvalGate();
+  console.log(`— E-04: eval-gate ${gate.allowed ? 'ABERTO' : 'FECHADO'} — ${gate.reason}`);
+
+  // E-05 — o relatório do mês
+  const month = new Date().toISOString().slice(0, 7);
+  const report = await buildAutoevolucaoReport(DEMO_TENANT_ID, month, db);
+  console.log('— E-05: relatório de autoevolução do mês:');
+  console.log(`   ${report.headline}`);
 }
 
 main().then(() => process.exit(0)).catch((e) => { console.error('❌', e.message); process.exit(1); });

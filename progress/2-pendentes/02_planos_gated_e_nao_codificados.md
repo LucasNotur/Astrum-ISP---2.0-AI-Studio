@@ -42,6 +42,12 @@
 | **D-18 — Cartório de IA** | Certificado auditável de cada ato da IA p/ ANATEL/Procon | 1º caso real ou venda enterprise |
 | **GATED IA-18/20/41** | Edge, debate multi-modelo, benchmark federado | Reavaliar na Onda 5 |
 
+## Novos (2026-07-13)
+- **PLANO_F (camisa 9):** roteiro Sonnet-executável de todos os pendentes — `.astrum-progress/nextgen-2.0/PLANO_F_EXECUCAO_CAMISA9__PENDENTE.md`. PRONTO para executar.
+- **PLANO_G (UI/UX 2.0):** elevar ao nível Linear/Stripe/Attio — G-01..G-07.
+- **D-19..D-22:** Gêmeo do Assinante, Copiloto do Dono, Onboarding de ISP em 1 dia, Rede de Alerta entre ISPs (PLANO_A §2c).
+- **E-03/E-04/E-05:** ✅ CODIFICADOS 2026-07-13 (saíram dos pendentes).
+
 ## Dever de casa consolidado do Lucas (§4 do 00_PLANO)
 1. Migrations em produção · 2. Preços · 3. Tenant piloto · 4. IXC real ·
 5. ADR ML/Python · 6. Twilio staging + 1 ligação · 7. Parcerias P6/D-11 · 8. Custo de voz

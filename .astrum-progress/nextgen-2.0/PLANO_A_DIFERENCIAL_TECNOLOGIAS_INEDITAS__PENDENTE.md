@@ -548,3 +548,55 @@ Conversation `status='resolved'` + `updated_at < NOW() - 7d` + ≥3 mensagens + 
 ### Métricas (RN20)
 - pass-rate por rodada; nº violações por categoria; score médio do judge;
 - "persona killer": qual persona derruba o agente com menos turnos (prioriza fix).
+
+---
+
+## §2c — TERCEIRA GERAÇÃO (D-19 a D-22) — adicionada 2026-07-13
+
+> Fronteira: usar a base instalada + o cérebro noturno como plataforma de dados
+> viva. Cada uma pressupõe ≥1 tenant real operando (Onda 2).
+
+### D-19 — Gêmeo do Assinante (simulação de decisão do cliente)
+**O que é:** para cada assinante, um modelo do seu comportamento provável — "se
+eu subir o plano R$10, ele cancela?", "se cortar hoje, ele paga em quantos dias?".
+O dono simula a decisão ANTES de tomar, por cliente ou por segmento.
+**Por que é inédito:** churn score todo mundo tenta; SIMULAR a resposta a uma
+ação específica (preço, corte, oferta) por cliente, não. É o D-01 (gêmeo da rede)
+aplicado à pessoa.
+**Fundação:** IA-07 (churn), IA-23 (LTV), IA-28 (perfil), bandits (histórico
+ação→resposta), feature store (IA-27).
+**Combustível:** 90d de histórico de ações e respostas no motor novo.
+
+### D-20 — Copiloto do Dono (o CEO conversa com a Astrum)
+**O que é:** o dono PERGUNTA em linguagem natural — "por que meu churn subiu em
+março?", "quais 20 clientes devo ligar hoje?", "vale a pena abrir no bairro X?" —
+e a Astrum responde com dados, gráfico e AÇÃO (já cria a campanha/lista). É o
+Foundry (D-16) virado para análise, não automação.
+**Por que é inédito:** BI dos ERPs é dashboard estático. Perguntar e receber
+resposta+ação sobre os dados vivos do próprio negócio não existe no segmento.
+**Fundação:** sql-guard (IA-44, a IA lê o banco com segurança), MCP (IA-17),
+DuckDB (analytics), o cérebro noturno (E-01, mesmo motor de hipóteses).
+**Combustível:** dados reais + sql-guard ligado.
+
+### D-21 — Onboarding de ISP em 1 dia (self-service com IA)
+**O que é:** um ISP novo conecta o ERP, e a Astrum SOZINHA: importa a base,
+mapeia o grafo de rede, gera a constituição inicial a partir do histórico de
+atendimento, popula a KB dos tickets antigos (D-05 retroativo) e entrega o
+provedor pronto para operar — sem implantação manual de semanas.
+**Por que é inédito:** o gargalo de crescimento de todo SaaS de ISP é a
+implantação. Automatizá-la com IA é o que permite escalar para centenas de
+tenants sem time de onboarding (liga direto na tese de escala).
+**Fundação:** conectores P0, ETL, D-05 (KB retroativa), IA-39 (constituição),
+o próprio seed demo como prova de que dá para popular tudo por código.
+**Combustível:** 2+ onboardings reais para calibrar o roteiro.
+
+### D-22 — Rede de Alerta Precoce entre ISPs (imunidade coletiva)
+**O que é:** quando a Astrum detecta um padrão novo num ISP (um golpe de
+phishing usando o nome do provedor, um defeito de firmware de ONU, uma fraude de
+boleto), ela IMUNIZA os outros tenants automaticamente — como um antivírus que
+aprende num host e protege a rede toda. Anonimizado (privacidade diferencial).
+**Por que é inédito:** é o D-09 (índice federado) virando DEFESA ativa, não só
+benchmark. Efeito de rede que cada tenant novo fortalece — o moat definitivo.
+**Fundação:** IA-41 (federated, GATED), guardrails, audit hash-chain, o cérebro
+noturno como detector de padrão novo.
+**Combustível:** ≥10 tenants + análise LGPD (mesmo gate do D-09).

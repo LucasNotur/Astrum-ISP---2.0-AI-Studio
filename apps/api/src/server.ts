@@ -280,7 +280,7 @@ export async function buildServer() {
   const { windTunnelRoutes } = await import('./domain/ia/wind-tunnel/wind-tunnel.routes');
   await app.register(windTunnelRoutes);
 
-  // E-01/E-02 — Cérebro noturno: diário de reflexões + run sob demanda
+  // E-01..E-05 — Cérebro noturno: reflexões + ações em alçada + eval-gate + relatório
   const { nightlyBrainRoutes } = await import('./domain/ia/nightly-brain/nightly-brain.routes');
   await app.register(nightlyBrainRoutes);
 
