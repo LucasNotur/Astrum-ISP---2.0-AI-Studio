@@ -24,6 +24,39 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-12] Banco local Supabase migrado + verificação schema×código + pasta progress/ + Dossiê
+Tarefa: (1) aplicar migrations no Supabase local (Docker), (2) verificar que o banco bate com TODO o
+  código para não haver surpresa em produção, (3) criar progress/ com executados/pendentes/dossiê.
+Banco:
+  - Migrations 071 (kb_drafts), 072 (wind_tunnel), 073 (service_orders align) aplicadas no local
+  - Verificação automatizada: scan de TODAS as tabelas usadas via .from() no código (apps/api,
+    packages, src legado) × information_schema → 85 referências, 84 existiam
+  - Achado: `plans` (fallback P3 do sales-funnel) e `resource_permissions` (ABAC do
+    permissionsManager legado, vivo via permissionMiddleware) NUNCA tiveram migration → migration
+    074 criada e aplicada (com RLS tenant_own)
+  - Falso-positivos documentados: _test_connection (probe intencional), uploads (bucket Storage,
+    não tabela), contracts (escritor real roteia via db-compat→legacy_docs; createContract de
+    db.ts é export morto, zero callers)
+  - Colunas críticas ✅ (service_orders.scheduled_for/created_by/external_id, kb_drafts,
+    wind_tunnel_*, tenants.trial_ends_at, customers.cpf, ai_performance_logs.cost_usd)
+  - get_tenant_id() ✅ · CHECK service_orders aceita 'open' ✅ · 76 migrations registradas
+  - supabase/config.toml versionado (ambiente local oficial)
+Pasta progress/ criada (pedido do Lucas):
+  - progress/README.md — foto do estado geral
+  - progress/1-executados/ — 8 resumos executivos (fundação, V2, FZ, IA-NEXTGEN, P0-P5, UI/UX,
+    diferenciais D-05/06F1/07/15, checkup)
+  - progress/2-pendentes/ — Onda 2 (checklist de cutover em ordem) + todos os gates (P6, preço,
+    D-01..04/08..14/16..18, PLANO_E, GATED IA-18/20/41, dever de casa consolidado)
+  - progress/3-dossie/DOSSIE_ASTRUM.md — toda a tecnologia explicada em linguagem simples,
+    andar por andar, com caminho de arquivo e status de cada peça
+Cavalo de troia (auditoria a pedido): componentes prontos (trial 14d SignupPage, conectores P0,
+  Valor Gerado, módulos por tenant, upsell/lockout engine) MAS os tiers do código ainda são
+  FREE/PRO/BUSINESS/ENTERPRISE (plans.ts) — a escada Radar/Copiloto/Autônomo NÃO está mapeada.
+  Bloqueio: decisão de preço (MODELO__AGUARDANDO_DECISAO). Após decisão: ~1 sessão de código.
+Status: ✅ Concluído.
+
+---
+
 [2026-07-12] D-15 — Túnel de Vento (população sintética) + P0-06 completo + fix schema service_orders
 Tarefa: "vá além" — item de maior alavancagem sem dependência externa: D-15 (RN17 §8 do PLANO_A) + resíduo P0-06.
 D-15 (Onda 5 — NÃO depende de tráfego real, roda em staging):
