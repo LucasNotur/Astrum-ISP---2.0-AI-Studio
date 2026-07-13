@@ -213,3 +213,158 @@ estão em `progress/2-pendentes/02` — cada uma com seu gate.
 4. **Os dados que só ela acumula** — cada conversa vira exemplo rotulado, artigo de
    KB e métrica de benchmark. O produto de amanhã é treinado pelo uso de hoje.
    Concorrente que chegar depois começa de zero PARA SEMPRE.
+
+
+---
+---
+
+# PARTE II — O CATÁLOGO COMPLETO (toda tecnologia, nomeada, uma a uma)
+
+> Pedido do Lucas (2026-07-13): "quero todas nomeadas e para que servem".
+> Formato: **Número — Nome | o que é em 1 frase que qualquer pessoa entende | onde mora.**
+
+## §A — Os 12 Blocos de Fundação (Sprints 0–6)
+
+| # | Bloco | O que é |
+|---|---|---|
+| B-01 | Monorepo TurboRepo | Um repositório só para tudo — apps e pacotes compartilham código sem cópia |
+| B-02 | Backend DDD (Fastify) | O servidor novo organizado por domínio de negócio, não por tecnologia |
+| B-03 | Supabase multi-tenant + RLS | O banco onde cada provedor SÓ enxerga o que é dele — regra imposta pelo próprio banco |
+| B-04 | Redis + BullMQ | A fila de tarefas: nada se perde se o sistema cair no meio |
+| B-05 | LLM Gateway (4o-mini/4o) | O "cérebro alugado": modelo barato para conversar, modelo forte para decidir |
+| B-06 | LangGraph Agent | O passo-a-passo do pensamento da IA (classificar → checar → buscar → responder → validar) |
+| B-07 | Guardrails Pipeline | O segurança da porta: barra mensagem maliciosa e resposta perigosa |
+| B-08 | RAG + Qdrant | A memória de leitura: acha respostas nos documentos do provedor por significado |
+| B-09 | Auth JWT + RBAC | Quem é você e o que pode fazer — por papel (dono, atendente, técnico) |
+| B-10 | Frontend legado (22 telas) | O painel oficial que o time do provedor usa todo dia |
+| B-11 | Observabilidade (Sentry/pino) | Caixa-preta de voo: todo erro deixa rastro e acorda alarme |
+| B-12 | E2E (Vitest/Playwright) | Robôs que testam o sistema inteiro antes de cada mudança |
+
+## §B — IA-01 a IA-46 (o motor de inteligência)
+
+| # | Nome | O que faz (em simples) | Onde |
+|---|---|---|---|
+| IA-01 | Self-RAG / CRAG | Se a busca de contexto veio ruim, refaz melhor; resposta sem fonte NUNCA sai — vira humano | nós grade_context/rewrite_query/self_check |
+| IA-02 | Cache semântico + cascata | Pergunta repetida = resposta instantânea e grátis; pergunta fácil = modelo barato | semantic-cache.service.ts |
+| IA-03 | Eval harness + prompt registry | A prova com gabarito que toda mudança precisa passar antes de ir pro ar | apps/api/eval/ |
+| IA-04 | OCR boleto + visão de campo | Lê foto de boleto (valor/vencimento) e foto de equipamento (o que está quebrado) | vision.service.ts |
+| IA-05 | Memory decay | A memória da conversa esquece o irrelevante e guarda o importante — como gente | composer de contexto |
+| IA-06 | Audit trail hash-chain | Livro-razão IMUTÁVEL: cada decisão da IA encadeada — impossível apagar sem rastro | ai-audit.service.ts |
+| IA-07 | Churn prediction | Nota de risco de cancelamento por cliente, com os motivos | churn-score.ts |
+| IA-08 | Voz em tempo real | Cliente LIGA e conversa com a IA (Twilio ↔ OpenAI Realtime) | adapters/telephony/ |
+| IA-09 | CTO failure prediction | Coleta de telemetria por caixa de rede para prever falha antes de acontecer | network_metrics |
+| IA-10 | Multi-agente por domínio | Um "gerente" que chama especialistas: cobrança, retenção, vendas | multi-agent.supervisor.ts |
+| IA-11 | Central de Inteligência | O hub no painel onde todas as ferramentas de IA moram | /intelligence |
+| IA-12 | Voice biometrics | Reconhece o cliente pela voz (com consentimento LGPD) | trilho gated |
+| IA-13 | Speech analytics QA | Dá nota para 100% das ligações — não amostra, TODAS | scorecard |
+| IA-14 | Multilíngue | Atende em português, espanhol, inglês — sem o cliente pedir | pipeline de idioma |
+| IA-15 | OCR multi-layout | Lê documento de QUALQUER formato sem template + fila de revisão humana | ocr_review |
+| IA-16 | GraphRAG (grafo da rede) | O mapa vivo: quem está em qual caixa, o que cai junto, onde está lotado | network-graph.service.ts |
+| IA-17 | MCP server | Outros softwares consultam a Astrum com chave e escopo — semente da plataforma | mcp-server.ts |
+| IA-18 | A2A protocol | 🔒 GATED — agentes conversando com agentes de outros sistemas | Onda 5 |
+| IA-19 | Tool registry dinâmico | O dono liga/desliga cada ferramenta da IA numa tela — controle total | /intelligence/tools |
+| IA-20 | Multi-agent debate | 🔒 GATED — para decisões caras, dois modelos DEBATEM antes de agir | Onda 5 |
+| IA-21 | Constitutional classifier | O juiz de saída: veta resposta que fere as regras do provedor | nó safety_veto |
+| IA-22 | Web browsing agent | A IA consulta sites permitidos (allowlist) e SEMPRE cita a fonte | url-guard.ts |
+| IA-23 | LTV por cliente | Quanto cada cliente vale ao longo da vida — calibra oferta e retenção | ltv.service |
+| IA-24 | Anomalia de rede | Matemática (EWMA/z-score) que percebe "algo estranho" antes do cliente reclamar | domain/rede/anomaly.ts |
+| IA-25 | Forecast de demanda | Quantos tickets amanhã? Quantos atendentes escalar? | ml/forecast.ts |
+| IA-26 | Multi-armed bandit | Testa 2-3 versões da mensagem de cobrança e aprende sozinha qual recupera mais | variant-picker.service.ts |
+| IA-27 | Feature Store | O perfil operacional único de cada cliente (paga em dia? canal favorito?) | feature-store.service.ts |
+| IA-28 | Perfil de comunicação | Formal, coloquial ou técnico — a IA fala como AQUELE cliente gosta | comm profile |
+| IA-29 | Active learning | As conversas difíceis viram exemplos rotulados → o futuro modelo próprio | LabelingPage |
+| IA-30 | Compressão de contexto | Espreme texto repetido antes de mandar pro modelo — corta custo sem perder nada | compression service |
+| IA-31 | LLM-as-judge + Elo | Um segundo modelo dá nota nas respostas e rankeia versões como xadrez | judge permanente |
+| IA-32 | OpenLLMetry | Cada passo do pensamento vira um "span" rastreável — dá pra ver ONDE demorou | otel.ts |
+| IA-33 | Drift detection | Alarme se o comportamento da IA mudar sem ninguém ter pedido | drift.worker.ts |
+| IA-34 | Cost attribution | Cada resposta tem preço por cliente/feature/dia — com teto e freio de emergência | cost-recorder.ts + AICostsPage |
+| IA-35 | Orçamento de latência | Meta de tempo por nó do cérebro; estourou = aparece no painel | latency-budget.ts |
+| IA-36 | Edge inference | Triagem barata na borda antes do modelo caro (modo shadow) | edge shadow |
+| IA-37 | Batching de tool calls | Agrupa chamadas de ferramenta para ir mais rápido e mais barato | executor |
+| IA-38 | Explicabilidade do churn | Não só "vai cancelar" — POR QUÊ (os fatores, visíveis na tela) | /intelligence/churn |
+| IA-39 | Constitutional loop | A "constituição" que o DONO edita: as regras supremas da IA daquele provedor | tenant_constitutions |
+| IA-40 | PII em voz | CPF falado é mascarado ANTES de gravar — privacidade por construção | voice PII |
+| IA-41 | Federated evaluation | 🔒 GATED — comparação anônima entre provedores (vira o Índice Astrum D-09) | Onda 5 |
+| IA-42 | Spec tracker | O eval vira PORTEIRO do deploy: nota caiu → não sobe | spec-tracker.ts |
+| IA-43 | Failover multi-provider | OpenAI caiu? Muda para Anthropic/Gemini sozinha em segundos | llm.adapter |
+| IA-44 | Sandbox SQL | A IA só LÊ o banco, e só as tabelas permitidas — um validador puro barra o resto | sql-guard |
+| IA-45 | Synthetic data generator | Tenants de teste marcados is_sandbox — a base do ISP Demo de 500 assinantes | migration 046 + seed-demo-tenant.ts |
+| IA-46 | Replay engine | Reexecuta conversas antigas no motor novo em modo seguro e compara — o gate do cutover | replay.service.ts |
+
+## §C — P0 a P6 (paridade competitiva — Plano B)
+
+| # | Nome | O que faz | Onde |
+|---|---|---|---|
+| P0-01..05 | Conectores ERP | Fala a língua do IXC, Voalle, MKAuth, SGP e HubSoft — consulta E age | adapters/erp/ |
+| P0-06 | Tools operando o ERP | 2ª via, suspensão e OS acontecem DENTRO do sistema do provedor | tools.executor.ts |
+| P1-01 | Religue por confiança | Pagou? Religa sozinha, dentro de política e limite anual | trust-unlock.service.ts |
+| P1-02 | Notificação de falha em massa | Todos os afetados avisados ANTES de ligarem | outage-notifier.routes.ts |
+| P1-03 | Menu de negociação | Parcelamento configurado pelo dono, oferecido pela IA | debt-negotiation.service.ts |
+| P1-04 | Handover quente | Quando vira humano, o atendente recebe o resumo pronto — cliente não repete nada | escalação |
+| P2-01..04 | Omnichannel | Instagram, Messenger, e-mail e inbox unificada | adapters/meta/, adapters/email/ |
+| P3-01..04 | Funil de vendas | Lead → viabilidade → planos → dados → contrato digital → instalação. Sem humano | sales-funnel.service.ts + vendas.subgraph.ts |
+| P4-01..03 | Central do assinante | PWA de autoatendimento sem senha (CPF + validação) | subscriber-portal.ts |
+| P5-01 | Dashboard Valor Gerado | "A Astrum te economizou R$ X este mês" — o argumento de renovação | /value |
+| P5-02 | Status page pública | "Está tudo no ar?" para o assinante final | /api/v2/valor/status |
+| P5-03 | Kit compliance | Relatórios ANATEL/LGPD prontos para auditoria | compliance.routes |
+| P5-04 | Case engine | Meta batida vira estudo de caso com número auditado e link compartilhável | valor_cases |
+| P5-05 | Trial sem fricção | 14 dias sem cartão, terminando no relatório "quanto você teria economizado" | SignupPage + trial.service |
+| P6 | CPE via parceria | 🔒 Telemetria do roteador do cliente (Anlix/ACS) — parceria comercial, não código | pendente Lucas |
+
+## §D — U0 a U8 (a experiência — Plano C)
+
+| # | Nome | O que entregou |
+|---|---|---|
+| U0 | Auditoria + telemetria de uso | Ranking científico de qual tela doía mais |
+| U1 | Tokens + primitivas + lint | O DNA visual: cores, tipografia, componentes — e um lint que barra tela fora do padrão |
+| U2 | Design language + skill guardiã | O estilo "tecnológico limpo" + a skill que toda sessão de UI é obrigada a ler |
+| U3 | Command palette + navegação | Ctrl+K acha qualquer coisa em 2 teclas; breadcrumbs; sidebar 2 modos |
+| U4 | Redesign por persona | As 38 telas repensadas para quem realmente as usa (dono/atendente/técnico) |
+| U5 | Responsividade + PWA campo | Tudo funciona no celular; técnico tem app instalável |
+| U6 | Onboarding + módulos + dashboard configurável | Tour por papel; módulos ligáveis por tenant; widgets arrastáveis |
+| U7 | Qualidade contínua | Playwright e2e, testes de componente, página /design viva, bundle 6× menor |
+| U8 | Painel de Vendas | Funil P3 + LTV D-07 numa tela executiva (/sales) |
+
+## §E — D-01 a D-18 (as inéditas — Plano A) e E-01..E-05 (Plano E)
+
+| # | Nome | O que é | Status |
+|---|---|---|---|
+| D-01 | Gêmeo Digital da Rede | Simula "se esta CTO cair, quem grita? quanto custa?" ANTES de acontecer | gate: 60d telemetria |
+| D-02 | Backtesting de régua | Testa a política de cobrança nova contra 90d de histórico REAL antes de ligar | gate: 90d dados |
+| D-03 | Negociador com alçada | IA negocia DE VERDADE (parcela, desconto) dentro de limites do dono, auditada | gate: cutover+alçadas |
+| D-04 | NOC autônomo | Detecta → confirma (mede afetados) → comunica em massa → normaliza. Máquina de estados | ✅ F1 CODIFICADO 2026-07-13 |
+| D-05 | KB viva | Problema resolvido vira artigo; curadoria de 1 clique; a IA aprende o "jeito da casa" | ✅ CODIFICADO |
+| D-06 | Copiloto de campo | Foto do equipamento → diagnóstico → anexo na OS. Fases 2/3: voz e histórico visual | ✅ F1 CODIFICADO |
+| D-07 | Vendedor com LTV | Oferta calibrada pelo valor do cliente E pela ocupação da rede | ✅ CODIFICADO |
+| D-08 | CFO virtual | Previsão de caixa 90 dias conectada a AÇÃO ("dispare esta campanha") | gate: 90d dados |
+| D-09 | Índice Astrum | Benchmark anônimo do setor — vira autoridade de marca e imprensa | gate: ≥10 tenants |
+| D-10 | Modelo ISP-BR | Fine-tune próprio no jargão do setor ("tá dando LOS") — melhor E mais barato | gate: 5k exemplos |
+| D-11 | Plataforma MCP | Parceiros constroem SOBRE a Astrum — de fornecedor a infraestrutura | gate: 3 parceiros |
+| D-12 | Voice-first | 100% das ligações atendidas em <1s, 60% resolvidas sem humano | gate: custo/chamada |
+| D-13 | Conectores auto-gerados | Agente codificador escreve o adapter de um ERP novo a partir da doc, com testes | gate: demanda |
+| D-14 | Cérebro noturno | = PLANO_E (abaixo) | ✅ E-01/E-02 CODIFICADOS |
+| D-15 | Túnel de Vento | 12 clientes sintéticos (incl. hacker e caçador de desconto) estressam o agente 24/7 | ✅ CODIFICADO |
+| D-16 | Foundry | Dono descreve automação em português → IA constrói, testa e instala só para ele | gate: 5 tenants |
+| D-17 | Marketplace de playbooks | Régua campeã de um ISP vira produto instalável COM PROVA (backtesting) | gate: 10 tenants |
+| D-18 | Cartório de IA | Certificado auditável de cada ato da IA para ANATEL/Procon — compliance vira receita | gate: caso real |
+| E-01 | Diário de reflexões | Toda noite: números do dia → hipóteses por REGRAS → diário ai_reflections | ✅ CODIFICADO 2026-07-13 |
+| E-02 | Gerador de hipóteses | As regras que transformam métricas em "o que a Astrum pensou esta noite" | ✅ CODIFICADO 2026-07-13 |
+| E-03 | Ações em alçada | O cérebro EXECUTA o que é seguro: scan de KB, braço bandit ≤5% | próximo |
+| E-04 | Gate de eval automático | Nada é promovido sem vencer o baseline na prova (IA-42) | próximo |
+| E-05 | Relatório de autoevolução | "Este mês a Astrum aprendeu X artigos e reduziu custo Y%" no Valor Gerado | próximo |
+
+## §F — Motores com nome próprio (o que amarra tudo)
+
+| Nome | O que é | Onde |
+|---|---|---|
+| **CobrAI** | A régua de cobrança inteligente — o produto que paga a conta | cobrai.worker.ts + cobrai-rules.service.ts |
+| **db-compat** | O truque que removeu o Firebase sem reescrever 50 arquivos: imita a API antiga, grava no Supabase | src/lib/db-compat/ |
+| **A Escada Astrum** | Radar grátis → Operação R$1,90 → Autonomia R$2,50/assinante → Enterprise | src/lib/plans.ts |
+| **ISP Demo Astrolândia** | 500 assinantes sintéticos com faturas, tickets, conversas e uma anomalia plantada — o laboratório vivo | scripts/seed/seed-demo-tenant.ts |
+| **Final Gate** | Os 10 critérios objetivos que decidem se o motor novo assume produção | scripts/cutover/final-gate.ts |
+| **Shadow mode** | O motor novo processa TUDO em paralelo sem responder — prova que acerta antes de assumir | message.worker.ts + shadow-mode.ts |
+| **Engine flags** | As 2 chaves que decidem qual motor atende (rollback = trocar a env) | engine-flags.ts |
+| **Outbox pattern** | Nenhuma mensagem se perde: primeiro grava, depois envia, com poller de retry | outbox.worker.ts |
+
+**Contagem da casa:** 12 blocos + 46 IA + 21 P + 9 U + 18 D + 5 E + 8 motores nomeados
+= **119 tecnologias catalogadas** — e o pipeline §2b garante que a lista só cresce.

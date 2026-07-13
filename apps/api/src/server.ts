@@ -280,6 +280,14 @@ export async function buildServer() {
   const { windTunnelRoutes } = await import('./domain/ia/wind-tunnel/wind-tunnel.routes');
   await app.register(windTunnelRoutes);
 
+  // E-01/E-02 — Cérebro noturno: diário de reflexões + run sob demanda
+  const { nightlyBrainRoutes } = await import('./domain/ia/nightly-brain/nightly-brain.routes');
+  await app.register(nightlyBrainRoutes);
+
+  // D-04 — NOC autônomo: incidentes de rede (flag NOC_AUTONOMO_ENABLED p/ scan)
+  const { incidentRoutes } = await import('./domain/rede/incident.routes');
+  await app.register(incidentRoutes);
+
   // Health check com status dos serviços
   app.get('/api/v2/health', async () => {
     const { getLLMStatus } = await import('./adapters/ai/llm.adapter');

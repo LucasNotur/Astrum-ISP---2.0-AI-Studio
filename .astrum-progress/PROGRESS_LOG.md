@@ -24,6 +24,48 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-13] ESCADA DE PREÇO DECIDIDA + ISP Demo 500 assinantes + E-01/E-02 + D-04 F1 CODIFICADOS
+Tarefa (Lucas): preço decidido (R$2,50/assinante base) → montar a escada; gerar 500 usuários mock;
+  destravar IMEDIATAMENTE PLANO_E/D-04/D-05-operável/Valor Gerado com dados fictícios; dossiê completo.
+PREÇO (decisão oficial — MODELO renomeado __DECIDIDO):
+  - src/lib/plans.ts reescrito: ASTRUM_LADDER (radar grátis ≤1k / operacao R$1,90 piso 349 ≤1k /
+    autonomia R$2,50 piso 990 / enterprise sob consulta >30k) + monthlyPriceCents/tierForSubscribers/
+    enabledModulesForTier (gating via U6-02) + 12 testes
+  - MODELO §5 (escada) + §6 (preço por ferramenta avulsa: soma R$6,5-13k/mês vs Autonomia integrada)
+  - Migration 075: tenants.plan aceita os degraus + tenants.subscriber_count
+ISP DEMO ASTROLÂNDIA (IA-45):
+  - scripts/seed/seed-demo-tenant.ts (npm run seed:demo / -- --wipe): tenant is_sandbox fixo +
+    500 customers (CPF válido sintético, 4 planos, 12 CTOs/bairros) + 2500 faturas (10% vencidas,
+    7% recuperadas com atraso = combustível Valor Gerado) + 600 tickets (62% resolved_by_ai) +
+    90 conversas (70 resolvidas ≥7d = combustível D-05) + 40 OS + 1104 métricas de rede com
+    ANOMALIA PLANTADA na CTO-Centro + 800 ai_performance_logs. Determinístico (mulberry32).
+  - Limpeza: wipe genérico (toda tabela com tenant_id, passes FK) — dados somem de verdade
+DESTRAVADOS COM COMBUSTÍVEL SINTÉTICO (a resposta ao "por que não codar com exemplos?"):
+  - E-01/E-02 (Cérebro Noturno): migration 077 ai_reflections + nightly-brain.service
+    (gatherDailyMetrics → generateHypotheses POR REGRAS → suggestActions em alçada RE2 →
+    diário upsert) + rotas GET/POST /api/v2/ia/reflections + 12 testes
+  - D-04 F1 (NOC autônomo): incidents (077) + incident-orchestrator.service (máquina de estados
+    suspeita→confirmada→comunicada→normalizada; scan via detectAnomalies IA-24 com dedupe;
+    communicate grava outage_notifications P1-02) + rotas + flag NOC_AUTONOMO_ENABLED + 9 testes
+  - PROVA DE FOGO E2E no demo local: scan detectou a anomalia plantada → incidente aberto sev=alto
+    → confirmado (34 clientes afetados medidos) → comunicado em massa → reflexão noturna gravada
+    ("70 conversas prontas p/ virar artigo KB" + ação open_incident). O LOOP INTEIRO VIVO.
+BUGS DE PRODUÇÃO PEGOS PELO EXERCÍCIO SINTÉTICO (a tese do Lucas provada):
+  - Migration 076: CHECK de conversations.channel só aceitava whatsapp/webchat/facebook —
+    P2 (Instagram/Messenger/email) QUEBRARIA em produção no primeiro INSERT
+  - Migrations 078+079: TODAS as tabelas das migrations P1+ (071-077 e outage_notifications etc.)
+    sem GRANT p/ authenticated/service_role — supabase-js levaria permission denied em produção.
+    079 = varredura completa (service_role em tudo; authenticated só onde há RLS) + default privileges
+DOSSIÊ v2: PARTE II no DOSSIE_ASTRUM.md — catálogo completo com TODAS nomeadas:
+  12 blocos + IA-01..46 + P0..P6 + U0..U8 + D-01..18 + E-01..05 + 8 motores = 119 tecnologias.
+Verificação: tsc 0 erros · suíte 172/172 arquivos, 1370/1370 testes PASS.
+Resposta VPS: local basta para TUDO que é sintético (provado hoje); VPS só vira necessário para
+  canais reais (webhooks WhatsApp/Meta precisam de URL pública) e workers 24/7 — não bloqueia código.
+Pendências Lucas: aplicar 075-079 em produção · ajustar números da escada se quiser (estrutura pronta).
+Próximo: E-03 (ações em alçada executando) + ligar signup→tier + rodada do túnel D-15 com LLM real.
+
+---
+
 [2026-07-12] Banco local Supabase migrado + verificação schema×código + pasta progress/ + Dossiê
 Tarefa: (1) aplicar migrations no Supabase local (Docker), (2) verificar que o banco bate com TODO o
   código para não haver surpresa em produção, (3) criar progress/ com executados/pendentes/dossiê.

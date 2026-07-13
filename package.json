@@ -29,6 +29,7 @@
     "docker:dev": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up redis qdrant",
     "docker:health": "curl -f http://localhost:3001/api/v2/health",
     "db:migrate": "tsx packages/db/src/migrate.ts",
+    "seed:demo": "tsx scripts/seed/seed-demo-tenant.ts",
     "db:migrate:dry": "tsx packages/db/src/migrate.ts --dry-run",
     "db:baseline": "tsx packages/db/src/migrate.ts --baseline",
     "lint:design": "tsx scripts/design-lint.ts",

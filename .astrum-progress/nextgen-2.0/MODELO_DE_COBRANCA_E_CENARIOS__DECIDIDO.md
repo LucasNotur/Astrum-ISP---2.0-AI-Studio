@@ -154,3 +154,52 @@ caixa — caixa que a Astrum ajudou a criar.
 4. White-label/revenda (U6-01) como tier próprio ou negociação enterprise.
 5. Limiar do enterprise: a partir de quantos assinantes a tabela vira "sob
    consulta" (sugestão: 15.000).
+
+---
+
+## §5 — DECISÃO DO LUCAS (2026-07-13) — A ESCADA OFICIAL
+
+> Mapa dado pelo Lucas: **R$ 2,50/assinante do ISP** é o preço-base da Astrum
+> completa (acima de 1.000 assinantes). Abaixo de 1.000: degrau de entrada com
+> ferramentas limitadas, preço calibrado pelo mercado. Radar = cavalo de troia.
+> Implementado em `src/lib/plans.ts` (ASTRUM_LADDER) + testes.
+
+| Degrau | Preço | Teto | O que abre |
+|---|---|---|---|
+| **RADAR** | **R$ 0 para sempre** | 1.000 assinantes | Conector ERP leitura + radar de churn/inadimplência + relatório mensal + mapa. NÃO opera — só mostra o dinheiro vazando. |
+| **OPERAÇÃO** | **R$ 1,90/assinante** (piso R$ 349) | 1.000 assinantes | Atendimento IA + CobrAI + 2ª via + inbox + tickets/OS + KB + CSAT. |
+| **AUTONOMIA** | **R$ 2,50/assinante** (piso R$ 990) | sem teto | Astrum 100% — omnichannel, voz, vendas com LTV, campo, religue, NOC, Valor Gerado, API/MCP. |
+| **ENTERPRISE** | sob consulta (base 2,50 − volume) | sem teto | Autonomia + CSM + SLA + success fee de recuperação. |
+
+Racional do R$ 1,90 (<1k): bots do Anel 2 cobram R$ 500–1.500 FIXOS. Um ISP de
+700 assinantes paga R$ 1.330 na Astrum Operação — competitivo — e o de 300 paga
+o piso R$ 349, mais barato que qualquer bot burro. A régua marginal preserva o
+incentivo de crescer para a Autonomia (1.001 assinantes × 2,50 = R$ 2.502).
+
+## §6 — PREÇO POR FERRAMENTA (o argumento de que R$ 2,50 é barato)
+
+O que cada peça custaria se comprada avulsa no mercado (referências jul/2026 —
+bots de WhatsApp, ferramentas de BI, plataformas de voz, sistemas de campo):
+
+| Ferramenta Astrum | Equivalente avulso no mercado | Preço avulso típico/mês |
+|---|---|---|
+| Atendimento IA WhatsApp (motor completo c/ RAG) | Mundiale/Elleven bot | R$ 800–2.500 |
+| CobrAI (régua + variantes que aprendem) | régua de ERP + equipe | R$ 500–1.500 |
+| Omnichannel (IG/Messenger/e-mail/inbox) | plataforma omnichannel | R$ 400–1.200 |
+| Voz IA (atende no 1º toque) | URA inteligente | R$ 1.000–3.000 |
+| Funil de vendas autônomo + contrato digital | CRM + ClickSign + humano | R$ 600–1.500 |
+| Copiloto de campo (foto→diagnóstico) | não existe no mercado | — |
+| Radar de churn/inadimplência preditivo | BI + cientista de dados | R$ 2.000+ |
+| NOC proativo (aviso de falha em massa) | não existe automatizado | — |
+| Dashboard Valor Gerado + status page | ferramentas separadas | R$ 200–500 |
+| Auditoria imutável + LGPD + compliance | consultoria | R$ 1.000+ |
+| **SOMA se comprado separado** | | **R$ 6.500–13.000+/mês** |
+| **Astrum Autonomia (ISP 3.000 assinantes)** | | **R$ 7.500/mês — TUDO integrado no mesmo cérebro** |
+
+O argumento de venda não é "somos mais baratos" — é: **pelo preço de 2 ferramentas
+avulsas você leva 10, integradas, que aprendem juntas.** E o ROI medido (dashboard
+Valor Gerado) fecha a conta: meta contratual de ROI ≥3× o custo.
+
+Decisões §3d fechadas: faixas = régua marginal simples por assinante (acima);
+success fee = só no Enterprise (opcional); **Radar = grátis permanente até 1.000**;
+limiar enterprise = 30k assinantes.

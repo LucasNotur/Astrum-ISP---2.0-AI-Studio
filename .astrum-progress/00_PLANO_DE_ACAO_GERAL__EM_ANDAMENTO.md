@@ -40,12 +40,12 @@
 |---|---|---|
 | `nextgen-2.0/PLANO_B_PARIDADE_CONCORRENTES__PENDENTE.md` | Escada de entrada via ERP + blocos P0–P6. **P0–P5 CODE-COMPLETE (2026-07-09/11)** — migrations pendentes (dever do Lucas: `trust_unlock_*`, `tenant_meta_pages`, `tenant_email_inboxes`, `067_p3_sales_leads`, `068_p5_valor_gerado`) | **P6 bloqueado em parceria comercial CPE/OZmap (Lucas)** — Onda 3 |
 | `nextgen-2.0/PLANO_A_DIFERENCIAL_TECNOLOGIAS_INEDITAS__PENDENTE.md` | 18 tecnologias inéditas D-01..D-18 (§2b D-13..D-18 adicionadas no checkup 2026-07-12; D-05/D-06 F1/D-07 já executadas) | Gates de combustível (tráfego real, dados, conectores) — Onda 5 |
-| `nextgen-2.0/PLANO_E_AUTOEVOLUCAO__PENDENTE.md` | Cérebro noturno: loop reflexão→hipótese→experimento→promoção por eval (sessões E-01..E-05) | Onda 2 (tráfego real) — D-15 (túnel de vento) não depende e pode antes |
+| `nextgen-2.0/PLANO_E_AUTOEVOLUCAO__PENDENTE.md` | Cérebro noturno — **E-01/E-02 CODIFICADOS 2026-07-13** (ai_reflections + hipóteses por regras, rodando no tenant demo); E-03..E-05 restam | Calibragem com tráfego real (Onda 2); código não bloqueia mais |
 
 ### 📋 Aguardando decisão (dever de casa do LUCAS — §4)
 | Doc | Decisões |
 |---|---|
-| `nextgen-2.0/MODELO_DE_COBRANCA_E_CENARIOS__AGUARDANDO_DECISAO.md` | Valores finais das faixas, success fee, Radar grátis ou R$349, limiar enterprise |
+| `nextgen-2.0/MODELO_DE_COBRANCA_E_CENARIOS__DECIDIDO.md` | ✅ DECIDIDO 2026-07-13: R$2,50/assinante (Autonomia), R$1,90 <1k (Operação), Radar grátis, enterprise 30k+ — ver §5/§6 do MODELO |
 
 ### 📚 Documentos de apoio (não são planos — não recebem status)
 `PROGRESS_LOG.md` (diário) · `CHECKLIST_MASTER.md` (rastreio dos 12 blocos) ·
