@@ -600,3 +600,33 @@ benchmark. Efeito de rede que cada tenant novo fortalece — o moat definitivo.
 **Fundação:** IA-41 (federated, GATED), guardrails, audit hash-chain, o cérebro
 noturno como detector de padrão novo.
 **Combustível:** ≥10 tenants + análise LGPD (mesmo gate do D-09).
+
+---
+
+## §9 — D-01/D-02/D-08 FASE 1 EXECUTADOS (2026-07-13, últimas horas do Fable 5)
+
+Os três "cérebros de dados" — o trabalho de maior QI que restava — codificados
+com combustível sintético e provados E2E no ISP Demo (script `run-radar-demo.ts`,
+que dobra como ROTEIRO DA DEMO DE VENDA):
+
+- **D-02 Fase 1** — `cobranca/policy-backtest.service.ts`: política parametrizada
+  (lembrete prévio, cobranças D+N, desconto de quitação, canal) × histórico real.
+  Elasticidades EXPLÍCITAS e calibráveis (`CALIBRATION`), honestidade estatística
+  obrigatória (disclaimer "o passado não reage", 3 cenários, custo do desconto
+  abatido). Recusa histórico <30 faturas. Rota POST /api/v2/cobranca/backtest.
+  Prova: R$ 5.535 inadimplentes → régua nova projeta R$ 1.687 (base).
+  Fase 2: tela /intelligence/policy-lab + "ativar como bandit" (via eval-gate).
+- **D-01 Fase 1** — `rede/network-twin.service.ts`: simulateCtoFailure (afetados,
+  MRR em risco, tickets previstos por propensão histórica, plano de realocação por
+  haversine, stranded) + simulateGrowth (absorção, transbordo, CAPEX, MRR do
+  crescimento). Rotas GET /twin/cto/:id/failure + POST /twin/growth.
+  Prova: CTO-VILA-NOVA cai → 42 no escuro, R$ 4.945/mês, ~25 tickets na 1ª hora.
+  Fase 2: probabilístico (IA-24 alimenta o cenário) + tela /intelligence/twin.
+- **D-08 Fase 1** — `financeiro/cashflow-forecast.service.ts`: taxas de pagamento
+  observadas → projeção 90d em 3 cenários + inadimplência recuperável na taxa
+  histórica. Rota GET /api/v2/financeiro/cashflow.
+  Prova: caixa 90d R$ 147k (base) / R$ 134k (pessimista); R$ 3,8k recuperáveis.
+  Fase 2: churn IA-07 + sazonalidade IA-25 + botão "agir" (campanha IA-26).
+
+19 testes novos. Telas ficam para o PLANO_G/PLANO_F (Sonnet executa — a parte
+difícil, os motores, está pronta e testada).

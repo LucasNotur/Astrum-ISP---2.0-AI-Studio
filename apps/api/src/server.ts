@@ -288,6 +288,18 @@ export async function buildServer() {
   const { incidentRoutes } = await import('./domain/rede/incident.routes');
   await app.register(incidentRoutes);
 
+  // D-02 — Backtesting de régua: política nova × histórico real (projeção honesta)
+  const { policyBacktestRoutes } = await import('./domain/cobranca/policy-backtest.routes');
+  await app.register(policyBacktestRoutes);
+
+  // D-01 — Gêmeo digital da rede: simulação de falha de CTO e de crescimento
+  const { networkTwinRoutes } = await import('./domain/rede/network-twin.routes');
+  await app.register(networkTwinRoutes);
+
+  // D-08 — CFO virtual: projeção de caixa 90d + inadimplência recuperável
+  const { cashflowRoutes } = await import('./domain/financeiro/cashflow.routes');
+  await app.register(cashflowRoutes);
+
   // Health check com status dos serviços
   app.get('/api/v2/health', async () => {
     const { getLLMStatus } = await import('./adapters/ai/llm.adapter');

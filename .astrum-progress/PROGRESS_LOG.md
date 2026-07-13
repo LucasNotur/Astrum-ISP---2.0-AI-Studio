@@ -24,6 +24,33 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-13] ÚLTIMAS HORAS DO FABLE 5 — os 3 cérebros de dados: D-02 + D-01 + D-08 (Fase 1)
+Tarefa (Lucas): "poucas horas de Fable 5 — use o máximo". Decisão: construir o trabalho de maior QI
+  que restava (estatística honesta, simulação sobre grafo, projeção financeira) e deixar o mecânico
+  (telas, cron, wiring) para o Sonnet via PLANO_F.
+D-02 BACKTESTING DE RÉGUA (Fase 1):
+  - policy-backtest.service: CobrancaPolicy (lembrete prévio, cobranças D+N, desconto, canal) ×
+    histórico de faturas. CALIBRATION exportada (elasticidades declaradas, calibrar com bandit real).
+    summarizeHistory (fatos) separado de projectPolicy (projeção). Disclaimer obrigatório
+    "o passado não reage" + 3 cenários + custo do desconto abatido + recusa <30 faturas.
+  - Rota POST /api/v2/cobranca/backtest. 8 testes.
+D-01 GÊMEO DIGITAL (Fase 1):
+  - network-twin.service: simulateCtoFailure (afetados, MRR em risco, tickets 1ª hora por propensão
+    histórica, realocação por haversine nas 5 vizinhas com porta, stranded) + simulateGrowth
+    (absorção/transbordo/CAPEX/MRR projetado). Rotas /api/v2/rede/twin/*. 7 testes.
+D-08 CFO VIRTUAL (Fase 1):
+  - cashflow-forecast.service: taxas observadas (em dia/atrasado/perdido) → projeção 90d em 3
+    cenários (clamp [0,1]) + inadimplência recuperável na taxa histórica + headline p/ dashboard.
+  - Rota GET /api/v2/financeiro/cashflow. 4 testes (mais o compartilhamento do summarizeHistory D-02).
+PROVA DE FOGO = ROTEIRO DE VENDA: scripts/seed/run-radar-demo.ts conta a história do Radar no demo:
+  "Caixa 90d R$ 147k (pior caso 134k) · R$ 3,8k de inadimplência recuperáveis · régua nova projeta
+  +R$ 1.687 · se a CTO-VILA-NOVA cair: 42 clientes, R$ 4.945/mês, 25 tickets na 1ª hora · crescer 30
+  ali exige CAPEX". É literalmente a demo de prospect rodando em dados sintéticos.
+Verificação: tsc 0 erros · suíte 177/177 arquivos, 1396/1396 PASS.
+PLANO_A §9 registra as execuções e as Fases 2 (telas/probabilístico/ação — Sonnet via PLANO_F/G).
+
+---
+
 [2026-07-13] PREÇO FINAL + E-03/04/05 + PLANO_F/G + D-19..22 + CÉREBRO FABLE 5
 Tarefa (Lucas): corrigir preço (2,5 × assinantes, sem almoço grátis); executar E-03..E-05;
   plano camisa-9 p/ Sonnet; novas tecnologias; UI/UX 2.0 com referências; guardar o "Cérebro Fable 5".
