@@ -630,3 +630,26 @@ que dobra como ROTEIRO DA DEMO DE VENDA):
 
 19 testes novos. Telas ficam para o PLANO_G/PLANO_F (Sonnet executa — a parte
 difícil, os motores, está pronta e testada).
+
+### D-23 — Gênesis Engine: plug-and-play + análise retroativa do WhatsApp
+**(adicionado 2026-07-13 — ideia do Lucas, núcleo já codado)**
+**O que é:** o provedor conecta WhatsApp + ERP + gateway (Asaas) + CRM — ou até
+importa uma planilha — e a Astrum SE PREENCHE SOZINHA. O golpe de mestre é o
+botão **"Análise Completa WhatsApp Engine"**: a Astrum lê TODO o histórico de
+conversas, extrai os contatos, aprende como cada cliente fala (formal/coloquial/
+técnico), como paga (pontual/atrasa/inadimplente) e quais os problemas
+recorrentes — **eliminando os 30–90 dias de espera por dados**. No fim, entrega
+o "Relatório da Situação Atual": meses de história viram diagnóstico no dia 1,
+e depois vira o antes/depois tangível ("a Astrum melhorou X com dados reais").
+**Por que é inédito:** todo concorrente começa do zero e "aprende com o uso".
+A Astrum chega SABENDO — o histórico do próprio provedor é o combustível.
+**Fundação real (já codada em 2026-07-13):**
+`whatsapp-retro.service.ts` — o analisador retroativo por contato (perfil de
+comunicação IA-28 + comportamento de pagamento + problemas recorrentes por
+heurística determinística, com port de LLM para enriquecimento opcional).
+Conectores P0 (ERP), Evolution API (WhatsApp — o fetch de histórico é o que falta),
+seed demo prova o pipeline.
+**O que falta (Sonnet via PLANO_F F6):** import de histórico via Evolution API
+(`/chat/findMessages`), adapter Asaas (faturas/inadimplentes), import de planilha
+CSV→customers, botão + tela do relatório.
+**Combustível:** nenhum — roda no primeiro minuto de qualquer provedor conectado.

@@ -300,6 +300,10 @@ export async function buildServer() {
   const { cashflowRoutes } = await import('./domain/financeiro/cashflow.routes');
   await app.register(cashflowRoutes);
 
+  // D-23 — Gênesis Engine: análise retroativa do histórico de WhatsApp
+  const { genesisRoutes } = await import('./domain/atendimento/genesis.routes');
+  await app.register(genesisRoutes);
+
   // Health check com status dos serviços
   app.get('/api/v2/health', async () => {
     const { getLLMStatus } = await import('./adapters/ai/llm.adapter');

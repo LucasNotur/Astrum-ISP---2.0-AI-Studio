@@ -131,3 +131,49 @@ no próprio galho ("Fundação real:"). Nunca dois ao mesmo tempo (RN da consoli
 [ ] Atualizei PROGRESS_LOG.md com uma entrada
 [ ] Commit direto no main (workflow do Lucas), sem trailer de IA
 ```
+
+---
+
+## FASE 6 — D-23 GÊNESIS ENGINE (plug-and-play; o núcleo JÁ está codado)
+
+> O motor de análise (`apps/api/src/domain/atendimento/whatsapp-retro.service.ts`)
+> está pronto e testado. As tarefas abaixo penduram entradas e saída nele.
+
+### F6-01 — Import de histórico do WhatsApp (Evolution API)
+- **Arquivo novo:** `apps/api/src/adapters/whatsapp/history-import.service.ts`.
+- **Irmão:** `message-sender.service.ts` (mesmo client Evolution) + `etl.worker.ts`
+  (mesmo padrão de job em lote).
+- **Fazer:** buscar chats+mensagens da instância do tenant (endpoints
+  `/chat/findChats` e `/chat/findMessages` da Evolution API), gravar em
+  `conversations`/`messages` com `created_by='history_import'`, dedupe por
+  id externo (usar coluna `legacy_id`). Rodar em job BullMQ (pode demorar).
+- **Pronto quando:** teste com client mockado + no demo real importa sem duplicar.
+
+### F6-02 — Adapter Asaas (gateway de cobrança)
+- **Arquivo novo:** `apps/api/src/adapters/gateway/asaas.adapter.ts`.
+- **Irmão:** `adapters/erp/sgp.adapter.ts` (HTTP injetável, credenciais, testes).
+- **Fazer:** listar cobranças/inadimplentes (`GET /payments?status=OVERDUE`),
+  mapear para `invoices` (source='asaas' no extra). Token por tenant em
+  `tenant_erp_credentials` (provider='asaas').
+- **Pronto quando:** testes com HTTP mockado; faturas aparecem no CobrAI.
+
+### F6-03 — Import de planilha (CSV/XLSX → customers)
+- **Arquivo novo:** rota `POST /api/v2/genesis/import-sheet` (multipart) +
+  parser CSV (papaparse já no bundle do front; no back usar csv nativo simples).
+- **Fazer:** mapear colunas comuns (nome/cpf/telefone/plano/valor/vencimento) com
+  preview de mapeamento; gravar customers com `extra.imported_from='sheet'`.
+- **Pronto quando:** planilha de 500 linhas entra sem duplicar (dedupe por CPF).
+
+### F6-04 — O botão "Análise Completa WhatsApp Engine" + Relatório
+- **Rota JÁ EXISTE** (2026-07-13): `POST /api/v2/genesis/retro-analysis`
+  (genesis.routes.ts) — devolve o RetroReport completo. Falta SÓ a UI:
+  botão na tela de onboarding/Settings + página do relatório
+  (PageHeader/StatCards; skill astrum-design antes). Prova de fogo já rodou:
+  81 contatos → 81 perfis em customers.extra.retro_profile no demo.
+- **Pronto quando:** o botão na UI dispara a rota e a página mostra:
+  contatos analisados, mix de pagadores, estilos, top problemas e a headline.
+
+### F6-05 — Fluxo completo de onboarding plug-and-play
+- Amarrar: conectar WhatsApp (QR da Evolution) → F6-01 importa → F6-04 analisa →
+  conectar ERP/Asaas → F6-02 → Relatório da Situação Atual vira a 1ª tela do
+  trial Radar (P5-05). Esse relatório É o gancho de venda do dia 1.

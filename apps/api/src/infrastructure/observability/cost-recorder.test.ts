@@ -192,7 +192,9 @@ describe('LangGraphService.processMessage → recordMessageCost (IA-34)', () => 
     }));
   });
 
-  it('chama recordMessageCost com tenantId/customerId/conversationId do input + useCase agent_response', async () => {
+  // 30s: importar langgraph.service dinamicamente passa de 5s sob a suíte completa
+  // (contenção de CPU) — em isolamento leva <2s. Mesmo padrão do server.test.ts.
+  it('chama recordMessageCost com tenantId/customerId/conversationId do input + useCase agent_response', { timeout: 30_000 }, async () => {
     const { recordMessageCost: mockedRecorder } = await import('./cost-recorder');
     const { langGraphService } = await import('../../domain/agent/langgraph.service');
     await langGraphService.processMessage(input);

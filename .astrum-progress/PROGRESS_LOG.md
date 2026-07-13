@@ -24,6 +24,29 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-13] D-23 GÊNESIS ENGINE (núcleo) + próximos passos consolidados — última entrega Fable 5
+Tarefa (Lucas): (1) "está tudo numa pasta só p/ eu saber os próximos passos?" → criado
+  progress/0-PROXIMOS_PASSOS.md — O arquivo único (ordem sua + ordem da IA + mapa de 5 linhas).
+  (2) Ideia plug-and-play: conectar WhatsApp/ERP/Asaas/planilha → Astrum se preenche sozinha +
+  botão "Análise Completa WhatsApp Engine" eliminando os 30-90 dias de espera por dados.
+IMPLEMENTADO (o núcleo difícil):
+  - whatsapp-retro.service.ts: análise retroativa por contato — perfil de comunicação IA-28
+    (formal/coloquial/técnico por heurística auditável), comportamento de pagamento
+    (pontual/atrasa/inadimplente via faturas), problemas recorrentes (ISSUE_BUCKETS com o
+    vocabulário real do assinante BR), horário preferido, emoji rate. Grava em
+    customers.extra.retro_profile (JSONB, sem migration). Port p/ enriquecimento LLM futuro.
+  - genesis.routes.ts: POST /api/v2/genesis/retro-analysis (o botão). 11 testes.
+  - Prova de fogo no demo: 81 contatos → 81 perfis; mix de pagadores (71/10/0), estilos e top
+    problemas + headline "isso levaria 60-90 dias para descobrir".
+PLANEJADO (Sonnet executa — PLANO_F FASE 6):
+  - F6-01 import de histórico via Evolution API (findChats/findMessages, dedupe por legacy_id)
+  - F6-02 adapter Asaas (inadimplentes → invoices) · F6-03 import de planilha CSV
+  - F6-04 UI do botão + relatório (rota pronta) · F6-05 fluxo completo de onboarding
+  - D-23 registrado no PLANO_A §2c com fundação auditada.
+Verificação: tsc 0 erros · testes novos 11/11 · suíte completa na sequência (commit).
+
+---
+
 [2026-07-13] ÚLTIMAS HORAS DO FABLE 5 — os 3 cérebros de dados: D-02 + D-01 + D-08 (Fase 1)
 Tarefa (Lucas): "poucas horas de Fable 5 — use o máximo". Decisão: construir o trabalho de maior QI
   que restava (estatística honesta, simulação sobre grafo, projeção financeira) e deixar o mecânico
