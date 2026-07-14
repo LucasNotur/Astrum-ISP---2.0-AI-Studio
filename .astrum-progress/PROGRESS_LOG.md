@@ -24,6 +24,51 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-13] PLUS ULTRA — Constelação em código: H6-01..04 executados + 2 flakes exterminados
+Continuação do PLANO_H: em vez de só planejar, os 4 preparos do §6 viraram código:
+  - H6-01 ✅ auditoria do core: ZERO imports ISP-específicos (provedor/rede/vendas/erp) em packages/
+  - H6-02 ✅ Gênesis multi-vertical: resolveIssueBuckets — tenants.extra.issue_buckets troca o
+    vocabulário (academia lê "matrícula/aula" com o MESMO motor, sem fork). Regex inválida do
+    tenant é ignorada. +3 testes (lição documentada: cubra acentos — matr[ií]cul).
+  - H6-04 ✅ Astrum Túnel nasce: makeExternalAgentPort — o túnel de vento aponta para QUALQUER
+    bot via webhook (POST {message} → {response, requires_human}); bot que cai = escalação
+    (o judge pune). +3 testes. O produto H-5 é agora "só" UI + billing.
+  - H6-03 ✅ AsaasAdapter (adapters/gateway): listCharges/listOverdue/listCustomers com paginação,
+    normalização reais→centavos, PIX copia-e-cola, sandbox. HTTP injetável. 7 testes.
+    Destrava: Cobra (H-2), Gênesis plug-and-play (F6-02) e CobrAI p/ não-ISP.
+FLAKES EXTERMINADOS (mesma família do realtime — vi.doMock que nunca pega):
+  - valor-gerado.routes.test /status: batia no Supabase REAL da env (pendurava 5s sob carga).
+    Mock hoisted no topo + asserção estrita 200/operational.
+Verificação: tsc 0 erros · suíte 179/179 arquivos, 1420/1420 testes PASS (zero flakes na rodada final).
+
+---
+
+[2026-07-13] PLANO_H — A CONSTELAÇÃO ASTRUM (PLUS ULTRA: os produtos além do ISP)
+Tarefa (Lucas): "que outros produtos posso vender para provedoras e empresas parecidas
+  aproveitando o que já tenho? Vá além."
+Tese: a Astrum não é um software de ISP — é um MOTOR de funcionário digital + chassis
+  multi-tenant. ISP = primeiro molde. O mesmo metal derrete em qualquer negócio com
+  assinantes + WhatsApp + campo + inadimplência.
+PLANO_H criado com 8 produtos (fichas com mercado, % de reuso REAL do código, preço, pulo do gato):
+  H-1 ATLAS — rastreadoras veiculares/monitoramento (~2k empresas, MESMO esqueleto, ~75% reuso,
+      R$2,50/veículo, oceano azul sem nenhum fornecedor de IA)
+  H-2 COBRA — CobrAI standalone p/ academias/escolas/clínicas/SaaS (~70% reuso, success fee 5%
+      do recuperado, backtesting no histórico do Asaas como fechamento de venda)
+  H-3 GÊNESIS STANDALONE — raio-X do WhatsApp p/ qualquer PME (~85% reuso, R$297 avulso,
+      viral, porta de entrada da constelação)
+  H-4 CAMPO — copiloto de técnicos p/ solar/CFTV/climatização (~60% reuso, R$49/técnico)
+  H-5 TÚNEL — QA de bots as a service (~85% reuso; inteligência competitiva legalizada)
+  H-6 SELO — Cartório de IA p/ regulados (surfar a regulação de IA quando apertar)
+  H-7 FOUNDRY — licenciar o chassis (o endgame: vender a fábrica, não o funcionário)
+  H-8 WHITE-LABEL ERP — a carta de xadrez/exit (só com 100+ tenants e contrato blindado)
+Governança: §0 cabeça-de-praia é LEI (nada lança antes do 1º ISP pagante); 3 horizontes com
+  gatilhos objetivos (H2 = 10 ISPs); §6 = preparos camisa-9 que o Sonnet pode fazer JÁ sem
+  quebrar o foco (higiene do core, ISSUE_BUCKETS configurável, Asaas, alvo externo no túnel).
+Régua unificada da constelação: "R$ 2,50 por unidade gerenciada" (assinante/veículo/aluno).
+Docs: 0-PROXIMOS_PASSOS e 00_PLANO atualizados com o PLANO_H.
+
+---
+
 [2026-07-13] D-23 GÊNESIS ENGINE (núcleo) + próximos passos consolidados — última entrega Fable 5
 Tarefa (Lucas): (1) "está tudo numa pasta só p/ eu saber os próximos passos?" → criado
   progress/0-PROXIMOS_PASSOS.md — O arquivo único (ordem sua + ordem da IA + mapa de 5 linhas).

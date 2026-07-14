@@ -43,6 +43,7 @@
 | `nextgen-2.0/PLANO_E_AUTOEVOLUCAO__PENDENTE.md` | Cérebro noturno — **E-01/E-02 CODIFICADOS 2026-07-13** (ai_reflections + hipóteses por regras, rodando no tenant demo); E-03..E-05 restam | Calibragem com tráfego real (Onda 2); código não bloqueia mais |
 | `nextgen-2.0/PLANO_F_EXECUCAO_CAMISA9__PENDENTE.md` | Roteiro passo-a-passo (arquivos+irmão+teste) de TODOS os pendentes para modelo menor (Sonnet) executar sozinho | Pronto para executar |
 | `nextgen-2.0/PLANO_G_UIUX_2.0__PENDENTE.md` | UI/UX de referência (Linear/Stripe/Attio): home inteligente, command palette total, IA-nativo, polish (G-01..G-07) | Abre com skill astrum-design |
+| `nextgen-2.0/PLANO_H_CONSTELACAO__PENDENTE.md` | Os produtos além do ISP: Atlas (rastreadoras ~75% reuso), Cobra (cobrança universal), Gênesis standalone, Túnel, Selo, Foundry — 3 horizontes com gatilhos | Horizonte 2 = 10 ISPs pagantes (§0 é lei) |
 
 ### 📋 Aguardando decisão (dever de casa do LUCAS — §4)
 | Doc | Decisões |

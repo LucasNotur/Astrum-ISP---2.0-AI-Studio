@@ -1,5 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Fastify from 'fastify';
+
+// Mock hoisted do supabase: a rota /status consulta status_incidents diretamente.
+// (O vi.doMock antigo nunca surtia efeito — módulo já importado — e o teste batia
+// no Supabase REAL da env, pendurando sob carga. Checkup 2026-07-13.)
+vi.mock('../../infrastructure/database/supabase.client', () => {
+  const chain: any = {
+    select: () => chain, or: () => chain, order: () => chain,
+    limit: () => Promise.resolve({ data: [], error: null }),
+    then: (cb: any) => Promise.resolve({ data: [], error: null }).then(cb),
+  };
+  return { default: { from: () => chain }, supabaseAdmin: { from: () => chain } };
+});
 import jwt from '@fastify/jwt';
 import { valorGeradoRoutes } from './valor-gerado.routes';
 import type { ValorGeradoDb } from './valor-gerado.service';
@@ -75,34 +87,12 @@ describe('GET /api/v2/valor/dashboard', () => {
 });
 
 describe('GET /api/v2/valor/status', () => {
-  it('retorna status operational sem incidentes', async () => {
-    // mock do supabase via db (a rota de status usa supabase diretamente)
-    const app = Fastify();
-    await app.register(jwt, { secret: 'test-secret-32-chars-minimum-xx' });
-    app.decorate('authenticate', async (_req: any, reply: any) => reply.code(401).send({}));
-
-    // Mockar supabase para retornar 0 incidentes
-    vi.doMock('../../infrastructure/database/supabase.client', () => ({
-      default: {
-        from: () => ({
-          select: () => ({
-            or: () => ({
-              order: () => ({
-                limit: () => Promise.resolve({ data: [] }),
-              }),
-            }),
-          }),
-        }),
-      },
-    }));
-
-    // Como o mock é difícil em runtime sem setup de módulo, apenas checamos a estrutura
-    // (o teste de integração real precisaria de DB). Aqui validamos o schema da resposta.
-    const dbMock = makeDb();
-    const app2 = await buildApp(dbMock);
-    const res = await app2.inject({ method: 'GET', url: '/api/v2/valor/status' });
-    // aceita 200 (se supabase estiver disponível) ou 500 (sem DB real em CI)
-    expect([200, 500]).toContain(res.statusCode);
+  it('retorna status operational sem incidentes (supabase mockado no topo)', async () => {
+    const app = await buildApp(makeDb());
+    const res = await app.inject({ method: 'GET', url: '/api/v2/valor/status' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.status).toBe('operational');
   });
 });
 

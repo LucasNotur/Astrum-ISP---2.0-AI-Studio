@@ -15,7 +15,9 @@ import {
   buildContactProfile,
   classifyCommStyle,
   classifyPayer,
+  resolveIssueBuckets,
   runRetroAnalysis,
+  ISSUE_BUCKETS,
   type RetroMessage,
   type RetroInvoice,
 } from './whatsapp-retro.service';
@@ -111,6 +113,10 @@ describe('runRetroAnalysis (o botão)', () => {
       ]);
       if (table === 'invoices') return chainOf([inv('overdue'), inv('onTime')]);
       if (table === 'customers') return chainOf([]);
+      if (table === 'tenants') {
+        const t: any = { select: () => t, eq: () => t, maybeSingle: async () => ({ data: { extra: {} }, error: null }) };
+        return t;
+      }
       throw new Error(`tabela: ${table}`);
     }) as any);
 
@@ -123,5 +129,33 @@ describe('runRetroAnalysis (o botão)', () => {
     // merge preserva o extra existente
     expect(updates[0].extra.legado).toBe(true);
     expect(updates[0].extra.retro_profile.commStyle).toBe('coloquial');
+  });
+});
+
+describe('resolveIssueBuckets (H6-02 — multi-vertical sem fork)', () => {
+  it('sem config do tenant → vocabulário ISP default', () => {
+    expect(resolveIssueBuckets(null)).toBe(ISSUE_BUCKETS);
+    expect(resolveIssueBuckets(undefined)).toBe(ISSUE_BUCKETS);
+  });
+
+  it('tenant de academia troca o vocabulário — mesmo motor, outro negócio', () => {
+    // Lição para quem configurar buckets: cubra os acentos (matr[ií]cul, não matricul)
+    const buckets = resolveIssueBuckets({
+      'matrícula / plano': 'matr[ií]cul|inscri|plano',
+      'aula / horário': 'aula|hor[aá]rio|professor',
+    });
+    const p = buildContactProfile([
+      { role: 'user', content: 'queria saber do horário das aulas de spinning', created_at: '2026-06-01T15:00:00Z' },
+      { role: 'user', content: 'e como faço a matrícula?', created_at: '2026-06-01T15:01:00Z' },
+    ], [], buckets);
+    const issues = p.topIssues.map((i) => i.issue);
+    expect(issues).toContain('aula / horário');
+    expect(issues).toContain('matrícula / plano');
+  });
+
+  it('regex inválida do tenant é pulada; se todas inválidas, volta ao default', () => {
+    const ok = resolveIssueBuckets({ 'válida': 'aula', 'quebrada': '[invalida(' });
+    expect(Object.keys(ok)).toEqual(['válida']);
+    expect(resolveIssueBuckets({ 'quebrada': '[(' })).toBe(ISSUE_BUCKETS);
   });
 });

@@ -150,6 +150,45 @@ export const defaultPorts: WindTunnelPorts = {
   judgeLlm: defaultJudgeLlm,
 };
 
+/**
+ * H6-04 (PLANO_H, produto Astrum Túnel): port de agente EXTERNO — aponta o
+ * túnel para QUALQUER bot via webhook HTTP em vez do processMessage interno.
+ * Contrato: POST {message, conversation_id} → { response: string,
+ * requires_human?: boolean }. Timeout configurável; erro do alvo vira resposta
+ * vazia + escalação (o judge pune — é exatamente o comportamento que queremos
+ * medir num bot que cai).
+ */
+export function makeExternalAgentPort(
+  webhookUrl: string,
+  opts: { timeoutMs?: number; headers?: Record<string, string>; fetchImpl?: typeof fetch } = {},
+): WindTunnelPorts['agent'] {
+  const doFetch = opts.fetchImpl ?? fetch;
+  const timeoutMs = opts.timeoutMs ?? 30_000;
+  return async ({ conversationId, userMessage }) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await doFetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(opts.headers ?? {}) },
+        body: JSON.stringify({ message: userMessage, conversation_id: conversationId }),
+        signal: controller.signal,
+      });
+      if (!res.ok) throw new Error(`alvo respondeu ${res.status}`);
+      const data: any = await res.json();
+      return {
+        response: String(data.response ?? data.message ?? ''),
+        requiresHuman: Boolean(data.requires_human ?? data.requiresHuman ?? false),
+      };
+    } catch (err) {
+      iaLogger.warn({ err: (err as Error).message, webhookUrl }, 'D-15: alvo externo falhou no turno');
+      return { response: '', requiresHuman: true }; // bot caiu = escala (e o judge registra)
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+}
+
 // ── Núcleo: uma conversa ─────────────────────────────────────────────────────
 
 const END_TOKEN = '[ENCERRAR]';

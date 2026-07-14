@@ -20,6 +20,7 @@ import {
   checkExpectations,
   runWindTunnel,
   isWindTunnelEnabled,
+  makeExternalAgentPort,
   type WindTunnelPorts,
   type TranscriptEntry,
 } from './wind-tunnel.service';
@@ -237,5 +238,41 @@ describe('catálogo de personas', () => {
     process.env.WIND_TUNNEL_ENABLED = 'true';
     expect(isWindTunnelEnabled()).toBe(true);
     delete process.env.WIND_TUNNEL_ENABLED;
+  });
+});
+
+describe('makeExternalAgentPort (H6-04 — Astrum Túnel aponta para qualquer bot)', () => {
+  it('POSTa a mensagem no webhook e normaliza a resposta', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ response: 'Olá! Como posso ajudar?', requires_human: false }),
+    });
+    const agent = makeExternalAgentPort('https://bot-alvo.test/hook', { fetchImpl: fetchImpl as any });
+    const r = await agent({ tenantId: 't1', customerId: 'c1', conversationId: 'conv-1', userMessage: 'oi' });
+    expect(r.response).toBe('Olá! Como posso ajudar?');
+    expect(r.requiresHuman).toBe(false);
+    const [url, init] = fetchImpl.mock.calls[0]!;
+    expect(url).toBe('https://bot-alvo.test/hook');
+    expect(JSON.parse(init.body)).toEqual({ message: 'oi', conversation_id: 'conv-1' });
+  });
+
+  it('aceita o campo alternativo "message" e requiresHuman camelCase', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ message: 'resposta alt', requiresHuman: true }),
+    });
+    const agent = makeExternalAgentPort('https://x.test', { fetchImpl: fetchImpl as any });
+    const r = await agent({ tenantId: 't', customerId: 'c', conversationId: 'v', userMessage: 'oi' });
+    expect(r.response).toBe('resposta alt');
+    expect(r.requiresHuman).toBe(true);
+  });
+
+  it('bot que cai (HTTP 500 ou rede) vira resposta vazia + escalação — o judge pune', async () => {
+    const agent = makeExternalAgentPort('https://x.test', {
+      fetchImpl: vi.fn().mockResolvedValue({ ok: false, status: 500 }) as any,
+    });
+    const r = await agent({ tenantId: 't', customerId: 'c', conversationId: 'v', userMessage: 'oi' });
+    expect(r.response).toBe('');
+    expect(r.requiresHuman).toBe(true);
   });
 });

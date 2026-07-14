@@ -117,14 +117,35 @@ function hourBucket(dates: string[]): string {
   return Object.entries(buckets).sort((a, b) => b[1] - a[1])[0]![0];
 }
 
+/**
+ * H6-02 (PLANO_H): vocabulário configurável por tenant. O default é o de ISP;
+ * uma academia grava {"matrícula": "matricul|inscri", ...} em
+ * tenants.extra.issue_buckets e o MESMO motor lê o negócio dela — sem fork.
+ * Regex inválida do tenant é ignorada (nunca derruba a análise).
+ */
+export function resolveIssueBuckets(tenantBuckets?: Record<string, string> | null): Record<string, RegExp> {
+  if (!tenantBuckets || typeof tenantBuckets !== 'object') return ISSUE_BUCKETS;
+  const out: Record<string, RegExp> = {};
+  for (const [issue, pattern] of Object.entries(tenantBuckets)) {
+    try {
+      out[issue] = new RegExp(String(pattern), 'i');
+    } catch { /* regex inválida do tenant: pula */ }
+  }
+  return Object.keys(out).length ? out : ISSUE_BUCKETS;
+}
+
 /** O perfil de UM contato — função pura sobre o histórico dele. */
-export function buildContactProfile(messages: RetroMessage[], invoices: RetroInvoice[]): ContactProfile {
+export function buildContactProfile(
+  messages: RetroMessage[],
+  invoices: RetroInvoice[],
+  buckets: Record<string, RegExp> = ISSUE_BUCKETS,
+): ContactProfile {
   const userMsgs = messages.filter((m) => m.role === 'user');
   const dates = messages.map((m) => m.created_at).sort();
 
   const issueCounts = new Map<string, number>();
   for (const m of userMsgs) {
-    for (const [issue, re] of Object.entries(ISSUE_BUCKETS)) {
+    for (const [issue, re] of Object.entries(buckets)) {
       if (re.test(m.content)) issueCounts.set(issue, (issueCounts.get(issue) ?? 0) + 1);
     }
   }
@@ -164,6 +185,11 @@ export async function runRetroAnalysis(
 ): Promise<RetroReport> {
   const db = ports.db;
 
+  // H6-02: vocabulário do tenant (default ISP) — a chave da multi-verticalidade
+  const { data: tenantRow } = await db
+    .from('tenants').select('extra').eq('id', tenantId).maybeSingle();
+  const buckets = resolveIssueBuckets(tenantRow?.extra?.issue_buckets ?? null);
+
   // Clientes que têm conversa (o retroativo só analisa quem falou)
   const { data: convs, error: convErr } = await db
     .from('conversations')
@@ -198,6 +224,7 @@ export async function runRetroAnalysis(
     const profile = buildContactProfile(
       (msgs ?? []) as RetroMessage[],
       (invs ?? []) as RetroInvoice[],
+      buckets,
     );
     payerMix[profile.payerType]++;
     styleMix[profile.commStyle]++;

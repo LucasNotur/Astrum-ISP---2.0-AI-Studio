@@ -27,7 +27,16 @@
 5. [ ] **F3-01** Tela de incidentes (D-04 já tem API completa).
 6. [ ] **Telas dos 3 cérebros** (D-01/D-02/D-08 — APIs prontas, ver PLANO_A §9):
        /intelligence/twin, /intelligence/policy-lab, /intelligence/cfo.
-7. [ ] Resto do PLANO_F (fases 4–5) e PLANO_G (G-02..G-07).
+7. [ ] Resto do PLANO_F (fases 4–6) e PLANO_G (G-02..G-07).
+8. [ ] Preparos da CONSTELAÇÃO sem quebrar o foco (PLANO_H §6): higiene do core,
+       ISSUE_BUCKETS configurável, adapter Asaas (dupla função), alvo externo no túnel.
+
+## O FUTURO ALÉM DO ISP (quando os gatilhos dispararem)
+`PLANO_H_CONSTELACAO` — os produtos escondidos no que você já tem: **Atlas**
+(rastreadoras/monitoramento, ~75% reuso), **Cobra** (cobrança IA p/ qualquer
+mensalidade, success fee 5%), **Gênesis standalone** (raio-X de WhatsApp p/
+qualquer PME, R$297), **Túnel** (QA de bots), **Selo** (compliance de IA),
+**Foundry** (licenciar a fábrica). Gatilho do Horizonte 2: 10 ISPs pagantes.
 
 ## O ESTADO EM UMA LINHA
 Código: 177 arquivos de teste / 1396 testes / tsc 0. Motores D-01/02/04/05/06F1/
