@@ -24,6 +24,26 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-13] PLANO_H §7 — A SEGUNDA ONDA (H-9..H-14): as jogadas de dados e canal
+Pergunta do Lucas: "falta mais? outros produtos?" Resposta: de código essencial, não —
+  o que resta está no 0-PROXIMOS_PASSOS. De VISÃO: a segunda onda (dados + distribuição):
+  H-9  BUREAU — "Serasa do assinante": score de risco cross-tenant no funil de vendas
+       (cada instalação de mau pagador evitada paga meses de Astrum). Gate: ≥30 tenants + LGPD formal.
+  H-10 PROSPECTOR — "onde abrir o próximo bairro": gêmeo digital × dados públicos Anatal/IBGE,
+       estudo vendável até p/ não-clientes (porta de entrada reversa). R$ 1,5-5k/estudo.
+  H-11 PULSO — inteligência setorial p/ FABRICANTES (topIssues agregados: "conector X falha
+       na chuva"). Assinatura B2B 2-10k/mês, margem ~100%. Gate: ≥50 tenants.
+  H-12 PARTNER OS — o canal produtizado: painel do parceiro regional (multi-ISP, comissão
+       automática, Radar white-label p/ demo). Fundação: SuperAdminPage já existe.
+  H-13 APP DO ASSINANTE WHITE-LABEL — P4 com a marca do ISP na loja (PWA/TWA), R$149/mês,
+       vendável PÓS-PILOTO imediato (zero gate técnico), aumenta switching cost.
+  H-14 ACADEMY — certificação "Atendimento de ISP com IA" (conteúdo do Dossiê + KB).
+       Quase zero código; retorno é marca + pipeline.
+Regra mantida: §0 (cabeça-de-praia) governa TUDO — o ISP piloto é o sol do sistema.
+0-PROXIMOS_PASSOS atualizado com a segunda onda.
+
+---
+
 [2026-07-13] PLUS ULTRA — Constelação em código: H6-01..04 executados + 2 flakes exterminados
 Continuação do PLANO_H: em vez de só planejar, os 4 preparos do §6 viraram código:
   - H6-01 ✅ auditoria do core: ZERO imports ISP-específicos (provedor/rede/vendas/erp) em packages/

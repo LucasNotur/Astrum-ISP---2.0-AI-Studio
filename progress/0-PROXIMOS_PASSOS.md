@@ -37,6 +37,9 @@
 mensalidade, success fee 5%), **Gênesis standalone** (raio-X de WhatsApp p/
 qualquer PME, R$297), **Túnel** (QA de bots), **Selo** (compliance de IA),
 **Foundry** (licenciar a fábrica). Gatilho do Horizonte 2: 10 ISPs pagantes.
+**Segunda onda (§7):** Bureau (Serasa do assinante), Prospector (onde expandir),
+Pulso (dados p/ fabricantes), Partner OS (canal produtizado), App white-label
+(vendável pós-piloto!), Academy (marca).
 
 ## O ESTADO EM UMA LINHA
 Código: 177 arquivos de teste / 1396 testes / tsc 0. Motores D-01/02/04/05/06F1/

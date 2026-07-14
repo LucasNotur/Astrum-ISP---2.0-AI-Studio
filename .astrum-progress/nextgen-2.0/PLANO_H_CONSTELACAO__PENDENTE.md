@@ -171,3 +171,80 @@ HORIZONTE 3 — A fábrica (o endgame)        gatilho: 2 verticais provadas OU 1
    ~40 linhas — o produto H-5 nasce disso.
 5. **NÃO fazer:** landing pages, marcas, CNPJs de produto — isso é gatilho do
    Horizonte 2, decisão do Lucas.
+
+---
+
+## §7 — A SEGUNDA ONDA (H-9 a H-14): as jogadas de DADOS e de CANAL
+## (adicionado 2026-07-13, último PLUS ULTRA do Fable 5)
+
+> A primeira onda (H-1..H-8) vende SOFTWARE. A segunda vende o que o software
+> ACUMULA: dados, distribuição e marca. É assim que big tech vira big tech —
+> o produto gera o dado, o dado vira um segundo produto com margem infinita.
+> Gates ainda mais rígidos: TUDO aqui pressupõe dezenas de tenants + LGPD séria.
+
+### H-9 — ASTRUM BUREAU ("o Serasa do assinante")
+**O que é:** com N ISPs na base, o comportamento de pagamento (hash de CPF,
+consentimento LGPD, privacidade diferencial) vira um SCORE DE RISCO na venda:
+o funil P3 consulta "este CPF tem histórico de calote em 2 provedores da região"
+ANTES de aprovar a instalação (que custa R$ 300+ de CAPEX por cliente).
+**Por que é ouro:** cada instalação evitada de mau pagador paga meses de Astrum.
+E é o efeito de rede DEFINITIVO: o score só existe com muitos tenants — quem
+chegar depois nunca alcança. **Fundação:** classifyPayer (D-23) já produz o
+perfil; IA-41/D-09 já desenham a federação. **Gate:** ≥30 tenants + parecer
+jurídico LGPD formal (é dado sensível — fazer CERTO ou não fazer).
+**Preço:** R$ 2–5 por consulta de score (o Serasa cobra isso; nós sabemos MAIS).
+
+### H-10 — ASTRUM PROSPECTOR ("onde abrir o próximo bairro")
+**O que é:** relatório de expansão vendável ATÉ para quem não é cliente: cruza o
+gêmeo digital (capacidade/saturação) com dados públicos (Anatel: acessos por
+município; IBGE: densidade/renda) e responde "os 5 bairros onde um ISP deveria
+investir, com demanda estimada e payback". **Fundação:** simulateGrowth (D-01)
++ DuckDB (analytics) — o motor de cruzamento já existe; falta o ETL dos dados
+públicos (que são ABERTOS e grátis). **Preço:** R$ 1.500–5.000 por estudo, ou
+incluso no Enterprise. **Pulo do gato:** é porta de entrada REVERSA — o ISP
+compra o estudo, o estudo diz "você vai precisar operar isso bem"… e a Astrum
+está ali.
+
+### H-11 — ASTRUM PULSO (inteligência setorial para FORNECEDORES)
+**O que é:** os topIssuesGlobal agregados e anonimizados de centenas de ISPs
+viram o relatório que FABRICANTES pagam caro: "conector da marca X é 3× mais
+citado em problemas de chuva", "a reclamação de Wi-Fi cresceu 40% no trimestre".
+Quem compra: fabricantes de ONU/roteador, distribuidores, a própria imprensa do
+setor. **Fundação:** ISSUE_BUCKETS + D-09. **Gate:** ≥50 tenants + LGPD.
+**Preço:** assinatura B2B R$ 2–10k/mês por fornecedor. Margem ~100%: o dado já
+foi coletado operando.
+
+### H-12 — ASTRUM PARTNER OS (o produto do canal)
+**O que é:** o plano de escala prevê consultores regionais revendendo a 20%.
+O Partner OS é o SOFTWARE disso: painel do parceiro (todos os ISPs dele numa
+tela, saúde, comissão automática, materiais de venda, o Radar white-label para
+demo), onboarding de parceiro self-service. Transforma "programa de revenda"
+em PRODUTO — e cada parceiro vira um vendedor que se auto-gerencia.
+**Fundação:** multi-tenant + SuperAdminPage (a tela de gestão de tenants já
+existe!) + billing. **Gate:** 3 parceiros manuais primeiro (aprender), depois
+produtizar. **Preço:** grátis para o parceiro (ele é canal, não cliente).
+
+### H-13 — APP DO ASSINANTE WHITE-LABEL ("seu app na loja em 1 clique")
+**O que é:** a central do assinante (P4, já pronta como PWA) empacotada com a
+MARCA do ISP — ícone, cores, nome na App/Play Store (via PWA/TWA, sem review
+apostólico da Apple). O ISP pequeno SONHA em "ter um app" — é status na cidade.
+**Fundação:** P4 + tokens de design U1 (o theming já é por tenant). **Gate:**
+nenhum técnico — dá para vender no dia 1 como add-on. **Preço:** R$ 149/mês
+por app publicado. Margem quase total, e aumenta o switching cost (o app do
+ISP na loja É a Astrum).
+
+### H-14 — ASTRUM ACADEMY (a marca que educa o setor)
+**O que é:** certificação "Atendimento de ISP com IA" — cursos curtos gerados
+do próprio material (o Dossiê + KB viva + casos reais anonimizados), com selo.
+Quem compra: os próprios ISPs (treinar equipe), candidatos a emprego no setor.
+**Por que importa:** quase zero código; o retorno é MARCA e pipeline — quem se
+certifica na Academy compra Astrum quando abre o próprio ISP/consultoria.
+**Preço:** R$ 197–497/certificação. **Gate:** 1 pessoa de conteúdo (ou o
+próprio Foundry gerando curso — comer a própria ração).
+
+### A ordem da segunda onda
+H-13 (app white-label) pode ser IMEDIATO pós-piloto — é empacotamento do que
+existe. H-12 entra com os 3 primeiros parceiros. H-10 com o ETL público (1
+sessão de código). H-9/H-11 são os tesouros de longo prazo — só com dezenas de
+tenants e jurídico. TODOS respeitam o §0: o ISP piloto continua sendo o sol
+do sistema — sem ele, não há constelação.
