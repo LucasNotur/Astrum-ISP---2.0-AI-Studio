@@ -82,6 +82,8 @@ elevadores, CFTV, manutenção predial. **O produto:** PWA do técnico + foto→
 diagnóstico IA→OS + agenda + histórico visual da planta do cliente. **Reuso: ~60%**
 (D-06 + service_orders + PWA U5 + visão IA-04). **Preço:** R$ 49/técnico/mês.
 **Nota:** lançar DEPOIS do Atlas (o Atlas já valida o campo fora de ISP).
+**Detalhamento:** o produto nasce DENTRO do ISP primeiro — plano completo em
+`PLANO_I_UBER_DO_TECNICO__PENDENTE.md` (fases I-1..I-4 internas, I-5 = este H-4).
 
 ### H-5 — ASTRUM TÚNEL (QA de bots as a service)
 **Mercado:** todo mundo que tem chatbot — inclusive seus concorrentes e as
