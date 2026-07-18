@@ -9,8 +9,12 @@ type Unsub = () => void;
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
+let channelSeq = 0;
 function channel(name: string) {
-  return supabase.channel(name);
+  // Sufixo único por assinatura: o supabase-js reutiliza canais com o mesmo topic,
+  // e adicionar callbacks a um canal já inscrito lança
+  // "cannot add `postgres_changes` callbacks ... after `subscribe()`".
+  return supabase.channel(`${name}:${++channelSeq}`);
 }
 
 async function fetchAndNotify<T>(
