@@ -46,7 +46,7 @@ export function CustomerHistorySidebar({ customerId, tenantId, onEditCustomer }:
     };
     load();
 
-    const ch = supabase.channel(`customer-history:${customerId}`)
+    const ch = supabase.channel(`customer-history:${customerId}:${Date.now()}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "tickets", filter: `customer_id=eq.${customerId}` }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "service_orders", filter: `customer_id=eq.${customerId}` }, load)
       .subscribe();

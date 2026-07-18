@@ -48,7 +48,7 @@ function OperatorStatusToggle() {
     };
     load();
 
-    const ch = supabase.channel(`operator-status:${user.uid}`)
+    const ch = supabase.channel(`operator-status:${user.uid}:${Date.now()}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tenants', filter: `id=eq.${userProfile.tenantId}` }, load)
       .subscribe();
     return () => { cancelled = true; supabase.removeChannel(ch); };
