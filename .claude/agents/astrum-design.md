@@ -36,6 +36,9 @@ description: Guardião do padrão visual do Astrum-IA. Carregue esta skill ANTES
 - **Tabela densa (D-008):** eyebrow + título display + chip de filtro; header row
   discreta ordenável; linhas hairline com hover; entidade = ícone + nome + código
   muted; números font-mono; deltas em chips translúcidos.
+- **Central de notificações (D-009):** categorias em cards gradientes vívidos
+  (signal=Todas, fiber=SLA, red=Críticas) com tile branco translúcido + badge
+  circular vermelho de contagem. Gradiente vívido é EXCLUSIVO desse contexto.
 
 ---
 

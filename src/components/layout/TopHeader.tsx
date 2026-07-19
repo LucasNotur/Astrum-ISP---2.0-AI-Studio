@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from 'next-themes';
-import { Sun, Moon, Bell, X, AlertTriangle, Clock, Info, Menu, Search } from 'lucide-react';
+import { Sun, Moon, Bell, X, AlertTriangle, Clock, Info, Menu, Search, Inbox, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/src/components/ui/button';
 import { ScrollArea } from '@/src/components/ui/scroll-area';
@@ -95,10 +95,24 @@ function OperatorStatusToggle() {
   );
 }
 
+// D-009 — categorias da central de notificações (gradiente vívido é exclusivo daqui)
+const NOTIF_CATS = [
+  { key: 'all',      label: 'Todas',    icon: Inbox,         grad: 'from-astrum-signal/80 via-astrum-signal/45 to-astrum-signal/20', border: 'border-astrum-signal/40' },
+  { key: 'sla',      label: 'SLA & Avisos', icon: Clock,     grad: 'from-astrum-fiber/80 via-astrum-fiber/45 to-astrum-fiber/20',   border: 'border-astrum-fiber/40' },
+  { key: 'critical', label: 'Críticas', icon: AlertTriangle, grad: 'from-astrum-red/80 via-astrum-red/45 to-astrum-red/20',         border: 'border-astrum-red/40' },
+] as const;
+
+function notifCategory(type?: string) {
+  if (type === 'CRITICAL_ESCALATION') return 'critical';
+  if (type === 'SLA_BREACH') return 'sla';
+  return 'all';
+}
+
 export function TopHeader({ clearNotifications, handleMarkNotificationRead, onMenuClick }: TopHeaderProps) {
   const { theme, setTheme } = useTheme();
   const { notifications, isNotificationsOpen, setIsNotificationsOpen, userProfile } = useAppStore();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [expandedCat, setExpandedCat] = useState<string | null>(null);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -161,7 +175,7 @@ export function TopHeader({ clearNotifications, handleMarkNotificationRead, onMe
         >
           <Bell size={18} className="text-zinc-600 dark:text-zinc-400" />
           {notifications.filter(n => !n.read).length > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white dark:border-zinc-900">
+            <span className="absolute -top-1 -right-1 min-w-4 h-4 px-0.5 bg-astrum-red text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-background">
               {notifications.filter(n => !n.read).length}
             </span>
           )}
@@ -169,55 +183,95 @@ export function TopHeader({ clearNotifications, handleMarkNotificationRead, onMe
 
         <AnimatePresence>
           {isNotificationsOpen && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              className="absolute right-0 mt-2 w-80 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl z-50 overflow-hidden"
+              className="absolute right-0 mt-2 w-[380px] max-w-[92vw] bg-popover border border-border rounded-stable-xl shadow-4 z-50"
             >
-              <div className="p-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
-                <h3 className="font-bold text-sm">Notificações</h3>
+              <div className="p-4 pb-3 flex items-center justify-between">
+                <h3 className="font-display font-semibold text-sm">Notificações</h3>
                 <div className="flex gap-2">
                   <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={clearNotifications}>Limpar</Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsNotificationsOpen(false)}><X size={14} /></Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsNotificationsOpen(false)} aria-label="Fechar"><X size={14} /></Button>
                 </div>
               </div>
-              <ScrollArea className="max-h-[400px]">
-                {notifications.length > 0 ? (
-                  <div className="divide-y divide-zinc-100 dark:divide-zinc-900">
-                    {notifications.map(n => (
-                      <div 
-                        key={n.id} 
+
+              {/* D-009 — categorias em cards gradientes */}
+              <div className="px-3 pb-3 space-y-2.5">
+                {NOTIF_CATS.map(cat => {
+                  const items = cat.key === 'all'
+                    ? notifications
+                    : notifications.filter(n => notifCategory(n.type) === cat.key);
+                  const unread = items.filter(n => !n.read).length;
+                  const expanded = expandedCat === cat.key;
+                  const Icon = cat.icon;
+                  return (
+                    <div key={cat.key} className="relative">
+                      <button
+                        onClick={() => setExpandedCat(expanded ? null : cat.key)}
+                        aria-expanded={expanded}
                         className={cn(
-                          "p-4 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors cursor-pointer relative group",
-                          !n.read && "bg-blue-50/50 dark:bg-blue-900/10"
+                          "w-full flex items-center gap-3 rounded-stable-xl border p-3.5 text-left transition-transform duration-fast active:scale-[0.99] bg-gradient-to-r",
+                          cat.grad, cat.border
                         )}
-                        onClick={() => handleMarkNotificationRead(n.id)}
                       >
-                        <div className="flex gap-3">
-                          <div className={cn(
-                            "w-8 h-8 rounded-full shrink-0 flex items-center justify-center",
-                            n.type === 'CRITICAL_ESCALATION' ? "bg-red-100 text-red-600" :
-                            n.type === 'SLA_BREACH' ? "bg-orange-100 text-orange-600" : "bg-blue-100 text-blue-600"
-                          )}>
-                            {n.type === 'CRITICAL_ESCALATION' ? <AlertTriangle size={14} /> :
-                             n.type === 'SLA_BREACH' ? <Clock size={14} /> : <Info size={14} />}
-                          </div>
-                          <div className="space-y-1">
-                            <p className="text-xs font-medium leading-tight">{n.message}</p>
-                            <p className="text-[10px] text-zinc-400">{n.timestamp ? new Date(n.timestamp.seconds * 1000).toLocaleTimeString() : 'Agora'}</p>
-                          </div>
-                        </div>
-                        {!n.read && <div className="absolute right-4 top-1/2 -translate-y-1/2 w-2 h-2 bg-blue-500 rounded-full" />}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-8 text-center text-zinc-400 text-sm italic">
-                    Nenhuma notificação.
-                  </div>
-                )}
-              </ScrollArea>
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white">
+                          <Icon size={18} strokeWidth={1.75} />
+                        </span>
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-sm font-semibold text-white leading-tight">{cat.label}</span>
+                          <span className="block text-xs text-white/70 mt-0.5">
+                            {items.length > 0 ? `${items.length} notificaç${items.length === 1 ? 'ão' : 'ões'}` : 'Nada por aqui'}
+                          </span>
+                        </span>
+                        <ChevronDown size={16} className={cn("text-white/80 shrink-0 transition-transform duration-base", expanded && "rotate-180")} />
+                      </button>
+                      {unread > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 flex h-6 min-w-6 px-1 items-center justify-center rounded-full bg-astrum-red text-white text-[11px] font-bold border-2 border-popover shadow-2">
+                          {unread}
+                        </span>
+                      )}
+                      {expanded && (
+                        <ScrollArea className="max-h-60 mt-1.5 rounded-stable-lg border border-border bg-card">
+                          {items.length > 0 ? (
+                            <div className="divide-y divide-border">
+                              {items.map(n => (
+                                <div
+                                  key={n.id}
+                                  className={cn(
+                                    "p-3.5 hover:bg-foreground/[0.04] transition-colors duration-fast cursor-pointer relative",
+                                    !n.read && "bg-foreground/[0.03]"
+                                  )}
+                                  onClick={() => handleMarkNotificationRead(n.id)}
+                                >
+                                  <div className="flex gap-3">
+                                    <div className={cn(
+                                      "w-8 h-8 rounded-xl shrink-0 flex items-center justify-center",
+                                      n.type === 'CRITICAL_ESCALATION' ? "bg-astrum-red/15 text-astrum-red" :
+                                      n.type === 'SLA_BREACH' ? "bg-astrum-fiber/15 text-astrum-fiber" : "bg-astrum-signal/15 text-astrum-signal"
+                                    )}>
+                                      {n.type === 'CRITICAL_ESCALATION' ? <AlertTriangle size={14} /> :
+                                       n.type === 'SLA_BREACH' ? <Clock size={14} /> : <Info size={14} />}
+                                    </div>
+                                    <div className="space-y-1 min-w-0">
+                                      <p className="text-xs font-medium leading-tight">{n.message}</p>
+                                      <p className="text-[10px] text-muted-foreground">{n.timestamp ? new Date(n.timestamp.seconds * 1000).toLocaleTimeString() : 'Agora'}</p>
+                                    </div>
+                                  </div>
+                                  {!n.read && <div className="absolute right-3.5 top-1/2 -translate-y-1/2 w-2 h-2 bg-astrum-signal rounded-full" />}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="p-6 text-center text-muted-foreground text-xs">Nenhuma notificação nesta categoria.</div>
+                          )}
+                        </ScrollArea>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

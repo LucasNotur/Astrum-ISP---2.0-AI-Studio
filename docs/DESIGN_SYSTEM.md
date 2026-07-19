@@ -90,6 +90,17 @@ ações de conta. Sem linha separada de breadcrumb abaixo do header.
 - Valores numéricos em font-mono; deltas em chips translúcidos (mesma gramática do D-007).
 - Tipografia de título de seção: display grande com peso leve/medium (não bold pesado).
 
+### D-009 — Central de notificações: categorias em cards gradientes
+**Origem:** print de referência #3 (painel de notificações com canais coloridos), 2026-07-19.
+**Decisão:** o dropdown do sino vira uma central com **categorias em cards
+arredondados com gradiente vívido** (ícone em tile branco translúcido + título forte +
+resumo pequeno + chevron de expansão), badge circular vermelho de contagem sobreposto
+ao canto do card quando há não-lidas.
+**Mapeamento de cores (print → tokens Astrum):** teal → `astrum-signal` (Todas),
+roxo → `astrum-fiber` (SLA/avisos), vermelho-rosa → `astrum-red` (Críticas).
+**Escopo:** gradientes vívidos são EXCLUSIVOS de cards de categoria de
+inbox/notificação. Fora desse contexto vale a sobriedade do D-002 (limão só em detalhe).
+
 ---
 
 ## Tokens-alvo (a aplicar na fundação do design-lab)
