@@ -10,7 +10,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>
       <BrowserRouter>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        {/* D-001 — dark-first: escuro é o padrão do produto */}
+        <ThemeProvider attribute="class" defaultTheme="dark">
           <App />
         </ThemeProvider>
       </BrowserRouter>

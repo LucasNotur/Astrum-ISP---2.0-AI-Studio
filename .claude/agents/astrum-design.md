@@ -26,6 +26,16 @@ description: Guardião do padrão visual do Astrum-IA. Carregue esta skill ANTES
 - **Super arredondado com hierarquia (D-004):** botões/chips `rounded-full`; inputs,
   cards e modais `rounded-stable-xl`; elementos densos internos `rounded-stable-sm`.
   Inputs dark sem borda visível (borda só no focus, via ring).
+- **Shell (D-005/D-006):** sidebar com logo+tagline, bloco de boas-vindas
+  (font-display) e grupos sentence-case muted; item ativo = superfície gradiente
+  sutil + hairline + indicador vertical; ícones outline 18–20px. Topbar = breadcrumb
+  à esquerda + busca pill à direita.
+- **Card de métrica (D-007):** tile de ícone + kebab + label muted + número
+  font-mono grande + delta chip translúcido (signal/red) + sparkline discreta.
+  Barra de accent fina à esquerda só no card em destaque.
+- **Tabela densa (D-008):** eyebrow + título display + chip de filtro; header row
+  discreta ordenável; linhas hairline com hover; entidade = ícone + nome + código
+  muted; números font-mono; deltas em chips translúcidos.
 
 ---
 

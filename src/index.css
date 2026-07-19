@@ -20,6 +20,7 @@
   --color-astrum-orange: #F0713C;
   --color-astrum-red: #E5484D;
   --color-astrum-slate: #5B6472;
+  --color-astrum-lemon: #F2E349; /* D-002 — accent de marca (detalhe, nunca área grande/CTA) */
 
   /* U1-02 — Elevação (4 níveis; valores reais em :root/.dark) */
   --shadow-0: none;
@@ -113,7 +114,7 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
+    --radius: 1rem; /* D-004 — mesmo raio nos 2 temas */
     /* U1-02 — Elevação light */
     --shadow-1-raw: 0 1px 0 hsl(var(--border));
     --shadow-2-raw: 0 1px 3px rgb(0 0 0 / 0.10), 0 1px 2px rgb(0 0 0 / 0.06);
@@ -121,26 +122,27 @@
     --shadow-4-raw: 0 8px 30px rgb(0 0 0 / 0.18), 0 4px 8px rgb(0 0 0 / 0.12);
   }
   .dark {
-    --background: 228 10% 6%;
+    /* F1 (design-lab) — D-001 dark-first, D-002 accent limão, D-003 primary branco */
+    --background: 240 4% 4%;
     --foreground: 0 0% 98%;
-    --card: 228 12% 16%;
+    --card: 240 4% 9%;
     --card-foreground: 0 0% 98%;
-    --popover: 228 12% 16%;
+    --popover: 240 5% 11%;
     --popover-foreground: 0 0% 98%;
-    --primary: 350 89% 50%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 228 12% 20%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 4% 6%;
+    --secondary: 240 4% 14%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 228 12% 20%;
-    --muted-foreground: 228 5% 65%;
-    --accent: 45 100% 51%;
-    --accent-foreground: 228 10% 6%;
+    --muted: 240 4% 14%;
+    --muted-foreground: 240 4% 62%;
+    --accent: 55 87% 62%;
+    --accent-foreground: 240 4% 6%;
     --destructive: 350 89% 50%;
     --destructive-foreground: 0 0% 98%;
-    --border: 228 12% 20%;
-    --input: 228 12% 20%;
-    --ring: 45 100% 51%;
-    --radius: 1.5rem;
+    --border: 240 4% 14%;
+    --input: 240 4% 12%;
+    --ring: 55 87% 62%;
+    --radius: 1rem; /* D-004 — mesmo raio nos 2 temas (C4 morta na raiz) */
     /* U1-02 — Elevação dark (mais fortes; background escuro absorve sombra) */
     --shadow-2-raw: 0 1px 3px rgb(0 0 0 / 0.30), 0 1px 2px rgb(0 0 0 / 0.20);
     --shadow-3-raw: 0 4px 12px rgb(0 0 0 / 0.40), 0 2px 4px rgb(0 0 0 / 0.25);

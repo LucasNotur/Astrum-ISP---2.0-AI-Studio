@@ -23,39 +23,45 @@ function NavItem({ active, onClick, icon, label, collapsed, shortcut, badge }: a
     (e.currentTarget as HTMLButtonElement).blur();
   };
 
+  // D-005 — ícones outline finos, tamanho uniforme
+  const thinIcon = React.isValidElement(icon)
+    ? React.cloneElement(icon as React.ReactElement<any>, { size: collapsed ? 20 : 18, strokeWidth: 1.75 })
+    : icon;
+
   const button = (
-    <button 
+    <button
       onClick={handleClick}
       className={cn(
-        "flex items-center justify-between rounded-xl py-3 text-sm font-semibold transition-all group outline-none relative",
-        collapsed ? "w-12 h-12 justify-center px-0 mx-auto" : "w-full px-4",
-        active ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[0.98]" : "text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5 hover:text-zinc-900 dark:hover:text-white"
+        "flex items-center justify-between rounded-xl text-sm font-medium transition-colors duration-fast group outline-none relative border",
+        collapsed ? "w-12 h-12 justify-center px-0 mx-auto" : "w-full px-3.5 h-11",
+        active
+          ? "bg-gradient-to-r from-foreground/[0.10] to-foreground/[0.02] text-foreground border-foreground/10 shadow-1"
+          : "border-transparent text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground"
       )}
     >
       <div className={cn("flex items-center gap-3", collapsed && "justify-center w-full")}>
         <div className="shrink-0 flex items-center justify-center relative">
-          {icon}
+          {thinIcon}
           {collapsed && badge > 0 && (
             <span className="absolute -top-1 -right-1 w-3 h-3 bg-astrum-red rounded-full border-2 border-card" />
           )}
         </div>
-        {!collapsed && <span>{label}</span>}
+        {!collapsed && <span className="truncate">{label}</span>}
       </div>
       {!collapsed && (
         <div className="flex items-center gap-2">
           {badge > 0 && (
-            <Badge variant="destructive" className="px-1.5 min-w-5 h-5 flex items-center justify-center text-[10px]">
+            <Badge variant="destructive" className="px-1.5 min-w-5 h-5 flex items-center justify-center text-[10px] rounded-md">
               {badge}
             </Badge>
           )}
-          {shortcut && (
-            <span className={cn(
-              "text-[10px] px-1.5 py-0.5 rounded-md border opacity-0 group-hover:opacity-100 transition-opacity",
-              active ? "border-white/30 text-white/70" : "border-zinc-200 dark:border-zinc-800 text-zinc-400 bg-white dark:bg-zinc-900"
-            )}>
+          {shortcut && !active && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-md border border-border text-muted-foreground bg-secondary/50 opacity-0 group-hover:opacity-100 transition-opacity">
               {shortcut}
             </span>
           )}
+          {/* D-005 — indicador vertical do item ativo */}
+          {active && <span aria-hidden className="w-px h-4 bg-foreground/60 rounded-full" />}
         </div>
       )}
     </button>
@@ -90,6 +96,7 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
 
   const [isSuperAdmin, setIsSuperAdmin] = React.useState(false);
   const [dlqCount, setDlqCount] = React.useState(0);
+  const [lastLogin, setLastLogin] = React.useState<string | null>(null);
 
 
   React.useEffect(() => {
@@ -98,6 +105,9 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
       supabase.auth.getSession()
         .then(({ data: { session } }) => {
           const uid = session?.user?.id;
+          if (session?.user?.last_sign_in_at) {
+            setLastLogin(new Date(session.user.last_sign_in_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }));
+          }
           if (!uid) { setIsSuperAdmin(false); return; }
           return supabase.from('users').select('role').eq('id', uid).maybeSingle()
             .then(({ data }) => setIsSuperAdmin(data?.role === 'super_admin'));
@@ -147,27 +157,60 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
         !isMobileMenuOpen && "translate-x-[-100%] md:translate-x-0",
         isSidebarCollapsed ? "md:w-24 md:items-center md:px-2 md:py-6 w-72 p-6" : "w-72 p-6"
       )}>
-        <button
-          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          className="hidden md:flex absolute -right-3 top-8 bg-card border border-border rounded-full p-2 shadow-2 text-muted-foreground hover:text-foreground z-10 hover:scale-110 transition-transform duration-fast"
-        >
-          {isSidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-        </button>
+        {isSidebarCollapsed && (
+          <button
+            onClick={() => setIsSidebarCollapsed(false)}
+            className="hidden md:flex absolute -right-3 top-8 bg-card border border-border rounded-full p-2 shadow-2 text-muted-foreground hover:text-foreground z-10 hover:scale-110 transition-transform duration-fast"
+            aria-label="Expandir menu"
+          >
+            <ChevronRight size={14} />
+          </button>
+        )}
 
-      <div className={cn("flex items-center gap-3 mb-10", isSidebarCollapsed ? "justify-center" : "")}>
+      {/* D-005 — identidade: logo + nome + tagline */}
+      <div className={cn("flex items-center gap-3", isSidebarCollapsed ? "justify-center mb-6" : "mb-6")}>
         {companySettings?.logoUrl ? (
-          <img 
-            src={companySettings.logoUrl} 
-            alt="Logo" 
-            className="h-10 w-10 shrink-0 rounded-lg object-cover bg-white p-0.5" 
+          <img
+            src={companySettings.logoUrl}
+            alt="Logo"
+            className="h-9 w-9 shrink-0 rounded-xl object-cover bg-white p-0.5"
             referrerPolicy="no-referrer"
           />
         ) : (
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Bot size={24} />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-foreground border border-foreground/10">
+            <Bot size={20} strokeWidth={1.75} />
           </div>
         )}
+        {!isSidebarCollapsed && (
+          <>
+            <div className="flex-1 min-w-0">
+              <div className="font-display font-semibold text-[15px] leading-tight truncate">
+                {companySettings?.name || 'Astrum'}
+              </div>
+              <div className="text-[11px] text-muted-foreground truncate">Gestão Inteligente para ISPs</div>
+            </div>
+            <button
+              onClick={() => setIsSidebarCollapsed(true)}
+              className="hidden md:flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04] transition-colors duration-fast"
+              aria-label="Recolher menu"
+            >
+              <ChevronLeft size={14} />
+            </button>
+          </>
+        )}
       </div>
+
+      {/* D-005 — boas-vindas + último acesso */}
+      {!isSidebarCollapsed && (
+        <div className="mb-5 pb-5 border-b border-border">
+          <div className="font-display text-2xl font-semibold leading-tight">
+            Bem-vindo de volta{user?.displayName ? `, ${user.displayName.split(' ')[0]}` : ''}
+          </div>
+          {lastLogin && (
+            <div className="text-xs text-muted-foreground mt-1.5">Último acesso: {lastLogin}</div>
+          )}
+        </div>
+      )}
 
       <nav className="space-y-1 w-full flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
         {hasAccess('dashboard') && (
@@ -183,8 +226,8 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
         
         {(hasAccess('customers') || hasAccess('sales') || hasAccess('tickets') || hasAccess('chat') || hasAccess('os')) && (
           <>
-            {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Atendimento</div>}
-            {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2"></div>}
+            {!isSidebarCollapsed && <div className="pt-5 pb-1.5 px-3.5 text-[11px] font-medium text-muted-foreground/70">Atendimento</div>}
+            {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[11px] font-medium text-muted-foreground/70 border-t border-border mt-2"></div>}
           </>
         )}
         
@@ -239,8 +282,8 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
         )}
         {(isProvedorAdmin || hasAccess('inventory') || hasAccess('map') || hasAccess('team')) && (
           <>
-            {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Infra & Gestão</div>}
-            {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2"></div>}
+            {!isSidebarCollapsed && <div className="pt-5 pb-1.5 px-3.5 text-[11px] font-medium text-muted-foreground/70">Infra & Gestão</div>}
+            {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[11px] font-medium text-muted-foreground/70 border-t border-border mt-2"></div>}
           </>
         )}
         
@@ -285,8 +328,8 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
         )}
         {(hasAccess('ai-config') || hasAccess('cobrai') || hasAccess('valor') || hasAccess('kb')) && (
           <>
-            {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Inteligência & Automação</div>}
-            {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2"></div>}
+            {!isSidebarCollapsed && <div className="pt-5 pb-1.5 px-3.5 text-[11px] font-medium text-muted-foreground/70">Inteligência & Automação</div>}
+            {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[11px] font-medium text-muted-foreground/70 border-t border-border mt-2"></div>}
             
             {hasAccess('ai-config') && (
               <NavItem 
@@ -330,8 +373,8 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
 
         {flags.hub && hasAccess('intelligence') && isEnabled('intelligence') && (
           <>
-            {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Inteligência</div>}
-            {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2"></div>}
+            {!isSidebarCollapsed && <div className="pt-5 pb-1.5 px-3.5 text-[11px] font-medium text-muted-foreground/70">Inteligência</div>}
+            {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[11px] font-medium text-muted-foreground/70 border-t border-border mt-2"></div>}
             <NavItem
               active={currentPath === 'intelligence'}
               onClick={() => navigate('/intelligence')}
@@ -345,8 +388,8 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
 
         {(hasAccess('bi') || hasAccess('quality-monitor') || hasAccess('observability') || hasAccess('monitoring')) && (
           <>
-            {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Relatórios e Monitoria</div>}
-            {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2"></div>}
+            {!isSidebarCollapsed && <div className="pt-5 pb-1.5 px-3.5 text-[11px] font-medium text-muted-foreground/70">Relatórios e Monitoria</div>}
+            {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[11px] font-medium text-muted-foreground/70 border-t border-border mt-2"></div>}
             
             {(hasAccess('bi') || hasAccess('quality-monitor')) && (
                <div className="space-y-1">
@@ -382,8 +425,8 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
 
         {(hasAccess('settings') || hasAccess('whatsapp') || isSuperAdmin) && (
           <>
-            {!isSidebarCollapsed && <div className="pt-4 pb-2 px-4 text-[10px] font-bold uppercase tracking-wider text-zinc-400">Configurações Globais</div>}
-            {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[10px] font-bold uppercase tracking-wider text-zinc-400 border-t border-zinc-100 dark:border-zinc-800 mt-2"></div>}
+            {!isSidebarCollapsed && <div className="pt-5 pb-1.5 px-3.5 text-[11px] font-medium text-muted-foreground/70">Configurações Globais</div>}
+            {isSidebarCollapsed && <div className="pt-4 pb-2 text-center text-[11px] font-medium text-muted-foreground/70 border-t border-border mt-2"></div>}
             
             {hasAccess('whatsapp') && (
               <NavItem 
@@ -436,7 +479,7 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
           <span className={cn(isSidebarCollapsed ? "block md:hidden" : "block")}>Ajuda</span>
         </button>
 
-        <div className={cn("flex items-center gap-3 rounded-stable bg-muted", isSidebarCollapsed ? "md:justify-center md:p-2 p-3" : "p-3")}>
+        <div className={cn("flex items-center gap-3 rounded-stable-xl bg-secondary/50 border border-border", isSidebarCollapsed ? "md:justify-center md:p-2 p-3" : "p-3")}>
           <Avatar className="h-10 w-10 shrink-0">
             <AvatarImage src={user?.photoURL} />
             <AvatarFallback>{user?.displayName?.[0] || 'U'}</AvatarFallback>

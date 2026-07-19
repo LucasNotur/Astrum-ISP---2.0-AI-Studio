@@ -7,6 +7,7 @@ import { ScrollArea } from '@/src/components/ui/scroll-area';
 import { useAppStore } from '@/src/store/useAppStore';
 import { cn } from '@/src/lib/utils';
 import { CommandPalette } from '@/src/components/CommandPalette';
+import { Breadcrumbs } from './Breadcrumbs';
 
 interface TopHeaderProps {
   clearNotifications: () => void;
@@ -111,15 +112,20 @@ export function TopHeader({ clearNotifications, handleMarkNotificationRead, onMe
   }, []);
 
   return (
-    <div className="flex items-center justify-between md:justify-end shrink-0 px-3 py-2 md:px-6 md:py-3 border-b md:border-b-0 border-zinc-200 dark:border-zinc-800 bg-white/50 backdrop-blur-md md:bg-transparent z-40 sticky top-0 md:static">
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        className="md:hidden  mr-auto h-8 w-8"
+    <div className="flex items-center justify-between shrink-0 px-3 py-2 md:px-6 md:py-3 border-b border-border bg-background/50 backdrop-blur-md z-40 sticky top-0 md:static">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="md:hidden mr-auto h-8 w-8"
         onClick={onMenuClick}
       >
         <Menu size={18} />
       </Button>
+
+      {/* D-006 — breadcrumb à esquerda no topbar */}
+      <div className="hidden md:flex items-center min-w-0">
+        <Breadcrumbs />
+      </div>
 
       <div className="flex items-center gap-3">
         <OperatorStatusToggle />

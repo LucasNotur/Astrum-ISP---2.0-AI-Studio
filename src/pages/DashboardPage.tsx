@@ -94,6 +94,7 @@ export function DashboardPage() {
 
   const [upsellEvents, setUpsellEvents] = useState<any[]>([]);
   const [csatRatings, setCsatRatings] = useState<any[]>([]);
+  const [loadedAt] = useState(() => new Date()); // D-008 — status line do hero
 
   const dashTenantId = companySettings?.tenant_id || 'DEFAULT_TENANT';
   const {
@@ -772,50 +773,63 @@ export function DashboardPage() {
       exit={{ opacity: 0, x: -10 }}
       className="space-y-8"
     >
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={handleExportDashboardPDF}
-          >
-            <FileText size={14} />{" "}
-            <span className="hidden md:inline">Exportar PDF</span>
-          </Button>
-          {dashboardSubTab === "overview" && (
+      {/* D-008 — hero da página: status line + título display + ações */}
+      <header className="space-y-4">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full rounded-full bg-astrum-signal opacity-50 animate-ping" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-astrum-signal" />
+          </span>
+          Última atualização: <span className="text-foreground font-medium">{loadedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
+        </div>
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <h1 className="font-display text-3xl md:text-4xl font-medium tracking-tight leading-[1.1] max-w-[14ch]">
+            Central de Operações
+          </h1>
+          <div className="flex items-center gap-2 shrink-0">
             <Button
-              variant={dashEditMode ? "default" : "outline"}
+              variant="outline"
               size="sm"
-              className="gap-2"
-              onClick={() => setDashEditMode((v) => !v)}
+              className="gap-2 rounded-full"
+              onClick={handleExportDashboardPDF}
             >
-              {dashEditMode ? <X size={14} /> : <Settings2 size={14} />}
-              <span className="hidden md:inline">{dashEditMode ? "Fechar" : "Configurar"}</span>
+              <FileText size={14} />{" "}
+              <span className="hidden md:inline">Exportar PDF</span>
             </Button>
-          )}
-          <div className="flex items-center overflow-x-auto bg-zinc-100 dark:bg-muted p-1.5 rounded-[20px] w-full md:w-auto border border-zinc-200/50 dark:border-white/5 backdrop-blur-md">
-            <button
-              onClick={() => setDashboardSubTab("overview")}
-              className={`text-[11px] px-6 py-2.5 whitespace-nowrap rounded-[16px] transition-all duration-300 font-bold ${dashboardSubTab === "overview" ? "bg-amber-400 text-black shadow-lg shadow-amber-500/20" : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"}`}
-            >
-              Visão Geral
-            </button>
-            <button
-              onClick={() => setDashboardSubTab("performance")}
-              className={`text-[11px] px-6 py-2.5 whitespace-nowrap rounded-[16px] transition-all duration-300 font-bold ${dashboardSubTab === "performance" ? "bg-amber-400 text-black shadow-lg shadow-amber-500/20" : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"}`}
-            >
-              Performance
-            </button>
-            {isOwner && (
-              <button
-                onClick={() => setDashboardSubTab("ia")}
-                className={`text-[11px] px-6 py-2.5 whitespace-nowrap rounded-[16px] transition-all duration-300 font-bold ${dashboardSubTab === "ia" ? "bg-amber-400 text-black shadow-lg shadow-amber-500/20" : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"}`}
+            {dashboardSubTab === "overview" && (
+              <Button
+                variant={dashEditMode ? "default" : "outline"}
+                size="sm"
+                className="gap-2 rounded-full"
+                onClick={() => setDashEditMode((v) => !v)}
               >
-                Inteligência Artificial & Preditivo
-              </button>
+                {dashEditMode ? <X size={14} /> : <Settings2 size={14} />}
+                <span className="hidden md:inline">{dashEditMode ? "Fechar" : "Configurar"}</span>
+              </Button>
             )}
           </div>
+        </div>
+        <div className="flex items-center overflow-x-auto bg-secondary/60 p-1 rounded-full w-full md:w-fit border border-border">
+          <button
+            onClick={() => setDashboardSubTab("overview")}
+            className={`text-xs px-5 py-2 whitespace-nowrap rounded-full transition-colors duration-fast font-medium ${dashboardSubTab === "overview" ? "bg-primary text-primary-foreground shadow-2" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            Visão Geral
+          </button>
+          <button
+            onClick={() => setDashboardSubTab("performance")}
+            className={`text-xs px-5 py-2 whitespace-nowrap rounded-full transition-colors duration-fast font-medium ${dashboardSubTab === "performance" ? "bg-primary text-primary-foreground shadow-2" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            Performance
+          </button>
+          {isOwner && (
+            <button
+              onClick={() => setDashboardSubTab("ia")}
+              className={`text-xs px-5 py-2 whitespace-nowrap rounded-full transition-colors duration-fast font-medium ${dashboardSubTab === "ia" ? "bg-primary text-primary-foreground shadow-2" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Inteligência Artificial & Preditivo
+            </button>
+          )}
         </div>
       </header>
 

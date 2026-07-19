@@ -55,6 +55,41 @@ raio menor; nunca o mesmo raio em tudo).
 - O raio NÃO muda entre temas (mantém a correção da armadilha C4: `rounded-stable-*`).
 - Inputs no dark: superfície elevada sem borda visível (borda só no focus, via ring).
 
+### D-005 — Navegação: sidebar com identidade e boas-vindas
+**Origem:** print de referência #2 (dashboard Quantix, replicação fiel), 2026-07-19.
+**Decisão:** sidebar escura levemente destacada do conteúdo (hairline à direita), com:
+- Topo: tile do logo + nome do produto + tagline pequena muted + chevron de colapso.
+- Bloco de boas-vindas: "Bem-vindo de volta, {nome}" grande (font-display) +
+  "Último acesso: {data}" pequeno muted; divisor hairline abaixo.
+- Grupos de navegação com rótulo **sentence case** pequeno e muted (não uppercase).
+- Item ativo: superfície elevada com gradiente sutil + borda hairline + indicador
+  vertical fino à direita; texto branco. Inativo: muted, hover eleva.
+- Ícones outline finos (18–20px, stroke leve) — nunca 24px cheios.
+- Badges de nav: chips pequenos arredondados (contagem, "Beta"); destrutivo só se crítico.
+
+### D-006 — Topbar: breadcrumb à esquerda, busca à direita
+**Origem:** print #2. **Decisão:** o cabeçalho superior tem breadcrumb com ícone de
+home à esquerda (Seção / Página) e busca em pill à direita (com atalho ⌘K), mais
+ações de conta. Sem linha separada de breadcrumb abaixo do header.
+
+### D-007 — Cards de métrica (hero cards)
+**Origem:** print #2. **Decisão:** card de métrica padrão:
+- Tile de ícone em rounded-square elevado + label pequeno muted + nome forte.
+- Menu kebab em botão quadrado arredondado no canto.
+- Rótulo "de dado" pequeno (ex.: "Preço") + **número grande em font-mono**.
+- Delta em chip pill com fundo translúcido da cor semântica (signal/red) + ícone.
+- Sparkline/área discreta na base do card com gradiente sutil.
+- Barra de accent fina na borda esquerda quando o card está em destaque/ativo.
+
+### D-008 — Tabela densa (padrão "Market Overview")
+**Origem:** print #2. **Decisão:** tabelas densas com:
+- Cabeçalho de seção fora da tabela: eyebrow pequeno muted + título forte + filtro chip à direita.
+- Header row escura discreta, colunas ordenáveis com ícone de sort.
+- Linhas com hairline entre elas, hover eleva; número de rank muted;
+  entidade = ícone/avatar + nome forte + código muted na mesma célula.
+- Valores numéricos em font-mono; deltas em chips translúcidos (mesma gramática do D-007).
+- Tipografia de título de seção: display grande com peso leve/medium (não bold pesado).
+
 ---
 
 ## Tokens-alvo (a aplicar na fundação do design-lab)
