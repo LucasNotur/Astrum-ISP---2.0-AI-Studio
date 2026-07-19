@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Bot, Smartphone, Briefcase, User, MapPin, Package, CheckCircle2, Camera, Calendar, MessageSquare, ArrowRight, X, Clock, PlayCircle, ListTodo } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
+import { GlowButton } from '@/src/components/ui/glow-button';
 import { Card, CardHeader, CardTitle, CardContent } from "@/src/components/ui/card";
 import { Badge } from "@/src/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/src/components/ui/tabs";
@@ -14,6 +15,11 @@ import { Label } from '@/src/components/ui/label';
 import { ScrollArea } from "@/src/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/components/ui/select";
 import { Textarea } from "@/src/components/ui/textarea";
+
+const osStatusLabel: Record<string, string> = {
+  pendente: 'Pendente', agendada: 'Agendada', em_deslocamento: 'Em deslocamento',
+  em_andamento: 'Em andamento', concluida: 'Concluída', cancelada: 'Cancelada',
+};
 
 export function ServiceOrdersPage() {
   const { technicians, serviceOrders, customers, currentUserRole, userProfile, integrationKeys } = useAppStore();
@@ -380,104 +386,114 @@ export function ServiceOrdersPage() {
       exit={{ opacity: 0, x: -10 }}
       className="space-y-4 h-full flex flex-col"
     >
-      <header className="flex flex-col md:flex-row md:items-center justify-between shrink-0 mb-2 gap-4">
-        
-        <div className="flex flex-wrap items-center gap-3">
-          <Button variant="outline" className="gap-2" onClick={() => setIsWhatsappDialogOpen(true)}>
-            <Smartphone size={16} className="text-green-600" />
-            <span className="hidden md:inline">Simulador WhatsApp Técnico</span>
+      {/* D-008 — hero da seção: eyebrow + título display + ações */}
+      <header className="flex flex-col md:flex-row md:items-end justify-between shrink-0 mb-2 gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Briefcase size={13} strokeWidth={1.75} />
+            Campo · <span className="font-mono text-foreground">{serviceOrders.filter(os => os.status !== 'concluida' && os.status !== 'cancelada').length}</span> OS em aberto
+          </div>
+          <h1 className="font-display text-3xl md:text-4xl font-medium tracking-tight leading-[1.1] mt-2">
+            Ordens de Serviço
+          </h1>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <Button variant="outline" className="gap-2 rounded-full" onClick={() => setIsWhatsappDialogOpen(true)}>
+            <Smartphone size={16} strokeWidth={1.75} className="text-astrum-signal" />
+            <span className="hidden md:inline">Simulador WhatsApp</span>
           </Button>
-          <Button className="gap-2 shrink-0 self-start md:self-auto" onClick={() => { setSelectedCustomer(null); setIsScheduleDialogOpen(true); }}>
-            <Plus size={16} />
-          </Button>
+          {/* D-011 — glow CTA: a ação de criação da tela */}
+          <GlowButton icon={<Plus size={16} strokeWidth={2.5} />} onClick={() => { setSelectedCustomer(null); setIsScheduleDialogOpen(true); }}>
+            Nova OS
+          </GlowButton>
         </div>
       </header>
 
       <Tabs defaultValue={currentUserRole === 'tecnico' ? "calendar" : "board"} className="flex flex-col flex-1 h-full overflow-hidden">
-        <TabsList className="w-fit mb-4 flex overflow-x-auto min-h-[40px] px-1 pb-1">
-          <TabsTrigger value="board" className="gap-2 whitespace-nowrap">
-            <Briefcase size={16} /> Quadro Geral (CRM)
+        <TabsList className="w-fit mb-4 flex overflow-x-auto min-h-[44px] bg-secondary/60 border border-border rounded-full p-1 gap-0.5">
+          <TabsTrigger value="board" className="gap-2 whitespace-nowrap rounded-full px-3.5 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2">
+            <Briefcase size={15} strokeWidth={1.75} /> Quadro (CRM)
           </TabsTrigger>
-          <TabsTrigger value="scheduler" className="gap-2 whitespace-nowrap">
-            <Calendar size={16} /> Painel de Despacho (Matriz)
+          <TabsTrigger value="scheduler" className="gap-2 whitespace-nowrap rounded-full px-3.5 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2">
+            <Calendar size={15} strokeWidth={1.75} /> Despacho
           </TabsTrigger>
-          <TabsTrigger value="calendar" className="gap-2 whitespace-nowrap">
-            <Calendar size={16} /> Minha Agenda (Técnicos)
+          <TabsTrigger value="calendar" className="gap-2 whitespace-nowrap rounded-full px-3.5 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2">
+            <Calendar size={15} strokeWidth={1.75} /> Minha agenda
           </TabsTrigger>
-          <TabsTrigger value="history" className="gap-2 whitespace-nowrap">
-            <User size={16} /> Histórico dos Técnicos
+          <TabsTrigger value="history" className="gap-2 whitespace-nowrap rounded-full px-3.5 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2">
+            <User size={15} strokeWidth={1.75} /> Histórico
           </TabsTrigger>
-          <TabsTrigger value="incidents" className="gap-2 whitespace-nowrap">
-            <Bot size={16} /> Incidentes
+          <TabsTrigger value="incidents" className="gap-2 whitespace-nowrap rounded-full px-3.5 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2">
+            <Bot size={15} strokeWidth={1.75} /> Incidentes
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="board" className="flex-1 overflow-y-auto md:overflow-x-auto md:overflow-y-hidden pb-4 mt-0 data-[state=active]:flex">
           <div className="flex flex-col md:flex-row gap-4 md:min-w-max md:h-[calc(100vh-230px)] pt-2">
           {pipelines.map(column => (
-            <div key={column.id} className="flex flex-col w-full md:w-[340px] bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-100 dark:border-zinc-800 p-3 shadow-sm md:h-full md:overflow-hidden min-h-[min-content] md:min-h-0">
+            <div key={column.id} className="flex flex-col w-full md:w-[340px] bg-secondary/30 rounded-stable-xl border border-border p-3 md:h-full md:overflow-hidden min-h-[min-content] md:min-h-0">
               <div className="mb-4 px-1">
                 <div className="flex items-center justify-between mb-1">
-                  <h3 className="font-bold text-[15px] flex items-center gap-2">
-                    {column.id === 'new_tasks' && <User size={16} className="text-blue-500" />}
-                    {column.id === 'scheduled' && <Calendar size={16} className="text-orange-500" />}
-                    {column.id === 'today' && <Smartphone size={16} className="text-green-500" />}
-                    {column.id === 'completed' && <CheckCircle2 size={16} className="text-purple-500" />}
+                  <h3 className="font-semibold text-sm flex items-center gap-2">
+                    {column.id === 'new_tasks' && <User size={15} strokeWidth={1.75} className="text-astrum-fiber" />}
+                    {column.id === 'scheduled' && <Calendar size={15} strokeWidth={1.75} className="text-astrum-amber" />}
+                    {column.id === 'today' && <Smartphone size={15} strokeWidth={1.75} className="text-astrum-signal" />}
+                    {column.id === 'completed' && <CheckCircle2 size={15} strokeWidth={1.75} className="text-astrum-slate" />}
                     {column.title}
                   </h3>
-                  <Badge variant="secondary" className="bg-white dark:bg-zinc-800">{column.data.length}</Badge>
+                  <Badge variant="secondary" className="bg-card border border-border rounded-md font-mono text-xs">{column.data.length}</Badge>
                 </div>
-                <p className="text-[11px] text-zinc-500">{column.desc}</p>
+                <p className="text-[11px] text-muted-foreground">{column.desc}</p>
               </div>
               <ScrollArea className="flex-1 -mx-2 px-2 scrollbar-hide">
                 <div className="space-y-4 pb-10">
                   {column.data.map(item => (
-                       <Card key={item.id} className="border-none shadow-[2px_8px_16px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_24px_rgba(0,0,0,0.4)] hover:scale-[1.02] transition-all duration-300 cursor-pointer group relative dark:bg-card bg-white rounded-[16px] overflow-hidden ticket-shape">
-                           <div className="absolute top-0 bottom-0 left-6 border-l border-dashed border-zinc-200 dark:border-white/5" />
+                       <Card key={item.id} className="border-none shadow-2 hover:scale-[1.02] transition-transform duration-base cursor-pointer group relative bg-card rounded-stable-xl overflow-hidden ticket-shape">
+                           <div className="absolute top-0 bottom-0 left-6 border-l border-dashed border-foreground/10" />
                            <CardContent className="p-4 pl-8 relative z-10">
                                <div className="flex justify-between items-start mb-2 cursor-pointer" onClick={() => setExpandedBoardOS(expandedBoardOS === item.id ? null : item.id)}>
                                  <div className="flex flex-col items-start gap-1">
-                                   <Badge variant="outline" className={`text-[10px] px-2 py-0 border-none font-bold ${
-                                      item.status === 'pendente' && !item.scheduledDate ? 'bg-zinc-100 text-zinc-500 dark:bg-white/5 dark:text-zinc-400' :
-                                      item.status === 'pendente' ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' :
-                                      item.status === 'em_deslocamento' ? 'bg-indigo-500/20 text-indigo-600 dark:text-indigo-400' :
-                                      item.status === 'em_andamento' ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400' :
-                                      item.status === 'agendada' ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' :
-                                      'bg-purple-500/20 text-purple-600 dark:text-purple-400'
+                                   <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                      item.status === 'pendente' && !item.scheduledDate ? 'bg-astrum-slate/20 text-astrum-slate' :
+                                      item.status === 'pendente' ? 'bg-astrum-amber/15 text-astrum-amber' :
+                                      item.status === 'em_deslocamento' ? 'bg-astrum-fiber/15 text-astrum-fiber' :
+                                      item.status === 'em_andamento' ? 'bg-astrum-lemon/15 text-astrum-lemon' :
+                                      item.status === 'agendada' ? 'bg-astrum-signal/15 text-astrum-signal' :
+                                      'bg-astrum-signal/15 text-astrum-signal'
                                    }`}>
-                                     {item.status.replace('_', ' ').toUpperCase()} {item.scheduledDate ? `• ${item.scheduledDate}` : ''}
-                                   </Badge>
+                                     {(osStatusLabel[item.status] || item.status.replace('_', ' '))} {item.scheduledDate ? `· ${item.scheduledDate}` : ''}
+                                   </span>
                                    {item.route_sequence && (
-                                      <Badge variant="outline" className="text-[9px] px-2 py-0 border-zinc-200 dark:border-zinc-700 bg-zinc-100 text-zinc-500 dark:bg-zinc-800/50 dark:text-zinc-400 font-semibold gap-1">
+                                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-medium bg-secondary/60 text-muted-foreground border border-border">
                                          <MapPin size={8} /> Rota #{item.route_sequence} {item.route_region && `(CEP ${item.route_region})`}
-                                      </Badge>
+                                      </span>
                                    )}
                                  </div>
-                                 <span className="text-[10px] text-zinc-400 font-mono">#{item.id.slice(0, 5)}</span>
+                                 <span className="text-[10px] text-muted-foreground font-mono bg-secondary/60 px-2 py-1 rounded-md">#{item.id.slice(0, 5)}</span>
                                </div>
-                               
+
                                <div className="cursor-pointer" onClick={() => setExpandedBoardOS(expandedBoardOS === item.id ? null : item.id)}>
-                                 <h4 className="font-bold tracking-tight text-sm mb-1">{item.customerName}</h4>
-                                 <p className="text-[11px] text-zinc-500 mb-1 line-clamp-1 flex items-center gap-1">
+                                 <h4 className="font-semibold tracking-tight text-sm mb-1">{item.customerName}</h4>
+                                 <p className="text-[11px] text-muted-foreground mb-1 line-clamp-1 flex items-center gap-1">
                                    <MapPin size={10}/> {item.address}
                                  </p>
                                  {item.description && expandedBoardOS !== item.id && (
-                                   <p className="text-[11px] text-zinc-600 dark:text-zinc-400 mb-2 line-clamp-2">
+                                   <p className="text-[11px] text-muted-foreground mb-2 line-clamp-2">
                                      {item.description}
                                    </p>
                                  )}
                                </div>
-                               
-                               <div className="flex items-center gap-2 mb-3 bg-zinc-50 dark:bg-muted p-1.5 rounded-md cursor-pointer" onClick={() => setExpandedBoardOS(expandedBoardOS === item.id ? null : item.id)}>
-                                 <User size={12} className="text-zinc-400"/>
-                                 <span className="text-[11px] font-medium text-zinc-700 dark:text-zinc-300">Téc: {item.assignedTo || 'A Definir'}</span>
+
+                               <div className="flex items-center gap-2 mb-3 bg-secondary/50 p-1.5 rounded-stable-sm cursor-pointer" onClick={() => setExpandedBoardOS(expandedBoardOS === item.id ? null : item.id)}>
+                                 <User size={12} className="text-muted-foreground"/>
+                                 <span className="text-[11px] font-medium">Téc: {item.assignedTo || 'A Definir'}</span>
                                </div>
 
                                {expandedBoardOS === item.id && (
-                                 <div className="mt-2 mb-3 pt-3 border-t border-zinc-100 dark:border-white/5 space-y-3 animate-in slide-in-from-top-2 fade-in">
+                                 <div className="mt-2 mb-3 pt-3 border-t border-foreground/10 space-y-3 animate-in slide-in-from-top-2 fade-in">
                                     {(item.status === 'pendente' && (!item.assignedTo || item.assignedTo === 'A Definir')) && (
                                       <div>
-                                        <h5 className="text-[10px] uppercase font-bold text-zinc-400 mb-1">Despacho Manual</h5>
+                                        <h5 className="text-[10px] font-semibold text-muted-foreground mb-1">Despacho manual</h5>
                                         <div className="flex gap-2">
                                           <Select onValueChange={async (val) => {
                                              toast.success(`OS Atribuída a ${val}`);
@@ -487,7 +503,7 @@ export function ServiceOrdersPage() {
                                                 status: 'agendada'
                                              });
                                           }}>
-                                            <SelectTrigger className="h-8 text-xs bg-white dark:bg-zinc-900 flex-1">
+                                            <SelectTrigger className="h-8 text-xs bg-input/60 border-border rounded-stable-sm flex-1">
                                               <SelectValue placeholder="Selecionar Técnico..." />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -501,78 +517,78 @@ export function ServiceOrdersPage() {
                                     )}
                                     {item.description && (
                                       <div>
-                                        <h5 className="text-[10px] uppercase font-bold text-zinc-400 mb-1">Descrição Detalhada</h5>
-                                        <p className="text-[11px] text-zinc-600 dark:text-zinc-300 bg-zinc-50 dark:bg-muted p-2 rounded-md whitespace-pre-wrap">{item.description}</p>
+                                        <h5 className="text-[10px] font-semibold text-muted-foreground mb-1">Descrição detalhada</h5>
+                                        <p className="text-[11px] bg-secondary/50 p-2 rounded-stable-sm whitespace-pre-wrap">{item.description}</p>
                                       </div>
                                     )}
                                     {item.aiSummary && (
                                       <div>
-                                        <h5 className="text-[10px] uppercase font-bold text-blue-500 mb-1 flex items-center gap-1"><Bot size={10}/> Resumo IA</h5>
-                                        <p className="text-[11px] text-blue-800 dark:text-blue-200 bg-blue-50 dark:bg-blue-900/20 p-2 rounded-md">{item.aiSummary}</p>
+                                        <h5 className="text-[10px] font-semibold text-astrum-lemon mb-1 flex items-center gap-1"><Bot size={10}/> Resumo IA</h5>
+                                        <p className="text-[11px] bg-astrum-lemon/10 p-2 rounded-stable-sm">{item.aiSummary}</p>
                                       </div>
                                     )}
                                     {item.materials && item.materials.length > 0 && (
                                       <div>
-                                        <h5 className="text-[10px] uppercase font-bold text-zinc-400 mb-1 flex items-center gap-1"><Package size={10}/> Materiais Previstos</h5>
+                                        <h5 className="text-[10px] font-semibold text-muted-foreground mb-1 flex items-center gap-1"><Package size={10}/> Materiais previstos</h5>
                                         <div className="flex flex-wrap gap-1">
                                           {item.materials.map((m: any, i: number) => (
-                                            <Badge key={i} variant="secondary" className="text-[9px] px-1.5 bg-zinc-100 dark:bg-muted border-none font-medium text-zinc-500">{m}</Badge>
+                                            <span key={i} className="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-medium bg-secondary/60 text-muted-foreground">{m}</span>
                                           ))}
                                         </div>
                                       </div>
                                     )}
-                                    
+
                                     <div className="flex flex-col gap-2 pt-2">
-                                       {/* GIGANTIC ACTION BUTTON */}
+                                       {/* D-003 — CTA principal branco invertido, pill */}
                                        {(item.status === 'pendente' || item.status === 'em_deslocamento' || item.status === 'em_andamento') && (
-                                          <Button 
-                                            className="w-full h-14 text-sm font-bold shadow-lg bg-amber-400 text-black hover:bg-amber-500 rounded-2xl shadow-amber-500/20"
-                                            onClick={(e) => { 
+                                          <Button
+                                            className="w-full h-12 text-sm font-semibold rounded-full shadow-2"
+                                            onClick={(e) => {
                                               e.stopPropagation();
                                               if (item.status === 'pendente') {
                                                 // mock transition
                                                 toast.success('Iniciando deslocamento...');
                                               } else {
-                                                setSelectedOS(item); 
+                                                setSelectedOS(item);
                                                 setIsFinishDialogOpen(true);
                                               }
                                             }}
                                           >
                                             {item.status === 'pendente' ? (
-                                              <><MapPin size={18} className="mr-2" /> INICIAR DESLOCAMENTO</>
+                                              <><MapPin size={16} strokeWidth={1.75} className="mr-2" /> Iniciar deslocamento</>
                                             ) : (
-                                              <><CheckCircle2 size={18} className="mr-2" /> FINALIZAR OS</>
+                                              <><CheckCircle2 size={16} strokeWidth={1.75} className="mr-2" /> Finalizar OS</>
                                             )}
                                           </Button>
                                        )}
 
                                        <div className="grid grid-cols-2 gap-2 mt-2">
-                                         <Button variant="outline" size="sm" className="w-full text-[11px] h-8 gap-1 rounded-[12px] bg-zinc-50 dark:bg-muted border-none" onClick={(e) => { e.stopPropagation(); setSelectedHistoryOS(item); setIsHistoryDialogOpen(true); }}>
-                                           <Calendar size={12} /> Histórico
+                                         <Button variant="outline" size="sm" className="w-full text-[11px] h-8 gap-1 rounded-full bg-secondary/50 border-border" onClick={(e) => { e.stopPropagation(); setSelectedHistoryOS(item); setIsHistoryDialogOpen(true); }}>
+                                           <Calendar size={12} strokeWidth={1.75} /> Histórico
                                          </Button>
-                                         <Button variant="outline" size="sm" className="w-full text-[11px] h-8 gap-1 rounded-[12px] bg-zinc-50 dark:bg-muted border-none" asChild>
+                                         <Button variant="outline" size="sm" className="w-full text-[11px] h-8 gap-1 rounded-full bg-secondary/50 border-border" asChild>
                                            <a href={`https://www.google.com/maps/dir/?api=1&destination=${item.lat && item.lng ? `${item.lat},${item.lng}` : encodeURIComponent(item.address)}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                                             <MapPin size={12} /> Rota
+                                             <MapPin size={12} strokeWidth={1.75} /> Rota
                                            </a>
                                          </Button>
                                        </div>
-                                       <Button variant="secondary" size="sm" className="w-full text-[11px] h-8 gap-1 hover:bg-green-100 hover:text-green-700 transition-colors rounded-[12px] mt-1" onClick={(e) => { e.stopPropagation(); handleNotifyCustomer(item); }}>
-                                         <MessageSquare size={12} /> Avisar Cliente
+                                       <Button variant="secondary" size="sm" className="w-full text-[11px] h-8 gap-1 rounded-full hover:bg-astrum-signal/10 hover:text-astrum-signal transition-colors duration-fast mt-1" onClick={(e) => { e.stopPropagation(); handleNotifyCustomer(item); }}>
+                                         <MessageSquare size={12} strokeWidth={1.75} /> Avisar cliente
                                        </Button>
                                     </div>
                                  </div>
                                )}
-                               
+
                                {column.id === 'completed' && (
-                                 <div className="text-[11px] text-purple-600 flex items-center justify-center gap-1 bg-purple-50 dark:bg-purple-900/20 py-1.5 rounded-md font-medium">
-                                    <CheckCircle2 size={13} /> Concluído & Sincronizado
+                                 <div className="text-[11px] text-astrum-signal flex items-center justify-center gap-1 bg-astrum-signal/10 py-1.5 rounded-stable-sm font-medium">
+                                    <CheckCircle2 size={13} strokeWidth={1.75} /> Concluído e sincronizado
                                  </div>
                                )}
                             </CardContent>
                        </Card>
                     ))}
                     {column.data.length === 0 && (
-                       <div className="text-center p-6 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-400 text-xs mt-4">
+                       <div className="text-center p-6 border border-dashed border-border rounded-stable-lg text-muted-foreground text-xs mt-4">
                           Nenhum registro.
                        </div>
                     )}
@@ -585,47 +601,47 @@ export function ServiceOrdersPage() {
 
         {/* -- SCHEDULER MATRIX VIEW CONTENT -- */}
         <TabsContent value="scheduler" className="flex-1 overflow-hidden mt-0 flex flex-col h-full pb-10">
-          <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 shrink-0">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-4 shrink-0">
              <div>
-                <h3 className="text-2xl font-bold text-zinc-900 dark:text-white">Painel de Despacho Operacional</h3>
-                <p className="text-zinc-500 text-sm">Visualização em matriz de técnicos e faixas de horário.</p>
+                <p className="text-xs text-muted-foreground">Operação · matriz técnico × horário</p>
+                <h3 className="font-display text-xl font-medium tracking-tight mt-0.5">Painel de despacho</h3>
              </div>
-             
+
              {/* Date Selector Mini */}
-             <div className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-lg mt-2 md:mt-0">
-                <Button variant="ghost" size="sm" className="h-8" onClick={() => {
+             <div className="flex items-center gap-1 bg-secondary/60 border border-border p-1 rounded-full mt-2 md:mt-0">
+                <Button variant="ghost" size="sm" className="h-8 rounded-full" onClick={() => {
                    const d = new Date(selectedDate);
                    d.setDate(d.getDate() - 1);
                    setSelectedDate(d.toISOString().split('T')[0]);
                 }}>&lt;</Button>
-                <div className="text-sm font-bold w-24 text-center">{new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</div>
-                <Button variant="ghost" size="sm" className="h-8" onClick={() => {
+                <div className="text-sm font-mono font-semibold w-24 text-center">{new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</div>
+                <Button variant="ghost" size="sm" className="h-8 rounded-full" onClick={() => {
                    const d = new Date(selectedDate);
                    d.setDate(d.getDate() + 1);
                    setSelectedDate(d.toISOString().split('T')[0]);
                 }}>&gt;</Button>
 
-                <Button variant="outline" size="sm" className="ml-2 h-8 text-xs border-dashed" onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}>
+                <Button variant="outline" size="sm" className="ml-1 h-8 text-xs rounded-full" onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}>
                    Hoje
                 </Button>
              </div>
           </div>
 
-          <div className="flex-1 bg-white dark:bg-card border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm flex flex-col h-full relative">
+          <div className="flex-1 bg-card border border-border rounded-stable-xl overflow-hidden shadow-1 flex flex-col h-full relative">
             <ScrollArea className="flex-1 relative">
                <div className="min-w-max pb-10">
                  {/* Header Row (Technicians) */}
-                 <div className="flex border-b border-zinc-200 dark:border-zinc-800 sticky top-0 bg-zinc-50 dark:bg-muted z-20 shadow-sm">
-                    <div className="w-20 shrink-0 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-muted p-3 flex flex-col justify-end text-[10px] font-bold text-zinc-400 text-right uppercase">
+                 <div className="flex border-b border-border sticky top-0 bg-secondary/40 backdrop-blur z-20">
+                    <div className="w-20 shrink-0 border-r border-border p-3 flex flex-col justify-end text-[10px] font-medium text-muted-foreground text-right">
                        Horário
                     </div>
                     {technicians.filter(t => t.active !== false).map(tech => (
-                       <div key={tech.id} className="w-64 shrink-0 border-r border-zinc-200 dark:border-zinc-800 p-3 flex flex-col gap-1 items-center justify-center">
-                          <div className="w-8 h-8 bg-zinc-200 dark:bg-zinc-800 rounded-full flex items-center justify-center text-zinc-600 dark:text-zinc-400 mb-1">
-                            <User size={14} />
+                       <div key={tech.id} className="w-64 shrink-0 border-r border-border p-3 flex flex-col gap-1 items-center justify-center">
+                          <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center text-muted-foreground mb-1">
+                            <User size={14} strokeWidth={1.75} />
                           </div>
-                          <span className="font-bold text-xs truncate max-w-full">{tech.name}</span>
-                          <span className={`text-[9px] font-semibold tracking-wide uppercase px-1.5 py-0.5 rounded-full ${tech.status === 'available' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'}`}>
+                          <span className="font-semibold text-xs truncate max-w-full">{tech.name}</span>
+                          <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${tech.status === 'available' ? 'bg-astrum-signal/15 text-astrum-signal' : 'bg-astrum-slate/20 text-astrum-slate'}`}>
                             {tech.status === 'available' ? 'Online' : 'Offline'}
                           </span>
                        </div>
@@ -635,8 +651,8 @@ export function ServiceOrdersPage() {
                  {/* Matrix Body */}
                  <div className="relative">
                     {['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map(hour => (
-                       <div key={hour} className="flex border-b border-zinc-100 dark:border-zinc-800/50 group relative">
-                          <div className="w-20 shrink-0 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-muted p-2 text-xs font-bold text-zinc-400 text-right flex items-center justify-end sticky left-0 z-10 transition-colors group-hover:bg-zinc-100 dark:group-hover:bg-zinc-800">
+                       <div key={hour} className="flex border-b border-border/60 group relative">
+                          <div className="w-20 shrink-0 border-r border-border bg-secondary/40 p-2 text-xs font-mono font-medium text-muted-foreground text-right flex items-center justify-end sticky left-0 z-10 transition-colors duration-fast group-hover:bg-secondary/70">
                              {hour}
                           </div>
                           
@@ -651,30 +667,30 @@ export function ServiceOrdersPage() {
                              );
 
                              return (
-                               <div key={`${tech.id}-${hour}`} className="w-64 shrink-0 border-r border-zinc-100 dark:border-zinc-800/50 p-2 min-h-[90px] hover:bg-black/5 dark:hover:bg-white/5 transition-colors relative cursor-pointer" onClick={() => { setScheduleData(prev => ({...prev, date: selectedDate, time: hour, techId: tech.id})); setIsScheduleDialogOpen(true); }}>
+                               <div key={`${tech.id}-${hour}`} className="w-64 shrink-0 border-r border-border/60 p-2 min-h-[90px] hover:bg-foreground/[0.03] transition-colors duration-fast relative cursor-pointer" onClick={() => { setScheduleData(prev => ({...prev, date: selectedDate, time: hour, techId: tech.id})); setIsScheduleDialogOpen(true); }}>
                                   <div className="flex flex-col gap-2">
                                      {cellOrders.length === 0 && (
-                                       <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                                          <div className="bg-blue-500 text-white text-[10px] font-bold px-2 py-1 rounded-md flex items-center gap-1 shadow-sm"><Plus size={12}/> AGENDAR</div>
+                                       <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-fast">
+                                          <div className="bg-primary text-primary-foreground text-[10px] font-semibold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-2"><Plus size={12}/> Agendar</div>
                                        </div>
                                      )}
                                      {cellOrders.map(os => (
-                                        <div key={os.id} onClick={(e) => { e.stopPropagation(); setSelectedCalendarOS(os); }} className={`relative z-10 rounded-lg border shadow-sm p-2 text-left cursor-pointer transition-transform hover:scale-[1.02] ${
-                                           os.status === 'concluida' ? 'bg-green-50 border-green-200 dark:bg-green-900/10 dark:border-green-800/50' : 
-                                           os.status === 'em_andamento' ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/10 dark:border-blue-800/50' : 
-                                           os.status === 'em_deslocamento' ? 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/10 dark:border-indigo-800/50' : 
-                                           'bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-800/50'
+                                        <div key={os.id} onClick={(e) => { e.stopPropagation(); setSelectedCalendarOS(os); }} className={`relative z-10 rounded-stable-sm border p-2 text-left cursor-pointer transition-transform duration-fast hover:scale-[1.02] ${
+                                           os.status === 'concluida' ? 'bg-astrum-signal/10 border-astrum-signal/30' :
+                                           os.status === 'em_andamento' ? 'bg-astrum-lemon/10 border-astrum-lemon/30' :
+                                           os.status === 'em_deslocamento' ? 'bg-astrum-fiber/10 border-astrum-fiber/30' :
+                                           'bg-astrum-amber/10 border-astrum-amber/30'
                                         }`}>
-                                           <div className={`text-[9px] font-bold uppercase mb-1 ${
-                                              os.status === 'concluida' ? 'text-green-700 dark:text-green-400' : 
-                                              os.status === 'em_andamento' ? 'text-blue-700 dark:text-blue-400' : 
-                                              os.status === 'em_deslocamento' ? 'text-indigo-700 dark:text-indigo-400' : 
-                                              'text-amber-700 dark:text-amber-400'
+                                           <div className={`text-[9px] font-semibold mb-1 font-mono ${
+                                              os.status === 'concluida' ? 'text-astrum-signal' :
+                                              os.status === 'em_andamento' ? 'text-astrum-lemon' :
+                                              os.status === 'em_deslocamento' ? 'text-astrum-fiber' :
+                                              'text-astrum-amber'
                                            }`}>
-                                             {os.scheduledTime} • {os.status.replace('_', ' ')}
+                                             {os.scheduledTime} · {osStatusLabel[os.status] || os.status.replace('_', ' ')}
                                            </div>
-                                           <div className="text-[11px] font-bold text-zinc-900 dark:text-zinc-100 truncate">{os.customerName}</div>
-                                           <div className="text-[10px] text-zinc-500 truncate flex items-center gap-0.5 mt-0.5"><MapPin size={9}/> {os.address}</div>
+                                           <div className="text-[11px] font-semibold truncate">{os.customerName}</div>
+                                           <div className="text-[10px] text-muted-foreground truncate flex items-center gap-0.5 mt-0.5"><MapPin size={9}/> {os.address}</div>
                                         </div>
                                      ))}
                                   </div>
@@ -688,12 +704,12 @@ export function ServiceOrdersPage() {
             </ScrollArea>
             
             {/* Legend Footer */}
-            <div className="bg-zinc-50 dark:bg-zinc-900/50 border-t border-zinc-200 dark:border-zinc-800 p-2 flex items-center gap-4 px-4 overflow-x-auto text-[10px] shrink-0 font-medium">
-               <span className="text-zinc-500 font-bold uppercase tracking-wide mr-2">Legenda:</span>
-               <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-amber-400"></div> Pendente</div>
-               <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-indigo-500"></div> Deslocamento</div>
-               <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-blue-500"></div> Em Andamento</div>
-               <div className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm bg-green-500"></div> Concluída</div>
+            <div className="bg-secondary/40 border-t border-border p-2 flex items-center gap-4 px-4 overflow-x-auto text-[10px] shrink-0 font-medium text-muted-foreground">
+               <span className="font-semibold mr-2">Legenda:</span>
+               <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-astrum-amber"></div> Pendente</div>
+               <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-astrum-fiber"></div> Deslocamento</div>
+               <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-astrum-lemon"></div> Em andamento</div>
+               <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-astrum-signal"></div> Concluída</div>
             </div>
           </div>
         </TabsContent>
@@ -701,14 +717,14 @@ export function ServiceOrdersPage() {
         {/* -- CALENDAR VIEW CONTENT -- */}
         <TabsContent value="calendar" className="flex-1 overflow-y-auto mt-0 pb-10">
           <div className="max-w-3xl mx-auto space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between mb-4">
+            <div className="flex flex-col md:flex-row md:items-end justify-between mb-4">
               <div>
-                <h3 className="text-2xl font-bold text-zinc-900 dark:text-white">Agenda do Técnico</h3>
-                <p className="text-zinc-500">{new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+                <p className="text-xs text-muted-foreground">Campo · {new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+                <h3 className="font-display text-xl font-medium tracking-tight mt-0.5">Agenda do técnico</h3>
               </div>
-              <Badge variant="outline" className="mt-2 md:mt-0 w-fit bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400">
-                {serviceOrders.filter(os => os.scheduledDate === selectedDate || (os.status === 'em_deslocamento' || os.status === 'em_andamento')).length} tarefas na data selecionada
-              </Badge>
+              <span className="mt-2 md:mt-0 w-fit inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-secondary/60 border border-border text-muted-foreground">
+                <span className="font-mono text-foreground mr-1">{serviceOrders.filter(os => os.scheduledDate === selectedDate || (os.status === 'em_deslocamento' || os.status === 'em_andamento')).length}</span> tarefas na data
+              </span>
             </div>
 
             {/* Date Selector */}
@@ -719,23 +735,23 @@ export function ServiceOrdersPage() {
                 const dateStr = date.toISOString().split('T')[0];
                 const isSelected = dateStr === selectedDate;
                 const isToday = dateStr === new Date().toISOString().split('T')[0];
-                
+
                 return (
                   <button
                     key={dateStr}
                     onClick={() => setSelectedDate(dateStr)}
-                    className={`flex flex-col items-center justify-center min-w-[64px] h-[72px] rounded-2xl border transition-all ${
-                      isSelected 
-                        ? 'border-blue-500 bg-blue-500 text-white shadow-md' 
+                    className={`flex flex-col items-center justify-center min-w-[64px] h-[72px] rounded-stable-xl border transition-colors duration-fast ${
+                      isSelected
+                        ? 'border-transparent bg-primary text-primary-foreground shadow-2'
                         : isToday
-                        ? 'border-blue-200 bg-blue-50/50 text-blue-700 dark:bg-blue-900/20 dark:border-blue-800'
-                        : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:border-zinc-700'
+                        ? 'border-astrum-lemon/40 bg-astrum-lemon/10 text-foreground'
+                        : 'border-border bg-card text-muted-foreground hover:text-foreground hover:bg-secondary/50'
                     }`}
                   >
-                    <span className={`text-[10px] font-medium uppercase ${isSelected ? 'text-blue-100' : 'text-zinc-400'}`}>
+                    <span className={`text-[10px] font-medium uppercase ${isSelected ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
                       {date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}
                     </span>
-                    <span className="text-lg font-bold mt-0.5">
+                    <span className="text-lg font-semibold font-mono mt-0.5">
                       {date.getDate()}
                     </span>
                   </button>
@@ -752,54 +768,55 @@ export function ServiceOrdersPage() {
                   const isExpanded = selectedCalendarOS?.id === os.id;
                   
                   return (
-                    <Card key={os.id} className={`border border-zinc-200 dark:border-zinc-800 shadow-sm transition-all overflow-hidden bg-white dark:bg-card ticket-shape relative ${isExpanded ? 'ring-2 ring-blue-500 shadow-md' : 'hover:border-zinc-300 dark:hover:border-zinc-700'}`}>
-                      <div className="absolute top-0 bottom-0 left-[120px] md:left-[108px] border-l border-dashed border-zinc-200 dark:border-white/5 z-0" />
+                    /* D-012 — spotlight P&B: a OS expandida vira card branco puro sobre o fundo escuro */
+                    <Card key={os.id} className={`transition-colors duration-base overflow-hidden ticket-shape relative ${isExpanded ? 'border-none bg-primary text-primary-foreground shadow-2' : 'border border-border bg-card shadow-1 hover:bg-secondary/30'}`}>
+                      <div className={`absolute top-0 bottom-0 left-[120px] md:left-[108px] border-l border-dashed z-0 ${isExpanded ? 'border-primary-foreground/10' : 'border-foreground/10'}`} />
                       {/* HEADER COMPACT (ALWAYS VISIBLE) */}
-                      <div 
+                      <div
                         className="p-4 flex flex-col md:flex-row md:items-center gap-4 cursor-pointer relative z-10"
                         onClick={() => setSelectedCalendarOS(isExpanded ? null : os)}
                       >
                         {/* Time indicator */}
-                        <div className="flex flex-row md:flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-800/50 p-2 md:p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 min-w-[80px] shrink-0 text-center">
-                          <Clock size={16} className="text-zinc-400 md:mb-1 mr-2 md:mr-0" />
-                          <span className="font-bold text-sm text-zinc-700 dark:text-zinc-200">{os.scheduledTime || 'ASAP'}</span>
+                        <div className={`flex flex-row md:flex-col items-center justify-center p-2 md:p-3 rounded-stable-lg border min-w-[80px] shrink-0 text-center ${isExpanded ? 'bg-primary-foreground/5 border-primary-foreground/10' : 'bg-secondary/50 border-border'}`}>
+                          <Clock size={16} strokeWidth={1.75} className={`md:mb-1 mr-2 md:mr-0 ${isExpanded ? 'text-primary-foreground/50' : 'text-muted-foreground'}`} />
+                          <span className="font-semibold font-mono text-sm">{os.scheduledTime || 'ASAP'}</span>
                         </div>
-                        
+
                         {/* Summary Info */}
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <Badge className="uppercase text-[10px]" variant="secondary">{os.type}</Badge>
-                            <Badge variant="outline" className={`text-[10px] ${
-                              os.status === 'concluida' ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:border-green-800' : 
-                              os.status === 'em_andamento' ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800' : 
-                              os.status === 'em_deslocamento' ? 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:border-indigo-800' : 
-                              'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800'
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${isExpanded ? 'bg-primary-foreground/10' : 'bg-secondary/60 text-muted-foreground'}`}>{os.type}</span>
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                              os.status === 'concluida' ? 'bg-astrum-signal/15 text-astrum-signal' :
+                              os.status === 'em_andamento' ? (isExpanded ? 'bg-astrum-amber/15 text-astrum-amber' : 'bg-astrum-lemon/15 text-astrum-lemon') :
+                              os.status === 'em_deslocamento' ? 'bg-astrum-fiber/15 text-astrum-fiber' :
+                              'bg-astrum-amber/15 text-astrum-amber'
                             }`}>
-                              {os.status.replace('_', ' ')}
-                            </Badge>
+                              {osStatusLabel[os.status] || os.status.replace('_', ' ')}
+                            </span>
                           </div>
-                          <h4 className="font-bold text-base text-zinc-900 dark:text-zinc-100 mb-0.5">{os.customerName}</h4>
-                          <p className="text-sm text-zinc-500 flex items-center gap-1.5 line-clamp-1"><MapPin size={14}/> {os.address}</p>
+                          <h4 className="font-semibold text-base mb-0.5">{os.customerName}</h4>
+                          <p className={`text-sm flex items-center gap-1.5 line-clamp-1 ${isExpanded ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}><MapPin size={14} strokeWidth={1.75}/> {os.address}</p>
                         </div>
 
                         {/* Status Icon Indicator */}
                         <div className="shrink-0 flex items-center justify-end">
-                           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isExpanded ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500'}`}>
-                              <ArrowRight className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
+                           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isExpanded ? 'bg-primary-foreground/10 text-primary-foreground' : 'bg-secondary text-muted-foreground'}`}>
+                              <ArrowRight className={`w-4 h-4 transition-transform duration-base ${isExpanded ? 'rotate-90' : ''}`} />
                            </div>
                         </div>
                       </div>
 
                       {/* EXPANDED CONTENT DETAILS */}
                       {isExpanded && (
-                        <div className="px-4 pb-4 pt-1 animate-in slide-in-from-top-2 fade-in">
-                          <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4 flex flex-col md:flex-row gap-6">
-                             
+                        <div className="px-4 pb-4 pt-1 animate-in slide-in-from-top-2 fade-in relative z-10">
+                          <div className="border-t border-primary-foreground/10 pt-4 flex flex-col md:flex-row gap-6">
+
                              <div className="flex-1 space-y-4">
-                               {/* Description */}
+                               {/* Description — chave-valor sóbrio sobre o spotlight */}
                                <div>
-                                 <h5 className="text-xs uppercase font-bold text-zinc-400 mb-1.5 flex items-center gap-1.5"><ListTodo size={14} /> Detalhes da Tarefa</h5>
-                                 <p className="text-sm text-zinc-700 dark:text-zinc-300 bg-zinc-50 dark:bg-zinc-800/30 p-3 rounded-lg whitespace-pre-wrap border border-zinc-100 dark:border-zinc-800/50">
+                                 <h5 className="text-xs font-semibold text-primary-foreground/50 mb-1.5 flex items-center gap-1.5"><ListTodo size={14} strokeWidth={1.75} /> Detalhes da tarefa</h5>
+                                 <p className="text-sm bg-primary-foreground/5 p-3 rounded-stable-lg whitespace-pre-wrap border border-primary-foreground/10">
                                    {os.description || 'Nenhuma descrição fornecida para esta tarefa.'}
                                  </p>
                                </div>
@@ -807,67 +824,67 @@ export function ServiceOrdersPage() {
                                {/* AI Summary */}
                                {os.aiSummary && (
                                  <div>
-                                    <h5 className="text-xs uppercase font-bold text-blue-500 mb-1.5 flex items-center gap-1.5"><Bot size={14} /> Resumo Gerado por IA</h5>
-                                    <p className="text-sm text-blue-800 dark:text-blue-200 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-100 dark:border-blue-900/30">
+                                    <h5 className="text-xs font-semibold text-astrum-fiber mb-1.5 flex items-center gap-1.5"><Bot size={14} strokeWidth={1.75} /> Resumo gerado por IA</h5>
+                                    <p className="text-sm bg-astrum-fiber/10 p-3 rounded-stable-lg border border-astrum-fiber/20">
                                       {os.aiSummary}
                                     </p>
                                  </div>
                                )}
-                               
+
                                {/* Materials */}
                                {(os.materials && os.materials.length > 0) ? (
                                  <div>
-                                   <h5 className="text-xs uppercase font-bold text-zinc-400 mb-1.5 flex items-center gap-1.5"><Package size={14}/> Materiais Previstos</h5>
+                                   <h5 className="text-xs font-semibold text-primary-foreground/50 mb-1.5 flex items-center gap-1.5"><Package size={14} strokeWidth={1.75}/> Materiais previstos</h5>
                                    <div className="flex flex-wrap gap-2">
                                      {os.materials.map((m: any, idx: number) => (
-                                       <Badge key={idx} variant="secondary" className="px-2.5 py-1 text-xs bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
+                                       <span key={idx} className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-primary-foreground/5 border border-primary-foreground/10">
                                          {m}
-                                       </Badge>
+                                       </span>
                                      ))}
                                    </div>
                                  </div>
                                ) : (
                                   <div>
-                                    <h5 className="text-xs uppercase font-bold text-zinc-400 mb-1.5 flex items-center gap-1.5"><Package size={14}/> Materiais Previstos</h5>
-                                    <p className="text-xs text-zinc-500 bg-zinc-50/50 dark:bg-zinc-900/50 p-2 rounded-lg border border-zinc-100 dark:border-zinc-800 border-dashed inline-block">Nenhum material associado a esta ordem.</p>
+                                    <h5 className="text-xs font-semibold text-primary-foreground/50 mb-1.5 flex items-center gap-1.5"><Package size={14} strokeWidth={1.75}/> Materiais previstos</h5>
+                                    <p className="text-xs text-primary-foreground/60 bg-primary-foreground/5 p-2 rounded-stable-lg border border-primary-foreground/10 border-dashed inline-block">Nenhum material associado a esta ordem.</p>
                                   </div>
                                )}
-                               
-                               {/* Actions */}
+
+                               {/* Actions — CTA invertido dentro do spotlight (pill escuro sobre branco) */}
                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                                   {os.status === 'pendente' && (
-                                     <Button className="w-full font-semibold bg-blue-600 hover:bg-blue-700" onClick={(e) => { e.stopPropagation(); handleStartOS(os); }}>
-                                       <PlayCircle size={16} className="mr-2" /> Iniciar Serviço Agora
+                                     <Button className="w-full font-semibold rounded-full bg-primary-foreground text-primary hover:bg-primary-foreground/90" onClick={(e) => { e.stopPropagation(); handleStartOS(os); }}>
+                                       <PlayCircle size={16} strokeWidth={1.75} className="mr-2" /> Iniciar serviço agora
                                      </Button>
                                   )}
                                   {(os.status === 'em_andamento' || os.status === 'em_deslocamento') && (
-                                     <Button variant="default" className="w-full font-semibold bg-green-600 hover:bg-green-700" onClick={(e) => { e.stopPropagation(); setSelectedOS(os); setIsFinishDialogOpen(true); }}>
-                                       <CheckCircle2 size={16} className="mr-2" /> Finalizar O.S.
+                                     <Button className="w-full font-semibold rounded-full bg-primary-foreground text-primary hover:bg-primary-foreground/90" onClick={(e) => { e.stopPropagation(); setSelectedOS(os); setIsFinishDialogOpen(true); }}>
+                                       <CheckCircle2 size={16} strokeWidth={1.75} className="mr-2" /> Finalizar OS
                                      </Button>
                                   )}
-                                  
-                                  <Button variant="outline" className="w-full font-medium" onClick={(e) => { e.stopPropagation(); setSelectedHistoryOS(os); setIsHistoryDialogOpen(true); }}>
-                                    <Calendar size={16} className="mr-2" /> Ver Histórico de Status
+
+                                  <Button variant="outline" className="w-full font-medium rounded-full border-primary-foreground/15 bg-transparent text-primary-foreground hover:bg-primary-foreground/5 hover:text-primary-foreground" onClick={(e) => { e.stopPropagation(); setSelectedHistoryOS(os); setIsHistoryDialogOpen(true); }}>
+                                    <Calendar size={16} strokeWidth={1.75} className="mr-2" /> Histórico de status
                                   </Button>
                                </div>
                              </div>
-                             
+
                              {/* Side panel Map integration */}
                              <div className="w-full md:w-64 shrink-0 flex flex-col gap-3">
-                               <div className="bg-zinc-100 dark:bg-zinc-800 rounded-xl overflow-hidden relative flex flex-col h-40 border border-zinc-200 dark:border-zinc-700">
-                                  <div className="absolute inset-0 opacity-10 pointer-events-none bg-[size:24px_24px] bg-[radial-gradient(circle,currentColor_1px,transparent_1px)] text-zinc-400 dark:text-zinc-600"></div>
+                               <div className="bg-primary-foreground/5 rounded-stable-lg overflow-hidden relative flex flex-col h-40 border border-primary-foreground/10">
+                                  <div className="absolute inset-0 opacity-10 pointer-events-none bg-[size:24px_24px] bg-[radial-gradient(circle,currentColor_1px,transparent_1px)]"></div>
                                   <div className="flex-1 flex items-center justify-center relative z-10 p-4">
-                                     <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center absolute animate-ping"></div>
-                                     <MapPin size={28} className="text-blue-500 absolute drop-shadow-md" />
+                                     <div className="w-16 h-16 bg-astrum-fiber/20 rounded-full flex items-center justify-center absolute animate-ping motion-reduce:animate-none"></div>
+                                     <MapPin size={28} strokeWidth={1.75} className="text-astrum-fiber absolute drop-shadow-md" />
                                   </div>
                                </div>
-                               <Button variant="outline" className="w-full gap-2 bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 font-medium" asChild>
+                               <Button variant="outline" className="w-full gap-2 rounded-full border-primary-foreground/15 bg-transparent text-primary-foreground hover:bg-primary-foreground/5 hover:text-primary-foreground font-medium" asChild>
                                  <a href={`https://www.google.com/maps/dir/?api=1&destination=${os.lat && os.lng ? `${os.lat},${os.lng}` : encodeURIComponent(os.address)}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                                   <MapPin size={16} /> Abrir Rota no Mapa
+                                   <MapPin size={16} strokeWidth={1.75} /> Abrir rota no mapa
                                  </a>
                                </Button>
-                               <Button variant="secondary" className="w-full gap-2 text-xs" onClick={(e) => { e.stopPropagation(); handleNotifyCustomer(os); }}>
-                                 <MessageSquare size={14} /> Avisar Cliente (WhatsApp)
+                               <Button variant="outline" className="w-full gap-2 text-xs rounded-full border-primary-foreground/15 bg-transparent text-primary-foreground hover:bg-astrum-signal/10 hover:text-astrum-signal" onClick={(e) => { e.stopPropagation(); handleNotifyCustomer(os); }}>
+                                 <MessageSquare size={14} strokeWidth={1.75} /> Avisar cliente (WhatsApp)
                                </Button>
                              </div>
 
@@ -879,10 +896,13 @@ export function ServiceOrdersPage() {
                 })}
                 
               {serviceOrders.filter(os => os.scheduledDate === selectedDate || ((selectedDate === new Date().toISOString().split('T')[0]) && (os.status === 'em_deslocamento' || os.status === 'em_andamento'))).length === 0 && (
-                 <div className="text-center py-12 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl bg-zinc-50 dark:bg-zinc-900/50">
-                   <CheckCircle2 size={48} className="mx-auto text-zinc-300 dark:text-zinc-700 mb-4" />
-                   <h4 className="font-bold text-lg mb-1">Tudo limpo por aqui!</h4>
-                   <p className="text-zinc-500 text-sm">Nenhuma tarefa agendada para esta data até o momento.</p>
+                 <div className="text-center py-12 border border-dashed border-border rounded-stable-xl bg-secondary/30">
+                   <CheckCircle2 size={40} strokeWidth={1.5} className="mx-auto text-astrum-signal/50 mb-4" />
+                   <h4 className="font-display font-medium text-lg mb-1">Tudo limpo por aqui</h4>
+                   <p className="text-muted-foreground text-sm mb-4">Nenhuma tarefa agendada para esta data até o momento.</p>
+                   <Button variant="outline" size="sm" className="rounded-full" onClick={() => { setSelectedCustomer(null); setScheduleData(prev => ({...prev, date: selectedDate})); setIsScheduleDialogOpen(true); }}>
+                     <Plus size={14} strokeWidth={1.75} className="mr-1" /> Agendar OS nesta data
+                   </Button>
                  </div>
               )}
             </div>
@@ -892,30 +912,31 @@ export function ServiceOrdersPage() {
         <TabsContent value="history" className="flex-1 mt-0 data-[state=active]:flex overflow-y-auto">
            <div className="w-full flex flex-col md:flex-row gap-4 md:gap-6 h-auto md:h-[calc(100vh-230px)]">
              {/* Tech List */}
-             <div className="w-full md:w-1/4 md:min-w-[280px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-col overflow-hidden shadow-sm shrink-0">
-                 <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
-                    <h3 className="font-bold mb-1">Técnicos</h3>
-                    <p className="text-xs text-zinc-500">Selecione para ver o histórico</p>
+             <div className="w-full md:w-1/4 md:min-w-[280px] bg-card border border-border rounded-stable-xl flex flex-col overflow-hidden shadow-1 shrink-0">
+                 <div className="p-4 border-b border-border bg-secondary/40">
+                    <h3 className="font-semibold mb-1">Técnicos</h3>
+                    <p className="text-xs text-muted-foreground">Selecione para ver o histórico</p>
                  </div>
                  <ScrollArea className="flex-1 p-4">
                     <div className="space-y-2">
                        {technicians.map((tech: any) => {
                          const osToday = serviceOrders.filter(os => os.assignedTo === tech.name && os.scheduledDate === new Date().toISOString().split('T')[0]).length;
                          return (
-                         <div 
-                           key={tech.name} 
-                           className={`p-3 rounded-xl border cursor-pointer hover:border-blue-500 transition-colors ${selectedHistoryTech?.name === tech.name ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'}`}
+                         <div
+                           key={tech.name}
+                           className={`p-3 rounded-stable-lg border cursor-pointer transition-colors duration-fast ${selectedHistoryTech?.name === tech.name ? 'border-transparent bg-primary text-primary-foreground shadow-2' : 'border-border bg-card hover:bg-secondary/50'}`}
                            onClick={() => setSelectedHistoryTech(tech)}
                          >
                             <h4 className="font-semibold text-sm">{tech.name}</h4>
-                            <p className="text-[10px] text-zinc-500 flex items-center gap-1 mt-1">
-                               {tech.status === 'available' ? '🟢 Online' : tech.status === 'busy' ? '🟡 Em serviço' : '⚪ Offline'}
-                               <span className="mx-1">•</span>
-                               <Briefcase size={10} /> {osToday} OS Hoje
+                            <p className={`text-[10px] flex items-center gap-1.5 mt-1 ${selectedHistoryTech?.name === tech.name ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
+                               <span className={`w-1.5 h-1.5 rounded-full ${tech.status === 'available' ? 'bg-astrum-signal' : tech.status === 'busy' ? 'bg-astrum-amber' : 'bg-astrum-slate'}`} />
+                               {tech.status === 'available' ? 'Online' : tech.status === 'busy' ? 'Em serviço' : 'Offline'}
+                               <span className="mx-0.5">·</span>
+                               <Briefcase size={10} strokeWidth={1.75} /> <span className="font-mono">{osToday}</span> OS hoje
                             </p>
                             {tech.coverage_regions && tech.coverage_regions.length > 0 && (
-                               <p className="text-[10px] text-zinc-400 mt-1 flex items-center gap-1">
-                                 <MapPin size={10} /> {tech.coverage_regions.join(', ')}
+                               <p className={`text-[10px] mt-1 flex items-center gap-1 ${selectedHistoryTech?.name === tech.name ? 'text-primary-foreground/50' : 'text-muted-foreground/70'}`}>
+                                 <MapPin size={10} strokeWidth={1.75} /> {tech.coverage_regions.join(', ')}
                                </p>
                             )}
                          </div>
@@ -925,41 +946,44 @@ export function ServiceOrdersPage() {
              </div>
              
              {/* History details */}
-             <div className="flex-1 bg-zinc-50/50 dark:bg-zinc-900/20 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 flex flex-col relative overflow-hidden">
+             <div className="flex-1 bg-secondary/30 border border-border rounded-stable-xl p-6 flex flex-col relative overflow-hidden">
                 {selectedHistoryTech ? (
                   <div className="flex flex-col h-full overflow-hidden">
-                    <div className="flex items-center justify-between mb-4 shrink-0 border-b border-zinc-200 dark:border-zinc-800 pb-4">
-                      <h2 className="text-xl font-bold flex items-center gap-2">
-                        Histórico: {selectedHistoryTech.name}
-                      </h2>
-                      <Badge variant="outline">{serviceOrders.filter(os => os.assignedTo === selectedHistoryTech.name && (os.status === 'concluida' || os.status === 'cancelada')).length} Registros</Badge>
+                    <div className="flex items-center justify-between mb-4 shrink-0 border-b border-border pb-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Histórico de OS</p>
+                        <h2 className="font-display text-xl font-medium tracking-tight mt-0.5">{selectedHistoryTech.name}</h2>
+                      </div>
+                      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium bg-card border border-border text-muted-foreground">
+                        <span className="font-mono text-foreground mr-1">{serviceOrders.filter(os => os.assignedTo === selectedHistoryTech.name && (os.status === 'concluida' || os.status === 'cancelada')).length}</span> registros
+                      </span>
                     </div>
                     <ScrollArea className="flex-1 pr-4">
-                      <div className="space-y-4 pb-4">
+                      <div className="space-y-3 pb-4">
                          {serviceOrders.filter(os => os.assignedTo === selectedHistoryTech.name && (os.status === 'concluida' || os.status === 'cancelada')).length === 0 ? (
-                           <div className="text-center py-12 text-zinc-500 italic">Nenhuma O.S. concluída ou cancelada encontrada para este técnico.</div>
+                           <div className="text-center py-12 text-muted-foreground text-sm">Nenhuma OS concluída ou cancelada encontrada para este técnico.</div>
                          ) : (
                            serviceOrders
                              .filter(os => os.assignedTo === selectedHistoryTech.name && (os.status === 'concluida' || os.status === 'cancelada'))
                              .sort((a,b) => (b.completedAt || b.scheduledDate || '').localeCompare(a.completedAt || a.scheduledDate || ''))
                              .map((os: any) => (
-                               <div key={os.id} className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl p-4 shadow-sm flex flex-col gap-2 relative">
+                               <div key={os.id} className="bg-card border border-border rounded-stable-lg p-4 shadow-1 flex flex-col gap-2 relative">
                                  <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
-                                       <Badge className="uppercase" variant="outline">{os.type}</Badge>
-                                       <Badge variant={os.status === 'concluida' ? 'default' : 'destructive'} className={os.status === 'concluida' ? 'bg-green-500 hover:bg-green-600' : ''}>
+                                       <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium bg-secondary/60 text-muted-foreground">{os.type}</span>
+                                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${os.status === 'concluida' ? 'bg-astrum-signal/15 text-astrum-signal' : 'bg-astrum-red/15 text-astrum-red'}`}>
                                          {os.status === 'concluida' ? 'Concluída' : 'Cancelada'}
-                                       </Badge>
+                                       </span>
                                     </div>
-                                    <span className="text-xs text-zinc-500 font-medium whitespace-nowrap">Data: {os.completedAt ? new Date(os.completedAt).toLocaleDateString() : os.scheduledDate || 'N/A'}</span>
+                                    <span className="text-xs text-muted-foreground font-mono whitespace-nowrap">{os.completedAt ? new Date(os.completedAt).toLocaleDateString('pt-BR') : os.scheduledDate || 'N/A'}</span>
                                  </div>
                                  <div className="mt-1">
                                     <h4 className="font-semibold text-sm mb-1">{os.customerName}</h4>
-                                    <p className="text-xs text-zinc-500 flex items-center gap-1"><MapPin size={12}/> {os.address}</p>
+                                    <p className="text-xs text-muted-foreground flex items-center gap-1"><MapPin size={12} strokeWidth={1.75}/> {os.address}</p>
                                  </div>
                                  {(os.description || os.aiSummary) && (
-                                   <div className="mt-2 bg-zinc-50 dark:bg-zinc-900/50 p-3 rounded-md border border-zinc-100 dark:border-zinc-800">
-                                     <p className="text-xs text-zinc-600 dark:text-zinc-300 whitespace-pre-wrap">{os.description || os.aiSummary}</p>
+                                   <div className="mt-2 bg-secondary/50 p-3 rounded-stable-sm">
+                                     <p className="text-xs whitespace-pre-wrap">{os.description || os.aiSummary}</p>
                                    </div>
                                  )}
                                </div>
@@ -969,10 +993,10 @@ export function ServiceOrdersPage() {
                     </ScrollArea>
                   </div>
                 ) : (
-                  <div className="flex-1 w-full border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-xl flex items-center justify-center bg-white/50 dark:bg-zinc-800/20">
+                  <div className="flex-1 w-full border border-dashed border-border rounded-stable-lg flex items-center justify-center bg-card/40">
                      <div className="text-center">
-                       <User size={48} className="mx-auto text-zinc-300 dark:text-zinc-600 mb-3" />
-                       <p className="text-zinc-500 font-medium">Selecione um técnico para visualizar o histórico de O.S.</p>
+                       <User size={40} strokeWidth={1.5} className="mx-auto text-muted-foreground/40 mb-3" />
+                       <p className="text-muted-foreground font-medium text-sm">Selecione um técnico para visualizar o histórico de OS.</p>
                      </div>
                   </div>
                 )}
@@ -980,25 +1004,23 @@ export function ServiceOrdersPage() {
            </div>
         </TabsContent>
         <TabsContent value="incidents" className="flex-1 mt-0 data-[state=active]:flex overflow-y-auto w-full">
-           <div className="flex-1 w-full bg-zinc-50 dark:bg-zinc-900/30 rounded-2xl border border-zinc-100 dark:border-zinc-800 p-4 shadow-sm md:p-6">
+           <div className="flex-1 w-full bg-secondary/30 rounded-stable-xl border border-border p-4 md:p-6">
               <div className="flex items-center justify-between mb-6">
                  <div>
-                    <h2 className="text-lg font-semibold flex items-center gap-2">
-                       <Bot className="text-red-500" />
-                       Incidentes de Rede (Macro)
+                    <p className="text-xs text-muted-foreground">Rede · detecção automática por IA</p>
+                    <h2 className="font-display text-xl font-medium tracking-tight mt-0.5 flex items-center gap-2">
+                       <Bot size={18} strokeWidth={1.75} className="text-astrum-red" />
+                       Incidentes de rede (macro)
                     </h2>
-                    <p className="text-sm text-zinc-500">
-                       Acompanhamento de falhas massivas em CTOs detectadas pela IA.
-                    </p>
                  </div>
-                 <Button variant="outline" size="sm" onClick={fetchIncidents}>Atualizar</Button>
+                 <Button variant="outline" size="sm" className="rounded-full" onClick={fetchIncidents}>Atualizar</Button>
               </div>
 
               {activeIncidents.length === 0 ? (
-                 <div className="w-full border-2 border-dashed border-zinc-200 dark:border-zinc-700 rounded-xl flex items-center justify-center bg-white/50 dark:bg-zinc-800/20 py-20">
+                 <div className="w-full border border-dashed border-border rounded-stable-lg flex items-center justify-center bg-card/40 py-20">
                     <div className="text-center">
-                       <CheckCircle2 size={48} className="mx-auto text-green-300 dark:text-green-600 mb-3" />
-                       <p className="text-zinc-500 font-medium">Nenhum incidente ativo no momento.</p>
+                       <CheckCircle2 size={40} strokeWidth={1.5} className="mx-auto text-astrum-signal/50 mb-3" />
+                       <p className="text-muted-foreground font-medium text-sm">Nenhum incidente ativo no momento.</p>
                     </div>
                  </div>
               ) : (
@@ -1009,31 +1031,32 @@ export function ServiceOrdersPage() {
                        const diffMins = Math.floor(diffMs / 60000);
                        const hours = Math.floor(diffMins / 60);
                        const mins = diffMins % 60;
-                       
+
                        return (
-                          <Card key={incident.id} className="border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-900/10 shadow-sm relative overflow-hidden">
-                             <div className="absolute top-0 left-0 w-1 h-full bg-red-500" />
+                          <Card key={incident.id} className="border border-astrum-red/30 bg-astrum-red/5 shadow-1 rounded-stable-xl relative overflow-hidden">
+                             <span aria-hidden className="absolute left-0 top-4 bottom-4 w-0.5 rounded-full bg-astrum-red" />
                              <CardHeader className="p-4 pb-2">
                                 <div className="flex justify-between items-start">
-                                  <Badge variant="destructive" className="uppercase font-bold tracking-wider">
+                                  <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold font-mono bg-astrum-red/15 text-astrum-red">
                                      CTO-{incident.ctoId}
-                                  </Badge>
-                                  <span className="text-xs font-semibold text-zinc-500 flex items-center gap-1">
-                                     <Clock size={12} /> {hours > 0 ? `${hours}h ${mins}m` : `${mins}m`} atrás
+                                  </span>
+                                  <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                                     <Clock size={12} strokeWidth={1.75} /> <span className="font-mono">{hours > 0 ? `${hours}h ${mins}m` : `${mins}m`}</span> atrás
                                   </span>
                                 </div>
                              </CardHeader>
                              <CardContent className="p-4 pt-2">
                                 <div className="mb-4">
-                                   <p className="text-sm text-zinc-600 dark:text-zinc-400 font-medium">
-                                      {incident.affectedClients?.length || 0} clientes impactados.
+                                   <p className="text-sm font-medium">
+                                      <span className="font-mono">{incident.affectedClients?.length || 0}</span> clientes impactados.
                                    </p>
                                 </div>
-                                <Button 
-                                   className="w-full bg-red-600 hover:bg-red-700 text-white" 
+                                <Button
+                                   variant="destructive"
+                                   className="w-full rounded-full"
                                    onClick={() => handleResolveIncident(incident.id)}
                                 >
-                                   Marcar como Resolvido
+                                   Marcar como resolvido
                                 </Button>
                              </CardContent>
                           </Card>
@@ -1047,14 +1070,18 @@ export function ServiceOrdersPage() {
 
       {/* SCHEDULE DIALOG */}
       <Dialog open={isScheduleDialogOpen} onOpenChange={setIsScheduleDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Gerar Nova Tarefa / OS</DialogTitle>
-            <DialogDescription>
-              Criar Ordem de Serviço (Instalação, Manutenção, etc).
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleCreateOSAndSchedule} className="space-y-4 pt-2">
+        <DialogContent className="sm:max-w-[460px] border border-border shadow-4 rounded-stable-xl p-0 overflow-hidden bg-popover">
+          <div className="bg-secondary/40 p-6 border-b border-border">
+            <DialogHeader>
+              <DialogTitle className="font-display text-2xl font-semibold flex items-center gap-2">
+                <Briefcase size={22} strokeWidth={1.75} className="text-astrum-lemon" /> Nova Ordem de Serviço
+              </DialogTitle>
+              <DialogDescription>
+                Instalação, manutenção ou reparo — direto para o CRM do técnico.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          <form onSubmit={handleCreateOSAndSchedule} className="space-y-4 p-6">
             <div className="space-y-2">
               <Label>Cliente</Label>
               <Select 
@@ -1138,7 +1165,7 @@ export function ServiceOrdersPage() {
             </div>
             <DialogFooter className="pt-4">
               <Button type="button" variant="ghost" onClick={() => setIsScheduleDialogOpen(false)}>Cancelar</Button>
-              <Button type="submit" disabled={isSubmitting}>Criar Ordem de Serviço</Button>
+              <Button type="submit" className="px-8" disabled={isSubmitting}>Criar OS</Button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -1146,35 +1173,35 @@ export function ServiceOrdersPage() {
 
       {/* WHATSAPP SIMULATOR DIALOG */}
       <Dialog open={isWhatsappDialogOpen} onOpenChange={setIsWhatsappDialogOpen}>
-        <DialogContent className="sm:max-w-[800px] h-[80vh] flex flex-col p-0 overflow-hidden bg-zinc-50 dark:bg-zinc-950">
+        <DialogContent className="sm:max-w-[800px] h-[80vh] flex flex-col p-0 overflow-hidden bg-popover border border-border shadow-4 rounded-stable-xl">
           <DialogTitle className="sr-only">Simulador do Telefone do Técnico</DialogTitle>
-          <div className="bg-emerald-800 dark:bg-zinc-900 text-white p-4 flex items-center justify-between shrink-0">
+          <div className="bg-astrum-signal/15 border-b border-border p-4 flex items-center justify-between shrink-0">
              <div className="flex items-center gap-3">
-                <Smartphone size={20} />
+                <Smartphone size={20} strokeWidth={1.75} className="text-astrum-signal" />
                 <div>
-                   <h3 className="font-bold text-sm">Simulador do Telefone do Técnico</h3>
-                   <p className="text-[10px] text-green-100">Painel de Testes do MVP</p>
+                   <h3 className="font-semibold text-sm">Simulador do telefone do técnico</h3>
+                   <p className="text-[10px] text-muted-foreground">Painel de testes do MVP</p>
                 </div>
              </div>
-             <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={() => setIsWhatsappDialogOpen(false)}>
-                <X size={20} />
+             <Button variant="ghost" size="icon" aria-label="Fechar simulador" onClick={() => setIsWhatsappDialogOpen(false)}>
+                <X size={20} strokeWidth={1.75} />
              </Button>
           </div>
-          
+
           <div className="flex flex-1 overflow-hidden">
              {/* Tech Status Sidebar */}
-             <div className="w-1/3 bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 p-4 overflow-y-auto">
-                <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-4">Técnicos Base</h4>
+             <div className="w-1/3 bg-card border-r border-border p-4 overflow-y-auto">
+                <h4 className="text-xs font-semibold text-muted-foreground mb-4">Técnicos base</h4>
                 <div className="space-y-3">
                   {technicians.map(tech => (
-                     <div key={tech.id} className="p-3 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800 rounded-lg">
+                     <div key={tech.id} className="p-3 bg-secondary/40 border border-border rounded-stable-lg">
                         <div className="flex items-center justify-between mb-2">
                            <span className="text-sm font-medium">{tech.name}</span>
-                           <div className={`w-2 h-2 rounded-full ${tech.status === 'available' ? 'bg-green-500' : 'bg-red-500'}`} />
+                           <div className={`w-2 h-2 rounded-full ${tech.status === 'available' ? 'bg-astrum-signal' : 'bg-astrum-red'}`} />
                         </div>
                         <div className="flex gap-2">
-                           <Button size="sm" variant={tech.status === 'available' ? 'default' : 'outline'} className="h-6 text-[10px] flex-1 px-1" onClick={() => updateTechnician(tech.id, { status: 'available' })}>Ficar Online</Button>
-                           <Button size="sm" variant={tech.status === 'offline' ? 'secondary' : 'outline'} className="h-6 text-[10px] flex-1 px-1" onClick={() => updateTechnician(tech.id, { status: 'offline' })}>Sair</Button>
+                           <Button size="sm" variant={tech.status === 'available' ? 'default' : 'outline'} className="h-6 text-[10px] flex-1 px-1 rounded-full" onClick={() => updateTechnician(tech.id, { status: 'available' })}>Ficar online</Button>
+                           <Button size="sm" variant={tech.status === 'offline' ? 'secondary' : 'outline'} className="h-6 text-[10px] flex-1 px-1 rounded-full" onClick={() => updateTechnician(tech.id, { status: 'offline' })}>Sair</Button>
                         </div>
                      </div>
                   ))}
@@ -1182,18 +1209,18 @@ export function ServiceOrdersPage() {
              </div>
 
              {/* Chat Mock Area */}
-             <div className="flex-1 flex flex-col bg-[#efeae2] dark:bg-zinc-950 relative">
+             <div className="flex-1 flex flex-col bg-secondary/30 relative">
                 <ScrollArea className="flex-1 p-4">
                    <div className="space-y-4">
                       {whatsappSimulationLog.length === 0 ? (
-                         <div className="text-center mt-20 p-4 bg-yellow-100/80 text-yellow-800 rounded-lg text-sm max-w-sm mx-auto shadow-sm">
+                         <div className="text-center mt-20 p-4 bg-astrum-amber/10 text-astrum-amber rounded-stable-lg text-sm max-w-sm mx-auto">
                             As mensagens enviadas pelo sistema para os técnicos aparecerão aqui. Envie uma OS (Aguardando Despacho) para ver a magia acontecer.
                          </div>
                       ) : (
                          [...whatsappSimulationLog].reverse().map(log => (
                             <div key={log.id} className="flex flex-col">
-                               <span className="text-[10px] text-center text-zinc-500 mb-2 bg-white/50 dark:bg-black/30 rounded-full px-2 py-0.5 mx-auto">{log.tech} • {log.time}</span>
-                               <div className="bg-white dark:bg-zinc-800 p-3 rounded-lg rounded-tl-none shadow-sm max-w-[85%] self-start whitespace-pre-wrap text-[13px] border border-zinc-100 dark:border-zinc-700 relative">
+                               <span className="text-[10px] text-center text-muted-foreground mb-2 bg-card/70 border border-border rounded-full px-2 py-0.5 mx-auto">{log.tech} · {log.time}</span>
+                               <div className="bg-card p-3 rounded-stable-lg rounded-tl-none shadow-1 max-w-[85%] self-start whitespace-pre-wrap text-[13px] border border-border relative">
                                   {log.text}
                                </div>
                             </div>
@@ -1201,9 +1228,9 @@ export function ServiceOrdersPage() {
                       )}
                    </div>
                 </ScrollArea>
-                <div className="p-3 bg-zinc-100 dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 flex gap-2">
-                   <Input placeholder="Técnico respondendo (Simulado)..." disabled className="bg-white dark:bg-zinc-800" />
-                   <Button disabled size="icon"><MessageSquare size={16} /></Button>
+                <div className="p-3 bg-card border-t border-border flex gap-2">
+                   <Input placeholder="Técnico respondendo (Simulado)..." disabled className="bg-input/60 border-border rounded-stable-lg" />
+                   <Button disabled size="icon" aria-label="Enviar mensagem simulada"><MessageSquare size={16} strokeWidth={1.75} /></Button>
                 </div>
              </div>
           </div>
@@ -1212,35 +1239,39 @@ export function ServiceOrdersPage() {
 
       {/* FINISH OS DIALOG */}
       <Dialog open={isFinishDialogOpen} onOpenChange={setIsFinishDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Concluir Ordem de Serviço</DialogTitle>
-            <DialogDescription>
-              {selectedOS?.customerName} • Triagem via WhatsApp concluída.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleFinishOS} className="space-y-4 pt-2">
+        <DialogContent className="sm:max-w-[440px] border border-border shadow-4 rounded-stable-xl p-0 overflow-hidden bg-popover">
+          <div className="bg-secondary/40 p-6 border-b border-border">
+            <DialogHeader>
+              <DialogTitle className="font-display text-2xl font-semibold flex items-center gap-2">
+                <CheckCircle2 size={22} strokeWidth={1.75} className="text-astrum-signal" /> Concluir OS
+              </DialogTitle>
+              <DialogDescription>
+                {selectedOS?.customerName} · triagem via WhatsApp concluída.
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+          <form onSubmit={handleFinishOS} className="space-y-4 p-6">
             <div className="space-y-2">
-              <Label>MAC Address / Serial ONU *</Label>
-              <Input required placeholder="Ex: 00:1A:2B:3C:4D:5E" value={finishData.macAddress} onChange={e => setFinishData({...finishData, macAddress: e.target.value})} />
-              <p className="text-[10px] text-zinc-500 leading-tight mt-1">
+              <Label className="text-sm font-semibold">MAC Address / Serial ONU *</Label>
+              <Input required placeholder="Ex: 00:1A:2B:3C:4D:5E" className="rounded-stable-lg bg-input/60 border-border font-mono placeholder:font-sans placeholder:text-muted-foreground/60" value={finishData.macAddress} onChange={e => setFinishData({...finishData, macAddress: e.target.value})} />
+              <p className="text-[10px] text-muted-foreground leading-tight mt-1">
                 Ao preencher, o ERP "Pai" será acionado (via API no backend final) para provisionar este MAC.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Cabo Usado (M)</Label>
-                <Input type="number" placeholder="Ex: 45" value={finishData.cableUsed} onChange={e => setFinishData({...finishData, cableUsed: e.target.value})} />
+                <Label className="text-sm font-semibold">Cabo usado (m)</Label>
+                <Input type="number" placeholder="Ex: 45" className="rounded-stable-lg bg-input/60 border-border font-mono placeholder:font-sans placeholder:text-muted-foreground/60" value={finishData.cableUsed} onChange={e => setFinishData({...finishData, cableUsed: e.target.value})} />
               </div>
               <div className="space-y-2">
-                <Label>Sinal (dBm) *</Label>
-                <Input required placeholder="-19.5" value={finishData.signal} onChange={e => setFinishData({...finishData, signal: e.target.value})} />
+                <Label className="text-sm font-semibold">Sinal (dBm) *</Label>
+                <Input required placeholder="-19.5" className="rounded-stable-lg bg-input/60 border-border font-mono placeholder:font-sans placeholder:text-muted-foreground/60" value={finishData.signal} onChange={e => setFinishData({...finishData, signal: e.target.value})} />
               </div>
             </div>
             <DialogFooter className="pt-4">
               <Button type="button" variant="ghost" onClick={() => setIsFinishDialogOpen(false)}>Cancelar</Button>
-              <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white">
-                {isSubmitting ? 'Salvando...' : 'Autenticar & Finalizar'}
+              <Button type="submit" disabled={isSubmitting} className="px-8">
+                {isSubmitting ? 'Salvando...' : 'Autenticar e finalizar'}
               </Button>
             </DialogFooter>
           </form>
@@ -1295,28 +1326,29 @@ export function ServiceOrdersPage() {
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[300px]">
-            <div className="space-y-4 pt-2 pb-4">
+            {/* D-012 — timeline numerada com conector vertical */}
+            <div className="space-y-5 pt-2 pb-4">
               {selectedHistoryOS && selectedHistoryOS.statusHistory && selectedHistoryOS.statusHistory.length > 0 ? (
                 selectedHistoryOS.statusHistory
                   .slice()
                   .reverse()
                   .slice(0, 5) // Show only the last 5 updates
                   .map((historyItem: any, index: number) => (
-                  <div key={index} className="flex gap-3 relative before:absolute before:left-2 before:top-6 before:bottom-[-16px] before:w-px before:bg-zinc-200 dark:before:bg-zinc-800 last:before:hidden">
-                    <div className="w-4 h-4 rounded-full bg-blue-100 dark:bg-blue-900/50 border border-blue-500 flex items-center justify-center shrink-0 mt-1 relative z-10">
-                      <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                  <div key={index} className="flex gap-3 relative before:absolute before:left-3 before:top-7 before:bottom-[-20px] before:w-px before:bg-border last:before:hidden">
+                    <div className="w-6 h-6 rounded-full bg-secondary border border-border flex items-center justify-center shrink-0 mt-0.5 relative z-10">
+                      <span className="text-[10px] font-mono font-semibold">{index + 1}</span>
                     </div>
                     <div>
-                      <p className="text-sm font-semibold capitalize text-zinc-900 dark:text-zinc-100">{historyItem.status.replace('_', ' ')}</p>
-                      <p className="text-xs text-zinc-500 flex items-center gap-1 mt-0.5"><User size={10}/> {historyItem.technician || 'Sistema'}</p>
-                      <p className="text-[10px] text-zinc-400 mt-1">{new Date(historyItem.timestamp).toLocaleString()}</p>
+                      <p className="text-sm font-semibold">{osStatusLabel[historyItem.status] || historyItem.status.replace('_', ' ')}</p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5"><User size={10} strokeWidth={1.75}/> {historyItem.technician || 'Sistema'}</p>
+                      <p className="text-[10px] text-muted-foreground/70 font-mono mt-1">{new Date(historyItem.timestamp).toLocaleString('pt-BR')}</p>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="text-center py-6 text-zinc-500">
-                  <Calendar size={32} className="mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">Nenhum histórico registrado para esta O.S.</p>
+                <div className="text-center py-6 text-muted-foreground">
+                  <Calendar size={28} strokeWidth={1.5} className="mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Nenhum histórico registrado para esta OS.</p>
                 </div>
               )}
             </div>
