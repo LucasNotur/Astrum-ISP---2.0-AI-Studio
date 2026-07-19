@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/src/components/ui/avatar";
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/src/components/ui/tooltip";
 import {
-  Users, Plus, Search, Filter, MoreVertical, Edit2, ShieldAlert, Zap, X, MapPin, Phone, Mail, Building, Bell, Copy, CheckCircle2, Eye, Upload, Download, Clock, TrendingDown, MessageSquare
+  Users, Plus, Search, Filter, MoreVertical, Edit2, ShieldAlert, Zap, X, MapPin, Phone, Mail, Building, Bell, Copy, CheckCircle2, Eye, Upload, Download, Clock, TrendingDown, MessageSquare, ChevronsUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuCheckboxItem } from "@/src/components/ui/dropdown-menu";
 import { toast } from "sonner";
@@ -181,6 +181,28 @@ export function CustomersPage() {
     });
   }, [customers, customerSearch, customerStatusFilter, customerPlanFilter, selectedTagsFilter, churnFilter]);
 
+  // D-008 — ordenação por coluna
+  const [sortKey, setSortKey] = useState<'name' | 'mrr' | 'risk' | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const toggleSort = (key: 'name' | 'mrr' | 'risk') => {
+    if (sortKey !== key) { setSortKey(key); setSortDir('asc'); }
+    else if (sortDir === 'asc') setSortDir('desc');
+    else setSortKey(null);
+  };
+  const sortedCustomers = useMemo(() => {
+    if (!sortKey) return filteredCustomers;
+    const dir = sortDir === 'asc' ? 1 : -1;
+    return [...filteredCustomers].sort((a, b) => {
+      if (sortKey === 'name') return dir * (a.name || '').localeCompare(b.name || '', 'pt-BR');
+      if (sortKey === 'mrr') return dir * ((a.mrr ?? 0) - (b.mrr ?? 0));
+      return dir * ((a.riskScore ?? 0) - (b.riskScore ?? 0));
+    });
+  }, [filteredCustomers, sortKey, sortDir]);
+
+  const SortIcon = ({ col }: { col: 'name' | 'mrr' | 'risk' }) =>
+    sortKey !== col ? <ChevronsUpDown size={12} className="opacity-50" />
+    : sortDir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />;
+
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   const handleCreateCustomer = async (e: React.FormEvent) => {
@@ -319,15 +341,24 @@ export function CustomersPage() {
               animate={{ opacity: 1, x: 0 }}
               className="space-y-6"
             >
-              <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                
-                <div className="flex flex-wrap items-center gap-2">
+              {/* D-008 — hero da seção: eyebrow + título display + ações */}
+              <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Users size={13} strokeWidth={1.75} />
+                    Base de clientes · <span className="font-mono text-foreground">{customers.length}</span> cadastrados
+                  </div>
+                  <h1 className="font-display text-3xl md:text-4xl font-medium tracking-tight leading-[1.1] mt-2">
+                    Clientes
+                  </h1>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
                   <input type="file" accept=".csv" className="hidden" ref={customerFileInputRef} onChange={handleImportCustomers} />
                   <TooltipProvider delayDuration={0}>
                     <UITooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="outline" className="gap-2" onClick={() => customerFileInputRef.current?.click()}>
-                          <Upload size={18} /> <span className="hidden md:inline">Importar CSV</span>
+                        <Button variant="outline" size="sm" className="gap-2" onClick={() => customerFileInputRef.current?.click()}>
+                          <Upload size={15} strokeWidth={1.75} /> <span className="hidden md:inline">Importar CSV</span>
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="bottom" className="text-xs">
@@ -339,8 +370,8 @@ export function CustomersPage() {
                   <TooltipProvider delayDuration={0}>
                     <UITooltip>
                       <TooltipTrigger asChild>
-                        <Button variant="outline" className="gap-2" onClick={exportCustomersToCSV}>
-                          <Download size={18} /> <span className="hidden md:inline">Exportar CSV</span>
+                        <Button variant="outline" size="sm" className="gap-2" onClick={exportCustomersToCSV}>
+                          <Download size={15} strokeWidth={1.75} /> <span className="hidden md:inline">Exportar CSV</span>
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="bottom" className="text-xs">
@@ -349,13 +380,13 @@ export function CustomersPage() {
                     </UITooltip>
                   </TooltipProvider>
                   {isOwner && (
-                    <Button className="gap-2" onClick={() => {
+                    <Button size="sm" className="gap-2" onClick={() => {
                       setNewCustomer({ name: '', email: '', plan: '', mrr: 0, status: 'active', tags: [] });
                       setNewTagInput('');
                       setFormErrors({});
                       setIsCreateDialogOpen(true);
                     }}>
-                      <Plus size={18} /> Novo Cliente
+                      <Plus size={15} strokeWidth={1.75} /> Novo Cliente
                     </Button>
                   )}
                 </div>
@@ -370,24 +401,24 @@ export function CustomersPage() {
                 return (
                   <div className="flex flex-col sm:flex-row gap-3">
                     {[
-                      { label: 'Alto Risco', count: high,   key: 'high'   as const, color: 'border-l-[--color-astrum-red]',   active: 'ring-1 ring-[--color-astrum-red]/40 bg-red-50/60 dark:bg-red-950/10' },
-                      { label: 'Risco Médio', count: medium, key: 'medium' as const, color: 'border-l-[--color-astrum-amber]', active: 'ring-1 ring-[--color-astrum-amber]/40 bg-amber-50/60 dark:bg-amber-950/10' },
-                      { label: 'Baixo Risco', count: low,    key: 'low'    as const, color: 'border-l-emerald-500',             active: 'ring-1 ring-emerald-500/40 bg-emerald-50/60 dark:bg-emerald-950/10' },
+                      { label: 'Alto Risco', count: high,   key: 'high'   as const, color: 'border-l-astrum-red',   active: 'ring-1 ring-astrum-red/40 bg-astrum-red/10' },
+                      { label: 'Risco Médio', count: medium, key: 'medium' as const, color: 'border-l-astrum-amber', active: 'ring-1 ring-astrum-amber/40 bg-astrum-amber/10' },
+                      { label: 'Baixo Risco', count: low,    key: 'low'    as const, color: 'border-l-astrum-signal', active: 'ring-1 ring-astrum-signal/40 bg-astrum-signal/10' },
                     ].map(({ label, count, key, color, active }) => (
                       <button
                         key={key}
                         onClick={() => setChurnFilter(churnFilter === key ? 'all' : key)}
                         className={cn(
-                          'flex-1 text-left rounded-lg border border-l-4 px-4 py-3 transition-all',
+                          'flex-1 text-left rounded-stable-xl border border-border border-l-4 px-4 py-3.5 transition-colors duration-fast shadow-1',
                           color,
-                          churnFilter === key ? active : 'bg-card hover:bg-muted/60'
+                          churnFilter === key ? active : 'bg-card hover:bg-foreground/[0.03]'
                         )}
                       >
                         <div className="flex items-center justify-between">
                           <p className="text-xs text-muted-foreground font-medium">{label}</p>
-                          <TrendingDown size={13} className="text-muted-foreground" />
+                          <TrendingDown size={13} strokeWidth={1.75} className="text-muted-foreground" />
                         </div>
-                        <p className="text-2xl font-bold font-mono tabular-nums mt-0.5">{count}</p>
+                        <p className="text-2xl font-semibold font-mono tabular-nums mt-1">{count}</p>
                         {!hasData && <p className="text-[10px] text-muted-foreground mt-1">IA-38 pendente</p>}
                       </button>
                     ))}
@@ -400,28 +431,28 @@ export function CustomersPage() {
                           setIsNotificarOpen(true);
                         }
                       }}
-                      className="flex-1 text-left rounded-lg border border-l-4 border-l-[--color-astrum-fiber] px-4 py-3 bg-card hover:bg-muted/60 transition-all"
+                      className="flex-1 text-left rounded-stable-xl border border-border border-l-4 border-l-astrum-fiber px-4 py-3.5 bg-card hover:bg-foreground/[0.03] transition-colors duration-fast shadow-1"
                     >
                       <div className="flex items-center justify-between">
                         <p className="text-xs text-muted-foreground font-medium">Campanha de Comunicação</p>
-                        <MessageSquare size={13} className="text-[--color-astrum-fiber]" />
+                        <MessageSquare size={13} strokeWidth={1.75} className="text-astrum-fiber" />
                       </div>
-                      <p className="text-2xl font-bold font-mono tabular-nums mt-0.5 text-[--color-astrum-fiber]">{filteredCustomers.length}</p>
+                      <p className="text-2xl font-semibold font-mono tabular-nums mt-1 text-astrum-fiber">{filteredCustomers.length}</p>
                       <p className="text-[10px] text-muted-foreground mt-1">clientes visíveis · IA-28</p>
                     </button>
                   </div>
                 );
               })()}
 
-              <Card className="border-none shadow-sm">
+              <Card className="rounded-stable-xl border border-border bg-card shadow-1">
                 <CardHeader>
                   <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                     <div className="flex items-center gap-4 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
                       <div className="relative w-full md:w-72 shrink-0">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
-                        <Input 
-                          placeholder="Buscar por nome, email, telefone, endereço ou tag..." 
-                          className="pl-10" 
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} strokeWidth={1.75} />
+                        <Input
+                          placeholder="Buscar por nome, email, telefone, endereço ou tag..."
+                          className="pl-10 h-10 rounded-stable-lg bg-input/60 border-border placeholder:text-muted-foreground/60"
                           value={customerSearchInput}
                           onChange={(e) => setCustomerSearchInput(e.target.value)}
                         />
@@ -499,8 +530,8 @@ export function CustomersPage() {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       )}
-                      <select 
-                        className="flex h-10 w-full md:w-[140px] items-center justify-between rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm ring-offset-white dark:ring-offset-zinc-950 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-zinc-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      <select
+                        className="flex h-10 w-full md:w-[140px] items-center justify-between rounded-stable-lg border border-border bg-input/60 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
                         value={customerStatusFilter}
                         onChange={(e) => setCustomerStatusFilter(e.target.value)}
                       >
@@ -509,8 +540,8 @@ export function CustomersPage() {
                         <option value="inactive">Inativos</option>
                         <option value="lead">Pendente (Não Cadas.)</option>
                       </select>
-                      <select 
-                        className="flex h-10 w-full md:w-[160px] items-center justify-between rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 text-sm ring-offset-white dark:ring-offset-zinc-950 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-950 dark:focus:ring-zinc-300 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      <select
+                        className="flex h-10 w-full md:w-[160px] items-center justify-between rounded-stable-lg border border-border bg-input/60 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
                         value={customerPlanFilter}
                         onChange={(e) => setCustomerPlanFilter(e.target.value)}
                       >
@@ -526,11 +557,12 @@ export function CustomersPage() {
                 <CardContent className="overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow>
+                      {/* D-008 — header row discreta com colunas ordenáveis */}
+                      <TableRow className="border-border hover:bg-transparent">
                         <TableHead className="w-[40px]">
-                          <input 
-                            type="checkbox" 
-                            className="rounded border-zinc-300"
+                          <input
+                            type="checkbox"
+                            className="rounded border-border accent-foreground"
                             checked={selectedCustomers.length === filteredCustomers.length && filteredCustomers.length > 0}
                             onChange={(e) => {
                               if (e.target.checked) {
@@ -541,17 +573,30 @@ export function CustomersPage() {
                             }}
                           />
                         </TableHead>
-                        <TableHead>Nome</TableHead>
-                        <TableHead>Saúde</TableHead>
-                        <TableHead>Risco Churn</TableHead>
-                        <TableHead>Plano</TableHead>
-                        <TableHead>MRR</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Ações</TableHead>
+                        <TableHead className="w-[44px] text-xs text-muted-foreground">Nº</TableHead>
+                        <TableHead>
+                          <button onClick={() => toggleSort('name')} className="flex items-center gap-1.5 text-xs font-medium hover:text-foreground transition-colors duration-fast">
+                            Nome <SortIcon col="name" />
+                          </button>
+                        </TableHead>
+                        <TableHead className="text-xs">Saúde</TableHead>
+                        <TableHead>
+                          <button onClick={() => toggleSort('risk')} className="flex items-center gap-1.5 text-xs font-medium hover:text-foreground transition-colors duration-fast">
+                            Risco Churn <SortIcon col="risk" />
+                          </button>
+                        </TableHead>
+                        <TableHead className="text-xs">Plano</TableHead>
+                        <TableHead>
+                          <button onClick={() => toggleSort('mrr')} className="flex items-center gap-1.5 text-xs font-medium hover:text-foreground transition-colors duration-fast">
+                            MRR <SortIcon col="mrr" />
+                          </button>
+                        </TableHead>
+                        <TableHead className="text-xs">Status</TableHead>
+                        <TableHead className="text-xs">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredCustomers.length > 0 ? filteredCustomers.map(c => {
+                      {sortedCustomers.length > 0 ? sortedCustomers.map((c, rowIndex) => {
                         const customerTickets = tickets.filter(t => t.customerId === c.id);
                         const openTicketsCount = customerTickets.filter(t => t.status !== 'resolved').length;
                         const overdueInvoicesCount = (c.status === 'lead' || c.status === 'pending') ? 0 : invoices.filter(i => i.customerId === c.id && i.status === 'overdue').length;
@@ -559,27 +604,27 @@ export function CustomersPage() {
                         
                         const riskScore = c.riskScore || 0; // Existing global risk logic if available
                         
-                        let healthColor = "bg-emerald-500";
+                        let healthColor = "bg-astrum-signal";
                         let healthLabel = "Saudável";
-                        
+
                         if (overdueInvoicesCount > 0 || openTicketsCount > 2 || negativeAICount > 1) {
-                          healthColor = "bg-rose-500";
+                          healthColor = "bg-astrum-red";
                           healthLabel = "Crítico";
                         } else if (openTicketsCount > 0 || negativeAICount > 0) {
-                          healthColor = "bg-amber-500";
+                          healthColor = "bg-astrum-amber";
                           healthLabel = "Atenção";
                         }
 
                         return (
-                          <TableRow 
-                            key={c.id} 
-                            className={cn("group cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50", selectedCustomers.includes(c.id) && "bg-primary/5")}
+                          <TableRow
+                            key={c.id}
+                            className={cn("group cursor-pointer border-border hover:bg-foreground/[0.03] transition-colors duration-fast", selectedCustomers.includes(c.id) && "bg-foreground/[0.05]")}
                             onClick={() => handleViewDetails(c)}
                           >
                             <TableCell onClick={(e) => e.stopPropagation()}>
-                              <input 
-                                type="checkbox" 
-                                className="rounded border-zinc-300"
+                              <input
+                                type="checkbox"
+                                className="rounded border-border accent-foreground"
                                 checked={selectedCustomers.includes(c.id)}
                                 onChange={(e) => {
                                   if (e.target.checked) {
@@ -590,32 +635,36 @@ export function CustomersPage() {
                                 }}
                               />
                             </TableCell>
+                            {/* D-008 — rank muted */}
+                            <TableCell className="font-mono text-xs text-muted-foreground">#{rowIndex + 1}</TableCell>
                             <TableCell className="font-medium">
                               <div className="flex items-center gap-3">
                                 <Avatar className="h-8 w-8 shrink-0">
                                   <AvatarImage src={c.avatar || c.photoUrl || c.avatarUrl || c.profilePicUrl} />
-                                  <AvatarFallback>{c.name.charAt(0).toUpperCase()}</AvatarFallback>
+                                  <AvatarFallback className="text-xs bg-secondary">{c.name.charAt(0).toUpperCase()}</AvatarFallback>
                                 </Avatar>
-                                <div className="flex flex-col gap-1">
+                                <div className="flex flex-col gap-0.5 min-w-0">
                                   <div className="flex items-center gap-2">
-                                    {c.name}
-                                  <button 
+                                    <span className="truncate">{c.name}</span>
+                                  <button
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       navigator.clipboard.writeText(c.email);
                                       toast.success("E-mail copiado!");
                                     }}
-                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50"
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
                                     title="Copiar E-mail"
                                   >
-                                    <Copy size={14} />
+                                    <Copy size={13} strokeWidth={1.75} />
                                   </button>
                                 </div>
+                                {/* D-008 — entidade: nome forte + código/e-mail muted */}
+                                {c.email && <span className="text-xs text-muted-foreground truncate">{c.email}</span>}
                                 {c.tags && c.tags.length > 0 && (
                                   <div className="flex flex-wrap gap-1 mt-1">
                                     {c.tags.map((tag: string, idx: number) => (
                                       <div key={idx}>
-                                        <Badge variant="outline" className="text-[9px] py-0 px-1.5 bg-zinc-50 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800">
+                                        <Badge variant="outline" className="text-[9px] py-0 px-1.5 bg-secondary/50 text-muted-foreground border-border rounded-md">
                                           {tag}
                                         </Badge>
                                       </div>
@@ -631,23 +680,23 @@ export function CustomersPage() {
                                   <TooltipTrigger>
                                     <div className="flex items-center gap-2">
                                       <div className={cn("h-2.5 w-2.5 rounded-full animate-pulse", healthColor)} />
-                                      <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-400">{healthLabel}</span>
+                                      <span className="text-[11px] font-medium text-muted-foreground">{healthLabel}</span>
                                     </div>
                                   </TooltipTrigger>
-                                  <TooltipContent side="right" className="bg-zinc-900 border-zinc-800 text-zinc-100 p-3 shadow-lg max-w-[200px]">
+                                  <TooltipContent side="right" className="bg-popover border-border text-popover-foreground p-3 shadow-3 max-w-[200px]">
                                     <div className="space-y-1.5">
                                       <p className="text-xs font-semibold mb-2">Composição da Saúde</p>
                                       <div className="flex justify-between items-center text-[10px]">
-                                        <span className="text-zinc-400">Tickets Abertos:</span>
-                                        <span className={openTicketsCount > 0 ? "text-amber-400 font-medium" : "text-emerald-400"}>{openTicketsCount}</span>
+                                        <span className="text-muted-foreground">Tickets Abertos:</span>
+                                        <span className={cn("font-mono", openTicketsCount > 0 ? "text-astrum-amber font-medium" : "text-astrum-signal")}>{openTicketsCount}</span>
                                       </div>
                                       <div className="flex justify-between items-center text-[10px]">
-                                        <span className="text-zinc-400">Faturas Vencidas:</span>
-                                        <span className={overdueInvoicesCount > 0 ? "text-rose-400 font-medium" : "text-emerald-400"}>{overdueInvoicesCount}</span>
+                                        <span className="text-muted-foreground">Faturas Vencidas:</span>
+                                        <span className={cn("font-mono", overdueInvoicesCount > 0 ? "text-astrum-red font-medium" : "text-astrum-signal")}>{overdueInvoicesCount}</span>
                                       </div>
                                       <div className="flex justify-between items-center text-[10px]">
-                                        <span className="text-zinc-400">Interações Negativas IA:</span>
-                                        <span className={negativeAICount > 0 ? "text-rose-400 font-medium" : "text-emerald-400"}>{negativeAICount}</span>
+                                        <span className="text-muted-foreground">Interações Negativas IA:</span>
+                                        <span className={cn("font-mono", negativeAICount > 0 ? "text-astrum-red font-medium" : "text-astrum-signal")}>{negativeAICount}</span>
                                       </div>
                                     </div>
                                   </TooltipContent>
@@ -655,46 +704,54 @@ export function CustomersPage() {
                               </TooltipProvider>
                             </TableCell>
                             <TableCell>
+                              {/* D-008 — delta/risco em chip translúcido */}
                               {(() => {
                                 const riskLevel = riskScore > 70 ? 'Crítico' : riskScore > 30 ? 'Médio' : 'Baixo';
                                 const riskColor = riskScore > 70
-                                  ? 'text-[--color-astrum-red] bg-red-50 dark:bg-red-950/20'
+                                  ? 'text-astrum-red bg-astrum-red/15'
                                   : riskScore > 30
-                                  ? 'text-[--color-astrum-amber] bg-amber-50 dark:bg-amber-950/20'
-                                  : 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20';
+                                  ? 'text-astrum-amber bg-astrum-amber/15'
+                                  : 'text-astrum-signal bg-astrum-signal/15';
                                 return (
-                                  <Badge variant="outline" className={cn("text-[10px] border-none", riskColor)}>
-                                    {riskLevel} ({Math.min(riskScore, 100)}%)
-                                  </Badge>
+                                  <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium", riskColor)}>
+                                    {riskLevel} · <span className="font-mono ml-0.5">{Math.min(riskScore, 100)}%</span>
+                                  </span>
                                 );
                               })()}
                             </TableCell>
-                            <TableCell>{c.plan}</TableCell>
-                            <TableCell>R$ {c.mrr?.toFixed(2)}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{c.plan}</TableCell>
+                            <TableCell className="font-mono tabular-nums text-sm">R$ {c.mrr?.toFixed(2)}</TableCell>
                             <TableCell>
-                              <Badge variant={c.status === 'active' ? 'default' : c.status === 'lead' || c.status === 'pending' ? 'outline' : 'secondary'} className={c.status === 'active' ? 'bg-green-500 hover:bg-green-600 flex items-center gap-1 w-fit' : (c.status === 'lead' || c.status === 'pending') ? 'border-amber-500 text-amber-600 dark:border-amber-400 dark:text-amber-400 flex items-center gap-1 w-fit bg-amber-50 dark:bg-amber-950/30' : 'bg-red-500 hover:bg-red-600 flex items-center gap-1 w-fit'}>
+                              <span className={cn(
+                                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium w-fit",
+                                c.status === 'active'
+                                  ? 'bg-astrum-signal/15 text-astrum-signal'
+                                  : (c.status === 'lead' || c.status === 'pending')
+                                  ? 'bg-astrum-amber/15 text-astrum-amber'
+                                  : 'bg-astrum-slate/20 text-astrum-slate'
+                              )}>
                                 {c.status === 'active' ? (
                                   <>
-                                    <CheckCircle2 size={12} />
+                                    <CheckCircle2 size={11} strokeWidth={2} />
                                     Ativo
                                   </>
                                 ) : (c.status === 'lead' || c.status === 'pending') ? (
                                   <>
-                                    <Clock size={12} />
+                                    <Clock size={11} strokeWidth={2} />
                                     Pendente
                                   </>
                                 ) : (
                                   <>
-                                    <X size={12} />
+                                    <X size={11} strokeWidth={2} />
                                     Inativo
                                   </>
                                 )}
-                              </Badge>
+                              </span>
                             </TableCell>
                             <TableCell onClick={(e) => e.stopPropagation()}>
                               <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 {isOwner && (
-                                  <Button variant="ghost" size="sm" className="h-8 px-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-50" onClick={() => handleEditCustomer(c)}>
+                                  <Button variant="ghost" size="sm" className="h-8 px-2 text-muted-foreground hover:text-foreground" onClick={() => handleEditCustomer(c)}>
                                     <Edit2 size={14} className="mr-1" /> Editar
                                   </Button>
                                 )}
@@ -707,8 +764,16 @@ export function CustomersPage() {
                         );
                       }) : (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-10 text-zinc-500">
-                            {customers.length === 0 ? "Nenhum cliente cadastrado." : "Nenhum cliente encontrado com os filtros atuais."}
+                          <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
+                            <div className="flex flex-col items-center gap-3">
+                              <Users size={20} strokeWidth={1.5} className="opacity-50" />
+                              <span className="text-sm">{customers.length === 0 ? "Nenhum cliente cadastrado." : "Nenhum cliente encontrado com os filtros atuais."}</span>
+                              {customers.length === 0 && isOwner && (
+                                <Button size="sm" variant="outline" className="gap-2" onClick={() => setIsCreateDialogOpen(true)}>
+                                  <Plus size={14} /> Cadastrar primeiro cliente
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       )}
