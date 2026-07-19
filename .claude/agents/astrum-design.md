@@ -39,6 +39,16 @@ description: Guardião do padrão visual do Astrum-IA. Carregue esta skill ANTES
 - **Central de notificações (D-009):** categorias em cards gradientes vívidos
   (signal=Todas, fiber=SLA, red=Críticas) com tile branco translúcido + badge
   circular vermelho de contagem. Gradiente vívido é EXCLUSIVO desse contexto.
+- **Glow CTA (D-011):** `<GlowButton>` (glow-button.tsx) para A ação de criação
+  da tela — máximo UM por tela. Cor padrão fiber.
+- **Spotlight P&B (D-012):** momento-herói pode ser card branco puro
+  (`bg-primary`); chave-valor com hairline; timeline numerada com conector.
+- **Motion de itens (D-013):** stagger/slide+fade permitidos; <200ms no produto,
+  expressivo só em login/landing/onboarding; reduced-motion sempre.
+- **Personagens (D-014):** arte cel-shaded em banners/updates/empty states
+  especiais via `<UpdateCard>` — NUNCA em área de trabalho densa.
+- **Anel com ícones (D-015):** composição usa `<RingChart>` (ring-chart.tsx):
+  ícone da fonte sobre cada fatia + total no centro. Proibido donut só-cores.
 
 ---
 

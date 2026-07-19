@@ -18,6 +18,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { toast } from "sonner";
 import { createCustomer, updateCustomer as updateCustomerDb } from '@/src/lib/db';
 import { cn } from "@/src/lib/utils";
+import { GlowButton } from "@/src/components/ui/glow-button";
 
 export function CustomersPage() {
   const { customers, setCustomers, tickets, invoices, auditLogs, currentUserRole, setSelectedCustomerDetails, setIsDetailsDialogOpen, setConfirmDialog, integrationKeys, companySettings, user } = useAppStore();
@@ -380,14 +381,18 @@ export function CustomersPage() {
                     </UITooltip>
                   </TooltipProvider>
                   {isOwner && (
-                    <Button size="sm" className="gap-2" onClick={() => {
-                      setNewCustomer({ name: '', email: '', plan: '', mrr: 0, status: 'active', tags: [] });
-                      setNewTagInput('');
-                      setFormErrors({});
-                      setIsCreateDialogOpen(true);
-                    }}>
-                      <Plus size={15} strokeWidth={1.75} /> Novo Cliente
-                    </Button>
+                    /* D-011 — glow CTA: a ação de criação da tela */
+                    <GlowButton
+                      icon={<Plus size={16} strokeWidth={2.5} />}
+                      onClick={() => {
+                        setNewCustomer({ name: '', email: '', plan: '', mrr: 0, status: 'active', tags: [] });
+                        setNewTagInput('');
+                        setFormErrors({});
+                        setIsCreateDialogOpen(true);
+                      }}
+                    >
+                      Novo Cliente
+                    </GlowButton>
                   )}
                 </div>
               </header>

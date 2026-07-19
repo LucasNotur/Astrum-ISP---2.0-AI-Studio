@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
+import { RingChart } from "@/src/components/ui/ring-chart";
 import { Badge } from "@/src/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
 import { Button } from "@/src/components/ui/button";
@@ -573,20 +574,57 @@ export function AICostsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm">
+        <Card className="border border-border rounded-stable-xl shadow-1">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Custo por modelo</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={modelCosts} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.06)" />
-                <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={v => `$${v.toFixed(4)}`} />
-                <YAxis type="category" dataKey="model" width={110} tick={{ fontSize: 10 }} />
-                <RechartsTooltip formatter={((v: number) => fmtUsd(v)) as any} />
-                <Bar dataKey="cost" fill="#6366f1" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {/* D-015 — anel com ícone da fonte em cada fatia + total no centro */}
+            {(() => {
+              const RING_COLORS = [
+                'var(--color-astrum-signal)',
+                'var(--color-astrum-fiber)',
+                'var(--color-astrum-lemon)',
+                'var(--color-astrum-amber)',
+                'var(--color-astrum-red)',
+                'var(--color-astrum-orange)',
+              ];
+              const providerGlyph = (model: string) => {
+                const m = model.toLowerCase();
+                const letter = m.includes('claude') ? 'A' : m.includes('gemini') ? 'G' : 'O';
+                return <span className="text-[13px] font-bold leading-none">{letter}</span>;
+              };
+              const ringTotal = modelCosts.reduce((s, m) => s + m.cost, 0);
+              return (
+                <div className="flex flex-col sm:flex-row items-center gap-6">
+                  <RingChart
+                    segments={modelCosts.map((m, i) => ({
+                      value: m.cost,
+                      color: RING_COLORS[i % RING_COLORS.length],
+                      icon: providerGlyph(m.model),
+                      label: m.model,
+                    }))}
+                    size={210}
+                    centerTitle={fmtUsd(ringTotal)}
+                    centerSub="total no período"
+                  />
+                  <div className="flex-1 w-full space-y-1.5 min-w-0">
+                    {modelCosts.map((m, i) => (
+                      <div key={m.model} className="flex items-center justify-between gap-3 py-1.5 border-b border-border last:border-0">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: RING_COLORS[i % RING_COLORS.length] }} />
+                          <span className="text-xs truncate">{m.model}</span>
+                        </div>
+                        <span className="font-mono text-xs tabular-nums text-muted-foreground shrink-0">{fmtUsd(m.cost)}</span>
+                      </div>
+                    ))}
+                    {modelCosts.length === 0 && (
+                      <p className="text-xs text-muted-foreground py-4 text-center">Nenhum custo registrado no período.</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
       </div>

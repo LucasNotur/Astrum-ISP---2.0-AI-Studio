@@ -114,6 +114,50 @@ depoimento com backdrop-blur.
 no Supabase → botões mostram toast "em breve" (trocar por `signInWithOAuth` quando
 os providers forem habilitados).
 
+### D-011 — CTA de destaque com glow neon
+**Origem:** print #5 (botão "Create" de Alex K), 2026-07-19.
+**Decisão:** a **ação de criação principal** de cada tela pode usar o botão glow:
+pill com gradiente vertical da cor, brilho externo em duas camadas + highlight
+interno no topo, ícone em círculo translúcido à esquerda, chevron em seção
+separada por hairline quando houver menu. Cor padrão: `astrum-fiber` (azul do
+print). **Limite: no máximo UM glow por tela** ("sem ser exagerado" — Lucas).
+**Componente:** `src/components/ui/glow-button.tsx` + utilities `glow-fiber`/`glow-lemon`.
+
+### D-012 — Contraste cinematográfico: superfície spotlight P&B
+**Origem:** print #6 (app de ski — card branco sobre preto), 2026-07-19.
+**Decisão:** o momento-herói de uma tela escura pode usar **card branco puro**
+(`bg-primary text-primary-foreground`) — o contraste preto↔branco é a linguagem,
+não sombra. Padrões que acompanham: linhas chave-valor com hairline
+(label muted à esquerda, valor forte à direita), timeline numerada com conector
+vertical, thumbnails em tiles arredondados, CTA flutuante em pill branco.
+
+### D-013 — Motion de itens (referência Pinterest)
+**Origem:** post Pinterest enviado pelo Lucas (landing pages com animação de itens).
+**Decisão:** entradas de listas/cards podem usar animação de item (stagger, slide+fade
+via framer-motion; componentes Magic UI adaptados aos tokens). Regras vigentes do §1
+continuam: <200ms funcional dentro do produto, `prefers-reduced-motion` respeitado;
+animação mais expressiva é permitida em landing/login/onboarding.
+
+### D-014 — Personagens Astrum (estilo cel-shading "Spider-Verso/What If")
+**Origem:** direção do Lucas, 2026-07-19 — "misturar" o ecossistema estilo
+Netflix/Prime (imagens + personagens + software) com a sobriedade do produto.
+**Decisão:** a Astrum terá um **sistema de personagens** em arte cel-shaded
+(traço comic, sombras chapadas) usados em: banners de atualização/novidade,
+cards de anúncio, empty states especiais, onboarding e marketing. Nunca em
+áreas de trabalho denso (tabelas, formulários).
+**Infra:** arte em `public/characters/` (PNG com alpha);
+componente `src/components/ui/update-card.tsx` com slot de personagem.
+**Pendente:** gerar as artes (definir elenco: ex. mascote técnico de campo,
+mascote CobrAI, mascote IA de atendimento).
+
+### D-015 — Anel analítico com ícones nas fatias
+**Origem:** print #7 (Subscriptions ring), 2026-07-19.
+**Decisão:** gráficos de composição (donut) mostram **de onde vem o dado**: cada
+fatia carrega um badge circular com o ícone da fonte posicionado sobre o arco —
+nunca só cor+porcentagem. Centro do anel = total agregado (font-mono) + label
+pequeno uppercase muted. Fatias com cores vivas da paleta astrum, pontas arredondadas.
+**Componente:** `src/components/ui/ring-chart.tsx` (SVG puro, sem recharts).
+
 ---
 
 ## Tokens-alvo (a aplicar na fundação do design-lab)
