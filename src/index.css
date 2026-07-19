@@ -190,6 +190,15 @@
   filter: drop-shadow(0 8px 30px rgba(0, 0, 0, 0.4)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }
 
+/* D-010 — painel de arte da tela de login (gradiente do print de referência #4) */
+@utility login-art {
+  background:
+    radial-gradient(120% 95% at 88% 70%, rgba(240, 138, 60, 0.80), transparent 62%),
+    radial-gradient(85% 65% at 12% 55%, rgba(120, 165, 130, 0.45), transparent 60%),
+    radial-gradient(70% 50% at 70% 15%, rgba(0, 0, 0, 0.55), transparent 70%),
+    linear-gradient(160deg, #101012 0%, #17171a 45%, #2b2015 100%);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

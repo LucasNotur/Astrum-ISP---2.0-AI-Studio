@@ -213,6 +213,7 @@ import {
   generateKBArticleFromTickets,
 } from "./lib/gemini";
 import { UpgradePrompt } from "./components/UpgradePrompt";
+import { LoginScreen } from "./components/LoginScreen";
 import { AppLayout } from "./components/layout/AppLayout";
 import { StatCard } from "./components/ui/StatCard";
 
@@ -2542,53 +2543,15 @@ export default function App() {
   }
 
   if (!user) {
+    // D-010 — tela de login em duas colunas (LoginScreen replica o print #4)
     return (
-      <div className="flex h-screen flex-col items-center justify-center bg-zinc-50 dark:bg-zinc-950 font-sans transition-colors duration-300">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md space-y-8 rounded-2xl bg-white dark:bg-zinc-900 p-10 shadow-xl border border-zinc-100 dark:border-zinc-800"
-        >
-          <div className="text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground">
-              <Bot size={32} />
-            </div>
-            <h2 className="mt-6 text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-              Astrum
-            </h2>
-            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-              Gestão Inteligente para Provedores
-            </p>
-          </div>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <Input
-                type="email"
-                placeholder="Seu e-mail de trabalho"
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                className="py-6 text-lg"
-              />
-            </div>
-            <div>
-              <Input
-                type="password"
-                placeholder="Sua senha"
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                className="py-6 text-lg"
-              />
-            </div>
-            <Button
-              type="submit"
-              className="w-full py-6 text-lg"
-              size="lg"
-            >
-              Entrar
-            </Button>
-          </form>
-        </motion.div>
-      </div>
+      <LoginScreen
+        email={loginEmail}
+        password={loginPassword}
+        onEmailChange={setLoginEmail}
+        onPasswordChange={setLoginPassword}
+        onSubmit={handleLogin}
+      />
     );
   }
 

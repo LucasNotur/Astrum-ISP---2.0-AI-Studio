@@ -101,6 +101,19 @@ roxo → `astrum-fiber` (SLA/avisos), vermelho-rosa → `astrum-red` (Críticas)
 **Escopo:** gradientes vívidos são EXCLUSIVOS de cards de categoria de
 inbox/notificação. Fora desse contexto vale a sobriedade do D-002 (limão só em detalhe).
 
+### D-010 — Tela de login em duas colunas
+**Origem:** print de referência #4 (login estilo Aceternity), 2026-07-19. Replicado 1:1.
+**Decisão:** login com **duas colunas**: esquerda = glifo da marca + "Bem-vindo de
+volta!" + pitch curto muted + formulário com **labels acima dos campos** + botão
+"Entrar" em superfície elevada (exceção consciente ao CTA branco do D-003, restrita
+ao login) + divisor "ou" + 3 botões sociais (Google/Facebook/Apple, brand icons
+inline) + rodapé "Cadastre-se" em limão. Direita (só ≥lg) = painel de arte com
+gradiente quente (`@utility login-art` no index.css), chips de contexto e card de
+depoimento com backdrop-blur.
+**Componente:** `src/components/LoginScreen.tsx`. Login social ainda não configurado
+no Supabase → botões mostram toast "em breve" (trocar por `signInWithOAuth` quando
+os providers forem habilitados).
+
 ---
 
 ## Tokens-alvo (a aplicar na fundação do design-lab)
