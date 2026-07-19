@@ -54,19 +54,20 @@ type FilterTab = "todos" | "escalados" | "aguardando" | "resolvidos" | "pipeline
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+/* Canais mapeados na paleta astrum (D-002: cor com função) */
 const CHANNEL_META: Record<Channel, { label: string; color: string; bg: string }> = {
-  whatsapp:  { label: "WA",  color: "text-emerald-700 dark:text-emerald-400",  bg: "bg-emerald-100 dark:bg-emerald-900/30" },
-  instagram: { label: "IG",  color: "text-fuchsia-700 dark:text-fuchsia-400",  bg: "bg-fuchsia-100 dark:bg-fuchsia-900/30" },
-  messenger: { label: "FB",  color: "text-blue-700 dark:text-blue-400",         bg: "bg-blue-100 dark:bg-blue-900/30" },
-  email:     { label: "✉",   color: "text-sky-700 dark:text-sky-400",           bg: "bg-sky-100 dark:bg-sky-900/30" },
-  webchat:   { label: "WC",  color: "text-cyan-700 dark:text-cyan-400",         bg: "bg-cyan-100 dark:bg-cyan-900/30" },
-  telephony: { label: "☎",   color: "text-orange-700 dark:text-orange-400",    bg: "bg-orange-100 dark:bg-orange-900/30" },
+  whatsapp:  { label: "WA",  color: "text-astrum-signal",  bg: "bg-astrum-signal/15" },
+  instagram: { label: "IG",  color: "text-astrum-orange",  bg: "bg-astrum-orange/15" },
+  messenger: { label: "FB",  color: "text-astrum-fiber",   bg: "bg-astrum-fiber/15" },
+  email:     { label: "✉",   color: "text-astrum-slate",   bg: "bg-astrum-slate/20" },
+  webchat:   { label: "WC",  color: "text-astrum-lemon",   bg: "bg-astrum-lemon/15" },
+  telephony: { label: "☎",   color: "text-astrum-amber",   bg: "bg-astrum-amber/15" },
 };
 
 function ChannelBadge({ channel }: { channel: string }) {
   const meta = CHANNEL_META[channel as Channel] ?? CHANNEL_META.whatsapp;
   return (
-    <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded-sm tracking-wide", meta.color, meta.bg)}>
+    <span className={cn("text-[9px] font-semibold px-1.5 py-0.5 rounded-full tracking-wide", meta.color, meta.bg)}>
       {meta.label}
     </span>
   );
@@ -80,7 +81,7 @@ function SlaChip({ color }: { color: "red" | "yellow" | "green" | null }) {
         "w-2 h-2 rounded-full shrink-0 border border-background",
         color === "red"    && "bg-[--color-astrum-red]",
         color === "yellow" && "bg-[--color-astrum-amber]",
-        color === "green"  && "bg-emerald-500",
+        color === "green"  && "bg-astrum-signal",
       )}
       title={color === "red" ? "SLA vencido" : color === "yellow" ? "SLA em risco" : "SLA ok"}
     />
@@ -587,7 +588,7 @@ export function ChatPage() {
               placeholder="Buscar…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-7 text-xs w-44 pl-3"
+              className="h-7 text-xs w-44 pl-3 rounded-full bg-input/60 border-border"
             />
             {searchQuery && (
               <button
@@ -656,13 +657,13 @@ export function ChatPage() {
                       <div className="flex items-center gap-1.5">
                         <ChannelBadge channel={channel} />
                         {t.status === "escalated" && (
-                          <span className="text-[9px] font-bold text-[--color-astrum-red] bg-red-50 dark:bg-red-950/30 px-1 py-0.5 rounded">
-                            ESCALADO
+                          <span className="text-[9px] font-semibold text-astrum-red bg-astrum-red/15 px-1.5 py-0.5 rounded-full">
+                            Escalado
                           </span>
                         )}
                         {t.priority === "urgent" && (
-                          <span className="text-[9px] font-bold text-[--color-astrum-orange] bg-orange-50 dark:bg-orange-950/30 px-1 py-0.5 rounded">
-                            URGENTE
+                          <span className="text-[9px] font-semibold text-astrum-orange bg-astrum-orange/15 px-1.5 py-0.5 rounded-full">
+                            Urgente
                           </span>
                         )}
                         <span className="flex-1 text-[11px] text-muted-foreground truncate">
@@ -782,7 +783,7 @@ export function ChatPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-8 text-xs gap-1 text-emerald-700 border-emerald-200 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-900 dark:hover:bg-emerald-950"
+                    className="h-8 text-xs gap-1 rounded-full text-astrum-signal border-astrum-signal/30 hover:bg-astrum-signal/10 hover:text-astrum-signal"
                     onClick={() => { setClosingReason(""); setIsClosingOpen(true); }}
                   >
                     <CheckCircle2 size={13} /> Encerrar
@@ -856,7 +857,7 @@ export function ChatPage() {
                     className={cn(
                       "text-[10px] font-medium px-2 py-1 rounded-full border shrink-0 transition-colors",
                       isInternalNote
-                        ? "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800"
+                        ? "bg-astrum-amber/15 text-astrum-amber border-astrum-amber/30"
                         : "border-border text-muted-foreground hover:bg-muted",
                     )}
                   >
@@ -916,7 +917,7 @@ export function ChatPage() {
                     }}
                     className={cn(
                       "flex-1 h-9 text-sm border-0 shadow-none focus-visible:ring-0 bg-muted rounded-full px-4",
-                      isInternalNote && "bg-amber-50 dark:bg-amber-950/20",
+                      isInternalNote && "bg-astrum-amber/10",
                     )}
                   />
                   <Button
@@ -1006,7 +1007,7 @@ export function ChatPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsClosingOpen(false)}>Cancelar</Button>
-            <Button onClick={confirmClosing} className="bg-emerald-600 hover:bg-emerald-700 text-white">Encerrar</Button>
+            <Button onClick={confirmClosing} className="px-6">Encerrar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1025,7 +1026,7 @@ export function ChatPage() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsVoipOpen(false)}>Cancelar</Button>
-              <Button type="submit" disabled={isCalling} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              <Button type="submit" disabled={isCalling} className="px-6">
                 {isCalling ? "Iniciando…" : <><Phone size={14} className="mr-1.5" />Ligar</>}
               </Button>
             </DialogFooter>
@@ -1078,26 +1079,27 @@ function FilterTabs({
   ];
 
   return (
-    <div className="flex items-center gap-0.5">
+    /* D-004 — pill segmentada, ativo = branco invertido (D-003) */
+    <div className="flex items-center gap-0.5 bg-secondary/60 border border-border rounded-full p-0.5">
       {tabs.map((t) => (
         <button
           key={t.id}
           onClick={() => onChange(t.id)}
           className={cn(
-            "text-xs px-2.5 py-1 rounded-md font-medium transition-colors flex items-center gap-1",
+            "text-xs px-2.5 py-1 rounded-full font-medium transition-colors duration-fast flex items-center gap-1",
             value === t.id
-              ? "bg-foreground text-background"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted",
+              ? "bg-primary text-primary-foreground shadow-2"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           {t.label}
           {t.count !== undefined && t.count > 0 && (
             <span className={cn(
-              "text-[9px] font-mono font-bold px-1 rounded",
+              "text-[9px] font-mono font-bold px-1 rounded-full",
               value === t.id
-                ? "bg-background/20 text-background"
+                ? "bg-primary-foreground/15"
                 : t.id === "escalados"
-                  ? "text-[--color-astrum-red]"
+                  ? "text-astrum-red"
                   : "text-muted-foreground",
             )}>
               {t.count}
@@ -1127,7 +1129,7 @@ function MessageBubble({ message: m }: { message: any }) {
         <AvatarFallback className={cn(
           "text-[10px] font-bold",
           isHuman    ? "bg-muted text-muted-foreground" : "",
-          isCustomer ? "bg-zinc-200 dark:bg-zinc-700 text-foreground" : "",
+          isCustomer ? "bg-secondary text-foreground" : "",
           isAi       ? "bg-[--color-astrum-fiber]/15 text-[--color-astrum-fiber]" : "",
         )}>
           {isHuman ? "AT" : isAi ? <Bot size={12} /> : "CL"}
@@ -1136,8 +1138,8 @@ function MessageBubble({ message: m }: { message: any }) {
 
       <div className="space-y-0.5">
         {isInternal && (
-          <span className="text-[9px] uppercase font-bold tracking-wide text-amber-600 dark:text-amber-400">
-            Nota Interna
+          <span className="text-[9px] font-semibold tracking-wide text-astrum-amber">
+            Nota interna
           </span>
         )}
         <div className={cn(
@@ -1145,7 +1147,7 @@ function MessageBubble({ message: m }: { message: any }) {
           isHuman
             ? "bg-[--color-astrum-fiber] text-white rounded-tr-sm"
             : isInternal
-              ? "bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 border border-amber-200 dark:border-amber-800 rounded-tl-sm"
+              ? "bg-astrum-amber/10 border border-astrum-amber/30 rounded-tl-sm"
               : isAi
                 ? "bg-muted border border-border rounded-tl-sm"
                 : "bg-card border border-border rounded-tl-sm",
