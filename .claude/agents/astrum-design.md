@@ -8,6 +8,24 @@ description: Guardião do padrão visual do Astrum-IA. Carregue esta skill ANTES
 > **Toda sessão de UI abre com esta skill.** Nenhuma tela nova ou redesenhada sem ela.
 > Herda R1–R6 do CLAUDE.md. R1 reafirmado: o frontend oficial é `src/pages/*` (Vite na raiz).
 > `apps/web` está condenado — nunca criar tela lá.
+> **Decisões do design-lab têm precedência:** `docs/DESIGN_SYSTEM.md` é o registro
+> print a print (D-001+). Em conflito entre esta skill e o registro, vale o registro.
+
+---
+
+## §0 — DIREÇÃO design-lab (2026-07-19, D-001 a D-004)
+
+- **Dark-first (D-001):** dark é o tema padrão e recebe o capricho; light é secundário.
+  Fundo quase preto; profundidade por camadas de superfície, não sombra grande.
+- **Accent limão (D-002):** `astrum-lemon #F2E349` é a cor de marca na UI — usada só
+  em detalhe (badge, estado ativo, focus ring, ícone). Vermelho volta a ser SÓ
+  destructive. A paleta de risco (signal/amber/orange/red) segue para semântica de dado.
+- **CTA branco invertido (D-003):** botão primário no dark = branco pill com texto
+  quase-preto. Limão NUNCA é fundo de CTA. Hierarquia: primário branco pill ·
+  secundário superfície + borda hairline · ghost texto · destrutivo vermelho.
+- **Super arredondado com hierarquia (D-004):** botões/chips `rounded-full`; inputs,
+  cards e modais `rounded-stable-xl`; elementos densos internos `rounded-stable-sm`.
+  Inputs dark sem borda visível (borda só no focus, via ring).
 
 ---
 
@@ -36,7 +54,9 @@ Se qualquer item abaixo estiver presente, a tela VOLTA antes de ir para o usuár
 3. Grid de 3 cards idênticos com ícone em círculo colorido + título + frase motivacional.
 4. Hero centrado com headline gigante e subtítulo motivacional.
 5. Sombra difusa grande em tudo; glassmorphism gratuito.
-6. Raio de borda grande e uniforme em TODOS os elementos (cara de template).
+6. Raio de borda SEM hierarquia — o mesmo valor em botão, card, tabela e badge
+   (cara de template). A linguagem é arredondada (D-004), mas com hierarquia:
+   pill em botão ≠ 16px em card ≠ raio pequeno em linha densa.
 7. Paleta default do shadcn/Tailwind intocada; roxo `#8B5CF6` em destaque.
 8. Texto de marketing vazio dentro do produto ("Potencialize seu negócio").
 9. Ilustrações 3D genéricas de banco de imagem.
@@ -61,6 +81,7 @@ text-astrum-amber    /* #F5A524 — atenção, pendente */
 text-astrum-orange   /* #F0713C — alerta moderado */
 text-astrum-red      /* #E5484D — crítico, erro, perigo */
 text-astrum-slate    /* #5B6472 — neutro, desabilitado */
+text-astrum-lemon    /* #F2E349 — accent de MARCA (D-002): badge, estado ativo, focus. Nunca área grande nem CTA */
 /* Variantes bg-/border-/fill- funcionam para todos os tokens acima */
 ```
 
@@ -183,7 +204,9 @@ Componentes `src/components/ui/{button,card,badge,...}` são a base. Não criar 
 
 - **C3:** `dark:bg-[#16171a]` hardcoded → usar `dark:bg-background` ou variável CSS
 - **C4:** `--radius` muda no dark em shadcn default → usar `rounded-stable-*` (imune)
-- **C4b:** `--primary` é vermelho no dark Astrum → nunca usar `text-primary` para cor de acento tecnológico; usar `text-astrum-fiber`
+- **C4b:** até a fundação F1 do design-lab ser aplicada, `--primary` ainda é vermelho no
+  dark → nunca usar `text-primary` para cor de acento; após F1, `--primary` vira branco
+  (CTA invertido, D-003) e acento de marca é `text-astrum-lemon`
 - Tooltip recharts: `contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}`
 - Qualquer `window.location.href` ou `Math.random()` em componente de UI → flag e corrigir
 
