@@ -21,6 +21,7 @@
   --color-astrum-red: #E5484D;
   --color-astrum-slate: #5B6472;
   --color-astrum-lemon: #F2E349; /* D-002 — accent de marca (detalhe, nunca área grande/CTA) */
+  --color-astrum-nebula: #A855F7; /* D-015 — violeta cósmico do espectro de gráficos (só em dataviz) */
 
   /* U1-02 — Elevação (4 níveis; valores reais em :root/.dark) */
   --shadow-0: none;

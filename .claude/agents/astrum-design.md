@@ -47,8 +47,13 @@ description: Guardião do padrão visual do Astrum-IA. Carregue esta skill ANTES
   expressivo só em login/landing/onboarding; reduced-motion sempre.
 - **Personagens (D-014):** arte cel-shaded em banners/updates/empty states
   especiais via `<UpdateCard>` — NUNCA em área de trabalho densa.
-- **Anel com ícones (D-015):** composição usa `<RingChart>` (ring-chart.tsx):
-  ícone da fonte sobre cada fatia + total no centro. Proibido donut só-cores.
+- **Anel com ícones (D-015) — PADRÃO GLOBAL:** TODA composição usa `<RingChart>`
+  + `<RingLegend>` (ring-chart.tsx). `PieChart`/`Pie` do recharts é PROIBIDO.
+  Cores: `ASTRUM_SPECTRUM` (ordem padrão) ou `ASTRUM_SEMANTIC` (status).
+  `astrum-nebula` só em dataviz, nunca como accent de UI.
+- **Spotlight (D-012) — componentes globais:** `<SpotlightCard>`, `<KeyValueList>`,
+  `<NumberedTimeline>`, `<ThumbStrip>`, `<TipCallout>`, `<FloatingPill>`
+  (spotlight.tsx) para detalhe/resumo/app do técnico.
 
 ---
 
@@ -84,6 +89,7 @@ Se qualquer item abaixo estiver presente, a tela VOLTA antes de ir para o usuár
 8. Texto de marketing vazio dentro do produto ("Potencialize seu negócio").
 9. Ilustrações 3D genéricas de banco de imagem.
 10. Espaçamento inflado (padding de brochura, não de ferramenta).
+11. `PieChart`/`Pie` do recharts para composição — use `<RingChart>` (D-015).
 
 ---
 

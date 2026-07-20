@@ -2,7 +2,8 @@ import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
 import { useAppStore } from "@/src/store/useAppStore";
-import { Loader2, TrendingUp, Users, DollarSign, Activity, PieChart as PieChartIcon, BarChart3, LineChart as LineChartIcon } from "lucide-react";
+import { Loader2, TrendingUp, Users, DollarSign, Activity, PieChart as PieChartIcon, BarChart3, LineChart as LineChartIcon, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import { RingChart, RingLegend, ASTRUM_SEMANTIC } from "@/src/components/ui/ring-chart";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
   BarChart, Bar, Legend, PieChart, Pie, Cell, LineChart, Line, ComposedChart
@@ -140,25 +141,35 @@ export function BIPage() {
                      <CardTitle className="text-base">Distribuição de Status de Pagamentos</CardTitle>
                      <CardDescription>Faturas geradas no ciclo atual</CardDescription>
                   </CardHeader>
-                  <CardContent className="h-[300px]">
-                     <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                           <Pie
-                             data={[
-                               { name: 'Pagas', value: invoices.filter(i => i.status === 'paid').length },
-                               { name: 'Pendentes', value: invoices.filter(i => i.status === 'pending').length },
-                               { name: 'Atrasadas', value: invoices.filter(i => i.status === 'overdue').length }
+                  {/* D-015 — anel padrão com badge de fonte por fatia */}
+                  <CardContent>
+                     {(() => {
+                       const pagas = invoices.filter(i => i.status === 'paid').length;
+                       const pendentes = invoices.filter(i => i.status === 'pending').length;
+                       const atrasadas = invoices.filter(i => i.status === 'overdue').length;
+                       return (
+                         <div className="flex flex-col sm:flex-row items-center gap-6">
+                           <RingChart
+                             size={200}
+                             segments={[
+                               { value: pagas, color: ASTRUM_SEMANTIC.ok, icon: <CheckCircle2 size={15} strokeWidth={2} className="text-astrum-signal" />, label: 'Pagas' },
+                               { value: pendentes, color: ASTRUM_SEMANTIC.warn, icon: <Clock size={15} strokeWidth={2} className="text-astrum-amber" />, label: 'Pendentes' },
+                               { value: atrasadas, color: ASTRUM_SEMANTIC.bad, icon: <AlertTriangle size={15} strokeWidth={2} className="text-astrum-red" />, label: 'Atrasadas' },
                              ]}
-                             cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value"
-                           >
-                              <Cell fill="#10b981" />
-                              <Cell fill="#f59e0b" />
-                              <Cell fill="#ef4444" />
-                           </Pie>
-                           <RechartsTooltip />
-                           <Legend />
-                        </PieChart>
-                     </ResponsiveContainer>
+                             centerValue={pagas + pendentes + atrasadas}
+                             centerLabel="faturas no ciclo"
+                           />
+                           <RingLegend
+                             className="flex-1"
+                             items={[
+                               { label: 'Pagas', value: pagas, color: ASTRUM_SEMANTIC.ok, icon: <CheckCircle2 size={15} strokeWidth={2} className="text-astrum-signal" /> },
+                               { label: 'Pendentes', value: pendentes, color: ASTRUM_SEMANTIC.warn, icon: <Clock size={15} strokeWidth={2} className="text-astrum-amber" /> },
+                               { label: 'Atrasadas', value: atrasadas, color: ASTRUM_SEMANTIC.bad, icon: <AlertTriangle size={15} strokeWidth={2} className="text-astrum-red" /> },
+                             ]}
+                           />
+                         </div>
+                       );
+                     })()}
                   </CardContent>
               </Card>
            </div>

@@ -125,11 +125,17 @@ print). **Limite: no máximo UM glow por tela** ("sem ser exagerado" — Lucas).
 
 ### D-012 — Contraste cinematográfico: superfície spotlight P&B
 **Origem:** print #6 (app de ski — card branco sobre preto), 2026-07-19.
-**Decisão:** o momento-herói de uma tela escura pode usar **card branco puro**
+**Decisão:** o momento-herói de uma tela escura usa **card branco puro**
 (`bg-primary text-primary-foreground`) — o contraste preto↔branco é a linguagem,
-não sombra. Padrões que acompanham: linhas chave-valor com hairline
-(label muted à esquerda, valor forte à direita), timeline numerada com conector
-vertical, thumbnails em tiles arredondados, CTA flutuante em pill branco.
+não sombra.
+**Componentes (padrão global, `src/components/ui/spotlight.tsx`):**
+`<SpotlightCard>` (mídia + título + avatares + faixa de stats),
+`<KeyValueList>` (label muted / valor forte com hairline),
+`<NumberedTimeline>` (círculos numerados + conector vertical + cards escuros),
+`<ThumbStrip>` (miniaturas arredondadas com item ativo maior),
+`<TipCallout>` (barra vertical + texto com destaque),
+`<FloatingPill>` (CTA flutuante branco, sticky no rodapé).
+Todos com motion de entrada (D-013) e `prefers-reduced-motion` respeitado.
 
 ### D-013 — Motion de itens (referência Pinterest)
 **Origem:** post Pinterest enviado pelo Lucas (landing pages com animação de itens).
@@ -150,13 +156,27 @@ componente `src/components/ui/update-card.tsx` com slot de personagem.
 **Pendente:** gerar as artes (definir elenco: ex. mascote técnico de campo,
 mascote CobrAI, mascote IA de atendimento).
 
-### D-015 — Anel analítico com ícones nas fatias
-**Origem:** print #7 (Subscriptions ring), 2026-07-19.
-**Decisão:** gráficos de composição (donut) mostram **de onde vem o dado**: cada
-fatia carrega um badge circular com o ícone da fonte posicionado sobre o arco —
-nunca só cor+porcentagem. Centro do anel = total agregado (font-mono) + label
-pequeno uppercase muted. Fatias com cores vivas da paleta astrum, pontas arredondadas.
-**Componente:** `src/components/ui/ring-chart.tsx` (SVG puro, sem recharts).
+### D-015 — Anel analítico com ícones nas fatias (PADRÃO GLOBAL de composição)
+**Origem:** print #7 (Subscriptions ring), 2026-07-19. Replicado 1:1.
+**Decisão:** **todo** gráfico de composição no Astrum é o `<RingChart>` —
+`PieChart`/`Pie` do recharts está **proibido** para esse fim.
+- Cada fatia carrega um **badge circular com o ícone da fonte** sobre o arco —
+  nunca só cor+porcentagem.
+- Arco em **espectro contínuo**: o gradiente de cada fatia termina na cor da
+  fatia seguinte, criando a transição do print. Pontas arredondadas + glow.
+- Centro = total agregado (font-mono) + label pequeno uppercase muted.
+- **Motion (D-013):** arcos desenham por `pathLength` (0.75s, stagger 90ms),
+  badges entram com spring, centro em fade-up, legenda com stagger lateral.
+**Paletas globais** (exportadas do mesmo módulo):
+- `ASTRUM_SPECTRUM` — ordem padrão: signal → lemon → fiber → **nebula** → orange → red.
+- `ASTRUM_SEMANTIC` — `{ ok, warn, bad, neutral, info }` para composições de status.
+- Token novo `--color-astrum-nebula: #A855F7` (violeta cósmico) — **só em dataviz**,
+  nunca como accent de UI (o accent de marca continua sendo o limão, D-002).
+**Componente:** `src/components/ui/ring-chart.tsx` + `<RingLegend>` (SVG puro,
+sem recharts). Testado em `ring-chart.test.tsx` (inclui fatia de 100%, que como
+arco 0°→360° não seria desenhada pelo SVG e por isso vira `<circle>`).
+**Aplicado em:** Dashboard (sentimento), BI (status de faturas), Núcleo IA
+(sentimento), Custos IA (custo por modelo).
 
 ---
 

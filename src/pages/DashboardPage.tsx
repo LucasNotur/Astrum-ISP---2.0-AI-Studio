@@ -16,7 +16,8 @@ import {
 import { Badge } from "@/src/components/ui/badge";
 import { StatCard } from "@/src/components/ui/StatCard";
 import { cn } from "@/src/lib/utils";
-import { CheckCircle2, TrendingDown, Smile } from "lucide-react";
+import { CheckCircle2, TrendingDown, Smile, Meh, Frown } from "lucide-react";
+import { RingChart, RingLegend, ASTRUM_SEMANTIC } from "@/src/components/ui/ring-chart";
 import { PieChart, Pie, Cell } from "recharts";
 import { FCRMetricsCard } from "@/src/components/FCRMetricsCard";
 import { CardDescription } from "@/src/components/ui/card";
@@ -1241,101 +1242,28 @@ export function DashboardPage() {
                   Humor predominante nos atendimentos.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center justify-center py-4">
-                  <div className="relative w-40 h-40">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={[
-                            {
-                              name: "Positivo",
-                              value: sentimentCounts.POSITIVO,
-                              color: "#10b981",
-                            },
-                            {
-                              name: "Neutro",
-                              value: sentimentCounts.NEUTRO,
-                              color: "#94a3b8",
-                            },
-                            {
-                              name: "Negativo",
-                              value: sentimentCounts.NEGATIVO,
-                              color: "#ef4444",
-                            },
-                          ]}
-                          innerRadius={60}
-                          outerRadius={80}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {[
-                            {
-                              name: "Positivo",
-                              value: sentimentCounts.POSITIVO,
-                              color: "#10b981",
-                            },
-                            {
-                              name: "Neutro",
-                              value: sentimentCounts.NEUTRO,
-                              color: "#94a3b8",
-                            },
-                            {
-                              name: "Negativo",
-                              value: sentimentCounts.NEGATIVO,
-                              color: "#ef4444",
-                            },
-                          ].map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <p className="text-2xl font-bold">
-                        {(
-                          (sentimentCounts.POSITIVO /
-                            (sentimentCounts.POSITIVO +
-                              sentimentCounts.NEUTRO +
-                              sentimentCounts.NEGATIVO || 1)) *
-                          100
-                        ).toFixed(0)}
-                        %
-                      </p>
-                      <p className="text-[10px] text-zinc-500 uppercase font-bold">
-                        Positivo
-                      </p>
-                    </div>
-                  </div>
+              <CardContent className="space-y-5">
+                {/* D-015 — anel padrão com badge de fonte por fatia */}
+                <div className="flex justify-center py-2">
+                  <RingChart
+                    size={190}
+                    thickness={15}
+                    segments={[
+                      { value: sentimentCounts.POSITIVO, color: ASTRUM_SEMANTIC.ok, icon: <Smile size={15} strokeWidth={2} className="text-astrum-signal" />, label: 'Satisfeito' },
+                      { value: sentimentCounts.NEUTRO, color: ASTRUM_SEMANTIC.neutral, icon: <Meh size={15} strokeWidth={2} className="text-astrum-slate" />, label: 'Neutro' },
+                      { value: sentimentCounts.NEGATIVO, color: ASTRUM_SEMANTIC.bad, icon: <Frown size={15} strokeWidth={2} className="text-astrum-red" />, label: 'Insatisfeito' },
+                    ]}
+                    centerValue={`${((sentimentCounts.POSITIVO / (sentimentCounts.POSITIVO + sentimentCounts.NEUTRO + sentimentCounts.NEGATIVO || 1)) * 100).toFixed(0)}%`}
+                    centerLabel="positivo"
+                  />
                 </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-green-500" />
-                      <span>Satisfeito</span>
-                    </div>
-                    <span className="font-bold">
-                      {sentimentCounts.POSITIVO}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-zinc-400" />
-                      <span>Neutro</span>
-                    </div>
-                    <span className="font-bold">{sentimentCounts.NEUTRO}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-red-500" />
-                      <span>Insatisfeito</span>
-                    </div>
-                    <span className="font-bold">
-                      {sentimentCounts.NEGATIVO}
-                    </span>
-                  </div>
-                </div>
+                <RingLegend
+                  items={[
+                    { label: 'Satisfeito', value: sentimentCounts.POSITIVO, color: ASTRUM_SEMANTIC.ok, icon: <Smile size={15} strokeWidth={2} className="text-astrum-signal" /> },
+                    { label: 'Neutro', value: sentimentCounts.NEUTRO, color: ASTRUM_SEMANTIC.neutral, icon: <Meh size={15} strokeWidth={2} className="text-astrum-slate" /> },
+                    { label: 'Insatisfeito', value: sentimentCounts.NEGATIVO, color: ASTRUM_SEMANTIC.bad, icon: <Frown size={15} strokeWidth={2} className="text-astrum-red" /> },
+                  ]}
+                />
               </CardContent>
             </Card>
           </div>
