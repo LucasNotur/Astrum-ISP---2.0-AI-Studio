@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import { Switch } from "@/src/components/ui/switch";
-import { Save, Bug, Database, BellRing, LogOut, Copy, RefreshCw } from 'lucide-react';
+import { Save, Bug, Database, BellRing, LogOut, Copy, RefreshCw, Settings as SettingsIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/src/lib/supabase';
 import { QRCodeSVG } from 'qrcode.react';
@@ -1043,17 +1043,17 @@ export function SettingsPage() {
 
     const getStatusBadge = (status: string) => {
       switch (status) {
-        case 'Conectado': return <span className="px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-full text-[10px] font-medium border border-green-200 dark:border-green-800 uppercase tracking-wider">{status}</span>;
-        case 'Requer upgrade': return <span className="px-2 py-1 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 rounded-full text-[10px] font-medium border border-amber-200 dark:border-amber-800 uppercase tracking-wider">{status}</span>;
-        default: return <span className="px-2 py-1 bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 rounded-full text-[10px] font-medium border border-zinc-200 dark:border-zinc-700 uppercase tracking-wider">{status}</span>;
+        case 'Conectado': return <span className="px-2 py-1 bg-astrum-signal/15 text-astrum-signal rounded-full text-[10px] font-medium">{status}</span>;
+        case 'Requer upgrade': return <span className="px-2 py-1 bg-astrum-amber/15 text-astrum-amber rounded-full text-[10px] font-medium">{status}</span>;
+        default: return <span className="px-2 py-1 bg-secondary text-muted-foreground dark:bg-secondary rounded-full text-[10px] font-medium border border-border uppercase tracking-wider">{status}</span>;
       }
     };
 
     const getCategoryColor = (cat: string) => {
       switch (cat) {
-        case 'ERP': return 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 md:border md:border-blue-100 dark:border-blue-900/30';
-        case 'Pagamentos': return 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 md:border md:border-emerald-100 dark:border-emerald-900/30';
-        case 'IA': return 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 md:border md:border-purple-100 dark:border-purple-900/30';
+        case 'ERP': return 'bg-astrum-fiber/10 text-astrum-fiber md:border md:border-astrum-fiber/20';
+        case 'Pagamentos': return 'bg-astrum-signal/10 text-astrum-signal md:border md:border-astrum-signal/20';
+        case 'IA': return 'bg-astrum-lemon/10 text-astrum-lemon md:border md:border-astrum-lemon/20';
         case 'Comunicação': return 'bg-pink-50 text-pink-600 dark:bg-pink-900/20 md:border md:border-pink-100 dark:border-pink-900/30';
         default: return 'bg-gray-100 text-gray-700';
       }
@@ -1070,10 +1070,10 @@ export function SettingsPage() {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {integrations.map((item) => (
-           <div key={item.id} className="relative flex flex-col group border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-950 p-5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+           <div key={item.id} className="relative flex flex-col group border border-border rounded-2xl bg-card p-5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
              
              <div className="flex justify-between items-start mb-4">
-               <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 text-2xl shadow-inner group-hover:scale-110 transition-transform">
+               <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-secondary/40 border border-border text-2xl shadow-inner group-hover:scale-110 transition-transform">
                  {item.logo}
                </div>
                {getStatusBadge(item.status)}
@@ -1085,13 +1085,13 @@ export function SettingsPage() {
                </span>
              </div>
              
-             <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 text-base mb-1">{item.name}</h3>
+             <h3 className="font-semibold text-foreground text-base mb-1">{item.name}</h3>
              
-             <p className="text-zinc-500 dark:text-zinc-400 text-xs mb-6 flex-grow leading-relaxed">
+             <p className="text-muted-foreground text-xs mb-6 flex-grow leading-relaxed">
                {item.desc}
              </p>
 
-             <div className="mt-auto pt-4 border-t border-zinc-100 dark:border-zinc-800/50">
+             <div className="mt-auto pt-4 border-t border-border">
                <Button 
                  variant={item.status === 'Conectado' ? 'outline' : 'default'}
                  className="w-full text-xs font-medium h-9 rounded-lg"
@@ -1149,7 +1149,7 @@ export function SettingsPage() {
                            toast.success('Configurações MK-Auth salvas com sucesso!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
-                        }} className="bg-indigo-600 hover:bg-indigo-700">Salvar MK-Auth</Button>
+                        }}>Salvar MK-Auth</Button>
                       </div>
                   </div>
               )}
@@ -1174,7 +1174,7 @@ export function SettingsPage() {
                         />
                       </div>
                       <div className="pt-4 flex gap-2">
-                        <Button onClick={saveIXCCredentials} className="bg-indigo-600 hover:bg-indigo-700">Salvar</Button>
+                        <Button onClick={saveIXCCredentials}>Salvar</Button>
                         <Button variant="outline" onClick={testIXCConnection} disabled={isTestingIXC}>
                           {isTestingIXC ? 'Testando...' : 'Testar Conexão'}
                         </Button>
@@ -1211,7 +1211,7 @@ export function SettingsPage() {
                         />
                       </div>
                       <div className="pt-4 flex gap-2">
-                        <Button onClick={saveVoalleCredentials} className="bg-indigo-600 hover:bg-indigo-700">Salvar</Button>
+                        <Button onClick={saveVoalleCredentials}>Salvar</Button>
                         <Button variant="outline" onClick={testVoalleConnection} disabled={isTestingVoalle}>
                           {isTestingVoalle ? 'Testando...' : 'Testar Conexão'}
                         </Button>
@@ -1239,7 +1239,7 @@ export function SettingsPage() {
                         />
                       </div>
                       <div className="pt-4 flex gap-2">
-                        <Button onClick={saveHubsoftCredentials} className="bg-indigo-600 hover:bg-indigo-700">Salvar</Button>
+                        <Button onClick={saveHubsoftCredentials}>Salvar</Button>
                         <Button variant="outline" onClick={testHubsoftConnection} disabled={isTestingHubsoft}>
                           {isTestingHubsoft ? 'Testando...' : 'Testar Conexão'}
                         </Button>
@@ -1267,7 +1267,7 @@ export function SettingsPage() {
                         />
                       </div>
                       <div className="pt-4 flex gap-2">
-                        <Button onClick={saveSgpCredentials} className="bg-indigo-600 hover:bg-indigo-700">Salvar</Button>
+                        <Button onClick={saveSgpCredentials}>Salvar</Button>
                         <Button variant="outline" onClick={testSgpConnection} disabled={isTestingSgp}>
                           {isTestingSgp ? 'Testando...' : 'Testar Conexão'}
                         </Button>
@@ -1295,7 +1295,7 @@ export function SettingsPage() {
                         />
                       </div>
                       <div className="pt-4 flex gap-2">
-                        <Button onClick={saveRbxCredentials} className="bg-indigo-600 hover:bg-indigo-700">Salvar</Button>
+                        <Button onClick={saveRbxCredentials}>Salvar</Button>
                         <Button variant="outline" onClick={testRbxConnection} disabled={isTestingRbx}>
                           {isTestingRbx ? 'Testando...' : 'Testar Conexão'}
                         </Button>
@@ -1321,7 +1321,7 @@ export function SettingsPage() {
                            toast.success('Configurações RD Station salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
-                        }} className="bg-indigo-600 hover:bg-indigo-700">
+                        }}>
                            Salvar RD Station
                         </Button>
                       </div>
@@ -1346,7 +1346,7 @@ export function SettingsPage() {
                            toast.success('Configurações Pipedrive salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
-                        }} className="bg-indigo-600 hover:bg-indigo-700">
+                        }}>
                            Salvar Pipedrive
                         </Button>
                       </div>
@@ -1371,7 +1371,7 @@ export function SettingsPage() {
                            toast.success('Configurações HubSpot salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
-                        }} className="bg-indigo-600 hover:bg-indigo-700">
+                        }}>
                            Salvar HubSpot
                         </Button>
                       </div>
@@ -1404,7 +1404,7 @@ export function SettingsPage() {
                            toast.success('Configurações salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
-                        }} className="bg-indigo-600 hover:bg-indigo-700">
+                        }}>
                            {isSavingKeys ? "Salvando..." : "Salvar Configurações"}
                         </Button>
                       </div>
@@ -1437,7 +1437,7 @@ export function SettingsPage() {
                            toast.success('Configurações salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
-                        }} className="bg-indigo-600 hover:bg-indigo-700">Salvar RadiusNet</Button>
+                        }}>Salvar RadiusNet</Button>
                       </div>
                   </div>
               )}
@@ -1460,7 +1460,7 @@ export function SettingsPage() {
                            toast.success('Configurações salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
-                        }} className="bg-indigo-600 hover:bg-indigo-700">Salvar Asaas</Button>
+                        }}>Salvar Asaas</Button>
                       </div>
                   </div>
               )}
@@ -1492,7 +1492,7 @@ export function SettingsPage() {
                            toast.success('Configurações salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
-                        }} className="bg-indigo-600 hover:bg-indigo-700">Salvar Gerencianet</Button>
+                        }}>Salvar Gerencianet</Button>
                       </div>
                   </div>
               )}
@@ -1515,7 +1515,7 @@ export function SettingsPage() {
                            toast.success('Configurações salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
-                        }} className="bg-indigo-600 hover:bg-indigo-700">Salvar OpenAI</Button>
+                        }}>Salvar OpenAI</Button>
                       </div>
                   </div>
               )}
@@ -1538,7 +1538,7 @@ export function SettingsPage() {
                            toast.success('Configurações salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
-                        }} className="bg-indigo-600 hover:bg-indigo-700">Salvar Gemini</Button>
+                        }}>Salvar Gemini</Button>
                       </div>
                   </div>
               )}
@@ -1561,7 +1561,7 @@ export function SettingsPage() {
                            toast.success('Configurações salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
-                        }} className="bg-indigo-600 hover:bg-indigo-700">Salvar Anthropic</Button>
+                        }}>Salvar Anthropic</Button>
                       </div>
                   </div>
               )}
@@ -1592,7 +1592,7 @@ export function SettingsPage() {
                            toast.success('Configurações salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
-                        }} className="bg-indigo-600 hover:bg-indigo-700">Salvar Qdrant</Button>
+                        }}>Salvar Qdrant</Button>
                       </div>
                   </div>
               )}
@@ -1615,7 +1615,7 @@ export function SettingsPage() {
                            toast.success('Configurações salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
-                        }} className="bg-indigo-600 hover:bg-indigo-700">Salvar Instagram</Button>
+                        }}>Salvar Instagram</Button>
                       </div>
                   </div>
               )}
@@ -1638,7 +1638,7 @@ export function SettingsPage() {
                            toast.success('Configurações salvas!');
                            setIsSavingKeys(false);
                            setSelectedIntegrationMenu(null);
-                        }} className="bg-indigo-600 hover:bg-indigo-700">Salvar Facebook</Button>
+                        }}>Salvar Facebook</Button>
                       </div>
                   </div>
               )}
@@ -1656,60 +1656,69 @@ export function SettingsPage() {
               animate={{ opacity: 1, x: 0 }}
               className="space-y-6"
             >
-              
-              
+              {/* D-008 — hero da seção */}
+              <header>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <SettingsIcon size={13} strokeWidth={1.75} />
+                  Administração · workspace do provedor
+                </div>
+                <h1 className="font-display text-3xl md:text-4xl font-medium tracking-tight leading-[1.1] mt-2">
+                  Configurações
+                </h1>
+              </header>
+
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="bg-zinc-100 dark:bg-zinc-800 p-1">
-                  <TabsTrigger value="general">Geral</TabsTrigger>
-                  {canAccessBilling && <TabsTrigger value="billing">Assinatura / Faturamento</TabsTrigger>}
-                  {isAstrum && <TabsTrigger value="integrations">Integrações (APIs)</TabsTrigger>}
-                  <TabsTrigger value="team">Equipe</TabsTrigger>
-                  <TabsTrigger value="departments">Departamentos</TabsTrigger>
-                  <TabsTrigger value="holidays">Feriados</TabsTrigger>
-                  <TabsTrigger value="theme">Personalização (Tema)</TabsTrigger>
-                  <TabsTrigger value="modules">Módulos</TabsTrigger>
-                  <TabsTrigger value="security">Segurança (MFA)</TabsTrigger>
-                  <TabsTrigger value="sso">SSO (Google)</TabsTrigger>
-                  <TabsTrigger value="custom_domain">Domínio Customizado</TabsTrigger>
-                  {isAstrum && <TabsTrigger value="permissions">Perfis e Permissões</TabsTrigger>}
-                  <TabsTrigger value="advanced">Avançado / Developer</TabsTrigger>
+                <TabsList className="h-auto flex flex-wrap justify-start w-fit max-w-full bg-secondary/60 border border-border rounded-stable-xl p-1 gap-0.5">
+                  <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="general">Geral</TabsTrigger>
+                  {canAccessBilling && <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="billing">Assinatura</TabsTrigger>}
+                  {isAstrum && <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="integrations">Integrações</TabsTrigger>}
+                  <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="team">Equipe</TabsTrigger>
+                  <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="departments">Departamentos</TabsTrigger>
+                  <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="holidays">Feriados</TabsTrigger>
+                  <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="theme">Tema</TabsTrigger>
+                  <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="modules">Módulos</TabsTrigger>
+                  <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="security">Segurança</TabsTrigger>
+                  <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="sso">SSO</TabsTrigger>
+                  <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="custom_domain">Domínio</TabsTrigger>
+                  {isAstrum && <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="permissions">Permissões</TabsTrigger>}
+                  <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="advanced">Avançado</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="billing" className="mt-6">
                   <RequireProvedorAdmin>
                     <div className="grid grid-cols-1 gap-6 max-w-4xl">
-                      <Card className="border-none shadow-sm dark:bg-zinc-900">
+                      <Card className="rounded-stable-xl border border-border bg-card shadow-1">
                       <CardHeader>
                         <CardTitle className="text-xl">Sua Assinatura Atual</CardTitle>
                         <CardDescription>Gerencie seu plano e método de pagamento da plataforma.</CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-6">
-                        <div className="flex items-center justify-between p-4 border rounded-lg bg-zinc-50 dark:bg-zinc-800/50 flex-col sm:flex-row gap-4">
+                        <div className="flex items-center justify-between p-4 border rounded-lg bg-secondary/40 flex-col sm:flex-row gap-4">
                           <div>
                             <h4 className="font-semibold text-lg uppercase">Plano Pro</h4>
-                            <div className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 flex items-center gap-2">
-                              Status: <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 font-normal">Ativa</Badge>
+                            <div className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
+                              Status: <Badge className="bg-astrum-signal/15 text-astrum-signal font-normal">Ativa</Badge>
                             </div>
-                            <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+                            <p className="text-sm text-muted-foreground mt-1">
                               Próxima renovação: 15/11/2026
                             </p>
                           </div>
                           <div className="text-left sm:text-right w-full sm:w-auto border-t sm:border-t-0 pt-4 sm:pt-0">
                             <p className="text-2xl font-bold">R$ 299,00</p>
-                            <p className="text-xs text-zinc-500">/mês</p>
+                            <p className="text-xs text-muted-foreground">/mês</p>
                           </div>
                         </div>
                         
-                        <div className="pt-4 border-t dark:border-zinc-800">
+                        <div className="pt-4 border-t border-border">
                            <h4 className="font-medium text-sm mb-4">Método de Pagamento</h4>
                            <div className="flex items-center justify-between p-4 border rounded-lg">
                               <div className="flex items-center gap-4">
-                                <div className="w-12 h-8 bg-zinc-200 dark:bg-zinc-700 rounded flex items-center justify-center shrink-0">
-                                   <CreditCard size={20} className="text-zinc-500" />
+                                <div className="w-12 h-8 bg-secondary rounded flex items-center justify-center shrink-0">
+                                   <CreditCard size={20} className="text-muted-foreground" />
                                 </div>
                                 <div>
                                    <p className="text-sm font-medium">Cartão de Crédito</p>
-                                   <p className="text-xs text-zinc-500">**** **** **** 1234</p>
+                                   <p className="text-xs text-muted-foreground">**** **** **** 1234</p>
                                 </div>
                               </div>
                               <Button variant="outline" size="sm">Atualizar</Button>
@@ -1788,10 +1797,10 @@ export function SettingsPage() {
 
                 <TabsContent value="advanced" className="mt-6">
                   <div className="grid grid-cols-1 gap-6">
-                    <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
-                      <CardHeader className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 rounded-t-xl">
+                    <Card className="border-border shadow-sm">
+                      <CardHeader className="bg-secondary/40 border-b border-border rounded-t-xl">
                         <CardTitle className="flex items-center gap-2">
-                          <Database size={18} className="text-purple-600" /> 
+                          <Database size={18} className="text-astrum-fiber" /> 
                           Backup Automático (Firestore)
                         </CardTitle>
                         <CardDescription>
@@ -1800,7 +1809,7 @@ export function SettingsPage() {
                       </CardHeader>
                       <CardContent className="space-y-6 pt-6">
                         <div className="flex items-center justify-between mb-4">
-                          <Label className="font-semibold text-zinc-900 dark:text-zinc-100">Ativar Backup Automático</Label>
+                          <Label className="font-semibold text-foreground">Ativar Backup Automático</Label>
                           <Switch 
                             checked={backupConfig.backup_enabled} 
                             onCheckedChange={(checked) => saveBackupConfig('backup_enabled', checked)} 
@@ -1808,7 +1817,7 @@ export function SettingsPage() {
                         </div>
 
                         {backupConfig.backup_enabled && (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-zinc-50/50 dark:bg-zinc-900/20 p-4 border border-zinc-100 dark:border-zinc-800 rounded-lg">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-secondary/30 p-4 border border-border rounded-lg">
                             <div className="space-y-2">
                               <Label>ID do Projeto GCP</Label>
                               <Input 
@@ -1830,7 +1839,7 @@ export function SettingsPage() {
                             <div className="space-y-2">
                               <Label>Horário do Backup</Label>
                               <select 
-                                className="w-full text-sm border p-2 rounded-md bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800"
+                                className="w-full text-sm border p-2 rounded-md bg-card border-border"
                                 value={backupConfig.backup_hour}
                                 onChange={(e) => {
                                   setBackupConfig(prev => ({...prev, backup_hour: e.target.value}));
@@ -1856,14 +1865,14 @@ export function SettingsPage() {
                           </div>
                         )}
 
-                        <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div className="pt-4 border-t border-border flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                           <div className="text-sm">
-                            <p className="text-zinc-500 mb-1">Último Backup: <span className="font-semibold text-zinc-900 dark:text-zinc-100">{backupConfig.last_backup_at || 'Nunca'}</span></p>
-                            <div className="text-zinc-500">
+                            <p className="text-muted-foreground mb-1">Último Backup: <span className="font-semibold text-foreground">{backupConfig.last_backup_at || 'Nunca'}</span></p>
+                            <div className="text-muted-foreground">
                               Status: 
-                              {backupConfig.last_backup_status === 'success' && <Badge variant="secondary" className="ml-2 bg-green-100 text-green-700">Sucesso</Badge>}
-                              {backupConfig.last_backup_status === 'failed' && <Badge variant="destructive" className="ml-2 bg-red-100">{backupConfig.last_backup_error || 'Falha'}</Badge>}
-                              {!backupConfig.last_backup_status && <Badge variant="outline" className="ml-2 text-zinc-500">N/A</Badge>}
+                              {backupConfig.last_backup_status === 'success' && <Badge variant="secondary" className="ml-2 bg-astrum-signal/15 text-astrum-signal">Sucesso</Badge>}
+                              {backupConfig.last_backup_status === 'failed' && <Badge variant="secondary" className="ml-2 bg-astrum-red/15 text-astrum-red">{backupConfig.last_backup_error || 'Falha'}</Badge>}
+                              {!backupConfig.last_backup_status && <Badge variant="outline" className="ml-2 text-muted-foreground">N/A</Badge>}
                               {backupConfig.last_backup_size_mb && <span className="ml-2 text-xs">({backupConfig.last_backup_size_mb})</span>}
                             </div>
                           </div>
@@ -1880,9 +1889,9 @@ export function SettingsPage() {
                     </Card>
 
                     {isAstrum && (
-                      <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
-                        <CardHeader className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 rounded-t-xl">
-                          <CardTitle className="uppercase text-xs text-zinc-500">Ferramentas de Desenvolvedor</CardTitle>
+                      <Card className="border-border shadow-sm">
+                        <CardHeader className="bg-secondary/40 border-b border-border rounded-t-xl">
+                          <CardTitle className="uppercase text-xs text-muted-foreground">Ferramentas de Desenvolvedor</CardTitle>
                           <CardDescription>
                             Ações perigosas para popular ou redefinir a base de dados em ambiente de teste.
                           </CardDescription>
@@ -1919,7 +1928,7 @@ export function SettingsPage() {
                             <Button 
                               variant="outline" 
                               size="sm" 
-                              className="gap-2 bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100 hover:text-purple-700 dark:bg-purple-900/20 dark:border-purple-800 dark:text-purple-400 dark:hover:bg-purple-900/40"
+                              className="gap-2 bg-astrum-fiber/10 text-astrum-fiber border-astrum-fiber/30 hover:bg-astrum-fiber/15 hover:text-astrum-fiber"
                               onClick={handleSeedPopularAstrum}
                               disabled={isSeeding}
                             >
@@ -1928,7 +1937,7 @@ export function SettingsPage() {
                             <Button 
                               variant="outline" 
                               size="sm" 
-                              className="gap-2 border-red-500/20 text-red-500 hover:bg-red-500/10 hover:text-red-600"
+                              className="gap-2 border-astrum-red/30 text-astrum-red hover:bg-astrum-red/10 hover:text-astrum-red"
                               onClick={handleWipeSystem}
                               disabled={isSeeding}
                             >
@@ -1989,7 +1998,7 @@ export function SettingsPage() {
                               <Label>Cor Identificadora</Label>
                               <div className="flex gap-2 items-center mt-2">
                                 <input type="color" value={deptForm.color} onChange={e => setDeptForm({...deptForm, color: e.target.value})} className="h-8 w-8 rounded cursor-pointer" />
-                                <span className="text-xs text-zinc-500 uppercase">{deptForm.color}</span>
+                                <span className="text-xs text-muted-foreground uppercase">{deptForm.color}</span>
                               </div>
                             </div>
                             <div>
@@ -2030,7 +2039,7 @@ export function SettingsPage() {
 
                       <div className="rounded-md border overflow-hidden">
                         <table className="w-full text-sm text-left">
-                          <thead className="bg-zinc-50 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400">
+                          <thead className="bg-secondary/40 text-muted-foreground">
                             <tr>
                               <th className="px-4 py-3 font-medium">Nome</th>
                               <th className="px-4 py-3 font-medium">SLA Resposta</th>
@@ -2039,9 +2048,9 @@ export function SettingsPage() {
                               <th className="px-4 py-3 font-medium text-right">Ações</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                          <tbody className="divide-y divide-border">
                             {departments.map((dept: any) => (
-                              <tr key={dept.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/50">
+                              <tr key={dept.id} className="hover:bg-foreground/[0.03]">
                                 <td className="px-4 py-3 font-medium flex items-center gap-2">
                                   <span className="w-3 h-3 rounded-full" style={{ backgroundColor: dept.color || '#3b82f6' }}></span>
                                   {dept.name}
@@ -2054,7 +2063,7 @@ export function SettingsPage() {
                                       <Badge key={skill} variant="secondary" className="text-[10px]">{skill}</Badge>
                                     ))}
                                     {(!dept.required_skills || dept.required_skills.length === 0) && (
-                                       <span className="text-xs text-zinc-400">Nenhuma</span>
+                                       <span className="text-xs text-muted-foreground">Nenhuma</span>
                                     )}
                                   </div>
                                 </td>
@@ -2070,7 +2079,7 @@ export function SettingsPage() {
                                     });
                                     setEditingDeptId(dept.id);
                                   }}>Editar</Button>
-                                  <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDeleteDepartment(dept.id)}>
+                                  <Button variant="ghost" size="sm" className="text-astrum-red hover:text-astrum-red hover:bg-astrum-red/10" onClick={() => handleDeleteDepartment(dept.id)}>
                                     <Trash2 size={16} />
                                   </Button>
                                 </td>
@@ -2078,7 +2087,7 @@ export function SettingsPage() {
                             ))}
                             {departments.length === 0 && (
                               <tr>
-                                <td colSpan={5} className="px-4 py-8 text-center text-zinc-500">Nenhum departamento configurado.</td>
+                                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">Nenhum departamento configurado.</td>
                               </tr>
                             )}
                           </tbody>
@@ -2102,22 +2111,22 @@ export function SettingsPage() {
                     <CardContent>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {teamMembers.map((member) => (
-                          <div key={member.id} className="p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm flex items-center gap-4">
+                          <div key={member.id} className="p-4 rounded-2xl border border-border bg-card shadow-sm flex items-center gap-4">
                             <Avatar className="h-12 w-12">
                               <AvatarImage src={member.photoUrl || member.avatarUrl} />
-                              <AvatarFallback className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+                              <AvatarFallback className="bg-secondary text-muted-foreground">
                                 {member.name?.slice(0, 2).toUpperCase() || '??'}
                               </AvatarFallback>
                             </Avatar>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-bold truncate">{member.name}</p>
-                              <p className="text-[10px] text-zinc-500 truncate">{member.email}</p>
+                              <p className="text-[10px] text-muted-foreground truncate">{member.email}</p>
                               <Badge variant="secondary" className="mt-1 text-[8px] h-4">{member.role}</Badge>
                             </div>
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              className="h-8 w-8 text-zinc-400 hover:text-red-600"
+                              className="h-8 w-8 text-muted-foreground hover:text-astrum-red"
                               onClick={() => handleDeleteTeamMember(member.id)}
                             >
                               <Trash2 size={14} />
@@ -2125,9 +2134,9 @@ export function SettingsPage() {
                           </div>
                         ))}
                         {teamMembers.length === 0 && (
-                          <div className="col-span-full py-12 text-center border-2 border-dashed rounded-2xl border-zinc-100">
-                            <Users size={32} className="mx-auto text-zinc-200 mb-2" />
-                            <p className="text-zinc-400 text-sm">Nenhum membro cadastrado.</p>
+                          <div className="col-span-full py-12 text-center border-2 border-dashed rounded-2xl border-border">
+                            <Users size={32} className="mx-auto text-muted-foreground/40 mb-2" />
+                            <p className="text-muted-foreground text-sm">Nenhum membro cadastrado.</p>
                           </div>
                         )}
                       </div>
@@ -2147,7 +2156,7 @@ export function SettingsPage() {
                     </CardHeader>
                     <CardContent className="overflow-x-auto">
                       <table className="w-full text-sm text-left border-collapse">
-                        <thead className="text-xs text-zinc-500 uppercase bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
+                        <thead className="text-xs text-muted-foreground uppercase bg-secondary/40 border-b border-border">
                           <tr>
                             <th className="px-4 py-3 min-w-[200px]">Menu / Módulo</th>
                             {ROLES.map(role => (
@@ -2155,15 +2164,15 @@ export function SettingsPage() {
                             ))}
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+                        <tbody className="divide-y divide-border">
                           {Array.from(new Set(AVAILABLE_MENUS.map(m => m.group))).map((group) => (
                             <React.Fragment key={group}>
-                              <tr className="bg-zinc-50/50 dark:bg-zinc-900/50">
-                                <td colSpan={ROLES.length + 1} className="px-4 py-2 text-xs font-bold text-zinc-400 uppercase tracking-wider">{group}</td>
+                              <tr className="bg-secondary/30">
+                                <td colSpan={ROLES.length + 1} className="px-4 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">{group}</td>
                               </tr>
                               {AVAILABLE_MENUS.filter(m => m.group === group).map(menu => (
-                                <tr key={menu.id} className="bg-white dark:bg-zinc-950">
-                                  <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                                <tr key={menu.id} className="bg-card">
+                                  <td className="px-4 py-3 font-medium text-foreground flex items-center gap-2">
                                     {menu.label}
                                   </td>
                                   {ROLES.map(role => {
@@ -2201,7 +2210,7 @@ export function SettingsPage() {
                         <div className="flex items-center justify-between">
                           <div>
                             <h3 className="text-sm font-semibold">Autenticação de Dois Fatores (2FA)</h3>
-                            <p className="text-xs text-zinc-500">Adicione uma camada extra de segurança utilizando o Google Authenticator ou similar.</p>
+                            <p className="text-xs text-muted-foreground">Adicione uma camada extra de segurança utilizando o Google Authenticator ou similar.</p>
                           </div>
                           {!totpFactorId && (
                              <Button onClick={startMfaEnrollment} disabled={isEnrollingMfa}>
@@ -2211,7 +2220,7 @@ export function SettingsPage() {
                         </div>
 
                         {totpFactorId && totpUrl && (
-                           <div className="p-4 bg-zinc-50 dark:bg-zinc-800 rounded-md flex flex-col items-center gap-4">
+                           <div className="p-4 bg-secondary/40 rounded-md flex flex-col items-center gap-4">
                              <p className="text-sm">Escaneie o QR Code abaixo com seu aplicativo de autenticação (ex: Google Authenticator)</p>
                              <div className="bg-white p-2 rounded-md">
                                 <QRCodeSVG value={totpUrl} size={200} />
@@ -2225,7 +2234,7 @@ export function SettingsPage() {
                                   maxLength={6} 
                                 />
                              </div>
-                             {mfaError && <p className="text-xs text-red-500">{mfaError}</p>}
+                             {mfaError && <p className="text-xs text-astrum-red">{mfaError}</p>}
                              <div className="flex gap-2 w-full max-w-sm">
                                <Button variant="outline" className="flex-1" onClick={() => {
                                  setTotpFactorId(null);
@@ -2248,7 +2257,7 @@ export function SettingsPage() {
 
                 <TabsContent value="sso" className="mt-6">
                   <Card className="border-none shadow-sm h-full">
-                    <CardHeader className="border-b dark:border-zinc-800 pb-4">
+                    <CardHeader className="border-b border-border pb-4">
                       <CardTitle className="text-xl">SSO Google Workspace</CardTitle>
                       <CardDescription>
                         Configure o domínio do Google Workspace para redirecionamento e permissão automática na sua organização (SSO via Google).
@@ -2264,7 +2273,7 @@ export function SettingsPage() {
                             onChange={(e) => setSsoDomain(e.target.value)}
                             className="mt-1"
                           />
-                          <p className="text-xs text-zinc-500 mt-2">
+                          <p className="text-xs text-muted-foreground mt-2">
                             Ao configurar este domínio, qualquer acesso pelo Google utilizando este domínio será automaticamente validado e garantido na sua organização.
                           </p>
                         </div>
@@ -2282,9 +2291,9 @@ export function SettingsPage() {
 
                 <TabsContent value="custom_domain" className="mt-6">
                   <Card className="border-none shadow-sm h-full">
-                    <CardHeader className="border-b dark:border-zinc-800 pb-4">
+                    <CardHeader className="border-b border-border pb-4">
                       <CardTitle className="text-xl flex items-center gap-2">
-                        <Globe className="text-blue-500" />
+                        <Globe className="text-astrum-fiber" />
                         Domínio Customizado
                       </CardTitle>
                       <CardDescription>
@@ -2312,24 +2321,24 @@ export function SettingsPage() {
                           Status:
                           {domainStatus === 'none' && <Badge variant="outline">Não verificado</Badge>}
                           {domainStatus === 'pending' && <Badge variant="secondary" className="bg-yellow-100 text-yellow-700">Pendente</Badge>}
-                          {domainStatus === 'verified' && <Badge variant="secondary" className="bg-green-100 text-green-700">Verificado</Badge>}
+                          {domainStatus === 'verified' && <Badge variant="secondary" className="bg-astrum-signal/15 text-astrum-signal">Verificado</Badge>}
                           {domainStatus === 'error' && <Badge variant="destructive">Erro na verificação</Badge>}
                         </div>
 
-                        <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-4 mt-6">
+                        <div className="bg-secondary/40 border border-border rounded-lg p-4 mt-6">
                           <h4 className="font-medium text-sm mb-2">Instruções de Configuração no DNS</h4>
-                          <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
+                          <p className="text-sm text-muted-foreground mb-4">
                             Crie um registro do tipo <strong>CNAME</strong> no painel de controle do seu domínio com os seguintes dados:
                           </p>
-                          <div className="grid grid-cols-2 max-w-sm gap-2 text-sm bg-white dark:bg-zinc-950 p-3 rounded border dark:border-zinc-800">
-                            <div className="font-medium text-zinc-500">Tipo</div>
+                          <div className="grid grid-cols-2 max-w-sm gap-2 text-sm bg-card p-3 rounded border border-border">
+                            <div className="font-medium text-muted-foreground">Tipo</div>
                             <div>CNAME</div>
-                            <div className="font-medium text-zinc-500">Nome / Host</div>
+                            <div className="font-medium text-muted-foreground">Nome / Host</div>
                             <div>painel (ou outro subdomínio)</div>
-                            <div className="font-medium text-zinc-500">Destino / Valor</div>
+                            <div className="font-medium text-muted-foreground">Destino / Valor</div>
                             <div>app.astrum.ai</div>
                           </div>
-                          <p className="text-xs text-zinc-500 mt-4">
+                          <p className="text-xs text-muted-foreground mt-4">
                             A propagação do DNS pode levar ferramentas até 48 horas, mas normalmente ocorre em alguns minutos.
                           </p>
                         </div>
@@ -2340,17 +2349,17 @@ export function SettingsPage() {
 
                 <TabsContent value="holidays" className="mt-6">
                   <Card className="border-none shadow-sm h-full">
-                    <CardHeader className="border-b dark:border-zinc-800 pb-4">
+                    <CardHeader className="border-b border-border pb-4">
                       <CardTitle className="text-xl">Feriados e Datas Comemorativas</CardTitle>
                       <CardDescription>
                         Feriados são dias em que regras de SLA podem pausar e a equipe técnica tem plantão.
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="pt-6 space-y-6">
-                      <div className="flex justify-between items-center bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 rounded-xl">
+                      <div className="flex justify-between items-center bg-secondary/40 border border-border p-4 rounded-xl">
                          <div>
-                            <h4 className="font-medium text-sm text-zinc-900 dark:text-zinc-100">Feriados Nacionais</h4>
-                            <p className="text-xs text-zinc-500">Busque automaticamente feriados nacionais via BrasilAPI.</p>
+                            <h4 className="font-medium text-sm text-foreground">Feriados Nacionais</h4>
+                            <p className="text-xs text-muted-foreground">Busque automaticamente feriados nacionais via BrasilAPI.</p>
                          </div>
                          <Button variant="secondary" onClick={handleFetchHolidays} disabled={isFetchingHolidays}>
                             {isFetchingHolidays ? "Buscando..." : "Sincronizar"}
@@ -2379,17 +2388,17 @@ export function SettingsPage() {
                          
                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                             {holidays.map(h => (
-                               <div key={h.date} className="flex flex-col border border-zinc-200 dark:border-zinc-800 p-3 rounded-lg bg-zinc-50/50 dark:bg-zinc-900/50 relative group">
+                               <div key={h.date} className="flex flex-col border border-border p-3 rounded-lg bg-secondary/30 relative group">
                                   <div className="flex items-center justify-between mb-1">
                                      <span className="font-semibold text-sm">{h.date}</span>
                                      <Badge variant={h.type === 'national' ? 'default' : 'secondary'} className="text-[10px]">
                                         {h.type === 'national' ? 'Nacional' : 'Local'}
                                      </Badge>
                                   </div>
-                                  <span className="text-sm text-zinc-600 dark:text-zinc-400 truncate" title={h.name}>{h.name}</span>
+                                  <span className="text-sm text-muted-foreground truncate" title={h.name}>{h.name}</span>
                                   {h.type !== 'national' && (
                                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                       <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={() => handleDeleteHoliday(h.date)}>
+                                       <Button variant="ghost" size="icon" className="h-6 w-6 text-astrum-red hover:bg-astrum-red/10" onClick={() => handleDeleteHoliday(h.date)}>
                                           <Trash2 size={12} />
                                        </Button>
                                      </div>
@@ -2397,7 +2406,7 @@ export function SettingsPage() {
                                </div>
                             ))}
                             {holidays.length === 0 && (
-                               <div className="col-span-1 md:col-span-3 text-center py-8 text-zinc-500 text-sm">
+                               <div className="col-span-1 md:col-span-3 text-center py-8 text-muted-foreground text-sm">
                                   Nenhum feriado cadastrado. Sincronize os nacionais ou adicione manualmente.
                                </div>
                             )}
@@ -2410,7 +2419,7 @@ export function SettingsPage() {
                 <TabsContent value="theme" className="mt-6">
                   <div className="grid grid-cols-1 gap-6">
                     <Card className="border-none shadow-sm h-full">
-                      <CardHeader className="border-b dark:border-zinc-800 pb-4">
+                      <CardHeader className="border-b border-border pb-4">
                         <CardTitle className="text-xl">Personalização da Identidade Visual</CardTitle>
                         <CardDescription>Estilize o sistema com as cores e logo do seu provedor.</CardDescription>
                       </CardHeader>
@@ -2487,7 +2496,7 @@ export function SettingsPage() {
                                 className="hidden" 
                               />
                               <div 
-                                className="w-24 h-24 rounded-xl border-2 border-dashed border-zinc-200 dark:border-zinc-800 flex items-center justify-center overflow-hidden relative group cursor-pointer"
+                                className="w-24 h-24 rounded-xl border-2 border-dashed border-border flex items-center justify-center overflow-hidden relative group cursor-pointer"
                                 onClick={() => fileInputRef.current?.click()}
                               >
                                 <img 
@@ -2500,7 +2509,7 @@ export function SettingsPage() {
                                   <span className="text-white text-[10px] uppercase font-bold text-center p-1">Alterar</span>
                                 </div>
                               </div>
-                              <p className="text-xs text-zinc-500">Recomendado: 512x512px (PNG ou SVG). Aplicada após salvar na aba Geral também.</p>
+                              <p className="text-xs text-muted-foreground">Recomendado: 512x512px (PNG ou SVG). Aplicada após salvar na aba Geral também.</p>
                             </div>
                           </div>
 
@@ -2519,9 +2528,9 @@ export function SettingsPage() {
                           </Button>
                         </div>
 
-                        <div className="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden p-6 relative" style={{ fontFamily: themeConfig.font_family }}>
-                          <div className="absolute inset-0 bg-white dark:bg-zinc-950 -z-10" />
-                          <h3 className="font-semibold mb-4 text-lg text-zinc-900 dark:text-zinc-100">Live Preview</h3>
+                        <div className="border border-border rounded-xl overflow-hidden p-6 relative" style={{ fontFamily: themeConfig.font_family }}>
+                          <div className="absolute inset-0 bg-card -z-10" />
+                          <h3 className="font-semibold mb-4 text-lg text-foreground">Live Preview</h3>
                           <div className="space-y-4">
                              <div className="w-full h-32 rounded-lg bg-cover bg-center" style={{ backgroundImage: `url(${themeConfig.login_background_url || 'https://picsum.photos/seed/bg/400/200'})` }}>
                                 <div className="w-full h-full bg-black/40 flex items-center justify-center rounded-lg">
@@ -2540,7 +2549,7 @@ export function SettingsPage() {
                              
                              <div className="p-4 rounded border-l-4" style={{ backgroundColor: themeConfig.primary_color + '10', borderColor: themeConfig.primary_color }}>
                                 <p className="text-sm font-medium" style={{ color: themeConfig.primary_color }}>Alerta do Sistema Importante</p>
-                                <p className="text-xs text-zinc-500 mt-1">Este componente assume a cor primária.</p>
+                                <p className="text-xs text-muted-foreground mt-1">Este componente assume a cor primária.</p>
                              </div>
                           </div>
                         </div>
@@ -2548,7 +2557,7 @@ export function SettingsPage() {
                     </Card>
 
                     <Card className="border-none shadow-sm h-full">
-                      <CardHeader className="border-b dark:border-zinc-800 pb-4">
+                      <CardHeader className="border-b border-border pb-4">
                         <CardTitle className="text-xl">Opções Regionais</CardTitle>
                         <CardDescription>Configurações de fuso horário e máscara de data.</CardDescription>
                       </CardHeader>
@@ -2556,12 +2565,12 @@ export function SettingsPage() {
                         <div className="max-w-md space-y-4">
                           <div className="space-y-2">
                             <Label className="flex items-center gap-2">
-                              <Globe size={16} className="text-zinc-400" /> Fuso Horário
+                              <Globe size={16} className="text-muted-foreground" /> Fuso Horário
                             </Label>
                             <select
                               value={companySettings.timezone}
                               onChange={(e) => setCompanySettings({ ...companySettings, timezone: e.target.value })}
-                              className="w-full text-sm border p-2 rounded-md bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800"
+                              className="w-full text-sm border p-2 rounded-md bg-card border-border"
                             >
                               <option value="America/Sao_Paulo">America/Sao_Paulo</option>
                               <option value="America/Manaus">America/Manaus</option>
@@ -2573,9 +2582,9 @@ export function SettingsPage() {
                           
                           <div className="space-y-2">
                             <Label className="flex items-center gap-2">
-                              <Clock size={16} className="text-zinc-400" /> Formato de Data (Padrão)
+                              <Clock size={16} className="text-muted-foreground" /> Formato de Data (Padrão)
                             </Label>
-                            <Input value="DD/MM/YYYY" disabled className="bg-zinc-100 dark:bg-zinc-900 text-zinc-500" />
+                            <Input value="DD/MM/YYYY" disabled className="bg-secondary text-muted-foreground" />
                           </div>
                           
                           <div className="pt-4">
@@ -2591,23 +2600,23 @@ export function SettingsPage() {
 
                 <TabsContent value="modules" className="mt-6">
                   <div className="grid grid-cols-1 gap-6 max-w-3xl">
-                    <Card className="border-none shadow-sm dark:bg-zinc-900">
-                      <CardHeader className="border-b dark:border-zinc-800 pb-4">
+                    <Card className="rounded-stable-xl border border-border bg-card shadow-1">
+                      <CardHeader className="border-b border-border pb-4">
                         <CardTitle className="text-xl">Módulos Ativos</CardTitle>
                         <CardDescription>Escolha quais seções aparecem no menu lateral da sua equipe. Módulos desligados ficam invisíveis para todos os perfis.</CardDescription>
                       </CardHeader>
                       <CardContent className="pt-6 space-y-8">
                         {MODULE_CATEGORIES.map((category) => (
                           <div key={category}>
-                            <h3 className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3">{category}</h3>
+                            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">{category}</h3>
                             <div className="space-y-3">
                               {MODULES_REGISTRY.filter((m) => m.category === category).map((mod) => {
                                 const enabled = modulesConfig[mod.key] !== false;
                                 return (
-                                  <div key={mod.key} className="flex items-center justify-between p-3 rounded-lg border border-zinc-100 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
+                                  <div key={mod.key} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-foreground/[0.03] transition-colors">
                                     <div className="min-w-0">
                                       <p className="text-sm font-medium leading-none">{mod.label}</p>
-                                      <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">{mod.description}</p>
+                                      <p className="text-xs text-muted-foreground mt-1">{mod.description}</p>
                                     </div>
                                     <Switch
                                       checked={enabled}
@@ -2652,7 +2661,7 @@ export function SettingsPage() {
               </div>
               <div className="space-y-2">
                 <Label>Cargo</Label>
-                <select className="w-full p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm" value={selectedTeamMember.role || 'support'} onChange={(e) => setSelectedTeamMember({ ...selectedTeamMember, role: e.target.value })}>
+                <select className="w-full p-2 rounded-lg border border-border bg-card text-sm" value={selectedTeamMember.role || 'support'} onChange={(e) => setSelectedTeamMember({ ...selectedTeamMember, role: e.target.value })}>
                   <option value="admin">Administrador</option>
                   <option value="support">Suporte Técnico</option>
                   <option value="tecnico">Técnico de Campo</option>
@@ -2662,7 +2671,7 @@ export function SettingsPage() {
               </div>
               <div className="space-y-2">
                 <Label>Status</Label>
-                <select className="w-full p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm" value={selectedTeamMember.status || 'active'} onChange={(e) => setSelectedTeamMember({ ...selectedTeamMember, status: e.target.value })}>
+                <select className="w-full p-2 rounded-lg border border-border bg-card text-sm" value={selectedTeamMember.status || 'active'} onChange={(e) => setSelectedTeamMember({ ...selectedTeamMember, status: e.target.value })}>
                   <option value="active">Ativo</option>
                   <option value="inactive">Inativo</option>
                 </select>
