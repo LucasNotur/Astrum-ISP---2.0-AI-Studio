@@ -59,6 +59,24 @@ Status: ✅ Concluído
 
 ---
 
+[2026-07-20] PLANO_F — CONCLUSÃO: todas as 6 fases executadas
+Status geral: ✅ PLANO_F CONCLUÍDO (tudo que não depende de combustível externo)
+FASE 1 (F1-01/02/03): signup/upgrade liga tier ✅
+FASE 2 (F2-01/02/03): nightly-brain worker + ReflectionsPage + card autoevolução ✅
+FASE 3 (F3-01): IncidentsPage + transições + gate humano ✅
+FASE 4 (F4-01/02): backtest de régua + cashflow forecast (já existiam) ✅
+FASE 5 D-XX:
+  D-01 twin ✅ (network-twin.service, 7 testes)
+  D-03 negotiation-policy ✅ (policy engine + 5 rotas, 8 testes)
+  D-09 benchmarking ✅ (já existia)
+  D-11 MCP ✅ (já existia)
+  D-12 voice ✅ (já existia)
+  D-18 compliance ✅ (já existia)
+  D-10/D-13/D-16/D-17 — gated por combustível externo (≥5k exemplos, ≥10 tenants)
+FASE 6 (F6-01..05): import WhatsApp + Asaas + sheet-import + UI análise + wizard onboarding ✅
+
+---
+
 [2026-07-20] PLANO_F — FASE 5 D-03: Negociador autônomo (policy engine + rotas)
 Tarefa: D-03 — Motor de política de negociação financeira (parcelas, desconto, multa, auto-approve)
 Nota: D-01 (gêmeo digital) já implementado em network-twin.service.ts (7 testes passando).
