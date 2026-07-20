@@ -24,6 +24,22 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-20] PLANO_F — F1-03 + F2-01: signup liga ao tier + worker nightly-brain
+Tarefa: F1-03 (signup/upgrade aplica tier) + F2-01 (worker cron nightly-brain 03:00)
+Arquivos modificados:
+  - apps/api/src/domain/provedor/trial.service.ts — plan='radar_trial' + enabled_modules + upgradeTenant
+  - apps/api/src/domain/provedor/trial.routes.ts — POST /api/v2/trial/upgrade
+  - apps/api/src/domain/provedor/trial.routes.test.ts — 16 testes (3 tier semantics + 3 upgrade)
+  - src/pages/SignupPage.tsx — chama /api/v2/trial/signup em vez de /api/signup/tenant
+  - apps/api/src/server.ts — registro do nightly-brain worker
+Arquivos criados:
+  - packages/queue/src/workers/nightly-brain.worker.ts — BullMQ cron 03:00 BRT
+  - packages/queue/src/workers/nightly-brain.worker.test.ts — 6 testes
+Testes: 22 novos, todos passando
+Status: ✅ Concluído
+
+---
+
 [2026-07-13] PLANO_H §7 — A SEGUNDA ONDA (H-9..H-14): as jogadas de dados e canal
 Pergunta do Lucas: "falta mais? outros produtos?" Resposta: de código essencial, não —
   o que resta está no 0-PROXIMOS_PASSOS. De VISÃO: a segunda onda (dados + distribuição):

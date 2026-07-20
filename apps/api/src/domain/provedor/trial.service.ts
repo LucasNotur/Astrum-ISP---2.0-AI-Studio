@@ -15,6 +15,7 @@ export interface TrialDb {
   getTrialByTenantId(tenantId: string): Promise<TrialRecord | null>;
   markErpConnected(tenantId: string, provider: string): Promise<void>;
   markInsightGenerated(tenantId: string): Promise<void>;
+  upgradeTenant(tenantId: string): Promise<void>;
 }
 
 export interface CreateTrialInput {
@@ -110,6 +111,25 @@ export function buildFirstInsight(
   };
 }
 
+// ── Tier constants (mirrors src/lib/plans.ts + modules-registry.ts) ──────────
+
+const ALL_MODULE_KEYS = [
+  'customers', 'tickets', 'chat', 'os',
+  'billing', 'inventory', 'map', 'team',
+  'cobrai', 'kb', 'intelligence',
+  'bi', 'quality-monitor', 'observability', 'monitoring',
+];
+
+const RADAR_TRIAL_MODULES = new Set(['customers', 'bi', 'map', 'intelligence']);
+
+export function radarTrialEnabledModules(): Record<string, boolean> {
+  const out: Record<string, boolean> = {};
+  for (const key of ALL_MODULE_KEYS) {
+    if (!RADAR_TRIAL_MODULES.has(key)) out[key] = false;
+  }
+  return out;
+}
+
 // ── Implementação Supabase (default) ──────────────────────────────────────────
 
 import supabase from '../../infrastructure/database/supabase.client';
@@ -125,7 +145,13 @@ export const defaultTrialDb: TrialDb = {
 
     const { data: tenant } = await (supabase as any)
       .from('tenants')
-      .insert({ name: ispName, slug: `trial-${slug}-${Date.now()}`, plan: 'trial', active: true })
+      .insert({
+        name: ispName,
+        slug: `trial-${slug}-${Date.now()}`,
+        plan: 'radar_trial',
+        active: true,
+        enabled_modules: radarTrialEnabledModules(),
+      })
       .select('id')
       .single();
 
@@ -180,6 +206,13 @@ export const defaultTrialDb: TrialDb = {
       .from('trial_tenants')
       .update({ first_insight_generated: true })
       .eq('tenant_id', tenantId);
+  },
+
+  async upgradeTenant(tenantId) {
+    await (supabase as any)
+      .from('tenants')
+      .update({ plan: 'astrum', enabled_modules: {} })
+      .eq('id', tenantId);
   },
 };
 

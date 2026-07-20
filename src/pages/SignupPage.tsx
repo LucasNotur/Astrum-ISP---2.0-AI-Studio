@@ -71,35 +71,20 @@ export function SignupPage() {
   async function createAccount() {
     setLoading(true);
     try {
-      // 1. Create Supabase user
-      const { data: authData, error: authErr } = await supabase.auth.signUp({
-        email: form.email,
-        password: form.password,
-        options: { data: { company_name: form.companyName } },
-      });
-      if (authErr) throw authErr;
-
-      // 2. Call API to create tenant + 14-day trial
-      const res = await fetch('/api/signup/tenant', {
+      // v2 trial signup creates user + tenant with plan=radar_trial + enabled_modules
+      const res = await fetch('/api/v2/trial/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: authData.user?.id,
+          ispName: form.companyName,
           email: form.email,
-          companyName: form.companyName,
-          cnpj: form.cnpj,
-          city: form.city,
-          state: form.state,
-          avgClients: parseInt(form.avgClients) || 0,
-          primaryERP: form.primaryERP,
-          aiTone: form.aiTone,
-          aiScope: form.aiScope,
+          password: form.password,
         }),
       });
 
       if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(txt || 'Erro ao criar provedor');
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || 'Erro ao criar provedor');
       }
 
       const { tenantId } = await res.json();

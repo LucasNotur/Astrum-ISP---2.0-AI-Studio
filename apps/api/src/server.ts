@@ -431,6 +431,15 @@ export async function startFastifyServer() {
     const msgWorker = createMessageWorker();
     app.log.info('[message-worker] v2 iniciado (shadow mode ativo enquanto ATENDIMENTO_ENGINE=legacy)');
 
+    // F2-01 — Nightly brain worker (03:00 BRT, flag NIGHTLY_BRAIN_ENABLED).
+    // @ts-ignore
+    const { createNightlyBrainWorker, scheduleNightlyBrainJobs } = await import('../../../packages/queue/src/workers/nightly-brain.worker');
+    const brainWorker = createNightlyBrainWorker();
+    if (brainWorker) {
+      await scheduleNightlyBrainJobs();
+      app.log.info('[nightly-brain-worker] iniciado (03:00 BRT)');
+    }
+
     // Agendar Batch Jobs
     await scheduleBatchJobs();
 
