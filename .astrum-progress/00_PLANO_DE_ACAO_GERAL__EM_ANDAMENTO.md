@@ -41,9 +41,10 @@
 | `nextgen-2.0/PLANO_B_PARIDADE_CONCORRENTES__PENDENTE.md` | Escada de entrada via ERP + blocos P0–P6. **P0–P5 CODE-COMPLETE (2026-07-09/11)** — migrations pendentes (dever do Lucas: `trust_unlock_*`, `tenant_meta_pages`, `tenant_email_inboxes`, `067_p3_sales_leads`, `068_p5_valor_gerado`) | **P6 bloqueado em parceria comercial CPE/OZmap (Lucas)** — Onda 3 |
 | `nextgen-2.0/PLANO_A_DIFERENCIAL_TECNOLOGIAS_INEDITAS__PENDENTE.md` | 18 tecnologias inéditas D-01..D-18 (§2b D-13..D-18 adicionadas no checkup 2026-07-12; D-05/D-06 F1/D-07 já executadas) | Gates de combustível (tráfego real, dados, conectores) — Onda 5 |
 | `nextgen-2.0/PLANO_E_AUTOEVOLUCAO__PENDENTE.md` | Cérebro noturno — **E-01/E-02 CODIFICADOS 2026-07-13** (ai_reflections + hipóteses por regras, rodando no tenant demo); E-03..E-05 restam | Calibragem com tráfego real (Onda 2); código não bloqueia mais |
-| `nextgen-2.0/PLANO_F_EXECUCAO_CAMISA9__PENDENTE.md` | Roteiro passo-a-passo (arquivos+irmão+teste) de TODOS os pendentes para modelo menor (Sonnet) executar sozinho | Pronto para executar |
-| `nextgen-2.0/PLANO_G_UIUX_2.0__PENDENTE.md` | UI/UX de referência (Linear/Stripe/Attio): home inteligente, command palette total, IA-nativo, polish (G-01..G-07) | Abre com skill astrum-design |
-| `nextgen-2.0/PLANO_H_CONSTELACAO__PENDENTE.md` | Os produtos além do ISP: Atlas (rastreadoras ~75% reuso), Cobra (cobrança universal), Gênesis standalone, Túnel, Selo, Foundry — 3 horizontes com gatilhos | Horizonte 2 = 10 ISPs pagantes (§0 é lei) |
+| `nextgen-2.0/PLANO_F_EXECUCAO_CAMISA9__PENDENTE.md` | Roteiro passo-a-passo (arquivos+irmão+teste) de TODOS os pendentes para modelo menor (Sonnet) executar sozinho. **2026-07-19: ganhou MAPA DE COBERTURA + FASE 7 (Plano G), FASE 8 (Plano I), FASE 9 (H §6); F4 virou telas (motores D-01/02/08 prontos)** | Pronto para executar |
+| `nextgen-2.0/PLANO_G_UIUX_2.0__PENDENTE.md` | UI/UX de referência (Linear/Stripe/Attio): home inteligente, command palette total, IA-nativo, polish (G-01..G-07). Camisa-9: FASE 7 do PLANO_F | Abre com skill astrum-design |
+| `nextgen-2.0/PLANO_H_CONSTELACAO__PENDENTE.md` | Os produtos além do ISP: Atlas (rastreadoras ~75% reuso), Cobra (cobrança universal), Gênesis standalone, Túnel, Selo, Foundry — 3 horizontes com gatilhos. Camisa-9: §6 do próprio plano (H6-03 Asaas ✅) | Horizonte 2 = 10 ISPs pagantes (§0 é lei) |
+| `nextgen-2.0/PLANO_I_UBER_DO_TECNICO__PENDENTE.md` | Astrum Campo dentro do ISP: OS fio-a-ponta (fotos/assinatura/checklist), rotas + km, mapa vivo do gestor, IA de campo (I-1..I-5; materialização do H-4). Camisa-9: FASE 8 do PLANO_F | Pronto para executar (I-1 MVP) — decisões §8 já recomendadas |
 
 ### 📋 Aguardando decisão (dever de casa do LUCAS — §4)
 | Doc | Decisões |

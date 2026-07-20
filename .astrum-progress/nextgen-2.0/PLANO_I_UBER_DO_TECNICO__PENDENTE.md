@@ -2,6 +2,9 @@
 
 > Status: **PENDENTE** (planejamento aprovado em conversa, execução por sessões)
 > Criado: 2026-07-15 · Dono: Lucas
+> **Roteiro camisa-9 (executor menor/Sonnet):** FASE 8 do
+> `PLANO_F_EXECUCAO_CAMISA9__PENDENTE.md` (F8-01..F8-12, adicionada 2026-07-19).
+> Este arquivo é a INTENÇÃO + modelo de dados (§2 tem os SQLs); o PLANO_F é o "como".
 > Relação com outros planos: é a materialização interna do **H-4 (Astrum Campo)** do
 > PLANO_H — primeiro nasce DENTRO do produto ISP, depois vira produto avulso.
 > Regras: R1 (página nova no frontend legado é permitida), R4 (toda lógica nova em

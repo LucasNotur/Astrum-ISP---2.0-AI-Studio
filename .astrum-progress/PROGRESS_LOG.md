@@ -24,6 +24,34 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-19] PLANO_F — cobertura camisa-9 estendida a TODOS os planos pendentes (G, I, H, D-01/02/08)
+Pergunta do Lucas: "todos os planos têm um plano de ação para o modelo menor (Sonnet) executar?"
+Auditoria: cruzei os 7 planos pendentes com o roteiro do PLANO_F e com o código real do repo.
+  Descoberta: PLANO_G, PLANO_I e a terceira geração D-19..D-22 NÃO tinham roteiro atômico;
+  a FASE 4 do PLANO_F ainda pedia motores (D-02/D-08) que já foram codados em 2026-07-13.
+Arquivos modificados:
+  - .astrum-progress/nextgen-2.0/PLANO_F_EXECUCAO_CAMISA9__PENDENTE.md — o grande consolidado:
+    · MAPA DE COBERTURA (tabela: qual plano vive em qual fase, o que é gated/n/a)
+    · FASE 4 reescrita — motores D-01/D-02/D-08 marcados FEITOS (§9 do PLANO_A); novas F4-03..F4-05 (telas Policy Lab, Gêmeo Digital, Caixa 90d)
+    · FASE 5 atualizada — D-01 sai da fila (motor pronto); D-19..D-22 entram
+    · FASE 6 — F6-02 (Asaas) marcado FEITO (adapter já existe no código)
+    · FASE 7 NOVA — Plano G (F7-01..F7-08: home inteligente, Ctrl+K total, timeline, polish, inbox teclado, dataviz, aha onboarding)
+    · FASE 8 NOVA — Plano I (F8-01..F8-12: migrations, máquina de estados OS, mídia/assinatura, checklist, PWA real, dossiê/PDF, shifts/km, otimizador NN+2-opt, FieldOpsPage, WhatsApp a-caminho, IA de campo)
+    · FASE 9 NOVA — Plano H aponta para o §6 dele mesmo (H6-03 Asaas ✅)
+  - .astrum-progress/nextgen-2.0/PLANO_G_UIUX_2.0__PENDENTE.md — cabeçalho aponta p/ FASE 7 do PLANO_F
+  - .astrum-progress/nextgen-2.0/PLANO_I_UBER_DO_TECNICO__PENDENTE.md — cabeçalho aponta p/ FASE 8 do PLANO_F
+  - .astrum-progress/00_PLANO_DE_ACAO_GERAL__EM_ANDAMENTO.md — §1 atualizado; PLANO_I entra na tabela de pendentes
+Status: ✅ Concluído (só docs; nenhum código de produção tocado).
+Observações:
+  - Cada plano pendente agora TEM roteiro camisa-9, EXCETO por design: (a) demais D-XX ficam na FASE 5
+    sob gate RN17 (expansão obrigatória antes de codar — é regra, não lacuna); (b) Onda 2 do PLANO_MESTRE_V2
+    é operação/cutover = dever do Lucas, não tarefa de executor.
+  - Verifiquei no código: motores D-01/02/08 (network-twin, policy-backtest, cashflow-forecast) e asaas.adapter
+    existem e têm teste; nightly-brain.worker, IncidentsPage e history-import.service ainda NÃO existem (continuam como tarefas F2-01/F3-01/F6-01).
+  - Última migration real hoje: 080_plan_single_price.sql (FASE 8 começa em 081).
+
+---
+
 [2026-07-13] PLANO_H §7 — A SEGUNDA ONDA (H-9..H-14): as jogadas de dados e canal
 Pergunta do Lucas: "falta mais? outros produtos?" Resposta: de código essencial, não —
   o que resta está no 0-PROXIMOS_PASSOS. De VISÃO: a segunda onda (dados + distribuição):
