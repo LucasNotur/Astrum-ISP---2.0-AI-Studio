@@ -223,6 +223,26 @@ ao longo do arco, badge no ponto atual e valor grande no centro — irmão do
 **Componente:** `<GaugeChart value max from to badge centerValue centerLabel>`
 no mesmo módulo `ring-chart.tsx`. Testado (inclui `max=0` e valor acima do máximo).
 
+### D-020 — Tratamento de imagem (qualquer fonte vira Astrum)
+**Origem:** necessidade prática ao destravar as imagens de apoio, 2026-07-19.
+**Problema:** imagem de banco nunca parece do produto — cada foto tem sua própria
+temperatura, saturação e clima.
+**Decisão:** o tratamento é feito em **CSS na renderização**, não no arquivo.
+`<TreatedImage src treatment accent strength fallbackTint>`
+(`src/components/ui/treated-image.tsx`):
+- `duotone` **(padrão de marca)** — sombras no preto do produto, luzes no accent;
+- `tint` — mantém as cores originais sob um véu (equipamento, print de tela);
+- `dim` — só escurece, para texto por cima;
+- `none` — logo de parceiro, screenshot, foto de pessoa real.
+**Consequências:** qualquer fonte de imagem serve (geração, banco, foto de campo);
+trocar a paleta troca todas as imagens de uma vez; e **sem `src` não há buraco na
+UI** — renderiza superfície com gradiente do domínio, então as telas de catálogo
+já funcionam antes de existir arte.
+**Ligado em:** `<MediaCard>`, `<MediaHero>` (prop `treatment`, duotone por padrão).
+**Briefing de produção:** `docs/IMAGERY_ASTRUM.md` — prompts de cena, specs por
+slot, critérios de escolha em banco de imagens e checklist. Créditos em
+`public/imagery/CREDITS.md`.
+
 ---
 
 ## Tokens-alvo (a aplicar na fundação do design-lab)

@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
+import { TreatedImage, type ImageTreatment } from './treated-image';
 
 /**
  * D-018 — linguagem de catálogo (Netflix/Prime/game launcher): a ARTE conduz a
@@ -25,10 +26,13 @@ export interface MediaItem {
 export function MediaCard({
   item,
   aspect = 'poster',
+  treatment = 'duotone',
   className,
 }: {
   item: MediaItem;
   aspect?: 'poster' | 'wide' | 'square';
+  /** D-020 — tratamento da arte. Duotone é o padrão de marca. */
+  treatment?: ImageTreatment;
   className?: string;
 }) {
   const ratio = aspect === 'poster' ? 'aspect-[3/4]' : aspect === 'wide' ? 'aspect-video' : 'aspect-square';
@@ -41,11 +45,10 @@ export function MediaCard({
         'transition-transform duration-base hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         ratio, className
       )}
-      style={item.image ? undefined : { background: item.tint ?? 'hsl(var(--secondary))' }}
     >
-      {item.image && (
-        <img src={item.image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
-      )}
+      <div className="absolute inset-0">
+        <TreatedImage src={item.image} treatment={treatment} accent={item.tint} fallbackTint={item.tint} />
+      </div>
       {/* gradiente de leitura sobre a arte */}
       <span aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
       {item.badge && (
@@ -67,6 +70,7 @@ export function MediaRail({
   action,
   items,
   aspect = 'poster',
+  treatment = 'duotone',
   cardWidth = 'w-[150px]',
   className,
 }: {
@@ -74,6 +78,7 @@ export function MediaRail({
   action?: { label: string; onClick: () => void };
   items: MediaItem[];
   aspect?: 'poster' | 'wide' | 'square';
+  treatment?: ImageTreatment;
   cardWidth?: string;
   className?: string;
 }) {
@@ -101,7 +106,7 @@ export function MediaRail({
             transition={{ delay: i * 0.05, duration: 0.32, ease: [0.2, 0, 0, 1] }}
             className="shrink-0"
           >
-            <MediaCard item={it} aspect={aspect} className={cardWidth} />
+            <MediaCard item={it} aspect={aspect} treatment={treatment} className={cardWidth} />
           </motion.div>
         ))}
         {items.length === 0 && (
@@ -121,10 +126,12 @@ export function MediaHero({
   description,
   meta,
   cta,
+  treatment = 'duotone',
   className,
 }: {
   image?: string;
   tint?: string;
+  treatment?: ImageTreatment;
   eyebrow?: React.ReactNode;
   title: React.ReactNode;
   description?: React.ReactNode;
@@ -139,9 +146,10 @@ export function MediaHero({
       animate={reduce ? undefined : { opacity: 1, scale: 1 }}
       transition={{ duration: 0.4, ease: [0.2, 0, 0, 1] }}
       className={cn('relative overflow-hidden rounded-stable-xl border border-border min-h-[280px] flex', className)}
-      style={image ? undefined : { background: tint ?? 'hsl(var(--secondary))' }}
     >
-      {image && <img src={image} alt="" className="absolute inset-0 h-full w-full object-cover" />}
+      <div className="absolute inset-0">
+        <TreatedImage src={image} treatment={treatment} accent={tint} fallbackTint={tint} />
+      </div>
       <span aria-hidden className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/55 to-transparent" />
       <div className="relative z-10 p-6 md:p-8 max-w-xl flex flex-col justify-end">
         {eyebrow && (

@@ -63,6 +63,10 @@ description: Guardião do padrão visual do Astrum-IA. Carregue esta skill ANTES
   `<MediaCard>`, `<BrandGrid>` (media-rail.tsx). Nunca em tabela/formulário.
 - **Gauge (D-019):** progresso de UMA métrica usa `<GaugeChart>` (arco 270°),
   irmão do RingChart. Barra de progresso simples só em linha de lista.
+- **Imagem (D-020):** TODA imagem de apoio passa por `<TreatedImage>`
+  (treated-image.tsx) — `duotone` é o padrão de marca; `tint` para equipamento;
+  `none` só para logo de parceiro/screenshot. `<img>` cru em superfície de
+  catálogo é erro. Sem `src`, o componente já resolve o fallback tintado.
 
 ---
 
