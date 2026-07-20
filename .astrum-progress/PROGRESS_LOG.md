@@ -59,6 +59,20 @@ Status: ✅ Concluído
 
 ---
 
+[2026-07-20] PLANO_F — FASE 5 D-03: Negociador autônomo (policy engine + rotas)
+Tarefa: D-03 — Motor de política de negociação financeira (parcelas, desconto, multa, auto-approve)
+Nota: D-01 (gêmeo digital) já implementado em network-twin.service.ts (7 testes passando).
+Arquivos criados:
+  - apps/api/src/domain/cobranca/negotiation-policy.service.ts — validateProposal pura + CRUD policy/agreements
+  - apps/api/src/domain/cobranca/negotiation-policy.service.test.ts — 8 testes
+  - apps/api/src/domain/cobranca/negotiation.routes.ts — 5 rotas (GET/PUT policy, POST validate, POST/GET agreements)
+Arquivos modificados:
+  - apps/api/src/server.ts — registro negotiationRoutes
+Testes: 8 novos, todos passando
+Status: ✅ Concluído
+
+---
+
 [2026-07-20] PLANO_F — F2-02 + F2-03: tela Cérebro Noturno + card autoevolução no Valor Gerado
 Tarefa: F2-02 (ReflectionsPage) + F2-03 (card autoevolução no ValorGeradoPage)
 Arquivos criados:

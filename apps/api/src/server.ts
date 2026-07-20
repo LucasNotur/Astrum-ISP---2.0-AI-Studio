@@ -304,6 +304,9 @@ export async function buildServer() {
   const { genesisRoutes } = await import('./domain/atendimento/genesis.routes');
   await app.register(genesisRoutes);
 
+  const { negotiationRoutes } = await import('./domain/cobranca/negotiation.routes');
+  await app.register(negotiationRoutes);
+
   const { sheetImportRoutes } = await import('./domain/onboarding/sheet-import.routes');
   await app.register(sheetImportRoutes);
 
