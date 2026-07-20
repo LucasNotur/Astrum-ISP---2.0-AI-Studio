@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
-import { RingChart, RingLegend, ASTRUM_SEMANTIC } from './ring-chart';
+import { RingChart, RingLegend, GaugeChart, ASTRUM_SEMANTIC } from './ring-chart';
 
 /** D-015 — o anel é o padrão global de composição; a matemática do arco precisa
  *  aguentar os casos de borda (fatia única de 100%, zeros, sem dados). */
@@ -50,6 +50,28 @@ describe('RingChart', () => {
         expect(Number.isFinite(Number(g.getAttribute(attr)))).toBe(true);
       });
     });
+  });
+});
+
+describe('GaugeChart', () => {
+  it('mostra a porcentagem calculada quando não recebe valor de centro', () => {
+    const { getByText } = render(<GaugeChart value={17} max={20} />);
+    expect(getByText('85%')).toBeTruthy();
+  });
+
+  it('desenha só o trilho quando o progresso é zero', () => {
+    const { container } = render(<GaugeChart value={0} max={10} />);
+    expect(container.querySelectorAll('path').length).toBe(1);
+  });
+
+  it('limita o arco a 100% mesmo com valor acima do máximo', () => {
+    const { getByText } = render(<GaugeChart value={999} max={10} />);
+    expect(getByText('100%')).toBeTruthy();
+  });
+
+  it('não divide por zero quando o máximo é zero', () => {
+    const { getByText } = render(<GaugeChart value={5} max={0} />);
+    expect(getByText('0%')).toBeTruthy();
   });
 });
 

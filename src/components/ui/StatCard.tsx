@@ -3,6 +3,7 @@ import { Card } from "./card";
 import { Skeleton } from "../Skeleton";
 import { TrendingUp, TrendingDown, MoreVertical } from "lucide-react";
 import { cn } from "@/src/lib/utils";
+import { IconTile } from "./icon-tile";
 
 /** D-007 — sparkline discreta na base do card (SVG puro, sem recharts). */
 function Sparkline({ points, up }: { points: number[]; up?: boolean }) {
@@ -40,7 +41,7 @@ function Sparkline({ points, up }: { points: number[]; up?: boolean }) {
  * grande + delta em chip translúcido + sparkline opcional. `active` liga a barra
  * de accent na borda esquerda (só para o card em destaque).
  */
-export function StatCard({ title, value, icon, trend, up, loading, spark, active, onMenu }: any) {
+export function StatCard({ title, value, icon, trend, up, loading, spark, active, onMenu, tone = 'neutral' }: any) {
   return (
     <Card className={cn(
       "relative overflow-hidden rounded-stable-xl border-border bg-card p-5 transition-colors duration-fast hover:bg-card/80",
@@ -51,11 +52,8 @@ export function StatCard({ title, value, icon, trend, up, loading, spark, active
       )}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          {icon && (
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary border border-foreground/5 text-foreground">
-              {icon}
-            </div>
-          )}
+          {/* D-016 — tile de ícone padrão */}
+          {icon && <IconTile icon={icon} tone={tone} size="lg" />}
           <div className="text-sm text-muted-foreground truncate">{title}</div>
         </div>
         {onMenu && (

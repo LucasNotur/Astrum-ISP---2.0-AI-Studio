@@ -13,7 +13,8 @@ export function AppLayout({ children, clearNotifications, handleMarkNotification
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
-    <div className="flex h-[100dvh] bg-background font-sans text-foreground transition-colors duration-300 overflow-hidden">
+    /* D-017 — brilho ambiente cósmico atrás de todo o shell */
+    <div className="flex h-[100dvh] bg-background astrum-ambient font-sans text-foreground transition-colors duration-300 overflow-hidden">
       <Sidebar isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
       <main className="flex-1 flex flex-col min-w-0 h-full relative">
         <TopHeader

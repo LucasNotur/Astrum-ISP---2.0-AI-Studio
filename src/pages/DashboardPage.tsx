@@ -685,19 +685,19 @@ export function DashboardPage() {
       case 'stat-cards':
         return (
           <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-5">
-            <StatCard loading={loading} title="Tickets Hoje" value={ticketsToday.toString()} icon={<Ticket className="text-orange-600" />} trend={ticketsTrend} up={!ticketsTrend.startsWith("-")} />
+            <StatCard loading={loading} title="Tickets Hoje" value={ticketsToday.toString()} icon={<Ticket />} tone="orange" trend={ticketsTrend} up={!ticketsTrend.startsWith("-")} />
             {isOwner ? (
               <>
-                <StatCard loading={loading} title="Ticket Médio" value={`R$ ${avgTicket.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<DollarSign className="text-emerald-500" />} trend="" up />
-                <StatCard loading={loading} title="Faturamento (MRR)" value={`R$ ${totalMrr.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<DollarSign className="text-green-600" />} trend={mrrTrend} up={!mrrTrend.startsWith("-")} />
-                <StatCard loading={loading} title="Clientes Ativos" value={activeCustomersCount.toString()} icon={<Users className="text-blue-600" />} trend={customersTrend} up />
-                <StatCard loading={loading} title="Resolução IA" value={`${aiResolutionRate.toFixed(1)}%`} icon={<Bot className="text-purple-600" />} trend={aiResolutionTrend} up={!aiResolutionTrend.startsWith("-")} />
+                <StatCard loading={loading} title="Ticket Médio" value={`R$ ${avgTicket.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<DollarSign />} tone="signal" trend="" up />
+                <StatCard loading={loading} title="Faturamento (MRR)" value={`R$ ${totalMrr.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<DollarSign />} tone="signal" trend={mrrTrend} up={!mrrTrend.startsWith("-")} />
+                <StatCard loading={loading} title="Clientes Ativos" value={activeCustomersCount.toString()} icon={<Users />} tone="fiber" trend={customersTrend} up />
+                <StatCard loading={loading} title="Resolução IA" value={`${aiResolutionRate.toFixed(1)}%`} icon={<Bot />} tone="nebula" trend={aiResolutionTrend} up={!aiResolutionTrend.startsWith("-")} />
               </>
             ) : (
               <>
-                <StatCard loading={loading} title="Tickets Pendentes" value={tickets.filter((t) => t.status === "open").length.toString()} icon={<AlertTriangle className="text-amber-500" />} trend="" up={false} />
-                <StatCard loading={loading} title="SLA Médio" value={`${avgResponseTime.toFixed(1)}s`} icon={<Clock className="text-blue-600" />} trend="-0.5s" up />
-                <StatCard loading={loading} title="Satisfação (NPS)" value={`${npsData.overallNPS}`} icon={<Smile className="text-green-600" />} trend={`${npsData.count} avaliações (30d)`} up />
+                <StatCard loading={loading} title="Tickets Pendentes" value={tickets.filter((t) => t.status === "open").length.toString()} icon={<AlertTriangle />} tone="amber" trend="" up={false} />
+                <StatCard loading={loading} title="SLA Médio" value={`${avgResponseTime.toFixed(1)}s`} icon={<Clock />} tone="fiber" trend="-0.5s" up />
+                <StatCard loading={loading} title="Satisfação (NPS)" value={`${npsData.overallNPS}`} icon={<Smile />} tone="signal" trend={`${npsData.count} avaliações (30d)`} up />
               </>
             )}
           </div>

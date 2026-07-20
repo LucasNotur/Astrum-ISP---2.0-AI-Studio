@@ -54,6 +54,15 @@ description: Guardião do padrão visual do Astrum-IA. Carregue esta skill ANTES
 - **Spotlight (D-012) — componentes globais:** `<SpotlightCard>`, `<KeyValueList>`,
   `<NumberedTimeline>`, `<ThumbStrip>`, `<TipCallout>`, `<FloatingPill>`
   (spotlight.tsx) para detalhe/resumo/app do técnico.
+- **Tile de ícone (D-016) — OBRIGATÓRIO:** ícone em lista/card vive em
+  `<IconTile icon tone>` (icon-tile.tsx); linha padrão = `<TileRow>`. A cor vem
+  do `tone` da paleta astrum — `text-purple-600`/`text-blue-600` e afins PROIBIDOS.
+- **Ambiente cósmico (D-017):** shell usa a utility `astrum-ambient` (nebulosa
+  discreta nos cantos). Não repetir em páginas — é do shell.
+- **Catálogo (D-018):** descoberta usa arte de capa — `<MediaHero>`, `<MediaRail>`,
+  `<MediaCard>`, `<BrandGrid>` (media-rail.tsx). Nunca em tabela/formulário.
+- **Gauge (D-019):** progresso de UMA métrica usa `<GaugeChart>` (arco 270°),
+  irmão do RingChart. Barra de progresso simples só em linha de lista.
 
 ---
 
@@ -90,6 +99,8 @@ Se qualquer item abaixo estiver presente, a tela VOLTA antes de ir para o usuár
 9. Ilustrações 3D genéricas de banco de imagem.
 10. Espaçamento inflado (padding de brochura, não de ferramenta).
 11. `PieChart`/`Pie` do recharts para composição — use `<RingChart>` (D-015).
+12. Ícone colorido por classe hardcoded (`text-purple-600`, `text-blue-600`…) —
+    use `<IconTile tone="nebula|fiber|…">` (D-016).
 
 ---
 

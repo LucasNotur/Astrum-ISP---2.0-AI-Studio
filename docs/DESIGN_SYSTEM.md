@@ -178,6 +178,47 @@ arco 0°→360° não seria desenhada pelo SVG e por isso vira `<circle>`).
 **Aplicado em:** Dashboard (sentimento), BI (status de faturas), Núcleo IA
 (sentimento), Custos IA (custo por modelo).
 
+### D-016 — Tile de ícone (átomo visual das listas)
+**Origem:** conjunto de referências de 2026-07-19 (!Camera, Apple Fitness,
+dashboards mobile, grade de streaming). O elemento que aparece em **todas** elas.
+**Decisão:** ícone nunca fica solto numa lista — vive num **tile**: quadrado
+arredondado (ou círculo) com fundo tintado na cor semântica + **gloss** (brilho
+no topo) que dá o ar tridimensional sem precisar de arte 3D.
+**Componente:** `src/components/ui/icon-tile.tsx` — `<IconTile icon tone size
+shape solid>` e `<TileRow icon tone title subtitle value onClick>` (linha de lista
+padrão). Tons = paleta astrum (`signal|lemon|fiber|nebula|amber|orange|red|slate|neutral`).
+**Regra:** cor do ícone vem do `tone`, **nunca** de classe hardcoded
+(`text-purple-600` e afins estão proibidos). `<StatCard>` já usa o tile.
+
+### D-017 — Brilho ambiente cósmico do shell
+**Origem:** print do launcher (fundo roxo com brilho ambiente) + identidade
+Astrum (espaço/constelação).
+**Decisão:** o shell da aplicação tem uma **nebulosa discreta** nos cantos
+superiores (nebula à esquerda, fiber à direita), fixa no scroll, atrás de todo o
+conteúdo. É atmosfera, não decoração: opacidade baixa o bastante para não
+competir com tabela nenhuma.
+**Utility:** `astrum-ambient` no `index.css`, aplicada no `AppLayout`.
+
+### D-018 — Catálogo: a arte conduz a navegação (Netflix/Prime)
+**Origem:** launcher de jogos + grade de apps de streaming, 2026-07-19.
+**Decisão:** superfícies de descoberta usam **arte de capa** como elemento
+primário, com gradiente de leitura sobre a imagem e título por cima.
+**Componentes:** `src/components/ui/media-rail.tsx` — `<MediaHero>` (banner com
+arte, eyebrow, título display, chips de meta e CTA pill), `<MediaRail>` (trilho
+horizontal com cabeçalho de seção e stagger), `<MediaCard>` (pôster/wide/quadrado,
+hover scale, fallback com `tint` quando não há arte) e `<BrandGrid>` (grade de
+tiles de marca/integração).
+**Onde usar:** novidades/changelog, base de conhecimento, planos, integrações,
+onboarding. **Nunca** em área de trabalho densa (tabela, formulário).
+
+### D-019 — Gauge: arco aberto para progresso
+**Origem:** cartão "Perfect Day" (Apple Fitness), 2026-07-19.
+**Decisão:** progresso de **uma** métrica usa arco aberto de 270° com gradiente
+ao longo do arco, badge no ponto atual e valor grande no centro — irmão do
+`RingChart` (composição), mesma gramática e mesmo motion.
+**Componente:** `<GaugeChart value max from to badge centerValue centerLabel>`
+no mesmo módulo `ring-chart.tsx`. Testado (inclui `max=0` e valor acima do máximo).
+
 ---
 
 ## Tokens-alvo (a aplicar na fundação do design-lab)

@@ -169,6 +169,98 @@ export function RingChart({
   );
 }
 
+/**
+ * D-019 — variante GAUGE do anel (arco aberto, ~270°) para PROGRESSO de uma
+ * única métrica: gradiente ao longo do arco, badge no topo, valor grande no
+ * centro. Referência: cartão "Perfect Day". Usa o mesmo motion do RingChart.
+ */
+export function GaugeChart({
+  value,
+  max = 100,
+  size = 180,
+  thickness = 14,
+  from = 'var(--color-astrum-lemon)',
+  to = 'var(--color-astrum-nebula)',
+  badge,
+  centerValue,
+  centerLabel,
+  className,
+}: {
+  value: number;
+  max?: number;
+  size?: number;
+  thickness?: number;
+  from?: string;
+  to?: string;
+  /** Ícone que fica no ponto de partida do arco (topo). */
+  badge?: React.ReactNode;
+  centerValue?: React.ReactNode;
+  centerLabel?: React.ReactNode;
+  className?: string;
+}) {
+  const reduce = useReducedMotion();
+  const uid = React.useId().replace(/:/g, '');
+  const SWEEP = 270;              // arco aberto: começa em -135° e fecha em +135°
+  const START = -SWEEP / 2;
+  const pct = max > 0 ? Math.min(Math.max(value / max, 0), 1) : 0;
+
+  const BADGE = 28;
+  const pad = BADGE / 2 + 4;
+  const r = (size - thickness) / 2 - pad;
+  const cx = size / 2, cy = size / 2;
+
+  const trackD = arcPath(cx, cy, r, START, START + SWEEP);
+  const [bx, by] = polar(cx, cy, r, START + SWEEP * pct);
+
+  return (
+    <div className={cn('relative inline-block', className)} style={{ width: size, height: size }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img"
+        aria-label={typeof centerLabel === 'string' ? centerLabel : 'Progresso'}>
+        <defs>
+          <linearGradient id={`gauge-${uid}`} gradientUnits="userSpaceOnUse"
+            x1={cx - r} y1={cy + r} x2={cx + r} y2={cy - r}>
+            <stop offset="0%" stopColor={from} />
+            <stop offset="100%" stopColor={to} />
+          </linearGradient>
+        </defs>
+        <path d={trackD} fill="none" stroke="hsl(var(--secondary))" strokeWidth={thickness} strokeLinecap="round" opacity={0.6} />
+        {pct > 0 && (
+          <motion.path
+            d={arcPath(cx, cy, r, START, START + Math.max(SWEEP * pct, 0.5))}
+            fill="none"
+            stroke={`url(#gauge-${uid})`}
+            strokeWidth={thickness}
+            strokeLinecap="round"
+            style={{ filter: `drop-shadow(0 0 7px ${to})` }}
+            initial={reduce ? undefined : { pathLength: 0 }}
+            animate={reduce ? undefined : { pathLength: 1 }}
+            transition={{ duration: 0.8, ease: [0.2, 0, 0, 1] }}
+          />
+        )}
+      </svg>
+
+      {badge && (
+        <motion.span
+          className="absolute flex items-center justify-center rounded-full bg-card border border-foreground/15 shadow-3"
+          style={{ width: BADGE, height: BADGE, left: bx - BADGE / 2, top: by - BADGE / 2 }}
+          initial={reduce ? undefined : { scale: 0, opacity: 0 }}
+          animate={reduce ? undefined : { scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 380, damping: 22, delay: 0.5 }}
+        >
+          {badge}
+        </motion.span>
+      )}
+
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none px-8">
+        <div className="font-mono text-3xl font-semibold tracking-tight leading-none">
+          {centerValue ?? `${Math.round(pct * 100)}%`}
+        </div>
+        {centerLabel && <div className="text-[11px] text-muted-foreground mt-1.5">{centerLabel}</div>}
+      </div>
+    </div>
+  );
+}
+
 export interface RingLegendItem {
   label: string;
   value: React.ReactNode;
@@ -195,11 +287,13 @@ export function RingLegend({ items, className }: { items: RingLegendItem[]; clas
         >
           <div className="flex items-center gap-2.5 min-w-0">
             {it.icon ? (
+              /* D-016 — mesmo tile de ícone do resto do produto */
               <span
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-foreground/10"
-                style={{ background: `color-mix(in srgb, ${it.color ?? ASTRUM_SPECTRUM[i % ASTRUM_SPECTRUM.length]} 18%, transparent)` }}
+                className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-stable-lg border border-foreground/10"
+                style={{ background: `color-mix(in srgb, ${it.color ?? ASTRUM_SPECTRUM[i % ASTRUM_SPECTRUM.length]} 16%, transparent)` }}
               >
-                {it.icon}
+                <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/15 to-transparent" />
+                <span className="relative">{it.icon}</span>
               </span>
             ) : (
               <span className="h-2.5 w-2.5 rounded-full shrink-0"

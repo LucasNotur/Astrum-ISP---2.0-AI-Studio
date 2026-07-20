@@ -191,6 +191,16 @@
   filter: drop-shadow(0 8px 30px rgba(0, 0, 0, 0.4)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }
 
+/* D-017 — brilho ambiente cósmico do shell (referência: launcher Neo Aura).
+   Nebulosa discreta nos cantos superiores; o conteúdo continua legível por cima. */
+@utility astrum-ambient {
+  background-image:
+    radial-gradient(60% 45% at 8% -6%, color-mix(in srgb, var(--color-astrum-nebula) 16%, transparent) 0%, transparent 70%),
+    radial-gradient(50% 40% at 96% -4%, color-mix(in srgb, var(--color-astrum-fiber) 12%, transparent) 0%, transparent 72%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
 /* D-011 — glow neon do CTA de destaque (print #5). Máx. 1 por tela. */
 @utility glow-fiber {
   background: linear-gradient(180deg, #6d89ff 0%, #3d5afe 55%, #2f48d1 100%);
