@@ -40,6 +40,19 @@ Status: ✅ Concluído
 
 ---
 
+[2026-07-20] PLANO_F — F2-02 + F2-03: tela Cérebro Noturno + card autoevolução no Valor Gerado
+Tarefa: F2-02 (ReflectionsPage) + F2-03 (card autoevolução no ValorGeradoPage)
+Arquivos criados:
+  - src/pages/intelligence/ReflectionsPage.tsx — tela completa com StatCards, ReflectionCards expandíveis, severidade, ações, "Rodar agora"
+Arquivos modificados:
+  - src/routes/intelligence.routes.tsx — lazy import + rota /intelligence/reflections
+  - src/pages/intelligence/IntelligenceHubPage.tsx — Brain icon + entrada 'reflections' no BRANCH_REGISTRY
+  - src/pages/ValorGeradoPage.tsx — fetch GET /api/v2/ia/autoevolucao/report + card headline com métricas
+Testes: 0 novos (páginas de UI, endpoints já testados no backend)
+Status: ✅ Concluído
+
+---
+
 [2026-07-13] PLANO_H §7 — A SEGUNDA ONDA (H-9..H-14): as jogadas de dados e canal
 Pergunta do Lucas: "falta mais? outros produtos?" Resposta: de código essencial, não —
   o que resta está no 0-PROXIMOS_PASSOS. De VISÃO: a segunda onda (dados + distribuição):
