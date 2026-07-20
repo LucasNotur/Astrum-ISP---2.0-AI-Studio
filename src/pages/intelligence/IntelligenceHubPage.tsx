@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Wrench, ShieldCheck, Network, Database, Target, Activity, Terminal, FlaskConical, RefreshCw, TrendingDown, Trophy, Tags, FileSearch, Plug, HeartPulse, TrendingUp, PhoneCall, Brain } from 'lucide-react';
+import { Sparkles, Wrench, ShieldCheck, Network, Database, Target, Activity, Terminal, FlaskConical, RefreshCw, TrendingDown, Trophy, Tags, FileSearch, Plug, HeartPulse, TrendingUp, PhoneCall, Brain, Radio } from 'lucide-react';
 import { useFeatureFlags } from '@/src/hooks/useFeatureFlags';
 import { ptBR } from '@/src/lib/i18n/pt-br';
 import { supabase } from '@/src/lib/supabase';
@@ -40,6 +40,7 @@ export const BRANCH_REGISTRY: Branch[] = [
   { key: 'forecast', title: 'Previsão de Demanda', description: 'Média móvel sazonal com sugestão de staffing por dia.', icon: TrendingUp, route: '/intelligence/staffing' },
   { key: 'voiceqa', title: 'Qualidade de Voz', description: 'Scorecard automático de todas as chamadas.', icon: PhoneCall, route: '/intelligence/voice-qa' },
   { key: 'reflections', title: 'Cérebro Noturno', description: 'O que a Astrum pensou enquanto você dormia.', icon: Brain, route: '/intelligence/reflections' },
+  { key: 'incidents', title: 'Incidentes de Rede', description: 'NOC autônomo: da suspeita à normalização, com gate humano.', icon: Radio, route: '/intelligence/incidents' },
 ];
 
 export function IntelligenceHubPage() {

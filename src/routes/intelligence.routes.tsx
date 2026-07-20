@@ -20,6 +20,7 @@ const NetworkHealthPage    = lazy(() => import('../pages/intelligence/NetworkHea
 const StaffingPage         = lazy(() => import('../pages/intelligence/StaffingPage'));
 const VoiceQaPage          = lazy(() => import('../pages/intelligence/VoiceQaPage'));
 const ReflectionsPage      = lazy(() => import('../pages/intelligence/ReflectionsPage'));
+const IncidentsPage        = lazy(() => import('../pages/intelligence/IncidentsPage'));
 
 const fallback = <div className="p-10 text-center text-muted-foreground">Carregando...</div>;
 
@@ -49,6 +50,7 @@ export function intelligenceRoutes() {
       <Route path="/intelligence/voice-qa"      element={<S><VoiceQaPage /></S>} />
       <Route path="/intelligence/sandbox"       element={<S><SandboxPage /></S>} />
       <Route path="/intelligence/reflections"  element={<S><ReflectionsPage /></S>} />
+      <Route path="/intelligence/incidents"   element={<S><IncidentsPage /></S>} />
     </>
   );
 }
