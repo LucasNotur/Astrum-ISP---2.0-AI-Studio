@@ -59,6 +59,25 @@ Status: ✅ Concluído
 
 ---
 
+[2026-07-20] S75 — Port dos 7 adapters ERP + cache Redis (completo)
+Tarefa: S75 port de integrações ERP — 7/7 adapters + factory + cache + credenciais cifradas
+Arquivos criados:
+  - apps/api/src/adapters/erp/radiusnet.adapter.ts — port de radiusNetClient.ts (Bearer auth)
+  - apps/api/src/adapters/erp/radiusnet.adapter.test.ts — 7 testes
+  - apps/api/src/adapters/erp/rbx.adapter.ts — port de rbxClient.ts (Basic auth)
+  - apps/api/src/adapters/erp/rbx.adapter.test.ts — 8 testes
+  - apps/api/src/adapters/erp/mkauth.adapter.test.ts — 7 testes (adapter já existia sem teste)
+  - apps/api/src/adapters/erp/erp-cache.service.ts — cache-aside Redis com TTL por tipo
+  - apps/api/src/adapters/erp/erp-cache.service.test.ts — 5 testes
+Arquivos modificados:
+  - apps/api/src/adapters/erp/erp.factory.ts — registra radiusnet + rbx (7/7 completo)
+  - apps/api/src/adapters/erp/erp.factory.test.ts — atualiza asserções p/ 7 adapters
+Nota: credential-cipher.ts + migration 024 + tools.executor.ts já integravam os adapters via factory
+Testes: 27 novos, todos passando (7+8+7+5 + factory)
+Status: ✅ Concluído
+
+---
+
 [2026-07-20] PLANO_F — CONCLUSÃO: todas as 6 fases executadas
 Status geral: ✅ PLANO_F CONCLUÍDO (tudo que não depende de combustível externo)
 FASE 1 (F1-01/02/03): signup/upgrade liga tier ✅
