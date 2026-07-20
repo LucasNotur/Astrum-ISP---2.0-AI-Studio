@@ -40,6 +40,25 @@ Status: ✅ Concluído
 
 ---
 
+[2026-07-20] PLANO_F — F3-01 + F6-01 + F6-03: tela incidentes + import WhatsApp + import planilha
+Tarefa: F3-01 (IncidentsPage), F6-01 (history-import Evolution API), F6-03 (sheet-import CSV)
+Nota: F4-01, F4-02 e F6-02 já estavam implementados e testados.
+Arquivos criados:
+  - src/pages/intelligence/IncidentsPage.tsx — lista incidentes, transições, dialog gate humano
+  - apps/api/src/adapters/whatsapp/history-import.service.ts — import de histórico Evolution API
+  - apps/api/src/adapters/whatsapp/history-import.service.test.ts — 6 testes
+  - apps/api/src/domain/onboarding/sheet-import.service.ts — CSV parser + import customers
+  - apps/api/src/domain/onboarding/sheet-import.service.test.ts — 9 testes
+  - apps/api/src/domain/onboarding/sheet-import.routes.ts — POST /api/v2/genesis/import-sheet
+Arquivos modificados:
+  - src/routes/intelligence.routes.tsx — rota /intelligence/incidents
+  - src/pages/intelligence/IntelligenceHubPage.tsx — Radio icon + entrada 'incidents'
+  - apps/api/src/server.ts — registro sheetImportRoutes
+Testes: 15 novos (6 history-import + 9 sheet-import), todos passando
+Status: ✅ Concluído
+
+---
+
 [2026-07-20] PLANO_F — F2-02 + F2-03: tela Cérebro Noturno + card autoevolução no Valor Gerado
 Tarefa: F2-02 (ReflectionsPage) + F2-03 (card autoevolução no ValorGeradoPage)
 Arquivos criados:

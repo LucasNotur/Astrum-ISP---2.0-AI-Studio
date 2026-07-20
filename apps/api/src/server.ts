@@ -304,6 +304,9 @@ export async function buildServer() {
   const { genesisRoutes } = await import('./domain/atendimento/genesis.routes');
   await app.register(genesisRoutes);
 
+  const { sheetImportRoutes } = await import('./domain/onboarding/sheet-import.routes');
+  await app.register(sheetImportRoutes);
+
   // Health check com status dos serviços
   app.get('/api/v2/health', async () => {
     const { getLLMStatus } = await import('./adapters/ai/llm.adapter');
