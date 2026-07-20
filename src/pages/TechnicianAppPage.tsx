@@ -19,7 +19,9 @@ import {
   ScanSearch,
   AlertTriangle,
   CircleCheck,
+  Wrench,
 } from "lucide-react";
+import { SpotlightCard, KeyValueList } from "../components/ui/spotlight";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Button } from "../components/ui/button";
@@ -512,19 +514,19 @@ export default function TechnicianAppPage() {
 
   if (selectedOs) {
     return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-100 flex flex-col pb-20">
-        <header className="sticky top-0 z-10 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b dark:border-zinc-800 p-4 flex items-center gap-3">
-          <button onClick={() => setSelectedOs(null)} className="p-2 -ml-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800">
+      <div className="min-h-screen bg-background text-foreground flex flex-col pb-20">
+        <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b border-border p-4 flex items-center gap-3">
+          <button onClick={() => setSelectedOs(null)} aria-label="Voltar" className="p-2 -ml-2 rounded-full hover:bg-foreground/[0.06] transition-colors duration-fast">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <div className="flex-1">
-            <h1 className="font-semibold text-lg">{selectedOs.id}</h1>
-            <p className="text-xs text-zinc-500">{selectedOs.title}</p>
+          <div className="flex-1 min-w-0">
+            <h1 className="font-display font-semibold text-lg truncate">{selectedOs.id}</h1>
+            <p className="text-xs text-muted-foreground truncate">{selectedOs.title}</p>
           </div>
-          <div className={`px-2 py-1 rounded text-xs font-medium ${
-            selectedOs.status === 'completed' ? 'bg-green-100 text-green-700' :
-            selectedOs.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
-            'bg-amber-100 text-amber-700'
+          <div className={`px-2.5 py-1 rounded-full text-xs font-medium shrink-0 ${
+            selectedOs.status === 'completed' ? 'bg-astrum-signal/15 text-astrum-signal' :
+            selectedOs.status === 'in_progress' ? 'bg-astrum-fiber/15 text-astrum-fiber' :
+            'bg-astrum-amber/15 text-astrum-amber'
           }`}>
             {selectedOs.status === 'completed' ? 'Finalizado' :
              selectedOs.status === 'in_progress' ? 'Em Andamento' :
@@ -533,17 +535,23 @@ export default function TechnicianAppPage() {
         </header>
 
         <main className="flex-1 p-4 space-y-6 max-w-lg mx-auto w-full">
-          {/* Info Card */}
-          <Card>
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="font-semibold">{selectedOs.client}</h2>
-                  <p className="text-sm text-zinc-500 mt-1">{selectedOs.address}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* D-012 — card-herói branco (spotlight) + linhas chave-valor */}
+          <SpotlightCard
+            title={selectedOs.client}
+            subtitle={selectedOs.address}
+            stats={[
+              { icon: <Wrench size={14} strokeWidth={2} />, label: selectedOs.title },
+              { icon: <MapPin size={14} strokeWidth={2} />, label: selectedOs.scheduledTime || 'Sem horário' },
+            ]}
+          />
+
+          <KeyValueList
+            items={[
+              { label: 'Ordem de serviço', value: <span className="font-mono">{selectedOs.id}</span> },
+              { label: 'Situação', value: selectedOs.status === 'completed' ? 'Finalizado' : selectedOs.status === 'in_progress' ? 'Em andamento' : 'Pendente' },
+              { label: 'Checklist', value: `${selectedOs.checklist?.filter((c: any) => c.done).length ?? 0}/${selectedOs.checklist?.length ?? 0} concluídos` },
+            ]}
+          />
 
           {selectedOs.status === "pending" && (
             <Button onClick={handleCheckIn} className="w-full h-14 text-lg" size="lg">
