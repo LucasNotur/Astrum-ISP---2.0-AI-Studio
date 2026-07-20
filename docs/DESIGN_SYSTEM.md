@@ -153,8 +153,12 @@ cards de anúncio, empty states especiais, onboarding e marketing. Nunca em
 áreas de trabalho denso (tabelas, formulários).
 **Infra:** arte em `public/characters/` (PNG com alpha);
 componente `src/components/ui/update-card.tsx` com slot de personagem.
-**Pendente:** gerar as artes (definir elenco: ex. mascote técnico de campo,
-mascote CobrAI, mascote IA de atendimento).
+**Elenco definido** (nomes de estrelas, um por domínio do produto):
+**Vega** (campo/OS, teal) · **Rigel** (CobrAI/financeiro, limão) ·
+**Nova** (IA/atendimento, nebula) · **Atlas** (gestão/BI, fiber).
+**Briefing de geração:** `docs/CHARACTERS_ASTRUM.md` — DNA de estilo, prompts
+prontos, specs de proporção/resolução por slot e fluxo de consistência.
+**Pendente:** gerar as artes no Nano Banana e salvar em `public/characters/`.
 
 ### D-015 — Anel analítico com ícones nas fatias (PADRÃO GLOBAL de composição)
 **Origem:** print #7 (Subscriptions ring), 2026-07-19. Replicado 1:1.
