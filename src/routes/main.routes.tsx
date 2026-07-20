@@ -22,6 +22,7 @@ import { TicketsPage } from '../pages/TicketsPage';
 import { SalesPage } from '../pages/SalesPage';
 import { ValorGeradoPage } from '../pages/ValorGeradoPage';
 import { intelligenceRoutes } from './intelligence.routes';
+const OnboardingWizardPage = lazy(() => import('../pages/OnboardingWizardPage'));
 import { WhatsAppConnectionsPage } from '../pages/WhatsAppPage';
 import { KnowledgeBasePage } from '../pages/KnowledgeBasePage';
 import { AIConfigPage } from '../pages/AIConfigPage';
@@ -98,6 +99,7 @@ export function mainRoutes(currentUserRole: string) {
       <Route path="/ai-config"        element={<AIConfigPage />} />
       <Route path="/team"             element={<TeamPage />} />
       <Route path="/settings"         element={<SettingsPage />} />
+      <Route path="/onboarding" element={<Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}><OnboardingWizardPage /></Suspense>} />
       {intelligenceRoutes()}
     </>
   );
