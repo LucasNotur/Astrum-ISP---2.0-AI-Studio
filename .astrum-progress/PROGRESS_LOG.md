@@ -59,6 +59,22 @@ Status: ✅ Concluído
 
 ---
 
+[2026-07-21] S79 — Workers de atendimento: SLA + FCR + Snooze (port completo)
+Tarefa: S79 — port de 3 workers legados (slaWorker, fcrWorker, snoozeWorker) para packages/queue
+Arquivos criados:
+  - packages/queue/src/workers/sla.worker.ts — monitor SLA a cada 5min, breach + pub/sub
+  - packages/queue/src/workers/sla.worker.test.ts — 5 testes
+  - packages/queue/src/workers/fcr.worker.ts — métricas diárias FCR/TMA/TMR 01:00 BRT
+  - packages/queue/src/workers/fcr.worker.test.ts — 4 testes
+  - packages/queue/src/workers/snooze.worker.ts — reabre tickets snoozados vencidos a cada 1min
+  - packages/queue/src/workers/snooze.worker.test.ts — 4 testes
+Arquivos modificados:
+  - apps/api/src/server.ts — registro dos 3 workers no bootstrap
+Testes: 13 novos, todos passando
+Status: ✅ Concluído
+
+---
+
 [2026-07-20] S75 — Port dos 7 adapters ERP + cache Redis (completo)
 Tarefa: S75 port de integrações ERP — 7/7 adapters + factory + cache + credenciais cifradas
 Arquivos criados:

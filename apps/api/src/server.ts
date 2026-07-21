@@ -446,6 +446,25 @@ export async function startFastifyServer() {
       app.log.info('[nightly-brain-worker] iniciado (03:00 BRT)');
     }
 
+    // S79 — Workers de atendimento (SLA + FCR + Snooze).
+    // @ts-ignore
+    const { createSlaWorker, scheduleSlaJobs } = await import('../../../packages/queue/src/workers/sla.worker');
+    createSlaWorker();
+    await scheduleSlaJobs();
+    app.log.info('[sla-worker] iniciado (*/5 * * * *)');
+
+    // @ts-ignore
+    const { createFcrWorker, scheduleFcrJobs } = await import('../../../packages/queue/src/workers/fcr.worker');
+    createFcrWorker();
+    await scheduleFcrJobs();
+    app.log.info('[fcr-worker] iniciado (01:00 BRT)');
+
+    // @ts-ignore
+    const { createSnoozeWorker, scheduleSnoozeJobs } = await import('../../../packages/queue/src/workers/snooze.worker');
+    createSnoozeWorker();
+    await scheduleSnoozeJobs();
+    app.log.info('[snooze-worker] iniciado (* * * * *)');
+
     // Agendar Batch Jobs
     await scheduleBatchJobs();
 
