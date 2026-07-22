@@ -267,13 +267,13 @@ GATE FINAL                   → S98
 ## 🔶 S80 — Workers de gestão: `reportWorker`, `gamificationWorker`, `planSyncWorker`
 - Reports: relatórios agendados via DuckDB (não bater no Postgres transacional). *(itens 85/90 parciais)*
 - Gamification: ranking de operadores. PlanSync: sincroniza planos tenant↔ERP.
-- [ ] 3 workers portados, testados, legados desligados.
+- [x] 3 workers portados, testados, legados desligados.
 
-## 🔶 S81 — Workers de percepção: `visionProcessor`, `siteScrapeWorker`, `erpSyncWorker`
+## ✅ S81 — Workers de percepção: `visionProcessor`, `siteScrapeWorker`, `erpSyncWorker`
 - Vision: já parcialmente coberto na S73 — consolidar aqui o processamento assíncrono em lote. *(item 78)*
 - SiteScrape: ingestão do site do ISP para o RAG (cheerio já é dependência).
 - ErpSync: sincronização em massa de cadastros ERP→Supabase. *(itens 39/40)*
-- [ ] 3 workers portados, testados, legados desligados.
+- [x] 3 workers portados, testados, legados desligados.
 
 ---
 

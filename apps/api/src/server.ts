@@ -484,6 +484,24 @@ export async function startFastifyServer() {
     await schedulePlanSyncJobs();
     app.log.info('[plan-sync-worker] iniciado (00:00 BRT)');
 
+    // S81 — Workers de percepção (Vision + SiteScrape + ErpSync).
+    // @ts-ignore
+    const { createVisionWorker } = await import('../../../packages/queue/src/workers/vision.worker');
+    createVisionWorker();
+    app.log.info('[vision-worker] iniciado (on-demand via queue)');
+
+    // @ts-ignore
+    const { createSiteScrapeWorker, scheduleSiteScrapeJobs } = await import('../../../packages/queue/src/workers/site-scrape.worker');
+    createSiteScrapeWorker();
+    await scheduleSiteScrapeJobs();
+    app.log.info('[site-scrape-worker] iniciado (dom 02:00 BRT)');
+
+    // @ts-ignore
+    const { createErpSyncWorker, scheduleErpSyncJobs } = await import('../../../packages/queue/src/workers/erp-sync.worker');
+    createErpSyncWorker();
+    await scheduleErpSyncJobs();
+    app.log.info('[erp-sync-worker] iniciado (*/30 * * * *)');
+
     // Agendar Batch Jobs
     await scheduleBatchJobs();
 

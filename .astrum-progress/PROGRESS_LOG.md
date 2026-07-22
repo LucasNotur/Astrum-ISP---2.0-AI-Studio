@@ -24,6 +24,22 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-21] Sprint S81 — Workers de percepção: Vision, SiteScrape, ErpSync
+Tarefa: Portar 3 workers de percepção para packages/queue (padrão v2 BullMQ com ports injetáveis)
+Arquivos criados:
+  - packages/queue/src/workers/vision.worker.ts — análise de imagem via GPT-4o-mini (ONU/LED) → vision_results
+  - packages/queue/src/workers/vision.worker.test.ts — 4 testes (análise ok, sem URL, erro OpenAI, Redis fail)
+  - packages/queue/src/workers/site-scrape.worker.ts — scrape semanal de website tenant → knowledge_base (RAG)
+  - packages/queue/src/workers/site-scrape.worker.test.ts — 4 testes (chunk+grava, hash igual, sem URL, fetch fail)
+  - packages/queue/src/workers/erp-sync.worker.ts — sync on-demand cadastro → ERP + sweep a cada 30min
+  - packages/queue/src/workers/erp-sync.worker.test.ts — 4 testes (sync ok, sem adapter, sem update, erro ERP)
+Arquivos modificados:
+  - apps/api/src/server.ts — bootstrap dos 3 workers (vision on-demand, scrape dom 02:00, erp-sync */30)
+Testes: 12 novos, todos passando
+Status: ✅ Concluído
+
+---
+
 [2026-07-21] Sprint S80 — Workers de gestão: Report, Gamification, PlanSync
 Tarefa: Portar 3 workers de gestão para packages/queue (padrão v2 BullMQ com ports injetáveis)
 Arquivos criados:
