@@ -59,7 +59,7 @@
 - [ ] 46. Inteção Zapier / n8n / Make apps
 - [x] 47. Exportador de banco nativo JSON/CSV — data-export.service.ts (JSON/CSV, tenant-scoped, limit configurável)
 - [x] 48. Disparo via SMTP de notas do SAAS — smtp-invoice-sender.service.ts (template HTML, retry, rate limit)
-- [ ] 49. Importe de dados retroativos de CRM terceiros
+- [x] 49. Importe de dados retroativos de CRM terceiros — crm-import.service.ts (CSV/JSON, field mapping, transforms, dedup, dry run)
 - [ ] 50. Rotação Dinamica de IPs
 
 ## D. Omnichannel & CRM de Chats (51-65)
@@ -70,7 +70,7 @@
 - [ ] 55. Suporte a IG Direct
 - [x] 56. Web Widget Customizável — web-widget.service.ts (config visual, script embed, rate limit, sanitize)
 - [x] 57. Email to Ticket — email-to-ticket.service.ts (resolve tenant por domínio, thread reply, aliases suporte)
-- [ ] 58. Múltiplas Conexões/Zaps na mesma interface
+- [x] 58. Múltiplas Conexões/Zaps na mesma interface — multi-connection.service.ts (DDD routing, health check, failover)
 - [x] 59. Agrupamento de Conversas Cross-Line (Entidade Unificada) — cross-line-grouping.service.ts (unifiedContact, merge, dedup)
 - [x] 60. Editor Visual de Kanban de Pipelines — kanban-pipeline.service.ts (colunas, WIP limit, drag-and-drop, stats)
 - [x] 61. Chat Interno NATIVO P2P — internal-chat.service.ts (DM/grupo, unread count, access control)
@@ -123,7 +123,7 @@
 - [x] 100. Auditoria de Log Level Avançada Pessoal — audit.ts + ai-audit.service.ts (hash-chain)
 - [x] 101. 2FA ou Biometria Nativo para Operadores — TOTP MFA via Supabase Auth (SettingsPage)
 - [x] 102. IP Whitelisting de painel Admin — ip-whitelist.service.ts (CIDR matching, per-tenant, checkAccess)
-- [ ] 103. Múltiplos Tokens Sessão App Nativo (Push)
+- [x] 103. Múltiplos Tokens Sessão App Nativo (Push) — push-token.service.ts (multi-device, eviction, send push, dedup)
 - [ ] 104. Single Sign ON (SAML/OIDC/Google)
 - [ ] 105. Layer Avançada Shield/Firewall WAF AntiDDoS
 
@@ -135,12 +135,12 @@
 |-------|-------|---------------|----------|-----------|
 | A. Onboarding/Multi-tenant | 15 | 13 | 2 | 0 |
 | B. Comercial | 15 | 15 | 0 | 0 |
-| C. Integrações | 20 | 12 | 1 | 7 |
-| D. Omnichannel | 15 | 13 | 0 | 2 |
+| C. Integrações | 20 | 13 | 1 | 6 |
+| D. Omnichannel | 15 | 15 | 0 | 0 |
 | E. AI Ops | 15 | 15 | 0 | 0 |
 | F. Analytics | 10 | 10 | 0 | 0 |
 | G. Field Service | 5 | 5 | 0 | 0 |
-| H. Governança | 10 | 7 | 0 | 3 |
-| **TOTAL** | **105** | **88** | **3** | **14** |
+| H. Governança | 10 | 8 | 0 | 2 |
+| **TOTAL** | **105** | **91** | **3** | **11** |
 
 **Notas sobre o Status:** [x] = implementado com código + testes; [~] = parcial (funcionalidade core existe, falta completude); [ ] = pendente (backlog pós-GA).
