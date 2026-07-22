@@ -31,7 +31,7 @@
 - [x] 20. Módulo de Add-Ons — addon-module.service.ts (compatibilidade plano, feature flags, ativação)
 - [x] 21. Prevenção de Fraude em Chargeback — chargeback-prevention.service.ts (risk assessment, auto-block, warning)
 - [x] 22. Relatórios de Gasto Individualizado B2B — tenant-usage-report.service.ts (mensagens/tokens/storage/overage/plano)
-- [ ] 23. Emissão de Notas Fiscais
+- [x] 23. Emissão de Notas Fiscais — invoice-nf.service.ts (NF-e/NFS-e, SEFAZ submit, cancelamento, CPF/CNPJ validation)
 - [ ] 24. Gestões de Acordo "Sob Demanda"
 - [ ] 25. Módulo Afiliados
 - [x] 26. Tela de Consumo de Orçamento de Agentes — agent-budget.service.ts (tokens/custo por agente, overBudget alert)
@@ -72,7 +72,7 @@
 - [x] 57. Email to Ticket — email-to-ticket.service.ts (resolve tenant por domínio, thread reply, aliases suporte)
 - [ ] 58. Múltiplas Conexões/Zaps na mesma interface
 - [x] 59. Agrupamento de Conversas Cross-Line (Entidade Unificada) — cross-line-grouping.service.ts (unifiedContact, merge, dedup)
-- [ ] 60. Editor Visual de Kanban de Pipelines
+- [x] 60. Editor Visual de Kanban de Pipelines — kanban-pipeline.service.ts (colunas, WIP limit, drag-and-drop, stats)
 - [x] 61. Chat Interno NATIVO P2P — internal-chat.service.ts (DM/grupo, unread count, access control)
 - [x] 62. Módulo de tags Hierárquicas e Macro — tag-hierarchy.service.ts (árvore, subtree, ancestors, macros)
 - [x] 63. Módulo "Observadores/Espionagem" — conversation-spy.service.ts (observe/whisper/takeover, permissões RBAC)
@@ -91,7 +91,7 @@
 - [x] 74. Fallback Dinâmico Automativo de Provider — provider-fallback.service.ts (circuit breaker)
 - [x] 75. Regresso automático IA-Agent — agent-regression.service.ts (max turnos, sentimento, loop detection, escalação)
 - [x] 76. Definição do Personality Type (Adjustável por Drag sliders) — comm-style.ts (formal/coloquial/tecnico)
-- [ ] 77. Agendamento Multi-Parametro e cruzamento de técnicos
+- [x] 77. Agendamento Multi-Parametro e cruzamento de técnicos — scheduling.service.ts (skills, região, disponibilidade, load balancing)
 - [x] 78. Análise Fotográfica IA (Ler LEDs roteador) — vision.service.ts + vision.routes.ts
 - [x] 79. Automação IA de "Auditoria Noturna" — nightly-brain/ (service + actions + report)
 - [x] 80. Controle Rígido do Hallucination Parameters — safety-classifier.service.ts + constitution.service.ts + guardrails.node.ts
@@ -134,13 +134,13 @@
 | Grupo | Total | Implementados | Parciais | Pendentes |
 |-------|-------|---------------|----------|-----------|
 | A. Onboarding/Multi-tenant | 15 | 11 | 3 | 1 |
-| B. Comercial | 15 | 10 | 1 | 4 |
+| B. Comercial | 15 | 11 | 1 | 3 |
 | C. Integrações | 20 | 11 | 1 | 8 |
-| D. Omnichannel | 15 | 12 | 0 | 3 |
-| E. AI Ops | 15 | 13 | 0 | 2 |
+| D. Omnichannel | 15 | 13 | 0 | 2 |
+| E. AI Ops | 15 | 14 | 0 | 1 |
 | F. Analytics | 10 | 10 | 0 | 0 |
 | G. Field Service | 5 | 3 | 0 | 2 |
 | H. Governança | 10 | 7 | 0 | 3 |
-| **TOTAL** | **105** | **76** | **5** | **24** |
+| **TOTAL** | **105** | **79** | **5** | **21** |
 
 **Notas sobre o Status:** [x] = implementado com código + testes; [~] = parcial (funcionalidade core existe, falta completude); [ ] = pendente (backlog pós-GA).
