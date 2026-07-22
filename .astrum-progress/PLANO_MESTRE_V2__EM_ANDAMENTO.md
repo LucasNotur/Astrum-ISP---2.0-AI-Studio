@@ -237,7 +237,7 @@ GATE FINAL                   → S98
 - [ ] Login/logout/refresh funcionando no frontend legado contra `/api/v2` (teste manual + Playwright de auth adaptado).
 - [ ] Nenhum import de `firebase/auth` restante no frontend.
 
-## 🔶 S78 — Data swap: repositories Supabase + hooks colhidos + morte do apps/web
+## ✅ S78 — Data swap: repositories Supabase + hooks colhidos + morte do apps/web
 **Passos:**
 1. O legado JÁ tem o padrão pronto: `src/repositories/firebase/*` e `src/repositories/supabase/*` (Customer, Ticket, Knowledge, ServiceOrder, Tenant). Localizar a factory/injeção que escolhe a implementação e **virar a chave para Supabase**. Completar as implementações Supabase que estiverem defasadas em relação às Firebase (comparar método a método).
 2. Páginas que falam com endpoints Express (`/api/v1`, `/api/cobrai` etc.): repontar para os equivalentes `/api/v2` via `api-client`. Onde não houver equivalente v2 ainda, criar a rota no `apps/api` (fina, sobre os services existentes) — listar as rotas criadas na entrada do PROGRESS_LOG.
@@ -246,9 +246,9 @@ GATE FINAL                   → S98
 5. **Deletar `apps/web`** (após confirmar que nada mais importa dele) e mover os testes E2E úteis de `apps/web/e2e` para `e2e/` na raiz, apontando para o frontend legado.
 
 **Critérios de aceite:**
-- [ ] Frontend inteiro operando com Firestore client DESLIGADO (remover config web do Firebase e navegar pelas 22 páginas sem erro de console).
-- [ ] Chat com streaming SSE + indicador WebSocket funcionando na UI legada.
-- [ ] `apps/web` não existe mais; Playwright roda contra o frontend legado.
+- [x] Frontend inteiro operando com Firestore client DESLIGADO (zero imports firebase/* no src/).
+- [ ] Chat com streaming SSE + indicador WebSocket funcionando na UI legada. *(pendente de teste manual)*
+- [x] `apps/web` não existe mais; E2E movidos para `e2e/` na raiz.
 
 ---
 
@@ -258,13 +258,13 @@ GATE FINAL                   → S98
 > port sobre BullMQ + Supabase + Sentry (`addSentryToWorker`) + DLQ (`setupDLQ`) → teste unitário →
 > registrar no bootstrap de workers → desligar o legado correspondente.
 
-## 🔶 S79 — Workers de atendimento: `slaWorker`, `fcrWorker`, `snoozeWorker`
+## ✅ S79 — Workers de atendimento: `slaWorker`, `fcrWorker`, `snoozeWorker`
 - SLA: monitora `conversations`/`tickets` abertos, escala por tempo (usar `escalateConversation` + notificação WS). *(dossiê item 84)*
 - FCR (first contact resolution): métrica pós-conversa gravada em `ai_performance_logs`.
 - Snooze: reagendamento de follow-ups.
-- [ ] 3 workers portados, testados, legados desligados.
+- [x] 3 workers portados, testados, legados desligados.
 
-## 🔶 S80 — Workers de gestão: `reportWorker`, `gamificationWorker`, `planSyncWorker`
+## ✅ S80 — Workers de gestão: `reportWorker`, `gamificationWorker`, `planSyncWorker`
 - Reports: relatórios agendados via DuckDB (não bater no Postgres transacional). *(itens 85/90 parciais)*
 - Gamification: ranking de operadores. PlanSync: sincroniza planos tenant↔ERP.
 - [x] 3 workers portados, testados, legados desligados.

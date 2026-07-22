@@ -1,4 +1,7 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+// S78: Gemini client-side removido. Toda IA passa pelo backend v2 (/api/ai/ask).
+// O import de @google/generative-ai foi eliminado. Este módulo mantém apenas
+// as constantes (SYSTEM_PROMPTS, AGENT_CATEGORIES, COBRAI_TEMPLATES ref) e
+// wrappers que delegam ao backend.
 import { logger } from "./logger";
 
 export interface CircuitBreaker {

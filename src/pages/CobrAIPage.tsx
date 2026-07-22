@@ -103,7 +103,7 @@ export function CobrAIPage() {
       const delivered = jobs.filter((j: any) => j.status === 'completed').length;
       setTaxaEntrega(jobs.length > 0 ? `${Math.round((delivered / jobs.length) * 100)}%` : '0%');
 
-      const resStats = await fetch('/api/cobrai/queue-stats');
+      const resStats = await fetch('/api/v2/cobranca/queue-stats');
       if (resStats.ok && resStats.headers.get('content-type')?.includes('application/json')) {
         setQueueStats(await resStats.json());
       }
@@ -115,7 +115,7 @@ export function CobrAIPage() {
   const fetchQueue = async () => {
     setQueueErr(null);
     try {
-      const res = await fetch('/api/cobrai/queue');
+      const res = await fetch('/api/v2/cobranca/queue');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       if (!res.headers.get('content-type')?.includes('application/json'))
         throw new Error('Resposta não é JSON');
@@ -177,7 +177,7 @@ export function CobrAIPage() {
   const sendNow = async (customerId?: string, stage?: string) => {
     if (!customerId || !stage) return;
     try {
-      const res = await fetch('/api/cobrai/send-now', {
+      const res = await fetch('/api/v2/cobranca/send-now', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ customerId, stage, tenantId }),
@@ -192,7 +192,7 @@ export function CobrAIPage() {
 
   const removeJob = async (jobId: string) => {
     try {
-      const res = await fetch(`/api/cobrai/queue/${jobId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/v2/cobranca/queue/${jobId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Falha ao remover job');
       toast.success('Job removido da fila');
       fetchQueue();

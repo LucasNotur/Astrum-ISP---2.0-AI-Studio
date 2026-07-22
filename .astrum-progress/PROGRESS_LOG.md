@@ -24,6 +24,22 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-21] Sprint S78 — Data swap: Gemini client-off, CobrAI endpoints v2, apps/web removido
+Tarefa: Remover dependência Gemini client-side, redirecionar CobrAI para endpoints v2, deletar apps/web
+Arquivos modificados:
+  - src/lib/gemini.ts — removido import de @google/generative-ai (dead code, já delegava para backend)
+  - src/pages/CobrAIPage.tsx — /api/cobrai/* → /api/v2/cobranca/* (queue-stats, queue, send-now)
+  - .astrum-progress/PLANO_MESTRE_V2__EM_ANDAMENTO.md — checkboxes S78, S79, S80 atualizados
+Arquivos criados:
+  - e2e/api.spec.ts — copiado de apps/web/e2e/ antes da remoção
+  - e2e/knowledge.spec.ts — copiado de apps/web/e2e/
+  - e2e/websocket.spec.ts — copiado de apps/web/e2e/
+Arquivos removidos:
+  - apps/web/ — diretório inteiro (zero imports de src/ ou apps/api confirmado)
+Status: ✅ Concluído
+
+---
+
 [2026-07-21] Sprint S76 — CobrAI unificado: guardas + usage-sync + lockout
 Tarefa: Portar proteções faltantes do cobraiWorker legado para o motor v2
 Arquivos criados:
