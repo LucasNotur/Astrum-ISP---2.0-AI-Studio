@@ -3349,4 +3349,18 @@ Arquivos criados:
   - apps/api/src/domain/atendimento/email-to-ticket.service.test.ts — 8 testes
 Testes: 22 testes — todos passando.
 Status: CONCLUIDO. Score dossiê: 55 implementados + 5 parciais + 45 pendentes.
+
+---
+
+[2026-07-22] Dossiê-105 Batch 3 Pós-GA — 3 itens implementados (#26, #65, #86)
+Tarefa: Continuar implementação de itens acionáveis do dossiê-105.
+Arquivos criados:
+  - apps/api/src/domain/analytics/agent-budget.service.ts — #26: consumo orçamento agentes IA (tokens/custo/overBudget)
+  - apps/api/src/domain/analytics/agent-budget.service.test.ts — 4 testes
+  - apps/api/src/domain/analytics/conversion-funnel.service.ts — #86: funil lead→trial→active→upgrade→churn
+  - apps/api/src/domain/analytics/conversion-funnel.service.test.ts — 5 testes
+  - apps/api/src/domain/atendimento/filter-engine.service.ts — #65: motor filtros complexos (AND/OR, 12 operadores, nested, toSqlWhere)
+  - apps/api/src/domain/atendimento/filter-engine.service.test.ts — 10 testes
+Testes: 19 testes — todos passando.
+Status: CONCLUIDO. Score dossiê: 58 implementados + 5 parciais + 42 pendentes.
 Commit: feat(u7): qualidade continua — playwright legado, testes componente, /design, bundle splitting.

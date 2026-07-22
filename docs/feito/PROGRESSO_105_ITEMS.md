@@ -34,7 +34,7 @@
 - [ ] 23. Emissão de Notas Fiscais
 - [ ] 24. Gestões de Acordo "Sob Demanda"
 - [ ] 25. Módulo Afiliados
-- [ ] 26. Tela de Consumo de Orçamento de Agentes
+- [x] 26. Tela de Consumo de Orçamento de Agentes — agent-budget.service.ts (tokens/custo por agente, overBudget alert)
 - [x] 27. Bloqueador Global (Inadimplência) — delinquency-blocker.service.ts (threshold configurável, grace period, notificação pré-bloqueio)
 - [ ] 28. Cartão em arquivo (Gateway)
 - [x] 29. Feature Flags baseadas no tier do plano — flagsForTier() starter/pro/enterprise + overrides
@@ -77,7 +77,7 @@
 - [ ] 62. Módulo de tags Hierárquicas e Macro
 - [ ] 63. Módulo "Observadores/Espionagem"
 - [x] 64. Pesquisa Full-Text Robusta — hybrid-search.service.ts (RAG + Qdrant + reranking)
-- [ ] 65. Filtros Atuais (Complexos)
+- [x] 65. Filtros Atuais (Complexos) — filter-engine.service.ts (AND/OR, 12 operadores, nested groups, toSqlWhere)
 
 ## E. AI Ops, IA Copilot e Configurações Cognitivas (66-80)
 - [ ] 66. Model Training Dashboard "Feedback Loop"
@@ -102,7 +102,7 @@
 - [x] 83. NPS e CSAT Reporting Avançado — nps-csat.service.ts (NPS+CSAT, breakdown por canal/operador, trend mensal)
 - [x] 84. SLAs Customizáveis — sla-eval.ts + sla.worker.ts
 - [x] 85. Painel de Analytics Global KPI, MAU, TMA — DashboardPage + BIPage + ValorGeradoPage
-- [ ] 86. Conversões Dashboard funil
+- [x] 86. Conversões Dashboard funil — conversion-funnel.service.ts (lead→trial→active→upgrade→churn, trend mensal)
 - [ ] 87. Follow-Up Lead Management Automático via IA
 - [ ] 88. Campanha Broadcast Retencional
 - [x] 89. API de Relatórios Analíticos DataLake — duckdb.service.ts + etl.service.ts + etl.routes.ts
@@ -134,13 +134,13 @@
 | Grupo | Total | Implementados | Parciais | Pendentes |
 |-------|-------|---------------|----------|-----------|
 | A. Onboarding/Multi-tenant | 15 | 10 | 3 | 2 |
-| B. Comercial | 15 | 6 | 1 | 8 |
+| B. Comercial | 15 | 7 | 1 | 7 |
 | C. Integrações | 20 | 10 | 1 | 9 |
-| D. Omnichannel | 15 | 3 | 0 | 12 |
+| D. Omnichannel | 15 | 4 | 0 | 11 |
 | E. AI Ops | 15 | 10 | 0 | 5 |
-| F. Analytics | 10 | 6 | 0 | 4 |
+| F. Analytics | 10 | 7 | 0 | 3 |
 | G. Field Service | 5 | 3 | 0 | 2 |
 | H. Governança | 10 | 7 | 0 | 3 |
-| **TOTAL** | **105** | **55** | **5** | **45** |
+| **TOTAL** | **105** | **58** | **5** | **42** |
 
 **Notas sobre o Status:** [x] = implementado com código + testes; [~] = parcial (funcionalidade core existe, falta completude); [ ] = pendente (backlog pós-GA).
