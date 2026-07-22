@@ -67,6 +67,27 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
     });
   });
 
+  // S91 — Auto-provisioning de instância Evolution API
+  fastify.post('/api/v2/onboarding/provision-whatsapp', {
+    onRequest: [fastify.authenticate],
+  }, async (request, reply) => {
+    const { tenantId } = (request as any).user;
+    const { slug } = request.body as { slug?: string };
+
+    const { provisionEvolutionInstance, makeDefaultPorts } = await import(
+      '../../adapters/whatsapp/evolution-provision.service'
+    );
+
+    const tenantSlug = slug || tenantId;
+    const result = await provisionEvolutionInstance(tenantId, tenantSlug, makeDefaultPorts());
+
+    return reply.status(201).send({
+      instanceName: result.instanceName,
+      qrCode: result.qrCode,
+      webhookConfigured: result.webhookConfigured,
+    });
+  });
+
   // Rota: ver plano e uso atual
   fastify.get('/api/v2/billing/plan', {
     onRequest: [fastify.authenticate],

@@ -24,6 +24,21 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-21] Sprint S91 — Onboarding wizard + automação Evolution API
+Tarefa: Auto-provisioning de instância Evolution API durante onboarding
+Arquivos criados:
+  - apps/api/src/adapters/whatsapp/evolution-provision.service.ts — provisionEvolutionInstance (ports injetáveis)
+  - apps/api/src/adapters/whatsapp/evolution-provision.service.test.ts — 4 testes
+Arquivos modificados:
+  - apps/api/src/domain/onboarding/onboarding.routes.ts — POST /api/v2/onboarding/provision-whatsapp
+Já existentes:
+  - src/pages/OnboardingWizardPage.tsx (5 etapas: WhatsApp, import, análise, ERP, relatório)
+  - apps/api/src/domain/onboarding/onboarding.service.ts + onboarding.routes.ts
+Testes: 4 novos, todos passando
+Status: ✅ Concluído
+
+---
+
 [2026-07-21] Sprint S90 — Svix outbound webhooks ativados
 Tarefa: Registrar rotas de webhook-config no server.ts (svix.service.ts e webhook-config.routes.ts já existiam)
 Arquivos modificados:
