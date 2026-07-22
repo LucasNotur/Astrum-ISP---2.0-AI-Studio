@@ -24,6 +24,22 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-21] Sprint S89 — Feature flags + prova de isolamento RLS (10 ISPs)
+Tarefa: Teste de isolamento multi-tenant + validação de feature flags por tier
+Arquivos criados:
+  - apps/api/src/infrastructure/config/rls-isolation.test.ts — 10 testes:
+    • Flags corretas por tier (starter/pro/enterprise)
+    • Override LIGA/DESLIGA por tenant
+    • Isolamento: 10 tenants × 9 combinações = 90 → todas bloqueadas
+    • Completude cumulativa dos tiers
+Já existentes (revalidados):
+  - feature-flags.ts + 027_feature_flags.sql + feature-flags.test.ts (6 testes)
+  - authz-guard.ts + authz-guard.test.ts (9 testes anti-IDOR)
+Testes: 10 novos, todos passando
+Status: ✅ Concluído
+
+---
+
 [2026-07-21] Sprint S88 — Synthetic monitoring + dashboard de saúde por ISP
 Tarefa: Worker de sonda E2E + página de dashboard de saúde
 Arquivos criados:
