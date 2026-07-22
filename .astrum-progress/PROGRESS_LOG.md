@@ -24,6 +24,18 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-22] Sprint S96 — Benchmarking setorial + relatórios ANATEL
+Tarefa: Verificar e fechar módulo de benchmarking ISP e indicadores regulatórios
+Arquivos já existentes (verificados):
+  - apps/api/src/domain/provedor/benchmarking.ts — median, benchmarkMetric (por porte, anônimo), buildAnatelReport (RQUAL/SICI proxy)
+  - apps/api/src/domain/provedor/benchmarking.test.ts — 9 testes (median, benchmark por porte, ANATEL conforme/não conforme)
+  - apps/api/src/domain/provedor/compliance.routes.ts — rota registrada no server.ts
+Testes verificados: 9 testes Vitest passando
+Status: ✅ Concluído
+Observações: Compara ISP contra mediana anônima de pares do mesmo porte. Report ANATEL com taxa resolução 48h e taxa reabertura contra piso regulatório.
+
+---
+
 [2026-07-22] Sprint S95 — Voz em tempo real MVP
 Tarefa: Verificar e fechar módulo de atendimento telefônico IA (OpenAI Realtime API)
 Arquivos já existentes (verificados):

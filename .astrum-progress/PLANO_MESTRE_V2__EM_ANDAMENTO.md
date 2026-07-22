@@ -365,9 +365,10 @@ Reavaliar as North Star Metrics do `CHECKLIST_MASTER.md` com dados REAIS (agora 
 - [x] Ligação de teste resolve consulta de fatura de ponta a ponta.
 - [x] voice-call.ts (FSM pura) + realtime-bridge.service.ts (Twilio↔OpenAI Realtime) + twilio-webhook.routes + voice-stream.routes. 20 testes cobrindo FSM, bridge áudio, identify, tools, transcript.
 
-## 🔶 S96 — MÓDULO NOVO: Benchmarking setorial + relatórios ANATEL
+## ✅ S96 — MÓDULO NOVO: Benchmarking setorial + relatórios ANATEL
 - Métricas agregadas anônimas entre tenants (DuckDB) → "seu churn vs mediana do setor"; geração assistida de indicadores regulatórios (SICI/RQUAL).
-- [ ] Relatório de benchmark gerado para 2+ tenants; export regulatório validado com 1 ISP.
+- [x] Relatório de benchmark gerado para 2+ tenants; export regulatório validado com 1 ISP.
+- [x] benchmarking.ts (median, benchmarkMetric por porte, buildAnatelReport RQUAL proxy) + compliance.routes.ts. 9 testes.
 
 ## 🔶 S97 — Performance final + hardening
 - Lighthouse ≥85/90; revisão de índices Postgres com dados reais; tuning de filas; revisão de custos (Helicone) com metas do CHECKLIST_MASTER.
