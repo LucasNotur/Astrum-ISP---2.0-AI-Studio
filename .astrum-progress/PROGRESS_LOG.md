@@ -24,6 +24,29 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-22] Dossiê-105 Batch 8+9 — #9, #18, #20, #48, #53, #56
+Tarefa: Implementar 6 itens do dossiê-105 (batches 8+9)
+Arquivos criados:
+  - apps/api/src/domain/billing/seat-management.service.ts — #18 Gestão por Seats (alocação, extra seats, addOperator)
+  - apps/api/src/domain/billing/seat-management.service.test.ts — 8 testes
+  - apps/api/src/domain/billing/addon-module.service.ts — #20 Módulo Add-Ons (compatibilidade plano, feature flags)
+  - apps/api/src/domain/billing/addon-module.service.test.ts — 10 testes
+  - apps/api/src/domain/atendimento/hsm-template.service.ts — #53 HSM Templates META (extract/render variables, validação)
+  - apps/api/src/domain/atendimento/hsm-template.service.test.ts — 12 testes
+  - apps/api/src/domain/provedor/branch-manager.service.ts — #9 Multi-Filial (árvore, descendants, path, permissão)
+  - apps/api/src/domain/provedor/branch-manager.service.test.ts — 11 testes
+  - apps/api/src/domain/billing/smtp-invoice-sender.service.ts — #48 SMTP notas (template HTML, retry, rate limit)
+  - apps/api/src/domain/billing/smtp-invoice-sender.service.test.ts — 10 testes
+  - apps/api/src/domain/atendimento/web-widget.service.ts — #56 Web Widget (config visual, embed script, sanitize)
+  - apps/api/src/domain/atendimento/web-widget.service.test.ts — 19 testes
+Arquivos modificados:
+  - docs/feito/PROGRESSO_105_ITEMS.md — #9, #18, #20, #48, #53, #56 → [x], tabela 70→76
+Testes criados: 70 testes Vitest (todos passando)
+Status: ✅ Concluído
+Observações: Score 76/105. Todos serviços com ports injetáveis. SMTP com retry (3 tentativas) e daily limit (500). Widget com sanitização anti-XSS e rate limit por IP.
+
+---
+
 [2026-07-22] Sprint S98 — GATE FINAL — ASTRUM AI ENGINE SETORIAL
 Tarefa: Avaliar os 10 critérios do Gate Final com evidências documentadas
 Arquivos criados:

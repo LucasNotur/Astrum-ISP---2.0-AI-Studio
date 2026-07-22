@@ -15,7 +15,7 @@
 - [x] 6. SuperAdmin Central — SuperAdminPage.tsx + RBAC super_admin role
 - [~] 7. Lifecycle Account Management — upgrade/deactivate exist; suspend/ban/archive pendente
 - [~] 8. Sub-domínios Dinâmicos — URL param discovery funcional; subdomain DNS pendente
-- [ ] 9. Gerenciador Multi-Filial
+- [x] 9. Gerenciador Multi-Filial — branch-manager.service.ts (árvore hierárquica, descendants, path, permissão por manager)
 - [x] 10. Automação Evolution API — evolution-provision.service.ts + auto-provisioning
 - [x] 11. White Label Nativo — PortalPage.tsx (PWA subscriber) + feature flag enterprise
 - [ ] 12. Configuração Organizacional Hierarquizada
@@ -26,9 +26,9 @@
 ## B. Gestão Comercial (Modelo de Planos) (16-30)
 - [~] 16. Controle de Quotas de Mensagens — usage-sync.worker.ts (tracking/alerting); hard enforcement pendente
 - [x] 17. Controle de Token Limit per Mensagem — tokenLimit em config + system-prompt-builder
-- [ ] 18. Gestão por Seats
+- [x] 18. Gestão por Seats — seat-management.service.ts (alocação, extra seats com custo, addOperator)
 - [x] 19. Módulo "Plano Trial de 14 Dias" — trial.service.ts (14 dias, radar_trial)
-- [ ] 20. Módulo de Add-Ons
+- [x] 20. Módulo de Add-Ons — addon-module.service.ts (compatibilidade plano, feature flags, ativação)
 - [x] 21. Prevenção de Fraude em Chargeback — chargeback-prevention.service.ts (risk assessment, auto-block, warning)
 - [x] 22. Relatórios de Gasto Individualizado B2B — tenant-usage-report.service.ts (mensagens/tokens/storage/overage/plano)
 - [ ] 23. Emissão de Notas Fiscais
@@ -58,17 +58,17 @@
 - [x] 45. Abertura de Chamado direto pela API no ERP — createServiceOrder em erp.types.ts + tools.executor.ts
 - [ ] 46. Inteção Zapier / n8n / Make apps
 - [x] 47. Exportador de banco nativo JSON/CSV — data-export.service.ts (JSON/CSV, tenant-scoped, limit configurável)
-- [ ] 48. Disparo via SMTP de notas do SAAS
+- [x] 48. Disparo via SMTP de notas do SAAS — smtp-invoice-sender.service.ts (template HTML, retry, rate limit)
 - [ ] 49. Importe de dados retroativos de CRM terceiros
 - [ ] 50. Rotação Dinamica de IPs
 
 ## D. Omnichannel & CRM de Chats (51-65)
 - [x] 51. Round Robin Inteligente — roundRobin.test.ts + operator assignment
 - [x] 52. Enfileiramento em cascata — cascade-queue.service.ts (multi-grupo, timeout, fallback IA/voicemail)
-- [ ] 53. Disparo ativo API Oficial (HSM, Templates META)
+- [x] 53. Disparo ativo API Oficial (HSM, Templates META) — hsm-template.service.ts (extract/render variables, validação META, envio proativo)
 - [ ] 54. Suporte a Facebook Messenger
 - [ ] 55. Suporte a IG Direct
-- [ ] 56. Web Widget Customizável
+- [x] 56. Web Widget Customizável — web-widget.service.ts (config visual, script embed, rate limit, sanitize)
 - [x] 57. Email to Ticket — email-to-ticket.service.ts (resolve tenant por domínio, thread reply, aliases suporte)
 - [ ] 58. Múltiplas Conexões/Zaps na mesma interface
 - [x] 59. Agrupamento de Conversas Cross-Line (Entidade Unificada) — cross-line-grouping.service.ts (unifiedContact, merge, dedup)
@@ -133,14 +133,14 @@
 
 | Grupo | Total | Implementados | Parciais | Pendentes |
 |-------|-------|---------------|----------|-----------|
-| A. Onboarding/Multi-tenant | 15 | 10 | 3 | 2 |
-| B. Comercial | 15 | 8 | 1 | 6 |
-| C. Integrações | 20 | 10 | 1 | 9 |
-| D. Omnichannel | 15 | 10 | 0 | 5 |
+| A. Onboarding/Multi-tenant | 15 | 11 | 3 | 1 |
+| B. Comercial | 15 | 10 | 1 | 4 |
+| C. Integrações | 20 | 11 | 1 | 8 |
+| D. Omnichannel | 15 | 12 | 0 | 3 |
 | E. AI Ops | 15 | 13 | 0 | 2 |
 | F. Analytics | 10 | 10 | 0 | 0 |
 | G. Field Service | 5 | 3 | 0 | 2 |
 | H. Governança | 10 | 7 | 0 | 3 |
-| **TOTAL** | **105** | **70** | **5** | **30** |
+| **TOTAL** | **105** | **76** | **5** | **24** |
 
 **Notas sobre o Status:** [x] = implementado com código + testes; [~] = parcial (funcionalidade core existe, falta completude); [ ] = pendente (backlog pós-GA).
