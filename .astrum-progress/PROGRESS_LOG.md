@@ -24,6 +24,21 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-22] Sprint S92 — Detecção de crise massiva
+Tarefa: Worker BullMQ para detectar crise massiva por região/CTO e responder em massa
+Arquivos criados:
+  - packages/queue/src/workers/crisis.worker.ts — processCrisisJob (ports injetáveis), createCrisisWorker, scheduleCrisisJobs (*/1)
+  - packages/queue/src/workers/crisis.worker.test.ts — 5 testes (200 msgs→1 incidente, abaixo gatilho, dedup incidente, multi-região, sem tenants)
+Arquivos modificados:
+  - apps/api/src/server.ts — bootstrap do crisis-worker (*/1 * * * *)
+  - .astrum-progress/PLANO_MESTRE_V2__EM_ANDAMENTO.md — S92 ✅
+Tecnologias implementadas: BullMQ cron worker, detectCrises() + crisisSuppressions() do crisis-detector.ts
+Testes criados: 5 testes Vitest
+Status: ✅ Concluído
+Observações: Reutiliza lógica pura existente (crisis-detector.ts). Worker varre todos os tenants ativos a cada minuto, detecta regiões em crise por janela deslizante, cria incidente, envia resposta em massa e suprime SLA/cobrança. Dedup por incidente aberto evita spam.
+
+---
+
 [2026-07-21] Sprint S91 — Onboarding wizard + automação Evolution API
 Tarefa: Auto-provisioning de instância Evolution API durante onboarding
 Arquivos criados:

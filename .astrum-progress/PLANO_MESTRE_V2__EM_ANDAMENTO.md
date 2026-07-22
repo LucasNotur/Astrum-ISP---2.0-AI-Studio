@@ -345,9 +345,10 @@ Reavaliar as North Star Metrics do `CHECKLIST_MASTER.md` com dados REAIS (agora 
 - Wizard no frontend legado consumindo `onboarding.service.ts` (6 etapas) + criação automática de instância Evolution API por tenant. *(dossiê itens 1, 2, 5, 10)*
 - [x] OnboardingWizardPage (5 etapas) já existia; evolution-provision.service.ts novo com auto-provisioning + rota POST /api/v2/onboarding/provision-whatsapp. 4 testes.
 
-## 🔶 S92 — MÓDULO NOVO: Detecção de crise massiva
+## ✅ S92 — MÓDULO NOVO: Detecção de crise massiva
 - Worker que detecta pico de mensagens por região/CTO (janela deslizante no Redis) → agrupa, responde em massa com status do incidente, suprime cobrança/SLA do período, painel de crise. *(dossiê item 94)*
-- [ ] Simulação de 200 mensagens iguais em 5min → 1 incidente criado, respostas agrupadas.
+- [x] Simulação de 200 mensagens iguais em 5min → 1 incidente criado, respostas agrupadas.
+- [x] crisis.worker.ts (BullMQ */1, ports injetáveis) + 5 testes. Bootstrap no server.ts.
 
 ## 🔶 S93 — MÓDULO NOVO: Telemetria de rede (SNMP/TR-069) — MVP
 - Poller SNMP para OLT/CTOs piloto → série temporal (DuckDB) → alerta proativo ("degradação na sua região") ligado ao módulo de crise. Escopo MVP: 1 fabricante, 1 ISP piloto.

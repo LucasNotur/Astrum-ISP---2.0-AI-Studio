@@ -520,6 +520,13 @@ export async function startFastifyServer() {
     await scheduleSyntheticMonitorJobs();
     app.log.info('[synthetic-monitor-worker] iniciado (*/15 * * * *)');
 
+    // S92 — Crisis detector worker (crise massiva por região, */1).
+    // @ts-ignore
+    const { createCrisisWorker, scheduleCrisisJobs } = await import('../../../packages/queue/src/workers/crisis.worker');
+    createCrisisWorker();
+    await scheduleCrisisJobs();
+    app.log.info('[crisis-worker] iniciado (*/1 * * * *)');
+
     // Agendar Batch Jobs
     await scheduleBatchJobs();
 
