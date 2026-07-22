@@ -24,6 +24,19 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-21] Sprint S84 — Load + Chaos: scripts K6 + chaos runner + testes de resiliência
+Tarefa: Criar framework de load test (K6) e chaos test para validar resiliência do sistema
+Arquivos criados:
+  - scripts/load-test/webhook-stress.js — K6: 1000 mensagens burst no webhook Evolution v2 (cenários burst + sustained)
+  - scripts/load-test/api-endpoints.js — K6: load test de endpoints da API v2 (health, analytics, queue-stats)
+  - scripts/chaos/chaos-runner.ts — Chaos runner: injeta falhas em Redis/Qdrant/OpenAI/Supabase, mede recovery
+  - scripts/chaos/resilience.test.ts — 7 testes unitários: circuit breaker, fallback, degradação graceful
+  - docs/qa/LOAD_CHAOS_S84.md — Relatório template com metas e resultados dos testes unitários
+Testes: 7 novos (resiliência provider-fallback), todos passando
+Status: ✅ Concluído (scripts prontos; execução K6+Docker pendente de staging)
+
+---
+
 [2026-07-21] Sprint S78 — Data swap: Gemini client-off, CobrAI endpoints v2, apps/web removido
 Tarefa: Remover dependência Gemini client-side, redirecionar CobrAI para endpoints v2, deletar apps/web
 Arquivos modificados:
