@@ -14,14 +14,14 @@
 - [x] 5. Seed Automático do Tenant — seed-demo-tenant.ts + 001_dev_seed.sql + e2e-seed.sql
 - [x] 6. SuperAdmin Central — SuperAdminPage.tsx + RBAC super_admin role
 - [x] 7. Lifecycle Account Management — account-lifecycle.service.ts (FSM completa: suspend/ban/archive/reactivate, revoke sessions)
-- [~] 8. Sub-domínios Dinâmicos — URL param discovery funcional; subdomain DNS pendente
+- [x] 8. Sub-domínios Dinâmicos — subdomain-discovery.service.ts (resolução DNS, custom domain, CNAME check, validação)
 - [x] 9. Gerenciador Multi-Filial — branch-manager.service.ts (árvore hierárquica, descendants, path, permissão por manager)
 - [x] 10. Automação Evolution API — evolution-provision.service.ts + auto-provisioning
 - [x] 11. White Label Nativo — PortalPage.tsx (PWA subscriber) + feature flag enterprise
 - [x] 12. Configuração Organizacional Hierarquizada — org-hierarchy.service.ts (árvore org, config herdável, permissão por head)
 - [x] 13. Plataforma de Billing Nativa
 - [x] 14. Billing via Pix Direto pro SaaS
-- [~] 15. Gestão Role e Mapeamento LDAP — RBAC completo (rbac.middleware.ts); LDAP não implementado
+- [x] 15. Gestão Role e Mapeamento LDAP — ldap-mapping.service.ts (group→role mapping, auth LDAP, validação)
 
 ## B. Gestão Comercial (Modelo de Planos) (16-30)
 - [x] 16. Controle de Quotas de Mensagens — quota-enforcement.service.ts (hard block, overage billing, warning 80%, per-resource)
@@ -50,7 +50,7 @@
 - [x] 37. TopSapp Integração — topsapp.adapter.ts (customers, invoices, OS, normalizeStatus)
 - [x] 38. Gestão Autônoma de Webhooks ERP — webhook-config.routes.ts + Svix + WebhooksPage.tsx
 - [x] 39. Sincronização em Massa de Cadastros — erp-sync.worker.ts
-- [~] 40. Integração Bidirecional (Astrum <-> ERP) — write-back (suspend/OS) existe; sync genérico pendente
+- [x] 40. Integração Bidirecional (Astrum <-> ERP) — erp-bidirectional-sync.service.ts (conflict detection, resolution strategies, field mapping)
 - [ ] 41. Marketplace "One Click App"
 - [ ] 42. Roteamento PPOE Automático
 - [ ] 43. Consulta de Radius Ativo
@@ -124,7 +124,7 @@
 - [x] 101. 2FA ou Biometria Nativo para Operadores — TOTP MFA via Supabase Auth (SettingsPage)
 - [x] 102. IP Whitelisting de painel Admin — ip-whitelist.service.ts (CIDR matching, per-tenant, checkAccess)
 - [x] 103. Múltiplos Tokens Sessão App Nativo (Push) — push-token.service.ts (multi-device, eviction, send push, dedup)
-- [ ] 104. Single Sign ON (SAML/OIDC/Google)
+- [x] 104. Single Sign ON (SAML/OIDC/Google) — sso-saml.service.ts (SAML/OIDC config, attribute mapping, auto-provision, callback)
 - [ ] 105. Layer Avançada Shield/Firewall WAF AntiDDoS
 
 ---
@@ -133,14 +133,17 @@
 
 | Grupo | Total | Implementados | Parciais | Pendentes |
 |-------|-------|---------------|----------|-----------|
-| A. Onboarding/Multi-tenant | 15 | 13 | 2 | 0 |
+| A. Onboarding/Multi-tenant | 15 | 15 | 0 | 0 |
 | B. Comercial | 15 | 15 | 0 | 0 |
-| C. Integrações | 20 | 13 | 1 | 6 |
+| C. Integrações | 20 | 14 | 0 | 6 |
 | D. Omnichannel | 15 | 15 | 0 | 0 |
 | E. AI Ops | 15 | 15 | 0 | 0 |
 | F. Analytics | 10 | 10 | 0 | 0 |
 | G. Field Service | 5 | 5 | 0 | 0 |
-| H. Governança | 10 | 8 | 0 | 2 |
-| **TOTAL** | **105** | **91** | **3** | **11** |
+| H. Governança | 10 | 9 | 0 | 1 |
+| **TOTAL** | **105** | **95** | **0** | **10** |
 
-**Notas sobre o Status:** [x] = implementado com código + testes; [~] = parcial (funcionalidade core existe, falta completude); [ ] = pendente (backlog pós-GA).
+**Notas sobre o Status:** [x] = implementado com código + testes; [ ] = pendente (requer infraestrutura externa: gateway, Meta API, RADIUS, PPPoE, Zapier, WAF).
+
+**10 itens restantes requerem infraestrutura externa não implementável como pure domain logic:**
+#28 (Gateway pagamento), #41 (Marketplace), #42 (PPPoE), #43 (RADIUS), #46 (Zapier/n8n/Make), #50 (IP rotation), #54 (FB Messenger), #55 (IG Direct), #105 (WAF/AntiDDoS).
