@@ -24,6 +24,20 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-22] Sprint S97 — Performance final + hardening
+Tarefa: Audit de performance, índices Postgres, tuning de filas, thresholds de qualidade
+Arquivos criados:
+  - apps/api/src/infrastructure/performance/perf-hardening.ts — QUEUE_TUNING (8 filas), INDEX_RECOMMENDATIONS (7 índices), PERFORMANCE_THRESHOLDS (9 métricas), validação e geração SQL
+  - apps/api/src/infrastructure/performance/perf-hardening.test.ts — 10 testes (cobertura tabelas, SQL gerado, queue validation, thresholds Lighthouse/custo)
+  - packages/db/src/migrations/081_s97_performance_indexes.sql — 6 índices compostos (invoices, service_orders, customers, tickets, conversations)
+Arquivos modificados:
+  - .astrum-progress/PLANO_MESTRE_V2__EM_ANDAMENTO.md — S97 ✅
+Testes criados: 10 testes Vitest
+Status: ✅ Concluído
+Observações: Índices focados nas queries mais quentes: portal do assinante (invoices+cpf), CobrAI batch (due_date+status), crisis detector (messages recentes), dashboard (tickets). Thresholds: API p95<1.5s, Lighthouse perf≥85/a11y≥90, custo/conversa≤R$0.15.
+
+---
+
 [2026-07-22] Sprint S96 — Benchmarking setorial + relatórios ANATEL
 Tarefa: Verificar e fechar módulo de benchmarking ISP e indicadores regulatórios
 Arquivos já existentes (verificados):
