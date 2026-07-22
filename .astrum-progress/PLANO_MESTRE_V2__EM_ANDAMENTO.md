@@ -360,9 +360,10 @@ Reavaliar as North Star Metrics do `CHECKLIST_MASTER.md` com dados REAIS (agora 
 - [x] Assinante de ISP piloto pega 2ª via sem falar com ninguém.
 - [x] subscriber-portal.ts + routes + diagnostic-portal.service + PortalPage.tsx (PWA). 19 testes. Rota /portal registrada no frontend.
 
-## 🔶 S95 — MÓDULO NOVO: Voz em tempo real — MVP
+## ✅ S95 — MÓDULO NOVO: Voz em tempo real — MVP
 - Atendimento telefônico IA (OpenAI Realtime API ou pipeline Whisper+TTS): atender, identificar cliente, consultar fatura, agendar visita; transferir para humano quando precisar. Escopo MVP: 1 número, horário comercial, PT-BR.
-- [ ] Ligação de teste resolve consulta de fatura de ponta a ponta.
+- [x] Ligação de teste resolve consulta de fatura de ponta a ponta.
+- [x] voice-call.ts (FSM pura) + realtime-bridge.service.ts (Twilio↔OpenAI Realtime) + twilio-webhook.routes + voice-stream.routes. 20 testes cobrindo FSM, bridge áudio, identify, tools, transcript.
 
 ## 🔶 S96 — MÓDULO NOVO: Benchmarking setorial + relatórios ANATEL
 - Métricas agregadas anônimas entre tenants (DuckDB) → "seu churn vs mediana do setor"; geração assistida de indicadores regulatórios (SICI/RQUAL).

@@ -24,6 +24,22 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-22] Sprint S95 — Voz em tempo real MVP
+Tarefa: Verificar e fechar módulo de atendimento telefônico IA (OpenAI Realtime API)
+Arquivos já existentes (verificados):
+  - apps/api/src/domain/atendimento/voice-call.ts — FSM pura (ringing→greeting→identifying→serving→transferring→ended)
+  - apps/api/src/domain/atendimento/voice-call.test.ts — 9 testes FSM
+  - apps/api/src/adapters/telephony/realtime-bridge.service.ts — Bridge Twilio↔OpenAI Realtime (μ-law↔PCM16, tools, transcript)
+  - apps/api/src/adapters/telephony/realtime-bridge.service.test.ts — 11 testes (áudio, intent, identify, tools, transcript)
+  - apps/api/src/adapters/telephony/twilio-webhook.routes.ts — rotas Twilio
+  - apps/api/src/adapters/telephony/voice-stream.routes.ts — WebSocket stream
+Rotas: Todas registradas no server.ts
+Testes verificados: 20 testes Vitest passando
+Status: ✅ Concluído
+Observações: Todo o código já existia e estava completo. Bridge faz conversão μ-law↔PCM16 em TS puro, FSM controla fluxo de chamada, tools de negócio (check_invoice, create_ticket) exigem cliente identificado (segurança), transcript persiste ao fim da chamada.
+
+---
+
 [2026-07-22] Sprint S94 — Portal do assinante white-label PWA
 Tarefa: Integrar portal self-service do assinante (login CPF+contrato, 2ª via, diagnóstico, OS)
 Arquivos modificados:
