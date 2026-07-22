@@ -18,7 +18,7 @@
 - [x] 9. Gerenciador Multi-Filial — branch-manager.service.ts (árvore hierárquica, descendants, path, permissão por manager)
 - [x] 10. Automação Evolution API — evolution-provision.service.ts + auto-provisioning
 - [x] 11. White Label Nativo — PortalPage.tsx (PWA subscriber) + feature flag enterprise
-- [ ] 12. Configuração Organizacional Hierarquizada
+- [x] 12. Configuração Organizacional Hierarquizada — org-hierarchy.service.ts (árvore org, config herdável, permissão por head)
 - [x] 13. Plataforma de Billing Nativa
 - [x] 14. Billing via Pix Direto pro SaaS
 - [~] 15. Gestão Role e Mapeamento LDAP — RBAC completo (rbac.middleware.ts); LDAP não implementado
@@ -32,8 +32,8 @@
 - [x] 21. Prevenção de Fraude em Chargeback — chargeback-prevention.service.ts (risk assessment, auto-block, warning)
 - [x] 22. Relatórios de Gasto Individualizado B2B — tenant-usage-report.service.ts (mensagens/tokens/storage/overage/plano)
 - [x] 23. Emissão de Notas Fiscais — invoice-nf.service.ts (NF-e/NFS-e, SEFAZ submit, cancelamento, CPF/CNPJ validation)
-- [ ] 24. Gestões de Acordo "Sob Demanda"
-- [ ] 25. Módulo Afiliados
+- [x] 24. Gestões de Acordo "Sob Demanda" — custom-agreement.service.ts (preço custom, desconto, aprovação, validade)
+- [x] 25. Módulo Afiliados — affiliate.service.ts (referral link, comissão, conversão, stats)
 - [x] 26. Tela de Consumo de Orçamento de Agentes — agent-budget.service.ts (tokens/custo por agente, overBudget alert)
 - [x] 27. Bloqueador Global (Inadimplência) — delinquency-blocker.service.ts (threshold configurável, grace period, notificação pré-bloqueio)
 - [ ] 28. Cartão em arquivo (Gateway)
@@ -133,14 +133,14 @@
 
 | Grupo | Total | Implementados | Parciais | Pendentes |
 |-------|-------|---------------|----------|-----------|
-| A. Onboarding/Multi-tenant | 15 | 12 | 2 | 1 |
-| B. Comercial | 15 | 13 | 0 | 2 |
+| A. Onboarding/Multi-tenant | 15 | 13 | 2 | 0 |
+| B. Comercial | 15 | 15 | 0 | 0 |
 | C. Integrações | 20 | 12 | 1 | 7 |
 | D. Omnichannel | 15 | 13 | 0 | 2 |
 | E. AI Ops | 15 | 15 | 0 | 0 |
 | F. Analytics | 10 | 10 | 0 | 0 |
 | G. Field Service | 5 | 5 | 0 | 0 |
 | H. Governança | 10 | 7 | 0 | 3 |
-| **TOTAL** | **105** | **85** | **3** | **17** |
+| **TOTAL** | **105** | **88** | **3** | **14** |
 
 **Notas sobre o Status:** [x] = implementado com código + testes; [~] = parcial (funcionalidade core existe, falta completude); [ ] = pendente (backlog pós-GA).
