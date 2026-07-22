@@ -64,7 +64,7 @@
 
 ## D. Omnichannel & CRM de Chats (51-65)
 - [x] 51. Round Robin Inteligente — roundRobin.test.ts + operator assignment
-- [ ] 52. Enfileiramento em cascata
+- [x] 52. Enfileiramento em cascata — cascade-queue.service.ts (multi-grupo, timeout, fallback IA/voicemail)
 - [ ] 53. Disparo ativo API Oficial (HSM, Templates META)
 - [ ] 54. Suporte a Facebook Messenger
 - [ ] 55. Suporte a IG Direct
@@ -80,7 +80,7 @@
 - [x] 65. Filtros Atuais (Complexos) — filter-engine.service.ts (AND/OR, 12 operadores, nested groups, toSqlWhere)
 
 ## E. AI Ops, IA Copilot e Configurações Cognitivas (66-80)
-- [ ] 66. Model Training Dashboard "Feedback Loop"
+- [x] 66. Model Training Dashboard "Feedback Loop" — feedback-loop.service.ts (good/bad/edited, training pairs, stats)
 - [ ] 67. Tela de "Simulação" (Testador Chatie no Admin)
 - [x] 68. Módulo RAG Multimodal (PDFs) — documents.routes.ts + Qdrant + hybrid-search
 - [x] 69. Classificador Churn Preditivo AI — churn.routes.ts + churn.worker.ts + ChurnPage.tsx
@@ -104,7 +104,7 @@
 - [x] 85. Painel de Analytics Global KPI, MAU, TMA — DashboardPage + BIPage + ValorGeradoPage
 - [x] 86. Conversões Dashboard funil — conversion-funnel.service.ts (lead→trial→active→upgrade→churn, trend mensal)
 - [x] 87. Follow-Up Lead Management Automático via IA — lead-followup.service.ts (classify, stale detection, LLM message gen)
-- [ ] 88. Campanha Broadcast Retencional
+- [x] 88. Campanha Broadcast Retencional — broadcast-retention.service.ts (segmento churn, personalização, throttle)
 - [x] 89. API de Relatórios Analíticos DataLake — duckdb.service.ts + etl.service.ts + etl.routes.ts
 - [x] 90. Exportação programável Automática — scheduled-export.service.ts (daily/weekly/monthly, email/webhook delivery)
 
@@ -136,11 +136,11 @@
 | A. Onboarding/Multi-tenant | 15 | 10 | 3 | 2 |
 | B. Comercial | 15 | 7 | 1 | 7 |
 | C. Integrações | 20 | 10 | 1 | 9 |
-| D. Omnichannel | 15 | 5 | 0 | 10 |
-| E. AI Ops | 15 | 11 | 0 | 4 |
-| F. Analytics | 10 | 8 | 0 | 2 |
+| D. Omnichannel | 15 | 6 | 0 | 9 |
+| E. AI Ops | 15 | 12 | 0 | 3 |
+| F. Analytics | 10 | 9 | 0 | 1 |
 | G. Field Service | 5 | 3 | 0 | 2 |
 | H. Governança | 10 | 7 | 0 | 3 |
-| **TOTAL** | **105** | **61** | **5** | **39** |
+| **TOTAL** | **105** | **64** | **5** | **36** |
 
 **Notas sobre o Status:** [x] = implementado com código + testes; [~] = parcial (funcionalidade core existe, falta completude); [ ] = pendente (backlog pós-GA).

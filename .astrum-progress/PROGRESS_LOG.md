@@ -3377,4 +3377,18 @@ Arquivos criados:
   - apps/api/src/domain/atendimento/agent-regression.service.test.ts — 11 testes (detectLoop, evaluateRegression, handleRegression)
 Testes: 25 testes — todos passando.
 Status: CONCLUIDO. Score dossiê: 61 implementados + 5 parciais + 39 pendentes.
+
+---
+
+[2026-07-22] Dossiê-105 Batch 5 Pós-GA — 3 itens implementados (#52, #66, #88)
+Tarefa: Continuar implementação de itens acionáveis do dossiê-105.
+Arquivos criados:
+  - apps/api/src/domain/atendimento/cascade-queue.service.ts — #52: enfileiramento cascata (multi-grupo, timeout, fallback)
+  - apps/api/src/domain/atendimento/cascade-queue.service.test.ts — 5 testes
+  - apps/api/src/domain/atendimento/feedback-loop.service.ts — #66: feedback loop (good/bad/edited, training pairs, stats)
+  - apps/api/src/domain/atendimento/feedback-loop.service.test.ts — 6 testes
+  - apps/api/src/domain/atendimento/broadcast-retention.service.ts — #88: broadcast retencional (segmento churn, personalização)
+  - apps/api/src/domain/atendimento/broadcast-retention.service.test.ts — 4 testes
+Testes: 15 testes — todos passando.
+Status: CONCLUIDO. Score dossiê: 64 implementados + 5 parciais + 36 pendentes.
 Commit: feat(u7): qualidade continua — playwright legado, testes componente, /design, bundle splitting.
