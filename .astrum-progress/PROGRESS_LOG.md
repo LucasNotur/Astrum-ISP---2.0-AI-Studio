@@ -3363,4 +3363,18 @@ Arquivos criados:
   - apps/api/src/domain/atendimento/filter-engine.service.test.ts — 10 testes
 Testes: 19 testes — todos passando.
 Status: CONCLUIDO. Score dossiê: 58 implementados + 5 parciais + 42 pendentes.
+
+---
+
+[2026-07-22] Dossiê-105 Batch 4 Pós-GA — 3 itens implementados (#62, #75, #87)
+Tarefa: Continuar implementação de itens acionáveis do dossiê-105.
+Arquivos criados:
+  - apps/api/src/domain/atendimento/tag-hierarchy.service.ts — #62: tags hierárquicas (buildTagTree, getSubtree, getAncestors, macros)
+  - apps/api/src/domain/atendimento/tag-hierarchy.service.test.ts — 7 testes
+  - apps/api/src/domain/atendimento/lead-followup.service.ts — #87: follow-up IA (classify, stale detection, LLM message gen)
+  - apps/api/src/domain/atendimento/lead-followup.service.test.ts — 7 testes
+  - apps/api/src/domain/atendimento/agent-regression.service.ts — #75: regresso IA-agent (max turnos, sentimento, loop detection)
+  - apps/api/src/domain/atendimento/agent-regression.service.test.ts — 11 testes (detectLoop, evaluateRegression, handleRegression)
+Testes: 25 testes — todos passando.
+Status: CONCLUIDO. Score dossiê: 61 implementados + 5 parciais + 39 pendentes.
 Commit: feat(u7): qualidade continua — playwright legado, testes componente, /design, bundle splitting.

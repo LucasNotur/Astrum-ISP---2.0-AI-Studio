@@ -74,7 +74,7 @@
 - [ ] 59. Agrupamento de Conversas Cross-Line (Entidade Unificada)
 - [ ] 60. Editor Visual de Kanban de Pipelines
 - [ ] 61. Chat Interno NATIVO P2P
-- [ ] 62. Módulo de tags Hierárquicas e Macro
+- [x] 62. Módulo de tags Hierárquicas e Macro — tag-hierarchy.service.ts (árvore, subtree, ancestors, macros)
 - [ ] 63. Módulo "Observadores/Espionagem"
 - [x] 64. Pesquisa Full-Text Robusta — hybrid-search.service.ts (RAG + Qdrant + reranking)
 - [x] 65. Filtros Atuais (Complexos) — filter-engine.service.ts (AND/OR, 12 operadores, nested groups, toSqlWhere)
@@ -89,7 +89,7 @@
 - [x] 72. AI Summaries do Agent Hand-off — handover-summary.service.ts + escalate.node.ts
 - [ ] 73. Mapeador Gráfico de Workflow de Agentes de Prompt (Node-Based)
 - [x] 74. Fallback Dinâmico Automativo de Provider — provider-fallback.service.ts (circuit breaker)
-- [ ] 75. Regresso automático IA-Agent
+- [x] 75. Regresso automático IA-Agent — agent-regression.service.ts (max turnos, sentimento, loop detection, escalação)
 - [x] 76. Definição do Personality Type (Adjustável por Drag sliders) — comm-style.ts (formal/coloquial/tecnico)
 - [ ] 77. Agendamento Multi-Parametro e cruzamento de técnicos
 - [x] 78. Análise Fotográfica IA (Ler LEDs roteador) — vision.service.ts + vision.routes.ts
@@ -103,7 +103,7 @@
 - [x] 84. SLAs Customizáveis — sla-eval.ts + sla.worker.ts
 - [x] 85. Painel de Analytics Global KPI, MAU, TMA — DashboardPage + BIPage + ValorGeradoPage
 - [x] 86. Conversões Dashboard funil — conversion-funnel.service.ts (lead→trial→active→upgrade→churn, trend mensal)
-- [ ] 87. Follow-Up Lead Management Automático via IA
+- [x] 87. Follow-Up Lead Management Automático via IA — lead-followup.service.ts (classify, stale detection, LLM message gen)
 - [ ] 88. Campanha Broadcast Retencional
 - [x] 89. API de Relatórios Analíticos DataLake — duckdb.service.ts + etl.service.ts + etl.routes.ts
 - [x] 90. Exportação programável Automática — scheduled-export.service.ts (daily/weekly/monthly, email/webhook delivery)
@@ -136,11 +136,11 @@
 | A. Onboarding/Multi-tenant | 15 | 10 | 3 | 2 |
 | B. Comercial | 15 | 7 | 1 | 7 |
 | C. Integrações | 20 | 10 | 1 | 9 |
-| D. Omnichannel | 15 | 4 | 0 | 11 |
-| E. AI Ops | 15 | 10 | 0 | 5 |
-| F. Analytics | 10 | 7 | 0 | 3 |
+| D. Omnichannel | 15 | 5 | 0 | 10 |
+| E. AI Ops | 15 | 11 | 0 | 4 |
+| F. Analytics | 10 | 8 | 0 | 2 |
 | G. Field Service | 5 | 3 | 0 | 2 |
 | H. Governança | 10 | 7 | 0 | 3 |
-| **TOTAL** | **105** | **58** | **5** | **42** |
+| **TOTAL** | **105** | **61** | **5** | **39** |
 
 **Notas sobre o Status:** [x] = implementado com código + testes; [~] = parcial (funcionalidade core existe, falta completude); [ ] = pendente (backlog pós-GA).
