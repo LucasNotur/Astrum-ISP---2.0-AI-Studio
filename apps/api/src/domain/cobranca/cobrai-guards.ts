@@ -44,6 +44,26 @@ export function isStageActive(
   return stagesConfig[stage]?.active !== false;
 }
 
+export interface PaymentAgreement {
+  active: boolean;
+  nextDueDate?: Date | string | null;
+}
+
+/** True se o cliente tem acordo de parcelamento ativo e a próxima parcela ainda não venceu. */
+export function hasActivePaymentAgreement(agreement?: PaymentAgreement | null): boolean {
+  if (!agreement?.active) return false;
+  if (!agreement.nextDueDate) return true;
+  const nextDue = agreement.nextDueDate instanceof Date
+    ? agreement.nextDueDate
+    : new Date(agreement.nextDueDate);
+  return nextDue > new Date();
+}
+
+/** True se houve pagamento recente (dentro da janela de compensação bancária). */
+export function hasRecentPayment(recentPaymentCount: number): boolean {
+  return recentPaymentCount > 0;
+}
+
 export interface CobraiSendGate {
   hour: number;
   window?: CobraiWindow | null;
@@ -54,6 +74,8 @@ export interface CobraiSendGate {
   stage: string;
   stagesConfig?: Record<string, { active?: boolean }> | null;
   customerOptedOut?: boolean;
+  paymentAgreement?: PaymentAgreement | null;
+  recentPaymentCount?: number;
 }
 
 export interface GateDecision {
@@ -61,12 +83,16 @@ export interface GateDecision {
   reason: string;
 }
 
-/** Decisão única que combina todas as guardas. Ordem: opt-out → estágio → janela → hora → dia. */
+/** Decisão única que combina todas as guardas. */
 export function evaluateCobraiGate(g: CobraiSendGate): GateDecision {
   if (g.customerOptedOut) return { allowed: false, reason: 'customer_opted_out' };
+  if (hasActivePaymentAgreement(g.paymentAgreement)) return { allowed: false, reason: 'active_payment_agreement' };
   if (!isStageActive(g.stage, g.stagesConfig)) return { allowed: false, reason: 'stage_inactive' };
   if (!isWithinCobraiWindow(g.hour, g.window)) return { allowed: false, reason: 'outside_window' };
   if (!withinHourlyLimit(g.sentThisHour, g.hourlyLimit)) return { allowed: false, reason: 'hourly_limit' };
   if (!withinDailyLimit(g.sentToday, g.dailyLimit)) return { allowed: false, reason: 'daily_limit' };
+  if (g.stage === 'suspend_signal' && hasRecentPayment(g.recentPaymentCount ?? 0)) {
+    return { allowed: false, reason: 'payment_pending_compensation' };
+  }
   return { allowed: true, reason: 'ok' };
 }

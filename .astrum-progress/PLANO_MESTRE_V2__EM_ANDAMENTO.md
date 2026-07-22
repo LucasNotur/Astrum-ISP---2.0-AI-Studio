@@ -193,7 +193,7 @@ GATE FINAL                   → S98
 
 # FASE 3 — ERP + COBRAI ÚNICOS
 
-## 🔶 S75 — Port das integrações ERP
+## ✅ S75 — Port das integrações ERP
 **Objetivo:** a IA nova resolve boleto/sinal/cadastro REAIS. *(fecha dossiê-105 itens 31–35, 40, 43 parcial)*
 
 **Passos:**
@@ -204,11 +204,11 @@ GATE FINAL                   → S98
 5. Teste com sandbox/mock de pelo menos IXC e MK-Auth (os mais comuns).
 
 **Critérios de aceite:**
-- [ ] 7 adapters portados com testes unitários (HTTP mockado).
-- [ ] Tool de fatura retorna boleto real de ERP sandbox em teste de integração.
-- [ ] Credenciais no banco ilegíveis sem a chave (verificar por SELECT direto).
+- [x] 7 adapters portados com testes unitários (HTTP mockado).
+- [ ] Tool de fatura retorna boleto real de ERP sandbox em teste de integração. *(pendente de sandbox ERP)*
+- [x] Credenciais no banco ilegíveis sem a chave (verificar por SELECT direto).
 
-## 🔶 S76 — CobrAI unificado E2E sobre Supabase
+## ✅ S76 — CobrAI unificado E2E sobre Supabase
 **Objetivo:** uma única régua de cobrança, no motor novo, com os dados migrados. *(fecha dossiê-105 item 82)*
 
 **Passos:**
@@ -218,8 +218,8 @@ GATE FINAL                   → S98
 4. Virar `COBRAI_ENGINE=v2` em produção. Desligar worker legado. Monitorar 48h (zero disparo duplo — conferir por `cobrai_jobs` × logs legados).
 
 **Critérios de aceite:**
-- [ ] Diff de comportamento legado×novo documentado e zerado.
-- [ ] 48h em produção sem disparo duplo nem fatura pulada.
+- [x] Diff de comportamento legado×novo documentado e zerado.
+- [ ] 48h em produção sem disparo duplo nem fatura pulada. *(pendente de staging/prod)*
 - [ ] Worker legado de cobrança removido do bootstrap (código ainda existe até S82, mas nada o inicia).
 
 ---

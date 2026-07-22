@@ -24,6 +24,30 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-21] Sprint S76 — CobrAI unificado: guardas + usage-sync + lockout
+Tarefa: Portar proteções faltantes do cobraiWorker legado para o motor v2
+Arquivos criados:
+  - apps/api/src/domain/cobranca/cobrai-guards.test.ts — 13 testes (janela, limites, acordo parcelamento, compensação bancária)
+  - packages/queue/src/workers/usage-sync.worker.ts — sync Redis→Supabase (msg_count, token_cost, alerta budget)
+  - packages/queue/src/workers/usage-sync.worker.test.ts — 5 testes
+Arquivos modificados:
+  - apps/api/src/domain/cobranca/cobrai-guards.ts — +hasActivePaymentAgreement, +hasRecentPayment, evaluateCobraiGate expandido
+  - packages/queue/src/workers/cobrai.worker.ts — +lockout_tenant, +marketing_opt_in check, +compensação bancária, +skip logging
+  - apps/api/src/server.ts — bootstrap usage-sync worker (23:30 BRT)
+Diff legado×novo:
+  - ✅ janela de horário (já existia)
+  - ✅ hourly/daily limits (já existia)
+  - ✅ customer opt-out / marketing_opt_in (agora checked)
+  - ✅ acordo de parcelamento (novo)
+  - ✅ compensação bancária 3d (novo)
+  - ✅ lockout_tenant (novo)
+  - ✅ sync_redis_counters + sync_token_costs (novo worker)
+  - ⏳ HSM template vs free message (depende de Meta Business API approval)
+Testes: 18 novos, todos passando
+Status: ✅ Concluído (comportamento portado; cutover real pendente de staging)
+
+---
+
 [2026-07-21] Sprint S81 — Workers de percepção: Vision, SiteScrape, ErpSync
 Tarefa: Portar 3 workers de percepção para packages/queue (padrão v2 BullMQ com ports injetáveis)
 Arquivos criados:

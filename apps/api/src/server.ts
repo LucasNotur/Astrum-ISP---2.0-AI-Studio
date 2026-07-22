@@ -502,6 +502,13 @@ export async function startFastifyServer() {
     await scheduleErpSyncJobs();
     app.log.info('[erp-sync-worker] iniciado (*/30 * * * *)');
 
+    // S76 — UsageSync worker (contadores Redis → Supabase, alerta budget LLM).
+    // @ts-ignore
+    const { createUsageSyncWorker, scheduleUsageSyncJobs } = await import('../../../packages/queue/src/workers/usage-sync.worker');
+    createUsageSyncWorker();
+    await scheduleUsageSyncJobs();
+    app.log.info('[usage-sync-worker] iniciado (23:30 BRT)');
+
     // Agendar Batch Jobs
     await scheduleBatchJobs();
 
