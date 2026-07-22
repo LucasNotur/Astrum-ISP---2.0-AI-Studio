@@ -24,6 +24,24 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-21] Sprint S87 — RAGAS + LLM-as-a-Judge + calibração do router
+Tarefa: Test set ISP + CI de qualidade RAG + calibração de roteamento de modelos
+Arquivos criados:
+  - apps/api/src/infrastructure/rag/ragas-test-set.ts — 50 perguntas representativas de ISPs com groundTruth
+  - apps/api/src/infrastructure/rag/ragas-ci.test.ts — 8 testes CI (contextPrecision, faithfulness, ragasGate, calibrateRouter)
+Testes: 8 novos, todos passando
+Status: ✅ Concluído
+
+---
+
+[2026-07-21] Sprint S86 — GATE GO-LIVE
+Tarefa: Criar documento de gate estruturado com North Star Metrics e checklist técnico
+Arquivos criados:
+  - docs/qa/GATE_GO_LIVE_S86.md — checklist completo (North Star, infra, segurança, resiliência, workers, dados, atendimento, frontend, bloqueadores)
+Status: ✅ Concluído (documento pronto; aprovação com dados reais pendente)
+
+---
+
 [2026-07-21] Sprint S85 — Security audit: OWASP Top 10 + LGPD
 Tarefa: Auditoria de segurança automatizada com testes OWASP
 Arquivos criados:

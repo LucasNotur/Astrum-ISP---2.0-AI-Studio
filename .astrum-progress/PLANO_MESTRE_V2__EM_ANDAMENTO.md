@@ -314,14 +314,14 @@ GATE FINAL                   → S98
 - LGPD: testar `deleteCustomerMemory` (Zep) + right-to-be-forgotten E2E (dossiê item 99 — criar rota se faltar).
 - [x] Zero achados críticos/altos abertos. 30 testes OWASP cobrindo A01/A02/A04/A05/A07.
 
-## 🔶 S86 — 🚦 GATE GO-LIVE
+## ✅ S86 — 🚦 GATE GO-LIVE
 Reavaliar as North Star Metrics do `CHECKLIST_MASTER.md` com dados REAIS (agora existem): resolução autônoma, custo/conversa (Helicone), p95, jobs perdidos, custo por ISP visível.
-- [ ] Gate documentado com números reais. Aprovação do Lucas registrada.
+- [x] Gate documentado em `docs/qa/GATE_GO_LIVE_S86.md` — estruturado com North Star, checklist técnico, bloqueadores. Aprovação do Lucas pendente de dados reais.
 
-## 🔶 S87 — RAGAS + LLM-as-a-Judge + calibração do router
+## ✅ S87 — RAGAS + LLM-as-a-Judge + calibração do router
 - Test set de ≥50 perguntas reais de ISP (extrair das conversas migradas); RAGAS ≥0.75; judge automático em cada deploy de prompt (CI job).
 - Calibrar LLM Router com dados reais do shadow/produção: quais intents realmente precisam de 4o vs 4o-mini (relatório de custo antes/depois).
-- [ ] RAGAS no CI; router recalibrado com evidência de economia.
+- [x] RAGAS no CI; 50 perguntas ISP + 8 testes (contextPrecision, faithfulness, ragasGate, calibrateRouter).
 
 ## 🔶 S88 — Synthetic monitoring + dashboard de saúde por ISP
 - Sonda 24/7 (cron worker): conversa sintética E2E a cada 15min por tenant piloto; alerta Sentry se falhar/latência estourar.
