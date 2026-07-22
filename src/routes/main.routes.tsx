@@ -24,6 +24,7 @@ import { ValorGeradoPage } from '../pages/ValorGeradoPage';
 import { intelligenceRoutes } from './intelligence.routes';
 const OnboardingWizardPage = lazy(() => import('../pages/OnboardingWizardPage'));
 const HealthDashboardPage = lazy(() => import('../pages/HealthDashboardPage'));
+const PortalPage = lazy(() => import('../pages/PortalPage'));
 import { WhatsAppConnectionsPage } from '../pages/WhatsAppPage';
 import { KnowledgeBasePage } from '../pages/KnowledgeBasePage';
 import { AIConfigPage } from '../pages/AIConfigPage';
@@ -102,6 +103,7 @@ export function mainRoutes(currentUserRole: string) {
       <Route path="/settings"         element={<SettingsPage />} />
       <Route path="/health"      element={<L><HealthDashboardPage /></L>} />
       <Route path="/onboarding" element={<Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}><OnboardingWizardPage /></Suspense>} />
+      <Route path="/portal" element={<L><PortalPage /></L>} />
       {intelligenceRoutes()}
     </>
   );

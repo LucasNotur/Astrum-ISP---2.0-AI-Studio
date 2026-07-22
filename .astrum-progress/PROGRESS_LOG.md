@@ -24,6 +24,24 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-22] Sprint S94 — Portal do assinante white-label PWA
+Tarefa: Integrar portal self-service do assinante (login CPF+contrato, 2ª via, diagnóstico, OS)
+Arquivos modificados:
+  - src/routes/main.routes.tsx — rota /portal com lazy import do PortalPage
+  - .astrum-progress/PLANO_MESTRE_V2__EM_ANDAMENTO.md — S94 ✅
+Arquivos já existentes (reutilizados):
+  - apps/api/src/domain/provedor/subscriber-portal.ts — lógica pura (auth, actions, queries)
+  - apps/api/src/domain/provedor/subscriber-portal.routes.ts — 5 rotas Fastify (auth, dashboard, invoices, service-orders, diagnostic)
+  - apps/api/src/domain/provedor/diagnostic-portal.service.ts — diagnóstico self-service
+  - apps/api/src/domain/provedor/subscriber-portal.test.ts — 9 testes unitários
+  - apps/api/src/domain/provedor/subscriber-portal.routes.test.ts — 10 testes de rota
+  - src/pages/PortalPage.tsx — PWA completa (login, tabs, faturas, OS, diagnóstico)
+Testes verificados: 19 testes Vitest passando
+Status: ✅ Concluído
+Observações: Todo o código já existia (lógica, rotas, testes, página PWA) e rotas backend já registradas no server.ts. Faltava apenas a rota frontend /portal no main.routes.tsx.
+
+---
+
 [2026-07-22] Sprint S93 — Telemetria de rede SNMP/TR-069 MVP
 Tarefa: Worker BullMQ para poller SNMP de OLTs piloto com alerta proativo de degradação
 Arquivos criados:

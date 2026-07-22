@@ -355,9 +355,10 @@ Reavaliar as North Star Metrics do `CHECKLIST_MASTER.md` com dados REAIS (agora 
 - [x] Alerta proativo disparado por degradação real/simulada antes do cliente reclamar.
 - [x] network-telemetry.worker.ts (BullMQ */5, ports injetáveis) + 6 testes. Reutiliza detectDegradation() existente. Escala para crise (S92) em severidade critical. Bootstrap no server.ts.
 
-## 🔶 S94 — MÓDULO NOVO: Portal do assinante white-label (PWA)
+## ✅ S94 — MÓDULO NOVO: Portal do assinante white-label (PWA)
 - PWA mínimo: login por CPF+contrato, 2ª via/pix, diagnóstico self-service (mesma tool da IA), acompanhar OS (função Uber básica — dossiê itens 92, 11 parcial).
-- [ ] Assinante de ISP piloto pega 2ª via sem falar com ninguém.
+- [x] Assinante de ISP piloto pega 2ª via sem falar com ninguém.
+- [x] subscriber-portal.ts + routes + diagnostic-portal.service + PortalPage.tsx (PWA). 19 testes. Rota /portal registrada no frontend.
 
 ## 🔶 S95 — MÓDULO NOVO: Voz em tempo real — MVP
 - Atendimento telefônico IA (OpenAI Realtime API ou pipeline Whisper+TTS): atender, identificar cliente, consultar fatura, agendar visita; transferir para humano quando precisar. Escopo MVP: 1 número, horário comercial, PT-BR.
