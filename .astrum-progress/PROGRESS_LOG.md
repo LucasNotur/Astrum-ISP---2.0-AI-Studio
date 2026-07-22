@@ -3391,4 +3391,18 @@ Arquivos criados:
   - apps/api/src/domain/atendimento/broadcast-retention.service.test.ts — 4 testes
 Testes: 15 testes — todos passando.
 Status: CONCLUIDO. Score dossiê: 64 implementados + 5 parciais + 36 pendentes.
+
+---
+
+[2026-07-22] Dossiê-105 Batch 6 Pós-GA — 3 itens implementados (#21, #63, #67)
+Tarefa: Continuar implementação de itens acionáveis do dossiê-105.
+Arquivos criados:
+  - apps/api/src/domain/billing/chargeback-prevention.service.ts — #21: prevenção chargeback (risk assessment, auto-block)
+  - apps/api/src/domain/billing/chargeback-prevention.service.test.ts — 8 testes
+  - apps/api/src/domain/atendimento/conversation-spy.service.ts — #63: observadores (observe/whisper/takeover, RBAC)
+  - apps/api/src/domain/atendimento/conversation-spy.service.test.ts — 7 testes
+  - apps/api/src/domain/atendimento/chat-simulator.service.ts — #67: simulador chatie (multi-turn, tokens/latency)
+  - apps/api/src/domain/atendimento/chat-simulator.service.test.ts — 5 testes
+Testes: 20 testes — todos passando.
+Status: CONCLUIDO. Score dossiê: 67 implementados + 5 parciais + 33 pendentes.
 Commit: feat(u7): qualidade continua — playwright legado, testes componente, /design, bundle splitting.

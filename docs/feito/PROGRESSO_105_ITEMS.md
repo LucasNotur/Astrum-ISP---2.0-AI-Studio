@@ -29,7 +29,7 @@
 - [ ] 18. Gestão por Seats
 - [x] 19. Módulo "Plano Trial de 14 Dias" — trial.service.ts (14 dias, radar_trial)
 - [ ] 20. Módulo de Add-Ons
-- [ ] 21. Prevenção de Fraude em Chargeback
+- [x] 21. Prevenção de Fraude em Chargeback — chargeback-prevention.service.ts (risk assessment, auto-block, warning)
 - [x] 22. Relatórios de Gasto Individualizado B2B — tenant-usage-report.service.ts (mensagens/tokens/storage/overage/plano)
 - [ ] 23. Emissão de Notas Fiscais
 - [ ] 24. Gestões de Acordo "Sob Demanda"
@@ -75,13 +75,13 @@
 - [ ] 60. Editor Visual de Kanban de Pipelines
 - [ ] 61. Chat Interno NATIVO P2P
 - [x] 62. Módulo de tags Hierárquicas e Macro — tag-hierarchy.service.ts (árvore, subtree, ancestors, macros)
-- [ ] 63. Módulo "Observadores/Espionagem"
+- [x] 63. Módulo "Observadores/Espionagem" — conversation-spy.service.ts (observe/whisper/takeover, permissões RBAC)
 - [x] 64. Pesquisa Full-Text Robusta — hybrid-search.service.ts (RAG + Qdrant + reranking)
 - [x] 65. Filtros Atuais (Complexos) — filter-engine.service.ts (AND/OR, 12 operadores, nested groups, toSqlWhere)
 
 ## E. AI Ops, IA Copilot e Configurações Cognitivas (66-80)
 - [x] 66. Model Training Dashboard "Feedback Loop" — feedback-loop.service.ts (good/bad/edited, training pairs, stats)
-- [ ] 67. Tela de "Simulação" (Testador Chatie no Admin)
+- [x] 67. Tela de "Simulação" (Testador Chatie no Admin) — chat-simulator.service.ts (multi-turn, tokens/latency tracking)
 - [x] 68. Módulo RAG Multimodal (PDFs) — documents.routes.ts + Qdrant + hybrid-search
 - [x] 69. Classificador Churn Preditivo AI — churn.routes.ts + churn.worker.ts + ChurnPage.tsx
 - [x] 70. AI Suggestion ao Vivo "Copilot" — field-copilot.service.ts + routes + TechnicianAppPage.tsx
@@ -134,13 +134,13 @@
 | Grupo | Total | Implementados | Parciais | Pendentes |
 |-------|-------|---------------|----------|-----------|
 | A. Onboarding/Multi-tenant | 15 | 10 | 3 | 2 |
-| B. Comercial | 15 | 7 | 1 | 7 |
+| B. Comercial | 15 | 8 | 1 | 6 |
 | C. Integrações | 20 | 10 | 1 | 9 |
-| D. Omnichannel | 15 | 6 | 0 | 9 |
-| E. AI Ops | 15 | 12 | 0 | 3 |
+| D. Omnichannel | 15 | 7 | 0 | 8 |
+| E. AI Ops | 15 | 13 | 0 | 2 |
 | F. Analytics | 10 | 9 | 0 | 1 |
 | G. Field Service | 5 | 3 | 0 | 2 |
 | H. Governança | 10 | 7 | 0 | 3 |
-| **TOTAL** | **105** | **64** | **5** | **36** |
+| **TOTAL** | **105** | **67** | **5** | **33** |
 
 **Notas sobre o Status:** [x] = implementado com código + testes; [~] = parcial (funcionalidade core existe, falta completude); [ ] = pendente (backlog pós-GA).
