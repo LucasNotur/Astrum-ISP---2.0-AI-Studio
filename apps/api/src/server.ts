@@ -465,6 +465,25 @@ export async function startFastifyServer() {
     await scheduleSnoozeJobs();
     app.log.info('[snooze-worker] iniciado (* * * * *)');
 
+    // S80 — Workers de gestão (Report + Gamification + PlanSync).
+    // @ts-ignore
+    const { createReportWorker, scheduleReportJobs } = await import('../../../packages/queue/src/workers/report.worker');
+    createReportWorker();
+    await scheduleReportJobs();
+    app.log.info('[report-worker] iniciado (23:00 BRT)');
+
+    // @ts-ignore
+    const { createGamificationWorker, scheduleGamificationJobs } = await import('../../../packages/queue/src/workers/gamification.worker');
+    createGamificationWorker();
+    await scheduleGamificationJobs();
+    app.log.info('[gamification-worker] iniciado (02:00 BRT)');
+
+    // @ts-ignore
+    const { createPlanSyncWorker, schedulePlanSyncJobs } = await import('../../../packages/queue/src/workers/plan-sync.worker');
+    createPlanSyncWorker();
+    await schedulePlanSyncJobs();
+    app.log.info('[plan-sync-worker] iniciado (00:00 BRT)');
+
     // Agendar Batch Jobs
     await scheduleBatchJobs();
 

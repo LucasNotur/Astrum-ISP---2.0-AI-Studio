@@ -24,6 +24,22 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-21] Sprint S80 — Workers de gestão: Report, Gamification, PlanSync
+Tarefa: Portar 3 workers de gestão para packages/queue (padrão v2 BullMQ com ports injetáveis)
+Arquivos criados:
+  - packages/queue/src/workers/report.worker.ts — snapshot diário (FCR, TMA, CSAT, top reasons) → report_snapshots
+  - packages/queue/src/workers/report.worker.test.ts — 4 testes (snapshot correto, sem tenants, top_reasons, exclui escalated)
+  - packages/queue/src/workers/gamification.worker.ts — ranking mensal de operadores (+10/+50/+20/-10/+100) → operator_scores
+  - packages/queue/src/workers/gamification.worker.test.ts — 4 testes (pontos/badges, SLA breach, MENSAL_GOAL, sem tenants)
+  - packages/queue/src/workers/plan-sync.worker.ts — sincroniza catálogo ERP → erp_plans + cache Redis 24h
+  - packages/queue/src/workers/plan-sync.worker.test.ts — 5 testes (sync+cache, mudança preço, inativação, sem cred, Redis fail)
+Arquivos modificados:
+  - apps/api/src/server.ts — bootstrap dos 3 workers (report 23:00, gamification 02:00, planSync 00:00 BRT)
+Testes: 13 novos, todos passando
+Status: ✅ Concluído
+
+---
+
 [2026-07-20] PLANO_F — F1-03 + F2-01: signup liga ao tier + worker nightly-brain
 Tarefa: F1-03 (signup/upgrade aplica tier) + F2-01 (worker cron nightly-brain 03:00)
 Arquivos modificados:
