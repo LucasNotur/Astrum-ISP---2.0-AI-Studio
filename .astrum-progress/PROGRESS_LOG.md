@@ -24,6 +24,20 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-21] Sprint S88 — Synthetic monitoring + dashboard de saúde por ISP
+Tarefa: Worker de sonda E2E + página de dashboard de saúde
+Arquivos criados:
+  - packages/queue/src/workers/synthetic-monitor.worker.ts — sonda a cada 15min por tenant piloto, alerta Sentry
+  - packages/queue/src/workers/synthetic-monitor.worker.test.ts — 4 testes (probe ok, latência alta, erro, sem tenants)
+  - src/pages/HealthDashboardPage.tsx — dashboard: resolução autônoma, custo IA, custo/conversa, WhatsApp uptime, status serviços, filas, probes
+Arquivos modificados:
+  - src/routes/main.routes.tsx — rota /health → HealthDashboardPage (lazy)
+  - apps/api/src/server.ts — bootstrap synthetic-monitor worker (*/15)
+Testes: 4 novos, todos passando
+Status: ✅ Concluído
+
+---
+
 [2026-07-21] Sprint S87 — RAGAS + LLM-as-a-Judge + calibração do router
 Tarefa: Test set ISP + CI de qualidade RAG + calibração de roteamento de modelos
 Arquivos criados:

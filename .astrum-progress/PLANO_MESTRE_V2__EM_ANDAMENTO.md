@@ -323,10 +323,10 @@ Reavaliar as North Star Metrics do `CHECKLIST_MASTER.md` com dados REAIS (agora 
 - Calibrar LLM Router com dados reais do shadow/produção: quais intents realmente precisam de 4o vs 4o-mini (relatório de custo antes/depois).
 - [x] RAGAS no CI; 50 perguntas ISP + 8 testes (contextPrecision, faithfulness, ragasGate, calibrateRouter).
 
-## 🔶 S88 — Synthetic monitoring + dashboard de saúde por ISP
+## ✅ S88 — Synthetic monitoring + dashboard de saúde por ISP
 - Sonda 24/7 (cron worker): conversa sintética E2E a cada 15min por tenant piloto; alerta Sentry se falhar/latência estourar.
 - Dashboard de saúde por ISP (página nova no frontend legado — exceção a R1 aprovada por ser página NOVA, não migração): status filas, custo IA, resolução autônoma, uptime WhatsApp. *(dossiê itens 85, 26)*
-- [ ] Sonda ativa; dashboard populado com dados reais.
+- [x] Worker synthetic-monitor + HealthDashboardPage + rota /health. 4 testes passando.
 
 ## 🔶 S89 — Feature flags por tenant + prova de 10 ISPs
 - Tabela `tenant_feature_flags` + helper no backend + gate por plano *(dossiê itens 29, 86)*.

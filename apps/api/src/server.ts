@@ -509,6 +509,13 @@ export async function startFastifyServer() {
     await scheduleUsageSyncJobs();
     app.log.info('[usage-sync-worker] iniciado (23:30 BRT)');
 
+    // S88 — Synthetic monitor worker (sonda E2E a cada 15min).
+    // @ts-ignore
+    const { createSyntheticMonitorWorker, scheduleSyntheticMonitorJobs } = await import('../../../packages/queue/src/workers/synthetic-monitor.worker');
+    createSyntheticMonitorWorker();
+    await scheduleSyntheticMonitorJobs();
+    app.log.info('[synthetic-monitor-worker] iniciado (*/15 * * * *)');
+
     // Agendar Batch Jobs
     await scheduleBatchJobs();
 
