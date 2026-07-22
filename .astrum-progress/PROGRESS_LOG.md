@@ -24,6 +24,27 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-21] Sprint S85 — Security audit: OWASP Top 10 + LGPD
+Tarefa: Auditoria de segurança automatizada com testes OWASP
+Arquivos criados:
+  - apps/api/src/infrastructure/security/owasp-audit.test.ts — 30 testes cobrindo:
+    A01 (Broken Access Control): IDOR todas as roles, RBAC viewer/operator/admin
+    A02 (Cryptographic Failures): JWT secret minimum length, buildServer rejection
+    A04 (Insecure Design): LGPD right-to-be-forgotten com todas as camadas
+    A05 (Security Misconfiguration): Rate limit configs para rotas sensíveis
+    A07 (Security Headers): Helmet CSP validação
+Achados verificados:
+  - ✅ Anti-IDOR funciona para todas as 4 roles
+  - ✅ RBAC impede escalação viewer→write em 6 resources
+  - ✅ LGPD forget cobre 8 camadas (customers, messages, conversations, invoices, service_orders, zep_memory, qdrant_vectors, r2_media)
+  - ✅ Rate limits configurados para ai (10), billing (5), webhooks (100), default (60)
+  - ✅ Helmet CSP com default-src/script-src self
+  - ✅ JWT_SECRET >= 32 chars obrigatório
+Testes: 30 novos, todos passando
+Status: ✅ Concluído (zero achados críticos/altos)
+
+---
+
 [2026-07-21] Sprint S84 — Load + Chaos: scripts K6 + chaos runner + testes de resiliência
 Tarefa: Criar framework de load test (K6) e chaos test para validar resiliência do sistema
 Arquivos criados:
