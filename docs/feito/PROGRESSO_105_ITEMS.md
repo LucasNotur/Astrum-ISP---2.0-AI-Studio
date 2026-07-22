@@ -71,9 +71,9 @@
 - [ ] 56. Web Widget Customizável
 - [x] 57. Email to Ticket — email-to-ticket.service.ts (resolve tenant por domínio, thread reply, aliases suporte)
 - [ ] 58. Múltiplas Conexões/Zaps na mesma interface
-- [ ] 59. Agrupamento de Conversas Cross-Line (Entidade Unificada)
+- [x] 59. Agrupamento de Conversas Cross-Line (Entidade Unificada) — cross-line-grouping.service.ts (unifiedContact, merge, dedup)
 - [ ] 60. Editor Visual de Kanban de Pipelines
-- [ ] 61. Chat Interno NATIVO P2P
+- [x] 61. Chat Interno NATIVO P2P — internal-chat.service.ts (DM/grupo, unread count, access control)
 - [x] 62. Módulo de tags Hierárquicas e Macro — tag-hierarchy.service.ts (árvore, subtree, ancestors, macros)
 - [x] 63. Módulo "Observadores/Espionagem" — conversation-spy.service.ts (observe/whisper/takeover, permissões RBAC)
 - [x] 64. Pesquisa Full-Text Robusta — hybrid-search.service.ts (RAG + Qdrant + reranking)
@@ -97,7 +97,7 @@
 - [x] 80. Controle Rígido do Hallucination Parameters — safety-classifier.service.ts + constitution.service.ts + guardrails.node.ts
 
 ## F. Analytics, Broadcast e Retenção (81-90)
-- [ ] 81. Disparador Massivo Broadcast CRM WhatsApp
+- [x] 81. Disparador Massivo Broadcast CRM WhatsApp — broadcast-whatsapp.service.ts (HSM template, opt-out, delivery tracking)
 - [x] 82. Régua de Cobrança Integrada — cobrai.worker.ts + bandit.ts + negotiation-policy
 - [x] 83. NPS e CSAT Reporting Avançado — nps-csat.service.ts (NPS+CSAT, breakdown por canal/operador, trend mensal)
 - [x] 84. SLAs Customizáveis — sla-eval.ts + sla.worker.ts
@@ -136,11 +136,11 @@
 | A. Onboarding/Multi-tenant | 15 | 10 | 3 | 2 |
 | B. Comercial | 15 | 8 | 1 | 6 |
 | C. Integrações | 20 | 10 | 1 | 9 |
-| D. Omnichannel | 15 | 7 | 0 | 8 |
+| D. Omnichannel | 15 | 10 | 0 | 5 |
 | E. AI Ops | 15 | 13 | 0 | 2 |
-| F. Analytics | 10 | 9 | 0 | 1 |
+| F. Analytics | 10 | 10 | 0 | 0 |
 | G. Field Service | 5 | 3 | 0 | 2 |
 | H. Governança | 10 | 7 | 0 | 3 |
-| **TOTAL** | **105** | **67** | **5** | **33** |
+| **TOTAL** | **105** | **70** | **5** | **30** |
 
 **Notas sobre o Status:** [x] = implementado com código + testes; [~] = parcial (funcionalidade core existe, falta completude); [ ] = pendente (backlog pós-GA).

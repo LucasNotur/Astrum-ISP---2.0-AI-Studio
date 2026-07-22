@@ -3405,4 +3405,19 @@ Arquivos criados:
   - apps/api/src/domain/atendimento/chat-simulator.service.test.ts — 5 testes
 Testes: 20 testes — todos passando.
 Status: CONCLUIDO. Score dossiê: 67 implementados + 5 parciais + 33 pendentes.
+
+---
+
+[2026-07-22] Dossiê-105 Batch 7 Pós-GA — 3 itens implementados (#59, #61, #81)
+Tarefa: Continuar implementação de itens acionáveis do dossiê-105.
+Arquivos criados:
+  - apps/api/src/domain/atendimento/broadcast-whatsapp.service.ts — #81: broadcast WhatsApp (HSM, opt-out, delivery tracking)
+  - apps/api/src/domain/atendimento/broadcast-whatsapp.service.test.ts — 4 testes
+  - apps/api/src/domain/atendimento/internal-chat.service.ts — #61: chat P2P interno (DM/grupo, unread count)
+  - apps/api/src/domain/atendimento/internal-chat.service.test.ts — 5 testes
+  - apps/api/src/domain/atendimento/cross-line-grouping.service.ts — #59: agrupamento cross-line (unifiedContact, merge)
+  - apps/api/src/domain/atendimento/cross-line-grouping.service.test.ts — 6 testes
+Testes: 15 testes — todos passando.
+Status: CONCLUIDO. Score dossiê: 70 implementados + 5 parciais + 30 pendentes.
+Observação: Grupo F (Analytics) chegou a 100% de cobertura (10/10 itens implementados).
 Commit: feat(u7): qualidade continua — playwright legado, testes componente, /design, bundle splitting.
