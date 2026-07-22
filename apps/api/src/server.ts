@@ -215,6 +215,10 @@ export async function buildServer() {
   const { erpAdminRoutes } = await import('./domain/erp/erp-admin.routes');
   await app.register(erpAdminRoutes);
 
+  // S90 — Svix outbound webhooks: configuração de endpoints pelo ISP.
+  const webhookConfigRoutes = await import('./domain/webhooks/webhook-config.routes');
+  await app.register(webhookConfigRoutes.default);
+
   const websocketRoutes = await import('./domain/realtime/websocket.routes');
   await app.register(websocketRoutes.default);
 

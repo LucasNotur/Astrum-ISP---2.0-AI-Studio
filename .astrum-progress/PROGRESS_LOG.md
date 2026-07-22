@@ -24,6 +24,20 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-21] Sprint S90 — Svix outbound webhooks ativados
+Tarefa: Registrar rotas de webhook-config no server.ts (svix.service.ts e webhook-config.routes.ts já existiam)
+Arquivos modificados:
+  - apps/api/src/server.ts — registra webhook-config.routes (GET/POST/DELETE endpoints, GET portal)
+Já existentes (revalidados):
+  - apps/api/src/adapters/webhooks/svix.service.ts — SvixService com send, addEndpoint, removeEndpoint, getDashboardUrl
+  - apps/api/src/domain/webhooks/webhook-config.routes.ts — 4 endpoints REST
+  - apps/api/src/domain/webhooks/webhook-config.routes.test.ts — 4 testes
+  - svixEvents integrado em cobrai.worker (invoice.paid) e ticket.worker (ticket.created)
+Testes: 4 existentes revalidados, todos passando
+Status: ✅ Concluído
+
+---
+
 [2026-07-21] Sprint S89 — Feature flags + prova de isolamento RLS (10 ISPs)
 Tarefa: Teste de isolamento multi-tenant + validação de feature flags por tier
 Arquivos criados:

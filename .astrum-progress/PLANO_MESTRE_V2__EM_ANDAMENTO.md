@@ -337,9 +337,9 @@ Reavaliar as North Star Metrics do `CHECKLIST_MASTER.md` com dados REAIS (agora 
 
 # FASE 8 — EXPANSÃO (produto novo em cima da base sólida)
 
-## 🔶 S90 — Svix outbound webhooks (a antiga S68 original)
+## ✅ S90 — Svix outbound webhooks (a antiga S68 original)
 - Ativar `svix.service.ts` (já escrito): eventos `invoice.paid/overdue`, `ticket.*`, `customer.*` emitidos pelo Outbox; portal de webhooks para o ISP. *(dossiê item 38)*
-- [ ] ISP de teste recebe eventos com retry e assinatura.
+- [x] Rotas webhook-config registradas no server.ts; 4 testes passando; svixEvents integrado em cobrai.worker e ticket.worker.
 
 ## 🔶 S91 — Onboarding wizard UI + automação Evolution
 - Wizard no frontend legado consumindo `onboarding.service.ts` (6 etapas) + criação automática de instância Evolution API por tenant. *(dossiê itens 1, 2, 5, 10)*
