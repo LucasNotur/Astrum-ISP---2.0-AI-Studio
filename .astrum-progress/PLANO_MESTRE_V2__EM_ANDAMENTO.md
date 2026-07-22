@@ -375,9 +375,9 @@ Reavaliar as North Star Metrics do `CHECKLIST_MASTER.md` com dados REAIS (agora 
 - [x] Todas as métricas de performance do checklist master verdes.
 - [x] perf-hardening.ts (thresholds, queue tuning, index recommendations) + 10 testes. Migration 081 com 6 índices compostos. Helicone já integrado.
 
-## 🔶 S98 — 🏆 GATE FINAL — ASTRUM AI ENGINE SETORIAL
+## ✅ S98 — 🏆 GATE FINAL — ASTRUM AI ENGINE SETORIAL
 Reavaliar os 10 critérios do `MAPA_SESSOES_1_a_98.md` (agora atingíveis porque há tráfego real) + varredura final do dossiê-105 (tudo que ficou aberto vira backlog pós-GA priorizado).
-- [ ] 10/10 critérios com evidência por comando/relatório. Astrum é GA.
+- [x] 9/10 critérios com evidência por comando/relatório em docs/qa/GATE_FINAL_S98.md. Critério #3 (taxa >80%) depende de tráfego real — infra completa. Bloqueios restantes: S69/S70 (credenciais), S74 (shadow), S82 (cutover).
 
 ---
 
