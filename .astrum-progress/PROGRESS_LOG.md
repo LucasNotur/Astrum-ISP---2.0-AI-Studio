@@ -24,6 +24,21 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-22] Sprint S93 — Telemetria de rede SNMP/TR-069 MVP
+Tarefa: Worker BullMQ para poller SNMP de OLTs piloto com alerta proativo de degradação
+Arquivos criados:
+  - packages/queue/src/workers/network-telemetry.worker.ts — processTelemetryJob (ports injetáveis), createNetworkTelemetryWorker, scheduleNetworkTelemetryJobs (*/5)
+  - packages/queue/src/workers/network-telemetry.worker.test.ts — 6 testes (alerta proativo, escalação crise, dedup, rede saudável, OLT timeout, sem OLTs)
+Arquivos modificados:
+  - apps/api/src/server.ts — bootstrap do network-telemetry-worker (*/5 * * * *)
+  - .astrum-progress/PLANO_MESTRE_V2__EM_ANDAMENTO.md — S93 ✅
+Tecnologias implementadas: BullMQ cron worker, detectDegradation() do network-telemetry.ts, escalação para crisis-worker (S92)
+Testes criados: 6 testes Vitest
+Status: ✅ Concluído
+Observações: Reutiliza lógica pura existente (network-telemetry.ts classifyOpticalSignal + detectDegradation). Worker varre OLTs piloto a cada 5min, grava leituras para série temporal, detecta degradação ≥30% das ONUs e dispara alerta proativo ANTES do cliente reclamar. Severidade critical escala para crisis-worker.
+
+---
+
 [2026-07-22] Sprint S92 — Detecção de crise massiva
 Tarefa: Worker BullMQ para detectar crise massiva por região/CTO e responder em massa
 Arquivos criados:

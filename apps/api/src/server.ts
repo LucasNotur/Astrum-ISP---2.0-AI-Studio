@@ -527,6 +527,13 @@ export async function startFastifyServer() {
     await scheduleCrisisJobs();
     app.log.info('[crisis-worker] iniciado (*/1 * * * *)');
 
+    // S93 — Network telemetry worker (SNMP poller, */5).
+    // @ts-ignore
+    const { createNetworkTelemetryWorker, scheduleNetworkTelemetryJobs } = await import('../../../packages/queue/src/workers/network-telemetry.worker');
+    createNetworkTelemetryWorker();
+    await scheduleNetworkTelemetryJobs();
+    app.log.info('[network-telemetry-worker] iniciado (*/5 * * * *)');
+
     // Agendar Batch Jobs
     await scheduleBatchJobs();
 

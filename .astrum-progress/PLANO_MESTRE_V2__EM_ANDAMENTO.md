@@ -350,9 +350,10 @@ Reavaliar as North Star Metrics do `CHECKLIST_MASTER.md` com dados REAIS (agora 
 - [x] Simulação de 200 mensagens iguais em 5min → 1 incidente criado, respostas agrupadas.
 - [x] crisis.worker.ts (BullMQ */1, ports injetáveis) + 5 testes. Bootstrap no server.ts.
 
-## 🔶 S93 — MÓDULO NOVO: Telemetria de rede (SNMP/TR-069) — MVP
+## ✅ S93 — MÓDULO NOVO: Telemetria de rede (SNMP/TR-069) — MVP
 - Poller SNMP para OLT/CTOs piloto → série temporal (DuckDB) → alerta proativo ("degradação na sua região") ligado ao módulo de crise. Escopo MVP: 1 fabricante, 1 ISP piloto.
-- [ ] Alerta proativo disparado por degradação real/simulada antes do cliente reclamar.
+- [x] Alerta proativo disparado por degradação real/simulada antes do cliente reclamar.
+- [x] network-telemetry.worker.ts (BullMQ */5, ports injetáveis) + 6 testes. Reutiliza detectDegradation() existente. Escala para crise (S92) em severidade critical. Bootstrap no server.ts.
 
 ## 🔶 S94 — MÓDULO NOVO: Portal do assinante white-label (PWA)
 - PWA mínimo: login por CPF+contrato, 2ª via/pix, diagnóstico self-service (mesma tool da IA), acompanhar OS (função Uber básica — dossiê itens 92, 11 parcial).
