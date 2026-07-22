@@ -1,7 +1,7 @@
 # PROGRESSO DOS 105 ITENS SAAS
 
 **Data de Início:** 2026-05-20
-**Última Atualização:** 2026-07-22 (varredura pós-Gate Final S98)
+**Última Atualização:** 2026-07-22 (batch pós-GA: #27, #47, #83, #97, #98, #102)
 **Objetivo:** Rastrear a implementação do "DOSSIÊ RATIO: ASTRUM (AS-IS) VS SAAS ALVO (TO-BE)" garantindo que todos os 105 gaps listados sejam implementados.
 
 ---
@@ -35,7 +35,7 @@
 - [ ] 24. Gestões de Acordo "Sob Demanda"
 - [ ] 25. Módulo Afiliados
 - [ ] 26. Tela de Consumo de Orçamento de Agentes
-- [ ] 27. Bloqueador Global (Inadimplência)
+- [x] 27. Bloqueador Global (Inadimplência) — delinquency-blocker.service.ts (threshold configurável, grace period, notificação pré-bloqueio)
 - [ ] 28. Cartão em arquivo (Gateway)
 - [x] 29. Feature Flags baseadas no tier do plano — flagsForTier() starter/pro/enterprise + overrides
 - [x] 30. Previsibilidade financeira Dashboard — cashflow-forecast.service.ts (3 cenários 90 dias)
@@ -57,7 +57,7 @@
 - [x] 44. Painel Mapas (Monitoria do CTO) — MapPage.tsx + network-graph.service.ts
 - [x] 45. Abertura de Chamado direto pela API no ERP — createServiceOrder em erp.types.ts + tools.executor.ts
 - [ ] 46. Inteção Zapier / n8n / Make apps
-- [ ] 47. Exportador de banco nativo JSON/CSV
+- [x] 47. Exportador de banco nativo JSON/CSV — data-export.service.ts (JSON/CSV, tenant-scoped, limit configurável)
 - [ ] 48. Disparo via SMTP de notas do SAAS
 - [ ] 49. Importe de dados retroativos de CRM terceiros
 - [ ] 50. Rotação Dinamica de IPs
@@ -99,7 +99,7 @@
 ## F. Analytics, Broadcast e Retenção (81-90)
 - [ ] 81. Disparador Massivo Broadcast CRM WhatsApp
 - [x] 82. Régua de Cobrança Integrada — cobrai.worker.ts + bandit.ts + negotiation-policy
-- [ ] 83. NPS e CSAT Reporting Avançado
+- [x] 83. NPS e CSAT Reporting Avançado — nps-csat.service.ts (NPS+CSAT, breakdown por canal/operador, trend mensal)
 - [x] 84. SLAs Customizáveis — sla-eval.ts + sla.worker.ts
 - [x] 85. Painel de Analytics Global KPI, MAU, TMA — DashboardPage + BIPage + ValorGeradoPage
 - [ ] 86. Conversões Dashboard funil
@@ -117,12 +117,12 @@
 
 ## H. Governança, Monitoramento SLA, Segurança e LGPD (96-105)
 - [x] 96. Compliance Termo Adesão de LGPD da IA — compliance.routes.ts (DPA, due diligence)
-- [ ] 97. Máscara RegEX Rigida de Criptografia At Rest
-- [ ] 98. Retenção Politica Data-Flush Custom
+- [x] 97. Máscara RegEX Rigida de Criptografia At Rest — pii-masking.service.ts (CPF/CNPJ/email/tel/cartão, detect+mask)
+- [x] 98. Retenção Politica Data-Flush Custom — data-retention.service.ts (política por tenant, default 365d conversas/5y fiscal)
 - [x] 99. Right to be Forgotten UI Workflow — planCustomerForget (8 camadas) + zep memory delete
 - [x] 100. Auditoria de Log Level Avançada Pessoal — audit.ts + ai-audit.service.ts (hash-chain)
 - [x] 101. 2FA ou Biometria Nativo para Operadores — TOTP MFA via Supabase Auth (SettingsPage)
-- [ ] 102. IP Whitelisting de painel Admin
+- [x] 102. IP Whitelisting de painel Admin — ip-whitelist.service.ts (CIDR matching, per-tenant, checkAccess)
 - [ ] 103. Múltiplos Tokens Sessão App Nativo (Push)
 - [ ] 104. Single Sign ON (SAML/OIDC/Google)
 - [ ] 105. Layer Avançada Shield/Firewall WAF AntiDDoS
@@ -134,13 +134,13 @@
 | Grupo | Total | Implementados | Parciais | Pendentes |
 |-------|-------|---------------|----------|-----------|
 | A. Onboarding/Multi-tenant | 15 | 10 | 3 | 2 |
-| B. Comercial | 15 | 4 | 1 | 10 |
-| C. Integrações | 20 | 9 | 1 | 10 |
+| B. Comercial | 15 | 5 | 1 | 9 |
+| C. Integrações | 20 | 10 | 1 | 9 |
 | D. Omnichannel | 15 | 2 | 0 | 13 |
 | E. AI Ops | 15 | 10 | 0 | 5 |
-| F. Analytics | 10 | 4 | 0 | 6 |
+| F. Analytics | 10 | 5 | 0 | 5 |
 | G. Field Service | 5 | 3 | 0 | 2 |
-| H. Governança | 10 | 4 | 0 | 6 |
-| **TOTAL** | **105** | **46** | **5** | **54** |
+| H. Governança | 10 | 7 | 0 | 3 |
+| **TOTAL** | **105** | **52** | **5** | **48** |
 
 **Notas sobre o Status:** [x] = implementado com código + testes; [~] = parcial (funcionalidade core existe, falta completude); [ ] = pendente (backlog pós-GA).

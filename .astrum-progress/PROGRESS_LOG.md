@@ -3313,4 +3313,26 @@ Observacoes:
   - build:analyze = ANALYZE=true vite build → abre dist/bundle-report.html interativo.
   - Bundle principal (index.js) ainda 2.7MB — gargalo é o App.tsx monolito (C1, U1-01 incompleto).
   - Erros de typecheck pre-existentes (App.tsx, chart.tsx, dataExport.ts) — nao introduzidos por esta sessao.
+
+---
+
+[2026-07-22] Dossiê-105 Batch Pós-GA — 6 itens implementados (#27, #47, #83, #97, #98, #102)
+Tarefa: Implementar itens acionáveis do dossiê-105 que não dependem de credenciais de produção.
+Arquivos criados:
+  - apps/api/src/domain/provedor/data-export.service.ts — #47: exportador JSON/CSV (toCsv, exportData, tenant-scoped)
+  - apps/api/src/domain/provedor/data-export.service.test.ts — 5 testes (JSON, CSV escape, vazio, limit, default limit)
+  - apps/api/src/domain/provedor/pii-masking.service.ts — #97: máscara PII (CPF/CNPJ/email/tel/cartão, detectPii, maskPii, hasPii)
+  - apps/api/src/domain/provedor/pii-masking.service.test.ts — 10 testes (cada tipo PII, múltiplos, texto limpo)
+  - apps/api/src/domain/provedor/data-retention.service.ts — #98: política retenção LGPD (flushTenant, flushAll, default 365d/5y fiscal)
+  - apps/api/src/domain/provedor/data-retention.service.test.ts — 6 testes (default policy, custom, vazio, multi-tenant, fiscal 5y)
+  - apps/api/src/domain/billing/delinquency-blocker.service.ts — #27: bloqueador inadimplência (threshold configurável, grace period, notificação pré-bloqueio)
+  - apps/api/src/domain/billing/delinquency-blocker.service.test.ts — 8 testes (bloqueia, adimplente, grace, duplicação, notificação, multi-customer)
+  - apps/api/src/domain/analytics/nps-csat.service.ts — #83: NPS/CSAT (calculateNps, calculateCsat, buildSatisfactionReport com breakdown canal/operador/trend)
+  - apps/api/src/domain/analytics/nps-csat.service.test.ts — 10 testes (NPS calc, CSAT calc, report completo, vazio)
+  - apps/api/src/domain/security/ip-whitelist.service.ts — #102: IP whitelist (CIDR matching, per-tenant, checkAccess)
+  - apps/api/src/domain/security/ip-whitelist.service.test.ts — 14 testes (validação CIDR, match /32/24/16/0, whitelist check, access control)
+Arquivos modificados:
+  - docs/feito/PROGRESSO_105_ITEMS.md — 6 itens [ ] → [x], total 52/105 implementados
+Testes: 53 testes — todos passando.
+Status: CONCLUIDO. Score dossiê: 52 implementados + 5 parciais + 48 pendentes (era 46+5+54).
 Commit: feat(u7): qualidade continua — playwright legado, testes componente, /design, bundle splitting.
