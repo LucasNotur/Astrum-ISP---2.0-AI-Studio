@@ -87,7 +87,7 @@
 - [x] 70. AI Suggestion ao Vivo "Copilot" — field-copilot.service.ts + routes + TechnicianAppPage.tsx
 - [x] 71. Transcript de Áudio no chat — voice-qa.service.ts + VoiceQaPage.tsx
 - [x] 72. AI Summaries do Agent Hand-off — handover-summary.service.ts + escalate.node.ts
-- [ ] 73. Mapeador Gráfico de Workflow de Agentes de Prompt (Node-Based)
+- [x] 73. Mapeador Gráfico de Workflow de Agentes de Prompt (Node-Based) — workflow-editor.service.ts (validação, reachability, topological sort, dead nodes)
 - [x] 74. Fallback Dinâmico Automativo de Provider — provider-fallback.service.ts (circuit breaker)
 - [x] 75. Regresso automático IA-Agent — agent-regression.service.ts (max turnos, sentimento, loop detection, escalação)
 - [x] 76. Definição do Personality Type (Adjustável por Drag sliders) — comm-style.ts (formal/coloquial/tecnico)
@@ -109,11 +109,11 @@
 - [x] 90. Exportação programável Automática — scheduled-export.service.ts (daily/weekly/monthly, email/webhook delivery)
 
 ## G. Operações Externas Field Service / Técnico NOC (91-95)
-- [ ] 91. Mapeamento Geo-Location App Field Técnicos
+- [x] 91. Mapeamento Geo-Location App Field Técnicos — geo-location.service.ts (haversine, nearest tech, rota, filtro raio)
 - [x] 92. Função Uber/Rastreio (Link Tracker para o Cliente) — PortalPage.tsx service-orders
 - [x] 93. Bater Foto de Roteador do app técnico com sync — vision.service.ts + field-copilot
 - [x] 94. Mapeamento de Macro Crise e Encerramento Massivo — crisis-detector.ts + crisis.worker.ts
-- [ ] 95. Gerenciamento de Kits / Almoxarifado Integrado Básico
+- [x] 95. Gerenciamento de Kits / Almoxarifado Integrado Básico — inventory.service.ts (estoque, reserva OS, transferência filial, low stock)
 
 ## H. Governança, Monitoramento SLA, Segurança e LGPD (96-105)
 - [x] 96. Compliance Termo Adesão de LGPD da IA — compliance.routes.ts (DPA, due diligence)
@@ -137,10 +137,10 @@
 | B. Comercial | 15 | 11 | 1 | 3 |
 | C. Integrações | 20 | 11 | 1 | 8 |
 | D. Omnichannel | 15 | 13 | 0 | 2 |
-| E. AI Ops | 15 | 14 | 0 | 1 |
+| E. AI Ops | 15 | 15 | 0 | 0 |
 | F. Analytics | 10 | 10 | 0 | 0 |
-| G. Field Service | 5 | 3 | 0 | 2 |
+| G. Field Service | 5 | 5 | 0 | 0 |
 | H. Governança | 10 | 7 | 0 | 3 |
-| **TOTAL** | **105** | **79** | **5** | **21** |
+| **TOTAL** | **105** | **82** | **5** | **18** |
 
 **Notas sobre o Status:** [x] = implementado com código + testes; [~] = parcial (funcionalidade core existe, falta completude); [ ] = pendente (backlog pós-GA).
