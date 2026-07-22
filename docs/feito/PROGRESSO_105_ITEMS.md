@@ -13,7 +13,7 @@
 - [x] 4. Isolamento de Credenciais Nativas (Vaults) — credential-cipher.ts (AES-256-GCM)
 - [x] 5. Seed Automático do Tenant — seed-demo-tenant.ts + 001_dev_seed.sql + e2e-seed.sql
 - [x] 6. SuperAdmin Central — SuperAdminPage.tsx + RBAC super_admin role
-- [~] 7. Lifecycle Account Management — upgrade/deactivate exist; suspend/ban/archive pendente
+- [x] 7. Lifecycle Account Management — account-lifecycle.service.ts (FSM completa: suspend/ban/archive/reactivate, revoke sessions)
 - [~] 8. Sub-domínios Dinâmicos — URL param discovery funcional; subdomain DNS pendente
 - [x] 9. Gerenciador Multi-Filial — branch-manager.service.ts (árvore hierárquica, descendants, path, permissão por manager)
 - [x] 10. Automação Evolution API — evolution-provision.service.ts + auto-provisioning
@@ -24,7 +24,7 @@
 - [~] 15. Gestão Role e Mapeamento LDAP — RBAC completo (rbac.middleware.ts); LDAP não implementado
 
 ## B. Gestão Comercial (Modelo de Planos) (16-30)
-- [~] 16. Controle de Quotas de Mensagens — usage-sync.worker.ts (tracking/alerting); hard enforcement pendente
+- [x] 16. Controle de Quotas de Mensagens — quota-enforcement.service.ts (hard block, overage billing, warning 80%, per-resource)
 - [x] 17. Controle de Token Limit per Mensagem — tokenLimit em config + system-prompt-builder
 - [x] 18. Gestão por Seats — seat-management.service.ts (alocação, extra seats com custo, addOperator)
 - [x] 19. Módulo "Plano Trial de 14 Dias" — trial.service.ts (14 dias, radar_trial)
@@ -47,7 +47,7 @@
 - [x] 34. Voalle Integração — voalle.adapter.ts + test
 - [x] 35. HubSoft Integração — hubsoft.adapter.ts + test
 - [x] 36. ReceitaBox Integração — rbx.adapter.ts + test
-- [ ] 37. TopSapp Integração
+- [x] 37. TopSapp Integração — topsapp.adapter.ts (customers, invoices, OS, normalizeStatus)
 - [x] 38. Gestão Autônoma de Webhooks ERP — webhook-config.routes.ts + Svix + WebhooksPage.tsx
 - [x] 39. Sincronização em Massa de Cadastros — erp-sync.worker.ts
 - [~] 40. Integração Bidirecional (Astrum <-> ERP) — write-back (suspend/OS) existe; sync genérico pendente
@@ -133,14 +133,14 @@
 
 | Grupo | Total | Implementados | Parciais | Pendentes |
 |-------|-------|---------------|----------|-----------|
-| A. Onboarding/Multi-tenant | 15 | 11 | 3 | 1 |
-| B. Comercial | 15 | 11 | 1 | 3 |
-| C. Integrações | 20 | 11 | 1 | 8 |
+| A. Onboarding/Multi-tenant | 15 | 12 | 2 | 1 |
+| B. Comercial | 15 | 13 | 0 | 2 |
+| C. Integrações | 20 | 12 | 1 | 7 |
 | D. Omnichannel | 15 | 13 | 0 | 2 |
 | E. AI Ops | 15 | 15 | 0 | 0 |
 | F. Analytics | 10 | 10 | 0 | 0 |
 | G. Field Service | 5 | 5 | 0 | 0 |
 | H. Governança | 10 | 7 | 0 | 3 |
-| **TOTAL** | **105** | **82** | **5** | **18** |
+| **TOTAL** | **105** | **85** | **3** | **17** |
 
 **Notas sobre o Status:** [x] = implementado com código + testes; [~] = parcial (funcionalidade core existe, falta completude); [ ] = pendente (backlog pós-GA).
