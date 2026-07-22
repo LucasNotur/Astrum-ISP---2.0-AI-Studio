@@ -30,7 +30,7 @@
 - [x] 19. Módulo "Plano Trial de 14 Dias" — trial.service.ts (14 dias, radar_trial)
 - [ ] 20. Módulo de Add-Ons
 - [ ] 21. Prevenção de Fraude em Chargeback
-- [ ] 22. Relatórios de Gasto Individualizado B2B
+- [x] 22. Relatórios de Gasto Individualizado B2B — tenant-usage-report.service.ts (mensagens/tokens/storage/overage/plano)
 - [ ] 23. Emissão de Notas Fiscais
 - [ ] 24. Gestões de Acordo "Sob Demanda"
 - [ ] 25. Módulo Afiliados
@@ -69,7 +69,7 @@
 - [ ] 54. Suporte a Facebook Messenger
 - [ ] 55. Suporte a IG Direct
 - [ ] 56. Web Widget Customizável
-- [ ] 57. Email to Ticket
+- [x] 57. Email to Ticket — email-to-ticket.service.ts (resolve tenant por domínio, thread reply, aliases suporte)
 - [ ] 58. Múltiplas Conexões/Zaps na mesma interface
 - [ ] 59. Agrupamento de Conversas Cross-Line (Entidade Unificada)
 - [ ] 60. Editor Visual de Kanban de Pipelines
@@ -106,7 +106,7 @@
 - [ ] 87. Follow-Up Lead Management Automático via IA
 - [ ] 88. Campanha Broadcast Retencional
 - [x] 89. API de Relatórios Analíticos DataLake — duckdb.service.ts + etl.service.ts + etl.routes.ts
-- [ ] 90. Exportação programável Automática
+- [x] 90. Exportação programável Automática — scheduled-export.service.ts (daily/weekly/monthly, email/webhook delivery)
 
 ## G. Operações Externas Field Service / Técnico NOC (91-95)
 - [ ] 91. Mapeamento Geo-Location App Field Técnicos
@@ -134,13 +134,13 @@
 | Grupo | Total | Implementados | Parciais | Pendentes |
 |-------|-------|---------------|----------|-----------|
 | A. Onboarding/Multi-tenant | 15 | 10 | 3 | 2 |
-| B. Comercial | 15 | 5 | 1 | 9 |
+| B. Comercial | 15 | 6 | 1 | 8 |
 | C. Integrações | 20 | 10 | 1 | 9 |
-| D. Omnichannel | 15 | 2 | 0 | 13 |
+| D. Omnichannel | 15 | 3 | 0 | 12 |
 | E. AI Ops | 15 | 10 | 0 | 5 |
-| F. Analytics | 10 | 5 | 0 | 5 |
+| F. Analytics | 10 | 6 | 0 | 4 |
 | G. Field Service | 5 | 3 | 0 | 2 |
 | H. Governança | 10 | 7 | 0 | 3 |
-| **TOTAL** | **105** | **52** | **5** | **48** |
+| **TOTAL** | **105** | **55** | **5** | **45** |
 
 **Notas sobre o Status:** [x] = implementado com código + testes; [~] = parcial (funcionalidade core existe, falta completude); [ ] = pendente (backlog pós-GA).

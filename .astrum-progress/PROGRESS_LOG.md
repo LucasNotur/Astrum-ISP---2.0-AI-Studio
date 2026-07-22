@@ -3335,4 +3335,18 @@ Arquivos modificados:
   - docs/feito/PROGRESSO_105_ITEMS.md — 6 itens [ ] → [x], total 52/105 implementados
 Testes: 53 testes — todos passando.
 Status: CONCLUIDO. Score dossiê: 52 implementados + 5 parciais + 48 pendentes (era 46+5+54).
+
+---
+
+[2026-07-22] Dossiê-105 Batch 2 Pós-GA — 3 itens implementados (#22, #57, #90)
+Tarefa: Continuar implementação de itens acionáveis do dossiê-105.
+Arquivos criados:
+  - apps/api/src/domain/billing/tenant-usage-report.service.ts — #22: relatório gasto B2B (mensagens/tokens/storage/overage por tenant)
+  - apps/api/src/domain/billing/tenant-usage-report.service.test.ts — 6 testes
+  - apps/api/src/domain/provedor/scheduled-export.service.ts — #90: exportação programável (daily/weekly/monthly, email/webhook)
+  - apps/api/src/domain/provedor/scheduled-export.service.test.ts — 8 testes
+  - apps/api/src/domain/atendimento/email-to-ticket.service.ts — #57: email to ticket (resolve tenant, thread reply, aliases suporte)
+  - apps/api/src/domain/atendimento/email-to-ticket.service.test.ts — 8 testes
+Testes: 22 testes — todos passando.
+Status: CONCLUIDO. Score dossiê: 55 implementados + 5 parciais + 45 pendentes.
 Commit: feat(u7): qualidade continua — playwright legado, testes componente, /design, bundle splitting.
