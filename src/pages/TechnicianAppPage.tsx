@@ -27,6 +27,15 @@ import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { toast } from "sonner";
+import {
+  fetchAgenda,
+  optimizeRoute as apiOptimizeRoute,
+  startServiceOrder,
+  completeServiceOrder,
+} from "../lib/fieldOps";
+
+/** True para IDs reais de OS (UUID do backend); false para OSs mock ("OS-1023"). */
+const isRealOsId = (id: string) => typeof id === "string" && !id.startsWith("OS-");
 
 // Mock Data for OSs (Ordem de Serviço)
 const MOCK_OSS = [
@@ -134,9 +143,26 @@ export default function TechnicianAppPage() {
   }, [showScanner]);
 
   useEffect(() => {
-    // IDB load
+    // Carrega a agenda: tenta o backend real (online); cai para cache IDB / mock.
     const loadOss = async () => {
       const db = await dbPromise;
+
+      if (navigator.onLine) {
+        try {
+          const agenda = await fetchAgenda();
+          if (agenda.length >= 0) {
+            setOss(agenda as any);
+            const tx = db.transaction('oss', 'readwrite');
+            await tx.store.clear();
+            for (const os of agenda) tx.store.put(os);
+            await tx.done;
+            return;
+          }
+        } catch (e) {
+          console.warn('Agenda real indisponível, usando cache/mock:', e);
+        }
+      }
+
       const cachedOss = await db.getAll('oss');
       if (cachedOss.length > 0) {
         setOss(cachedOss);
@@ -292,12 +318,20 @@ export default function TechnicianAppPage() {
           }
 
           if (cameraMode === "checkin") {
-             const actionDetails = { 
-               checkin_at: new Date().toISOString(), 
-               checkin_lat: lat, 
-               checkin_lng: lng, 
-               checkin_photo_url: uploadedUrl 
+             const actionDetails = {
+               checkin_at: new Date().toISOString(),
+               checkin_lat: lat,
+               checkin_lng: lng,
+               checkin_photo_url: uploadedUrl
              };
+             // Máquina de estados real: avança até "iniciada" (aceita→a_caminho→chegou→iniciada).
+             if (navigator.onLine && isRealOsId(selectedOs.id)) {
+               const r = await startServiceOrder(selectedOs.id, { lat, lng });
+               if (!r.ok) {
+                 toast.error("Não foi possível iniciar a OS: " + (r.error ?? ""), { id: toastId });
+                 return;
+               }
+             }
              await updateOsStatus(selectedOs.id, "in_progress", actionDetails);
              toast.success("Check-in realizado com sucesso!", { id: toastId });
           } else {
@@ -436,11 +470,32 @@ export default function TechnicianAppPage() {
   };
 
   const processCheckOut = async (actionDetails: any, toastId: string | number) => {
-    toast.success("Ordem de Serviço finalizada com sucesso!", { id: toastId });
-    
-    const tenantId = "default";
     const osId = selectedOs.id;
-    
+
+    // Máquina de estados real: concluir aplica o gate (checklist/foto/assinatura).
+    if (navigator.onLine && isRealOsId(osId)) {
+      const checklist = selectedOs.checklist ?? [];
+      const r = await completeServiceOrder(
+        osId,
+        {
+          checklistTotal: checklist.length,
+          checklistDone: checklist.filter((i: any) => i.done).length,
+          photosDepois: photo ? 1 : 0,
+          hasSignature: !!signatureData,
+        },
+        { lat: actionDetails?.checkout_lat, lng: actionDetails?.checkout_lng },
+      );
+      if (!r.ok) {
+        const faltando = r.missing?.length ? ` Falta: ${r.missing.join(", ")}.` : "";
+        toast.error("Conclusão bloqueada." + faltando, { id: toastId });
+        return;
+      }
+    }
+
+    toast.success("Ordem de Serviço finalizada com sucesso!", { id: toastId });
+
+    const tenantId = "default";
+
     if (navigator.onLine) {
        toast.loading("Enviando contrato...", { id: "upload" });
        try {
@@ -495,16 +550,21 @@ export default function TechnicianAppPage() {
     setIsOptimizing(true);
     const toastId = toast.loading("Calculando melhor rota...");
     try {
-      const res = await fetch('/api/os/optimize-route?technicianId=tec-123&date=2023-10-10');
-      const data = await res.json();
-      if (data.route) {
-        setOptimizedRoute(data);
-        toast.success("Rota otimizada!", { id: toastId });
-      } else {
-        toast.error("Falha ao otimizar", { id: toastId });
+      const result = await apiOptimizeRoute();
+      if (result.stops.length === 0) {
+        toast.message("Sem paradas com localização para otimizar.", { id: toastId });
+        setIsOptimizing(false);
+        return;
       }
-    } catch(e) {
-      toast.error("Erro na otimização", { id: toastId });
+      // Reordena as OSs da tela conforme a ordem otimizada retornada pelo backend.
+      const byId = new Map(oss.map((o: any) => [o.id, o]));
+      const ordered = result.stops
+        .map((s) => byId.get(s.serviceOrderId))
+        .filter(Boolean);
+      setOptimizedRoute({ totalDistance: result.totalKm, route: ordered });
+      toast.success(`Rota otimizada — ${result.totalKm} km`, { id: toastId });
+    } catch (e: any) {
+      toast.error("Erro na otimização: " + (e.message ?? "tente novamente"), { id: toastId });
     } finally {
       setIsOptimizing(false);
     }

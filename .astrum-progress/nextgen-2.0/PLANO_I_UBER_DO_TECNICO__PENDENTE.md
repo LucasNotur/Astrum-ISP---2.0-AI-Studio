@@ -228,6 +228,14 @@ Visual: carregar a skill `astrum-design` antes de mexer na tela (padrão do proj
 |---|---|---|
 | **I-1 MVP fio-de-ponta** | Migrações §2 (premises, media, events, checklist, materials) + máquina de estados + agenda real na PWA + fotos antes/depois + assinatura + dossiê/PDF real | 2–3 |
 
+> **I-1 FRONTEND LIGADO (2026-07-23):** `src/lib/fieldOps.ts` (camada de dados, R1)
+> + `TechnicianAppPage.tsx` religada aos endpoints reais: agenda real no mount
+> (fallback IDB/mock offline), otimização via `/route/optimize`, check-in dispara a
+> sequência da máquina de estados (aceita→a_caminho→chegou→iniciada), check-out
+> chama `concluida` com o gate (checklist/foto/assinatura). Teste de render verde,
+> typecheck limpo, sem erros de console no Vite. **Falta:** dossiê/PDF real +
+> sign-upload de mídia tipada + popular checklist real (service_order_checklist_items).
+>
 > **I-1 BACKEND CODE-COMPLETE (2026-07-23):** migration `082_field_ops_uber.sql`
 > aplicada no Supabase (todas as tabelas §2 + extensões). Máquina de estados pura
 > `apps/api/src/domain/campo/os-lifecycle.service.ts` (gate de conclusão: checklist

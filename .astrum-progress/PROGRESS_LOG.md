@@ -50,6 +50,11 @@ Adendo I-2 (mesma sessão):
   - field-ops.routes.ts — POST /api/v2/field/route/optimize (carrega OSs, otimiza, persiste route_plans/route_stops)
   Total módulo campo: 53 testes verdes; typecheck limpo.
 
+Adendo I-1 frontend (mesma sessão):
+  - src/lib/fieldOps.ts — camada de dados do app do técnico (agenda, transition, optimize)
+  - src/pages/TechnicianAppPage.tsx — religada aos endpoints reais (agenda no mount c/ fallback, otimização real, check-in via sequência da máquina de estados, check-out com gate de conclusão)
+  Verificação: teste de render verde, typecheck limpo, Vite sobe sem erro de console.
+
 ---
 
 [2026-07-22] Dossiê-105 Batch 8+9 — #9, #18, #20, #48, #53, #56
