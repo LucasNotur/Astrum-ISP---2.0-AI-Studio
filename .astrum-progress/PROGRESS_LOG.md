@@ -78,6 +78,17 @@ Adendo dispatch do gestor (mesma sessão):
   - src/pages/FieldOpsPage.tsx — painel de dispatch com sugestão + botão "Atribuir"
   Testes: 86 no módulo campo verdes; typecheck backend+frontend limpos; Vite sem erro.
 
+Adendo I-4 integrações finais (mesma sessão):
+  - apps/api/src/domain/campo/field-notify.service.ts — buildOnTheWayMessage + normalizePhone + flags (9 testes)
+  - apps/api/src/domain/campo/field-ai.adapter.ts — generateOsSummaryLLM (GPT-4o-mini via SDK ai, fail-open)
+  - field-ops.routes.ts — POST /os/:id/validate-photo (visão + anti-foto-do-chão), /summary tenta GPT quando flag on, transition a_caminho envia WhatsApp quando flag on
+  - src/lib/fieldOps.ts — validatePhoto, generateSummary
+  - src/pages/TechnicianAppPage.tsx — check-out valida foto "depois" (advisory) + gera resumo
+  - .env.example — VISION_STRUCTURED_ENABLED, FIELD_SUMMARY_LLM_ENABLED, FIELD_WHATSAPP_NOTIFY_ENABLED (default off)
+  Motores reusados: classifyFieldPhoto (IA-04), whatsapp.adapter sendMessage (Evolution+breaker), SDK ai generateText.
+  Testes: 94 no módulo campo verdes; typecheck backend+frontend limpos; Vite sem erro.
+  Ativação = dever do Lucas (setar as 3 flags + chaves reais).
+
 ---
 
 [2026-07-22] Dossiê-105 Batch 8+9 — #9, #18, #20, #48, #53, #56

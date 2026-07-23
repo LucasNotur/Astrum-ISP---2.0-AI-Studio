@@ -11,8 +11,15 @@ import {
   computeOsDurations, aggregateKmByDay, averageDurationByType,
   type OsTimelineEvent, type DayKm, type TypedDuration,
 } from './field-reports.service';
-import { fallbackSummary, type OsSummaryContext } from './field-ai.service';
+import { fallbackSummary, buildOsSummaryPrompt, evaluateCompletionPhoto, type OsSummaryContext } from './field-ai.service';
+import { generateOsSummaryLLM } from './field-ai.adapter';
+import {
+  buildOnTheWayMessage, normalizePhone,
+  isFieldWhatsappNotifyEnabled, isFieldSummaryLlmEnabled,
+} from './field-notify.service';
 import { suggestTechnicians, type DispatchTech, type DispatchOs } from './dispatch.service';
+import { classifyFieldPhoto } from '../../infrastructure/vision/vision.service';
+import { sendMessage } from '../../adapters/whatsapp/whatsapp.adapter';
 
 const OS_EVENTS = [
   'criada', 'atribuida', 'aceita', 'a_caminho', 'chegou',
@@ -98,6 +105,40 @@ const reportsQuerySchema = z.object({
 const assignSchema = z.object({
   technicianId: z.string().uuid(),
 });
+
+const validatePhotoSchema = z.object({
+  image_url: z.string().url(),
+  register: z.boolean().optional(),
+});
+
+/**
+ * Envia o WhatsApp "técnico a caminho" ao cliente da OS. Reusa o adapter Evolution
+ * (circuit breaker + fallback). Retorna true se enviado. Fail-safe: nunca lança.
+ */
+async function notifyOnTheWay(tenantId: string, serviceOrderId: string, technicianId: string): Promise<boolean> {
+  const { data: os } = await supabase
+    .from('service_orders').select('customer_id, customer_name')
+    .eq('tenant_id', tenantId).eq('id', serviceOrderId).maybeSingle();
+  if (!os) return false;
+
+  // Telefone do cliente (customers.phone) — desnormalizado no nome se faltar.
+  let phone: string | null = null;
+  if (os.customer_id) {
+    const { data: cust } = await supabase
+      .from('customers').select('phone').eq('tenant_id', tenantId).eq('id', os.customer_id).maybeSingle();
+    phone = normalizePhone(cust?.phone);
+  }
+  if (!phone) return false;
+
+  const { data: tech } = await supabase
+    .from('technicians').select('name').eq('tenant_id', tenantId).eq('id', technicianId).maybeSingle();
+
+  const content = buildOnTheWayMessage({
+    customerName: os.customer_name, technicianName: tech?.name,
+  });
+  const res = await sendMessage({ to: phone, content, tenantId });
+  return res.status === 'sent';
+}
 
 /** Carrega os técnicos do tenant no formato de dispatch (com carga + última posição). */
 async function loadDispatchTechs(tenantId: string): Promise<DispatchTech[]> {
@@ -198,11 +239,18 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
       });
     }
 
+    // I-4 — WhatsApp "a caminho": ao sair para o local, avisa o cliente (flag off por padrão).
+    let notified = false;
+    if (result.toPhase === 'em_deslocamento' && isFieldWhatsappNotifyEnabled()) {
+      notified = await notifyOnTheWay(tenantId, serviceOrderId, tech.id).catch(() => false);
+    }
+
     return reply.code(200).send({
       ok: true,
       from: result.fromPhase,
       to: result.toPhase,
       status: result.status,
+      customer_notified: notified,
     });
   });
 
@@ -483,8 +531,9 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
 
   /**
    * POST /api/v2/field/os/:id/summary — resumo automático da OS (I-4).
-   * Agrega eventos/checklist/materiais/diagnósticos e gera o resumo determinístico,
-   * persistindo em service_orders.ai_summary. (LLM opcional fica como evolução.)
+   * Agrega eventos/checklist/materiais/diagnósticos. Tenta GPT-4o-mini quando
+   * FIELD_SUMMARY_LLM_ENABLED=true; senão (ou em erro) usa resumo determinístico.
+   * Persiste em service_orders.ai_summary.
    */
   fastify.post('/api/v2/field/os/:id/summary', {
     onRequest: [fastify.authenticate],
@@ -517,12 +566,54 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
       execucaoMin: durations.execucaoMin,
     };
 
-    const summary = fallbackSummary(ctx);
+    // GPT-4o-mini quando habilitado; fallback determinístico é a rede de segurança.
+    let summary = fallbackSummary(ctx);
+    let source: 'llm' | 'fallback' = 'fallback';
+    if (isFieldSummaryLlmEnabled()) {
+      const llm = await generateOsSummaryLLM(buildOsSummaryPrompt(ctx), tenantId);
+      if (llm) { summary = llm; source = 'llm'; }
+    }
+
     await supabase.from('service_orders')
       .update({ ai_summary: summary, updated_at: new Date().toISOString() })
       .eq('tenant_id', tenantId).eq('id', serviceOrderId);
 
-    return reply.code(200).send({ summary });
+    return reply.code(200).send({ summary, source });
+  });
+
+  /**
+   * POST /api/v2/field/os/:id/validate-photo — valida a foto "depois" (I-4).
+   * Roda a visão (classifyFieldPhoto) e o gate anti-"foto do chão". Opcionalmente
+   * registra a mídia como kind='depois'. Requer VISION_STRUCTURED_ENABLED para a IA.
+   */
+  fastify.post('/api/v2/field/os/:id/validate-photo', {
+    onRequest: [fastify.authenticate],
+    preHandler: [requirePermission('service_orders', 'write'), validateBody(validatePhotoSchema)],
+  }, async (request, reply) => {
+    const { tenantId, userId } = (request as any).user;
+    const serviceOrderId = (request.params as any).id as string;
+    const body = (request as any).validatedBody as z.infer<typeof validatePhotoSchema>;
+
+    const classification = await classifyFieldPhoto(body.image_url, tenantId);
+    const validation = evaluateCompletionPhoto(
+      classification ? { equipment: classification.equipment, confidence: classification.confidence } : null,
+    );
+
+    // Registra a foto "depois" (a prova fica salva mesmo se a validação reprovar).
+    if (body.register !== false) {
+      const tech = await getTech(tenantId, userId);
+      await supabase.from('service_order_media').insert({
+        tenant_id: tenantId, service_order_id: serviceOrderId, technician_id: tech?.id ?? null,
+        kind: 'depois', url: body.image_url,
+        note: validation.valid ? 'validada por IA' : `revisar: ${validation.reason}`,
+      });
+    }
+
+    return reply.code(200).send({
+      valid: validation.valid,
+      reason: validation.reason,
+      classification: classification ?? null,
+    });
   });
 
   /**

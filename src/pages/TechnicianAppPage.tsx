@@ -32,6 +32,8 @@ import {
   optimizeRoute as apiOptimizeRoute,
   startServiceOrder,
   completeServiceOrder,
+  validatePhoto,
+  generateSummary,
 } from "../lib/fieldOps";
 
 /** True para IDs reais de OS (UUID do backend); false para OSs mock ("OS-1023"). */
@@ -493,6 +495,19 @@ export default function TechnicianAppPage() {
     }
 
     toast.success("Ordem de Serviço finalizada com sucesso!", { id: toastId });
+
+    // I-4 — validação da foto "depois" (advisory) + resumo automático da OS.
+    if (navigator.onLine && isRealOsId(osId)) {
+      const photoUrl = actionDetails?.checkout_photo_url;
+      if (photoUrl && !String(photoUrl).startsWith("data:")) {
+        validatePhoto(osId, photoUrl)
+          .then((v) => { if (!v.valid) toast.warning(`Foto de conclusão: ${v.reason}`); })
+          .catch(() => {});
+      }
+      generateSummary(osId)
+        .then((s) => toast.message("Resumo da OS gerado", { description: s.summary }))
+        .catch(() => {});
+    }
 
     const tenantId = "default";
 

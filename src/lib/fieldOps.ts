@@ -211,6 +211,32 @@ export async function assignOs(osId: string, technicianId: string): Promise<bool
   return res.ok;
 }
 
+// ─── IA de campo (I-4) ───────────────────────────────────────────────────────
+
+export interface PhotoValidationResult {
+  valid: boolean;
+  reason: string;
+  classification: { equipment: string; issue: string; severity: string; confidence: number } | null;
+}
+
+/** Valida a foto "depois" pela visão IA (anti-"foto do chão"). */
+export async function validatePhoto(osId: string, imageUrl: string, register = true): Promise<PhotoValidationResult> {
+  const res = await fetch(`/api/v2/field/os/${osId}/validate-photo`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ image_url: imageUrl, register }),
+  });
+  if (!res.ok) throw new Error(`Validate photo HTTP ${res.status}`);
+  return res.json();
+}
+
+/** Gera (e persiste) o resumo automático da OS. */
+export async function generateSummary(osId: string): Promise<{ summary: string; source: 'llm' | 'fallback' }> {
+  const res = await fetch(`/api/v2/field/os/${osId}/summary`, { method: 'POST', headers: authHeaders() });
+  if (!res.ok) throw new Error(`Summary HTTP ${res.status}`);
+  return res.json();
+}
+
 /** Otimiza a rota do dia e retorna a ordem + km estimado. */
 export async function optimizeRoute(date?: string): Promise<OptimizedRouteResult> {
   const res = await fetch('/api/v2/field/route/optimize', {

@@ -275,8 +275,20 @@ Visual: carregar a skill `astrum-design` antes de mexer na tela (padrão do proj
 > do chão": reprova equipment=outro/confiança baixa), `detectRouteAnomaly` (km acima do
 > planejado / tempo 3× a média), `buildOsSummaryPrompt` + `fallbackSummary`. Endpoint
 > `POST /os/:id/summary` gera e persiste o resumo (fallback determinístico; LLM opcional
-> fica de evolução). **Falta:** ligar a validação da foto "depois" à visão (D-06) na PWA
-> + chamar GPT-4o-mini no resumo + WhatsApp "a caminho".
+> fica de evolução).
+>
+> **I-4 INTEGRAÇÕES LIGADAS (2026-07-23):** as 3 integrações externas conectadas aos
+> motores existentes (cada uma atrás de flag, default off):
+> - **Visão:** `POST /os/:id/validate-photo` → `classifyFieldPhoto` (IA-04) +
+>   `evaluateCompletionPhoto` (anti-"foto do chão"); registra mídia kind='depois'.
+>   Flag `VISION_STRUCTURED_ENABLED`. Ligado no check-out da PWA (advisory).
+> - **GPT:** `POST /os/:id/summary` tenta GPT-4o-mini via `field-ai.adapter.ts`
+>   (`generateText`, fail-open) quando `FIELD_SUMMARY_LLM_ENABLED=true`; senão resumo
+>   determinístico. Resumo aparece na PWA ao concluir.
+> - **WhatsApp:** evento `a_caminho` dispara `sendMessage` (adapter Evolution + circuit
+>   breaker) com `buildOnTheWayMessage` quando `FIELD_WHATSAPP_NOTIFY_ENABLED=true`.
+> `field-notify.service.ts` puro (9 testes). **Ativação = dever do Lucas:** setar as 3
+> flags + `OPENAI_API_KEY`/`EVOLUTION_API_*` reais no .env.
 | **I-5 → H-4** | extrair para ASTRUM CAMPO standalone (R$ 49/técnico/mês, verticais não-ISP) | pós-Atlas |
 
 DoD por fase: Vitest nos serviços novos (máquina de estados e cálculo de km são
