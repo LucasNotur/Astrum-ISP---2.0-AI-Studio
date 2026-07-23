@@ -227,6 +227,16 @@ Visual: carregar a skill `astrum-design` antes de mexer na tela (padrão do proj
 | Fase | Entrega | Sessões est. |
 |---|---|---|
 | **I-1 MVP fio-de-ponta** | Migrações §2 (premises, media, events, checklist, materials) + máquina de estados + agenda real na PWA + fotos antes/depois + assinatura + dossiê/PDF real | 2–3 |
+
+> **I-1 BACKEND CODE-COMPLETE (2026-07-23):** migration `082_field_ops_uber.sql`
+> aplicada no Supabase (todas as tabelas §2 + extensões). Máquina de estados pura
+> `apps/api/src/domain/campo/os-lifecycle.service.ts` (gate de conclusão: checklist
+> 100% + foto "depois" + assinatura, ou justificativa) + cálculo de KM por GPS
+> `field-km.service.ts` (haversine com filtros de accuracy/velocidade/jitter) —
+> **35 testes Vitest verdes**. Ports Supabase (`os-lifecycle.repo.ts`) + rotas
+> `field-ops.routes.ts` (`GET /api/v2/field/agenda`, `POST /api/v2/field/os/:id/transition`)
+> registradas no server.ts. **Falta (frontend):** ligar `TechnicianAppPage.tsx`
+> (hoje mock) nesses endpoints + dossiê/PDF real + sign-upload de mídia.
 | **I-2 Rotas & KM** | shifts, breadcrumbs, otimizador v1 (NN+2-opt), deep-link navegação, relatórios km/tempo | 1–2 |
 | **I-3 Gestor ao vivo** | FieldOpsPage (mapa + dispatch + painéis + dossiê), WhatsApp "a caminho" | 2 |
 | **I-4 IA de campo** | validação de foto depois, resumo automático, previsão de duração, anomalias | 1–2 |

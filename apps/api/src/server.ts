@@ -268,6 +268,10 @@ export async function buildServer() {
   const { fieldCopilotRoutes } = await import('./domain/campo/field-copilot.routes');
   await app.register(fieldCopilotRoutes);
 
+  // PLANO I (Uber do Técnico) I-1 — agenda + máquina de estados da OS de campo
+  const { fieldOpsRoutes } = await import('./domain/campo/field-ops.routes');
+  await app.register(fieldOpsRoutes);
+
   // D-07 — Painel comercial: funil de conversão + LTV médio
   const { vendasDashboardRoutes } = await import('./domain/vendas/vendas-dashboard.routes');
   await app.register(vendasDashboardRoutes);

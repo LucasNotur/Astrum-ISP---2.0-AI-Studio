@@ -24,6 +24,28 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-23] PLANO I (Uber do Técnico) — Fase I-1 backend + cutover v2
+Tarefa: Executar cutover do motor v2 (Onda 2) + iniciar PLANO_I Fase I-1
+Cutover (Onda 2):
+  - Supabase: tenants.atendimento_engine='v2' + 13 tenant_feature_flags no tenant Astrum Telecom
+  - .env local: COBRAI_ENGINE=v2, ATENDIMENTO_ENGINE=v2, MULTI_AGENT_ENABLED=true + 16 flags IA
+  - progress/2-pendentes/01_onda2_cutover_operacional.md → EXECUTADO
+Arquivos criados (PLANO_I I-1):
+  - packages/db/src/migrations/082_field_ops_uber.sql — premises/media/events/checklist/materials + shifts/locations/routes + extensões (APLICADA no Supabase)
+  - apps/api/src/domain/campo/os-lifecycle.service.ts — máquina de estados pura da OS (transições + gate de conclusão)
+  - apps/api/src/domain/campo/os-lifecycle.service.test.ts — 20 testes
+  - apps/api/src/domain/campo/field-km.service.ts — cálculo de KM por GPS (haversine + filtros)
+  - apps/api/src/domain/campo/field-km.service.test.ts — 15 testes
+  - apps/api/src/domain/campo/os-lifecycle.repo.ts — ports Supabase da máquina de estados
+  - apps/api/src/domain/campo/field-ops.routes.ts — GET /agenda + POST /os/:id/transition
+Arquivos modificados:
+  - apps/api/src/server.ts — registro de fieldOpsRoutes
+Testes: 35 novos Vitest verdes (42 no módulo campo); typecheck limpo
+Status: ✅ Concluído (backend I-1). Falta frontend (TechnicianAppPage → endpoints reais)
+Observações: DoD do PLANO_I exige Vitest na máquina de estados e no cálculo de km — ambos cobertos.
+
+---
+
 [2026-07-22] Dossiê-105 Batch 8+9 — #9, #18, #20, #48, #53, #56
 Tarefa: Implementar 6 itens do dossiê-105 (batches 8+9)
 Arquivos criados:
