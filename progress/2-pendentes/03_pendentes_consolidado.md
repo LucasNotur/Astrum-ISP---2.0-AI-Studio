@@ -62,9 +62,9 @@
 
 - **D-04 auto-communicate (Fase 2 avançada):** auto-avançar suspeita→confirmada→comunicada
   quando severidade alta + flag `auto_communicate` por tenant (hoje é gate humano).
-- **D-05 (KB viva) — aprofundamento:** auditar `kb-draft.service` e completar lacunas
-  (sinal de confirmação 👍 do cliente acelera a geração de artigo — "D-05 Fase 2").
 - **F6-01 wiring:** ligar `history-import.service` a um worker BullMQ disparável (o motor existe).
+- **D-05 CSAT real:** o scoring já aceita `csatScore`, mas hoje entra sempre `null` —
+  ligar à fonte real de CSAT (`nps-csat.service`) fecha o sinal de qualidade.
 
 ---
 
@@ -74,3 +74,4 @@
 - ✅ PLANO_I completo (I-1..I-4 + mapa MapLibre/OSM + dispatch)
 - ✅ PLANO_F F6-02 (sync Asaas→invoices)
 - ✅ D-04 Fase 2 (supressão de tickets + confirmação)
+- ✅ D-05 Fase 2 (confirmação do cliente encurta quarentena 7d→1d + fila priorizada)

@@ -9,6 +9,11 @@ import supabase from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
 import { callOpenAI } from '../../adapters/openai/openai.adapter';
 import { aiProcessingQueue } from '../../../../../packages/queue/src/workers/indexing.worker';
+import {
+  hasCustomerConfirmation,
+  rankCandidates,
+  type ConversationSignals,
+} from './kb-candidate-scoring.service';
 
 export interface KbDraft {
   id: string;
@@ -31,6 +36,10 @@ export interface CandidateConversation {
   messageCount: number;
   lastMessage: string;
   resolvedAt: string;
+  /** D-05 Fase 2: cliente confirmou explicitamente que resolveu. */
+  explicitConfirmation: boolean;
+  /** 0..100 — ordem da fila de geração (maior primeiro). */
+  priority: number;
 }
 
 function mapRow(row: Record<string, unknown>): KbDraft {
@@ -51,11 +60,18 @@ function mapRow(row: Record<string, unknown>): KbDraft {
   };
 }
 
-/** Conversas resolvidas ≥7 dias atrás, com ≥3 mensagens e sem rascunho gerado ainda. */
+/**
+ * Conversas resolvidas elegíveis a virar artigo, já ordenadas por prioridade.
+ *
+ * D-05 Fase 2: a quarentena não é mais fixa em 7 dias — quando o CLIENTE confirmou
+ * que resolveu ("funcionou!", 👍), ela cai para 1 dia e a conversa sobe na fila.
+ * A janela do banco usa a quarentena curta; a regra fina fica no scoring puro.
+ */
 export async function findCandidateConversations(
   tenantId: string,
 ): Promise<CandidateConversation[]> {
-  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  // Janela externa = menor quarentena possível (confirmadas entram em 1 dia).
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
   const { data: convs, error } = await supabase
     .from('conversations')
@@ -76,7 +92,7 @@ export async function findCandidateConversations(
   const existingIds = new Set((existing ?? []).map((e: any) => e.conversation_id));
   const candidates = convs.filter(c => !existingIds.has(c.id));
 
-  const results: CandidateConversation[] = [];
+  const entries: { item: Omit<CandidateConversation, 'explicitConfirmation' | 'priority'>; signals: ConversationSignals }[] = [];
   for (const conv of candidates) {
     const { data: msgs } = await supabase
       .from('messages')
@@ -87,15 +103,33 @@ export async function findCandidateConversations(
     if (!msgs || msgs.length < 3) continue;
 
     const lastMsg = msgs[msgs.length - 1]!;
-    results.push({
-      id: conv.id,
-      messageCount: msgs.length,
-      lastMessage: (lastMsg.content as string).slice(0, 200),
-      resolvedAt: conv.updated_at as string,
+    const confirmed = hasCustomerConfirmation(
+      (msgs as any[]).map(m => ({ role: String(m.role), content: String(m.content ?? '') })),
+    );
+
+    entries.push({
+      item: {
+        id: conv.id,
+        messageCount: msgs.length,
+        lastMessage: (lastMsg.content as string).slice(0, 200),
+        resolvedAt: conv.updated_at as string,
+      },
+      signals: {
+        resolvedAt: conv.updated_at as string,
+        messageCount: msgs.length,
+        // status='resolved' no filtro: uma conversa reaberta sai desse conjunto.
+        reopened: false,
+        explicitConfirmation: confirmed,
+        csatScore: null,
+      },
     });
   }
 
-  return results;
+  return rankCandidates(entries).map(r => ({
+    ...r.item,
+    explicitConfirmation: r.eligibility.quarantineDaysRequired === 1,
+    priority: r.eligibility.priority,
+  }));
 }
 
 /** Carrega mensagens de uma conversa e gera rascunho de artigo via GPT-4o. */

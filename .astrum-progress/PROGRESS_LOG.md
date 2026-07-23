@@ -24,6 +24,20 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-23] D-05 KB viva Fase 2 — confirmação do cliente acelera o artigo
+Tarefa: Aprofundar D-05 (último diferencial desbloqueado pela Onda 2)
+Achado: D-05 Fase 1 completo (conversa resolvida ≥7d → GPT-4o → curadoria → RAG), mas a quarentena era fixa em 7 dias para todos. Faltava a Fase 2: sinal de confirmação explícita do cliente acelerar a geração.
+Arquivos criados:
+  - apps/api/src/domain/conhecimento/kb-candidate-scoring.service.ts — detectConfirmationSignal (PT-BR + emojis + NEGAÇÃO), hasCustomerConfirmation, evaluateCandidate (quarentena 7d→1d quando confirmado), rankCandidates (puro)
+  - apps/api/src/domain/conhecimento/kb-candidate-scoring.service.test.ts — 16 testes
+Arquivos modificados:
+  - kb-draft.service.ts — findCandidateConversations usa o scoring: janela do banco vira 1d, regra fina no puro; retorna fila ordenada por prioridade + explicitConfirmation
+Defeito encontrado e corrigido durante os testes: "não resolveu" era detectado como confirmação (falso positivo publicaria artigo de conversa não-resolvida) → adicionadas NEGATION_PATTERNS.
+Testes: 27 verdes no módulo conhecimento; typecheck backend limpo.
+Status: ✅ D-05 Fase 2 completa. Falta: UI da fila de curadoria priorizada (precisa design).
+
+---
+
 [2026-07-23] D-04 NOC autônomo Fase 2 — supressão de tickets + confirmação
 Tarefa: Aprofundar D-04 (diferencial desbloqueado pela Onda 2), fechando o loop do plano
 Achado: D-04 tinha máquina de estados + scan + comunicação, mas faltavam "supressão de tickets" e "confirmação" (avisar na normalização).
