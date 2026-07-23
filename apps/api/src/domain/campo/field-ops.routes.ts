@@ -5,6 +5,7 @@ import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import supabase from '../../infrastructure/database/supabase.client';
 import { applyTransition, type OsEvent } from './os-lifecycle.service';
 import { osLifecyclePorts } from './os-lifecycle.repo';
+import { optimizeRoute, type RouteStop, type GeoPoint } from './route-optimizer.service';
 
 const OS_EVENTS = [
   'criada', 'atribuida', 'aceita', 'a_caminho', 'chegou',
@@ -32,6 +33,10 @@ const transitionBodySchema = z.object({
 
 const agendaQuerySchema = z.object({
   date: z.string().optional(),
+});
+
+const optimizeBodySchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
 export async function fieldOpsRoutes(fastify: FastifyInstance) {
@@ -118,6 +123,103 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
       from: result.fromPhase,
       to: result.toPhase,
       status: result.status,
+    });
+  });
+
+  /**
+   * POST /api/v2/field/route/optimize  body { date? }
+   * Otimiza a rota do dia do técnico logado (NN + 2-opt) e persiste route_plan/route_stops.
+   */
+  fastify.post('/api/v2/field/route/optimize', {
+    onRequest: [fastify.authenticate],
+    preHandler: [requirePermission('service_orders', 'write'), validateBody(optimizeBodySchema)],
+  }, async (request, reply) => {
+    const { tenantId, userId } = (request as any).user;
+    const body = (request as any).validatedBody as z.infer<typeof optimizeBodySchema>;
+    const date = body.date ?? new Date().toISOString().slice(0, 10);
+
+    const { data: tech } = await supabase
+      .from('technicians')
+      .select('id, base_id')
+      .eq('tenant_id', tenantId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!tech) return reply.code(404).send({ code: 'NOT_A_TECHNICIAN', message: 'Usuário não é um técnico.' });
+
+    // Ponto de partida: base do técnico → primeira base do tenant → primeira OS.
+    let start: GeoPoint | null = null;
+    if (tech.base_id) {
+      const { data: base } = await supabase
+        .from('bases').select('latitude, longitude').eq('id', tech.base_id).maybeSingle();
+      if (base?.latitude != null && base?.longitude != null) start = { latitude: base.latitude, longitude: base.longitude };
+    }
+    if (!start) {
+      const { data: base } = await supabase
+        .from('bases').select('latitude, longitude').eq('tenant_id', tenantId).limit(1).maybeSingle();
+      if (base?.latitude != null && base?.longitude != null) start = { latitude: base.latitude, longitude: base.longitude };
+    }
+
+    // OSs do dia, atribuídas, não-terminais, com coordenada.
+    const { data: orders, error } = await supabase
+      .from('service_orders')
+      .select('id, latitude, longitude, scheduled_for')
+      .eq('tenant_id', tenantId)
+      .eq('assigned_to', tech.id)
+      .not('status', 'in', '(concluido,cancelado,completed,cancelled)')
+      .not('latitude', 'is', null)
+      .not('longitude', 'is', null);
+
+    if (error) return reply.code(500).send({ code: 'OPTIMIZE_ERROR', message: 'Falha ao carregar OSs.' });
+
+    const stops: RouteStop[] = (orders ?? [])
+      .filter((o: any) => {
+        if (!o.scheduled_for) return true; // sem agendamento entra no dia corrente
+        return String(o.scheduled_for).slice(0, 10) === date;
+      })
+      .map((o: any) => ({ serviceOrderId: o.id, latitude: o.latitude, longitude: o.longitude }));
+
+    if (start === null) {
+      if (stops.length === 0) return reply.code(200).send({ date, total_km: 0, stops: [] });
+      const first = stops[0]!;
+      start = { latitude: first.latitude, longitude: first.longitude };
+    }
+
+    const optimized = optimizeRoute(start, stops);
+
+    // Persiste o plano do dia (idempotente: limpa o anterior do mesmo técnico+data).
+    const { data: prior } = await supabase
+      .from('route_plans').select('id').eq('tenant_id', tenantId).eq('technician_id', tech.id).eq('date', date);
+    for (const p of prior ?? []) {
+      await supabase.from('route_stops').delete().eq('route_plan_id', (p as any).id);
+      await supabase.from('route_plans').delete().eq('id', (p as any).id);
+    }
+
+    const { data: plan, error: planErr } = await supabase
+      .from('route_plans')
+      .insert({
+        tenant_id: tenantId, technician_id: tech.id, date, status: 'planejada',
+        total_km_estimated: optimized.totalKm, optimized_at: new Date().toISOString(),
+        algorithm: optimized.algorithm,
+      })
+      .select('id').single();
+
+    if (planErr || !plan) return reply.code(500).send({ code: 'PLAN_SAVE_ERROR', message: 'Falha ao salvar rota.' });
+
+    if (optimized.order.length > 0) {
+      await supabase.from('route_stops').insert(
+        optimized.order.map((s, i) => ({
+          tenant_id: tenantId, route_plan_id: plan.id, service_order_id: s.serviceOrderId, position: i + 1,
+        })),
+      );
+    }
+
+    return reply.code(200).send({
+      date,
+      route_plan_id: plan.id,
+      total_km: optimized.totalKm,
+      algorithm: optimized.algorithm,
+      stops: optimized.order.map((s, i) => ({ position: i + 1, service_order_id: s.serviceOrderId })),
     });
   });
 }

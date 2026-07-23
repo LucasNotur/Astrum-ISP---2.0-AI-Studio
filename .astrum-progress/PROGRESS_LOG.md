@@ -44,6 +44,12 @@ Testes: 35 novos Vitest verdes (42 no módulo campo); typecheck limpo
 Status: ✅ Concluído (backend I-1). Falta frontend (TechnicianAppPage → endpoints reais)
 Observações: DoD do PLANO_I exige Vitest na máquina de estados e no cálculo de km — ambos cobertos.
 
+Adendo I-2 (mesma sessão):
+  - apps/api/src/domain/campo/route-optimizer.service.ts — NN + 2-opt (caminho aberto), 11 testes
+  - apps/api/src/domain/campo/route-optimizer.service.test.ts
+  - field-ops.routes.ts — POST /api/v2/field/route/optimize (carrega OSs, otimiza, persiste route_plans/route_stops)
+  Total módulo campo: 53 testes verdes; typecheck limpo.
+
 ---
 
 [2026-07-22] Dossiê-105 Batch 8+9 — #9, #18, #20, #48, #53, #56

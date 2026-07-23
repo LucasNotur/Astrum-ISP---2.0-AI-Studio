@@ -238,6 +238,13 @@ Visual: carregar a skill `astrum-design` antes de mexer na tela (padrão do proj
 > registradas no server.ts. **Falta (frontend):** ligar `TechnicianAppPage.tsx`
 > (hoje mock) nesses endpoints + dossiê/PDF real + sign-upload de mídia.
 | **I-2 Rotas & KM** | shifts, breadcrumbs, otimizador v1 (NN+2-opt), deep-link navegação, relatórios km/tempo | 1–2 |
+
+> **I-2 OTIMIZADOR CODE-COMPLETE (2026-07-23):** `route-optimizer.service.ts`
+> (vizinho-mais-próximo + 2-opt, caminho aberto a partir da base, puro TS — 11 testes)
+> + endpoint `POST /api/v2/field/route/optimize` que carrega as OSs do dia,
+> otimiza e persiste `route_plans`/`route_stops` (idempotente por técnico+data).
+> Tabelas de shift/breadcrumbs já criadas na migration 082. **Falta:** endpoints de
+> shift start/end + ping de localização em lote + relatórios km/tempo + deep-link Waze.
 | **I-3 Gestor ao vivo** | FieldOpsPage (mapa + dispatch + painéis + dossiê), WhatsApp "a caminho" | 2 |
 | **I-4 IA de campo** | validação de foto depois, resumo automático, previsão de duração, anomalias | 1–2 |
 | **I-5 → H-4** | extrair para ASTRUM CAMPO standalone (R$ 49/técnico/mês, verticais não-ISP) | pós-Atlas |
