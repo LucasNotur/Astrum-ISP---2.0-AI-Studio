@@ -11,14 +11,14 @@ import { motion } from 'framer-motion';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
 } from 'recharts';
-import { RefreshCw, Truck, MapPin, Clock, Route, Users, Activity } from 'lucide-react';
+import { RefreshCw, Truck, MapPin, Clock, Route, Users, Activity, UserPlus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { toast } from 'sonner';
 import { FieldMap, type MapMarker } from '../components/field/FieldMap';
 import {
-  fetchLive, fetchKmReport, fetchTempoReport,
-  type LiveTechnician, type KmReport, type TempoReport,
+  fetchLive, fetchKmReport, fetchTempoReport, fetchDispatchBoard, assignOs,
+  type LiveTechnician, type KmReport, type TempoReport, type DispatchBoardItem,
 } from '../lib/fieldOps';
 
 const statusColor = (status: string) => {
@@ -50,23 +50,39 @@ export default function FieldOpsPage() {
   const [techs, setTechs] = useState<LiveTechnician[]>([]);
   const [km, setKm] = useState<KmReport | null>(null);
   const [tempo, setTempo] = useState<TempoReport | null>(null);
+  const [dispatch, setDispatch] = useState<DispatchBoardItem[]>([]);
+  const [assigning, setAssigning] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     setLoading(true);
     try {
-      const [live, kmReport, tempoReport] = await Promise.all([
+      const [live, kmReport, tempoReport, board] = await Promise.all([
         fetchLive().catch(() => []),
         fetchKmReport().catch(() => ({ by_day: [], total_km: 0 })),
         fetchTempoReport().catch(() => ({ by_type: [], sample: 0 })),
+        fetchDispatchBoard().catch(() => []),
       ]);
       setTechs(live);
       setKm(kmReport);
       setTempo(tempoReport);
+      setDispatch(board);
     } catch (e: any) {
       toast.error('Falha ao carregar operações de campo.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAssign = async (osId: string, techId: string, techName: string) => {
+    setAssigning(osId);
+    const ok = await assignOs(osId, techId);
+    setAssigning(null);
+    if (ok) {
+      toast.success(`OS atribuída a ${techName}.`);
+      setDispatch((prev) => prev.filter((d) => d.service_order_id !== osId));
+    } else {
+      toast.error('Falha ao atribuir OS.');
     }
   };
 
@@ -129,6 +145,49 @@ export default function FieldOpsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Dispatch — OSs pendentes com sugestão de técnico */}
+      {dispatch.length > 0 && (
+        <div>
+          <h2 className="text-sm font-bold text-zinc-500 uppercase tracking-wider mb-3">
+            Dispatch — {dispatch.length} OS(s) pendente(s)
+          </h2>
+          <div className="space-y-3">
+            {dispatch.map((d) => {
+              const top = d.suggestions[0];
+              return (
+                <Card key={d.service_order_id}>
+                  <CardContent className="p-4 flex flex-col md:flex-row md:items-center gap-3 justify-between">
+                    <div className="min-w-0">
+                      <div className="font-semibold truncate">{d.customer_name} · <span className="text-zinc-500 font-normal capitalize">{(d.type || '').replace(/_/g, ' ')}</span></div>
+                      <div className="text-sm text-zinc-500 truncate">{d.address || 'Sem endereço'}</div>
+                    </div>
+                    {top ? (
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        <div className="text-right">
+                          <div className="text-xs text-zinc-500">Sugestão</div>
+                          <div className="text-sm font-medium flex items-center gap-1">
+                            {top.name}
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300">
+                              {top.reasons.join(' · ')}
+                            </span>
+                          </div>
+                        </div>
+                        <Button size="sm" className="gap-1" disabled={assigning === d.service_order_id}
+                          onClick={() => handleAssign(d.service_order_id, top.technician_id, top.name)}>
+                          <UserPlus className="w-4 h-4" /> Atribuir
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-zinc-400 flex-shrink-0">Nenhum técnico elegível</span>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Frota ao vivo */}
       <div>

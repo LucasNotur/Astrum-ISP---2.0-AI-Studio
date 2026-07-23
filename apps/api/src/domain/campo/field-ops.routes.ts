@@ -12,6 +12,7 @@ import {
   type OsTimelineEvent, type DayKm, type TypedDuration,
 } from './field-reports.service';
 import { fallbackSummary, type OsSummaryContext } from './field-ai.service';
+import { suggestTechnicians, type DispatchTech, type DispatchOs } from './dispatch.service';
 
 const OS_EVENTS = [
   'criada', 'atribuida', 'aceita', 'a_caminho', 'chegou',
@@ -93,6 +94,30 @@ const reportsQuerySchema = z.object({
   from: z.string().optional(),
   to: z.string().optional(),
 });
+
+const assignSchema = z.object({
+  technicianId: z.string().uuid(),
+});
+
+/** Carrega os técnicos do tenant no formato de dispatch (com carga + última posição). */
+async function loadDispatchTechs(tenantId: string): Promise<DispatchTech[]> {
+  const { data: techs } = await supabase
+    .from('technicians').select('id, name, skills, status').eq('tenant_id', tenantId);
+  return Promise.all((techs ?? []).map(async (t: any) => {
+    const { data: loc } = await supabase
+      .from('technician_locations').select('latitude, longitude')
+      .eq('tenant_id', tenantId).eq('technician_id', t.id)
+      .order('recorded_at', { ascending: false }).limit(1).maybeSingle();
+    const { count } = await supabase
+      .from('service_orders').select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId).eq('assigned_to', t.id)
+      .not('status', 'in', '(concluido,cancelado,completed,cancelled)');
+    return {
+      id: t.id, name: t.name, skills: (t.skills ?? []) as string[], status: t.status ?? 'offline',
+      lat: loc?.latitude ?? null, lng: loc?.longitude ?? null, activeOrders: count ?? 0,
+    };
+  }));
+}
 
 export async function fieldOpsRoutes(fastify: FastifyInstance) {
   /**
@@ -498,6 +523,71 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
       .eq('tenant_id', tenantId).eq('id', serviceOrderId);
 
     return reply.code(200).send({ summary });
+  });
+
+  /**
+   * GET /api/v2/field/dispatch/board — (gestor) OSs pendentes + sugestão de técnico.
+   * Para cada OS não-atribuída/pendente, ranqueia os 3 melhores técnicos.
+   */
+  fastify.get('/api/v2/field/dispatch/board', {
+    onRequest: [fastify.authenticate],
+    preHandler: [requirePermission('service_orders', 'read')],
+  }, async (request, reply) => {
+    const { tenantId } = (request as any).user;
+
+    const { data: pending } = await supabase
+      .from('service_orders')
+      .select('id, customer_name, address, latitude, longitude, type, status, assigned_to')
+      .eq('tenant_id', tenantId)
+      .in('status', ['pendente', 'open'])
+      .order('created_at', { ascending: true })
+      .limit(100);
+
+    const techs = await loadDispatchTechs(tenantId);
+
+    const board = (pending ?? []).map((o: any) => {
+      const os: DispatchOs = {
+        lat: o.latitude, lng: o.longitude,
+        requiredSkills: o.type ? [String(o.type).toLowerCase()] : [],
+      };
+      const suggestions = suggestTechnicians(os, techs).slice(0, 3);
+      return {
+        service_order_id: o.id, customer_name: o.customer_name, address: o.address,
+        type: o.type, assigned_to: o.assigned_to,
+        suggestions: suggestions.map((s) => ({
+          technician_id: s.technicianId, name: s.name, score: s.score,
+          distance_km: s.distanceKm, skill_match: s.skillMatch, active_orders: s.activeOrders, reasons: s.reasons,
+        })),
+      };
+    });
+
+    return { board, technicians: techs.length };
+  });
+
+  /**
+   * POST /api/v2/field/os/:id/assign — atribui/reatribui a OS a um técnico.
+   * Registra evento 'atribuida' na timeline (dispatch é ortogonal ao fluxo do técnico).
+   */
+  fastify.post('/api/v2/field/os/:id/assign', {
+    onRequest: [fastify.authenticate],
+    preHandler: [requirePermission('service_orders', 'write'), validateBody(assignSchema)],
+  }, async (request, reply) => {
+    const { tenantId, userId } = (request as any).user;
+    const serviceOrderId = (request.params as any).id as string;
+    const body = (request as any).validatedBody as z.infer<typeof assignSchema>;
+
+    const { error: upErr } = await supabase
+      .from('service_orders')
+      .update({ assigned_to: body.technicianId, updated_at: new Date().toISOString() })
+      .eq('tenant_id', tenantId).eq('id', serviceOrderId);
+    if (upErr) return reply.code(500).send({ code: 'ASSIGN_ERROR', message: 'Falha ao atribuir OS.' });
+
+    await supabase.from('service_order_events').insert({
+      tenant_id: tenantId, service_order_id: serviceOrderId, technician_id: body.technicianId,
+      event: 'atribuida', metadata: { assigned_by: userId },
+    });
+
+    return reply.code(200).send({ ok: true, service_order_id: serviceOrderId, technician_id: body.technicianId });
   });
 
   /** GET /api/v2/field/live — (gestor) técnicos + última posição + OSs ativas hoje. */

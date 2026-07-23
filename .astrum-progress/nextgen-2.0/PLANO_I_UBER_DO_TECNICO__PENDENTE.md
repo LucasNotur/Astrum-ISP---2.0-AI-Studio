@@ -263,7 +263,11 @@ Visual: carregar a skill `astrum-design` antes de mexer na tela (padrão do proj
 > `src/components/field/FieldMap.tsx` — wrapper próprio sobre **maplibre-gl** (v5,
 > instalado) com tiles **OpenStreetMap grátis** (sem API key), inspirado no mapcn
 > (AnmolSaini16/mapcn), mas trocando o CARTO comercial por OSM. Plota técnicos com
-> última posição GPS na FieldOpsPage. **Falta:** dispatch drag-and-drop + dossiê visual.
+> última posição GPS na FieldOpsPage. **DISPATCH (2026-07-23):** `dispatch.service.ts`
+> (puro, 10 testes) ranqueia técnico por proximidade+skill+carga; endpoints
+> `GET /dispatch/board` (OSs pendentes + top-3 sugestões) e `POST /os/:id/assign`
+> (atribui/reatribui + evento). Painel de dispatch na FieldOpsPage com botão "Atribuir".
+> **Falta:** dossiê visual da OS na UI (endpoint `/dossie` já existe).
 | **I-4 IA de campo** | validação de foto depois, resumo automático, previsão de duração, anomalias | 1–2 |
 
 > **I-4 NÚCLEO CODE-COMPLETE (2026-07-23):** `field-ai.service.ts` (puro, 13 testes):

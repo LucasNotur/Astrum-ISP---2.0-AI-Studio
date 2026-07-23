@@ -176,6 +176,41 @@ export async function fetchDossie(osId: string): Promise<any> {
   return res.json();
 }
 
+export interface DispatchSuggestion {
+  technician_id: string;
+  name: string;
+  score: number;
+  distance_km: number | null;
+  skill_match: boolean;
+  active_orders: number;
+  reasons: string[];
+}
+
+export interface DispatchBoardItem {
+  service_order_id: string;
+  customer_name: string;
+  address: string;
+  type: string;
+  assigned_to: string | null;
+  suggestions: DispatchSuggestion[];
+}
+
+export async function fetchDispatchBoard(): Promise<DispatchBoardItem[]> {
+  const res = await fetch('/api/v2/field/dispatch/board', { headers: authHeaders() });
+  if (!res.ok) throw new Error(`Dispatch HTTP ${res.status}`);
+  const data = await res.json();
+  return data.board ?? [];
+}
+
+export async function assignOs(osId: string, technicianId: string): Promise<boolean> {
+  const res = await fetch(`/api/v2/field/os/${osId}/assign`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ technicianId }),
+  });
+  return res.ok;
+}
+
 /** Otimiza a rota do dia e retorna a ordem + km estimado. */
 export async function optimizeRoute(date?: string): Promise<OptimizedRouteResult> {
   const res = await fetch('/api/v2/field/route/optimize', {

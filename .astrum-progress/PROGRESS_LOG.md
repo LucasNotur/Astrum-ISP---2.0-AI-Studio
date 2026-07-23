@@ -71,6 +71,13 @@ Adendo mapa real + I-4 (mesma sessão):
   - field-ops.routes.ts — POST /os/:id/summary (resumo determinístico persistido em ai_summary)
   Testes: 76 no módulo campo verdes; typecheck backend+frontend limpos; Vite sobe com maplibre sem erro de console.
 
+Adendo dispatch do gestor (mesma sessão):
+  - apps/api/src/domain/campo/dispatch.service.ts — sugestão de técnico por proximidade+skill+carga (10 testes)
+  - field-ops.routes.ts — GET /dispatch/board (OSs pendentes + top-3 sugestões), POST /os/:id/assign (atribui/reatribui + evento)
+  - src/lib/fieldOps.ts — fetchDispatchBoard, assignOs
+  - src/pages/FieldOpsPage.tsx — painel de dispatch com sugestão + botão "Atribuir"
+  Testes: 86 no módulo campo verdes; typecheck backend+frontend limpos; Vite sem erro.
+
 ---
 
 [2026-07-22] Dossiê-105 Batch 8+9 — #9, #18, #20, #48, #53, #56
