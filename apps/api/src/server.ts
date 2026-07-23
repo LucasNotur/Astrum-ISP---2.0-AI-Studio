@@ -315,6 +315,10 @@ export async function buildServer() {
   const { negotiationRoutes } = await import('./domain/cobranca/negotiation.routes');
   await app.register(negotiationRoutes);
 
+  // F6-02 — Sync gateway Asaas → invoices (cobranças aparecem no CobrAI)
+  const { gatewaySyncRoutes } = await import('./domain/cobranca/gateway-sync.routes');
+  await app.register(gatewaySyncRoutes);
+
   const { sheetImportRoutes } = await import('./domain/onboarding/sheet-import.routes');
   await app.register(sheetImportRoutes);
 

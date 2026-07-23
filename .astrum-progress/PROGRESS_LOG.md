@@ -24,6 +24,19 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-23] PLANO_F Camisa 9 — auditoria + fecha F6-02 (wiring Asaas→invoices)
+Tarefa: Iniciar PLANO_F executando item a item
+Achado (auditoria): PLANO_F está ~95% code-complete. Já prontos: F1-03 (trial.service nasce radar_trial + upgrade→astrum), F2-01 (nightly-brain.worker no server.ts), F4-01 (policy-backtest), F4-02 (cashflow), F6-01 (history-import.service), F6-02 adapter (asaas.adapter), F6-03 (sheet-import.routes). Restante é UI (F2-02/F3-01/F6-04, precisam astrum-design) + operacional (F1-01/02 prod/staging).
+Lacuna real fechada — F6-02 estava com adapter órfão (não-ligado):
+  - apps/api/src/domain/cobranca/asaas-sync.service.ts — mapChargeToInvoiceRow + syncAsaasInvoices (puro, ports; 6 testes)
+  - apps/api/src/domain/cobranca/gateway-sync.routes.ts — POST /api/v2/gateway/asaas/sync (ports Supabase: credenciais decriptadas → AsaasAdapter → upsert invoices dedupe por external_id)
+  - server.ts — registro de gatewaySyncRoutes
+Satisfaz "faturas do Asaas aparecem no CobrAI" (F6-02) + fecha dossiê #28 (gateway) no fluxo.
+Testes: 13 verdes (6 sync + 7 adapter existente); typecheck backend limpo.
+Status: ✅ F6-02 wiring concluído. Pendente PLANO_F = só UI (design skill) + operacional.
+
+---
+
 [2026-07-23] PLANO I (Uber do Técnico) — Fase I-1 backend + cutover v2
 Tarefa: Executar cutover do motor v2 (Onda 2) + iniciar PLANO_I Fase I-1
 Cutover (Onda 2):
