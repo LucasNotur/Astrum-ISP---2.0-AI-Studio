@@ -64,6 +64,13 @@ Adendo I-2 completo + I-3 (mesma sessão):
   Testes: 63 no módulo campo verdes; typecheck backend + frontend limpos; Vite sem erro.
   I-3 sem mapa Leaflet (dependência não instalada — board data-rich como MVP).
 
+Adendo mapa real + I-4 (mesma sessão):
+  - Instalado maplibre-gl@^5 + @types/geojson (via npm, workspaces=false)
+  - src/components/field/FieldMap.tsx — wrapper maplibre-gl + tiles OSM grátis (inspirado no mapcn, sem CARTO); integrado na FieldOpsPage plotando técnicos por GPS
+  - apps/api/src/domain/campo/field-ai.service.ts — predictDuration, evaluateCompletionPhoto (anti-foto-do-chão), detectRouteAnomaly, buildOsSummaryPrompt, fallbackSummary (13 testes)
+  - field-ops.routes.ts — POST /os/:id/summary (resumo determinístico persistido em ai_summary)
+  Testes: 76 no módulo campo verdes; typecheck backend+frontend limpos; Vite sobe com maplibre sem erro de console.
+
 ---
 
 [2026-07-22] Dossiê-105 Batch 8+9 — #9, #18, #20, #48, #53, #56

@@ -11,6 +11,7 @@ import {
   computeOsDurations, aggregateKmByDay, averageDurationByType,
   type OsTimelineEvent, type DayKm, type TypedDuration,
 } from './field-reports.service';
+import { fallbackSummary, type OsSummaryContext } from './field-ai.service';
 
 const OS_EVENTS = [
   'criada', 'atribuida', 'aceita', 'a_caminho', 'chegou',
@@ -453,6 +454,50 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
       if (d.execucaoMin != null) items.push({ type: (o as any).type ?? 'servico', execucaoMin: d.execucaoMin });
     }
     return { by_type: averageDurationByType(items), sample: items.length };
+  });
+
+  /**
+   * POST /api/v2/field/os/:id/summary — resumo automático da OS (I-4).
+   * Agrega eventos/checklist/materiais/diagnósticos e gera o resumo determinístico,
+   * persistindo em service_orders.ai_summary. (LLM opcional fica como evolução.)
+   */
+  fastify.post('/api/v2/field/os/:id/summary', {
+    onRequest: [fastify.authenticate],
+    preHandler: [requirePermission('service_orders', 'write')],
+  }, async (request, reply) => {
+    const { tenantId } = (request as any).user;
+    const serviceOrderId = (request.params as any).id as string;
+
+    const [os, events, checklist, materials, diagnoses] = await Promise.all([
+      supabase.from('service_orders').select('type, customer_name').eq('tenant_id', tenantId).eq('id', serviceOrderId).maybeSingle(),
+      supabase.from('service_order_events').select('event, created_at').eq('tenant_id', tenantId).eq('service_order_id', serviceOrderId),
+      supabase.from('service_order_checklist_items').select('done').eq('tenant_id', tenantId).eq('service_order_id', serviceOrderId),
+      supabase.from('service_order_materials').select('name').eq('tenant_id', tenantId).eq('service_order_id', serviceOrderId),
+      supabase.from('field_photo_diagnoses').select('equipment, issue').eq('tenant_id', tenantId).eq('service_order_id', serviceOrderId),
+    ]);
+
+    if (!os.data) return reply.code(404).send({ code: 'OS_NOT_FOUND', message: 'OS não encontrada.' });
+
+    const timeline: OsTimelineEvent[] = (events.data ?? []).map((e: any) => ({ event: e.event, at: e.created_at }));
+    const durations = computeOsDurations(timeline);
+    const items = checklist.data ?? [];
+
+    const ctx: OsSummaryContext = {
+      type: os.data.type ?? 'servico',
+      client: os.data.customer_name ?? 'Cliente',
+      checklistDone: items.filter((i: any) => i.done).length,
+      checklistTotal: items.length,
+      materials: (materials.data ?? []).map((m: any) => m.name),
+      diagnoses: (diagnoses.data ?? []).map((d: any) => `${d.equipment} — ${d.issue}`),
+      execucaoMin: durations.execucaoMin,
+    };
+
+    const summary = fallbackSummary(ctx);
+    await supabase.from('service_orders')
+      .update({ ai_summary: summary, updated_at: new Date().toISOString() })
+      .eq('tenant_id', tenantId).eq('id', serviceOrderId);
+
+    return reply.code(200).send({ summary });
   });
 
   /** GET /api/v2/field/live — (gestor) técnicos + última posição + OSs ativas hoje. */

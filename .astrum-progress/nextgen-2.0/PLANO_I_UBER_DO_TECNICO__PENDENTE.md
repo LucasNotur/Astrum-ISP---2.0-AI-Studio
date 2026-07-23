@@ -259,10 +259,20 @@ Visual: carregar a skill `astrum-design` antes de mexer na tela (padrão do proj
 > **I-3 MVP CODE-COMPLETE (2026-07-23):** endpoints `GET /field/live` (frota + última
 > posição + OSs ativas), `GET /field/reports/km`, `GET /field/reports/tempo` +
 > `src/pages/FieldOpsPage.tsx` (rota `/campo`, item na sidebar): KPIs, frota ao vivo
-> (auto-refresh 30s), km/dia (recharts), tempo médio por tipo. **Sem mapa Leaflet**
-> (dependência não instalada — board data-rich como MVP; mapa fica de evolução).
-> **Falta:** dispatch drag-and-drop + dossiê visual da OS na UI + WhatsApp "a caminho".
+> (auto-refresh 30s), km/dia (recharts), tempo médio por tipo. **MAPA REAL (2026-07-23):**
+> `src/components/field/FieldMap.tsx` — wrapper próprio sobre **maplibre-gl** (v5,
+> instalado) com tiles **OpenStreetMap grátis** (sem API key), inspirado no mapcn
+> (AnmolSaini16/mapcn), mas trocando o CARTO comercial por OSM. Plota técnicos com
+> última posição GPS na FieldOpsPage. **Falta:** dispatch drag-and-drop + dossiê visual.
 | **I-4 IA de campo** | validação de foto depois, resumo automático, previsão de duração, anomalias | 1–2 |
+
+> **I-4 NÚCLEO CODE-COMPLETE (2026-07-23):** `field-ai.service.ts` (puro, 13 testes):
+> `predictDuration` (média histórica por tipo), `evaluateCompletionPhoto` (anti-"foto
+> do chão": reprova equipment=outro/confiança baixa), `detectRouteAnomaly` (km acima do
+> planejado / tempo 3× a média), `buildOsSummaryPrompt` + `fallbackSummary`. Endpoint
+> `POST /os/:id/summary` gera e persiste o resumo (fallback determinístico; LLM opcional
+> fica de evolução). **Falta:** ligar a validação da foto "depois" à visão (D-06) na PWA
+> + chamar GPT-4o-mini no resumo + WhatsApp "a caminho".
 | **I-5 → H-4** | extrair para ASTRUM CAMPO standalone (R$ 49/técnico/mês, verticais não-ISP) | pós-Atlas |
 
 DoD por fase: Vitest nos serviços novos (máquina de estados e cálculo de km são

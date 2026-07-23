@@ -15,6 +15,7 @@ import { RefreshCw, Truck, MapPin, Clock, Route, Users, Activity } from 'lucide-
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { toast } from 'sonner';
+import { FieldMap, type MapMarker } from '../components/field/FieldMap';
 import {
   fetchLive, fetchKmReport, fetchTempoReport,
   type LiveTechnician, type KmReport, type TempoReport,
@@ -77,6 +78,16 @@ export default function FieldOpsPage() {
 
   const online = techs.filter((t) => t.status === 'available').length;
   const activeOrders = techs.reduce((a, t) => a + (t.active_orders ?? 0), 0);
+  const mapMarkers: MapMarker[] = techs
+    .filter((t) => t.last_location)
+    .map((t) => ({
+      id: t.technician_id,
+      lat: t.last_location!.latitude,
+      lng: t.last_location!.longitude,
+      label: `${t.name} · ${t.active_orders} OS`,
+      kind: 'tech' as const,
+      color: t.status === 'available' ? '#22c55e' : t.status === 'break' ? '#f59e0b' : '#a1a1aa',
+    }));
   const avgTempo = tempo && tempo.by_type.length > 0
     ? Math.round(tempo.by_type.reduce((a, t) => a + t.avgMin, 0) / tempo.by_type.length)
     : null;
@@ -102,6 +113,22 @@ export default function FieldOpsPage() {
         <KpiCard icon={<Route className="w-4 h-4" />} label="Km total (período)" value={km ? `${km.total_km} km` : '—'} />
         <KpiCard icon={<Clock className="w-4 h-4" />} label="Tempo médio/OS" value={avgTempo != null ? `${avgTempo} min` : '—'} />
       </div>
+
+      {/* Mapa da frota */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Mapa da frota</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {mapMarkers.length > 0 ? (
+            <FieldMap markers={mapMarkers} height={380} />
+          ) : (
+            <div className="h-[200px] flex items-center justify-center text-sm text-zinc-500">
+              {loading ? 'Carregando…' : 'Nenhum técnico com posição GPS recente. O mapa aparece quando os breadcrumbs chegam.'}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Frota ao vivo */}
       <div>
