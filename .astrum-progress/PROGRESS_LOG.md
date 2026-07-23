@@ -24,6 +24,22 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-23] D-04 NOC autônomo Fase 2 — supressão de tickets + confirmação
+Tarefa: Aprofundar D-04 (diferencial desbloqueado pela Onda 2), fechando o loop do plano
+Achado: D-04 tinha máquina de estados + scan + comunicação, mas faltavam "supressão de tickets" e "confirmação" (avisar na normalização).
+Arquivos criados:
+  - apps/api/src/domain/rede/incident-correlation.service.ts — matchTicketToIncident + correlateIncomingTicket (puro, ports; supressão de ticket por CTO com incidente ativo)
+  - apps/api/src/domain/rede/incident-correlation.service.test.ts — 10 testes
+Arquivos modificados:
+  - incident-orchestrator.service.ts — normalizeIncident (envia confirmação outage_notifications se já comunicado)
+  - incident-orchestrator.service.test.ts — +2 testes (normalização com/sem comunicação)
+  - incident.routes.ts — normalize usa normalizeIncident (retorna notified); nova rota POST /rede/tickets/:id/correlate (supressão)
+Testes: 21 verdes no módulo rede/incident; typecheck backend limpo.
+Status: ✅ D-04 loop completo (detecção→correlação→aviso→supressão→confirmação). Falta: auto-communicate (Fase 2 avançada) + UI IncidentsPage (F3-01, precisa design).
+Pendências consolidadas em progress/2-pendentes/03_pendentes_consolidado.md.
+
+---
+
 [2026-07-23] PLANO_F Camisa 9 — auditoria + fecha F6-02 (wiring Asaas→invoices)
 Tarefa: Iniciar PLANO_F executando item a item
 Achado (auditoria): PLANO_F está ~95% code-complete. Já prontos: F1-03 (trial.service nasce radar_trial + upgrade→astrum), F2-01 (nightly-brain.worker no server.ts), F4-01 (policy-backtest), F4-02 (cashflow), F6-01 (history-import.service), F6-02 adapter (asaas.adapter), F6-03 (sheet-import.routes). Restante é UI (F2-02/F3-01/F6-04, precisam astrum-design) + operacional (F1-01/02 prod/staging).

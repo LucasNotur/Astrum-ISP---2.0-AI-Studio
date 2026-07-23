@@ -15,6 +15,7 @@ import {
   scanForIncidents,
   transitionIncident,
   communicateIncident,
+  normalizeIncident,
   isNocAutonomoEnabled,
 } from './incident-orchestrator.service';
 
@@ -165,6 +166,23 @@ describe('transitionIncident / communicateIncident', () => {
   it('comunicar direto de suspeita é bloqueado (precisa confirmar antes)', async () => {
     const { notifications } = mockIncidentDb({ id: 'i1', status: 'suspeita', cto_id: 'cto-1' });
     await expect(communicateIncident('t1', 'i1', undefined)).rejects.toThrow('transição inválida');
+    expect(notifications).toHaveLength(0);
+  });
+
+  it('normalizar após comunicada envia a confirmação aos afetados', async () => {
+    const { updates, notifications } = mockIncidentDb({
+      id: 'i1', status: 'comunicada', cto_id: 'cto-1', affected_customers: 20,
+    });
+    const r = await normalizeIncident('t1', 'i1', undefined);
+    expect(r.notified).toBe(20);
+    expect(notifications[0].message).toContain('normalizada');
+    expect(updates.some((u) => u.status === 'normalizada')).toBe(true);
+  });
+
+  it('normalizar sem ter comunicado não notifica ninguém', async () => {
+    const { notifications } = mockIncidentDb({ id: 'i1', status: 'confirmada', cto_id: 'cto-1', affected_customers: 20 });
+    const r = await normalizeIncident('t1', 'i1', undefined);
+    expect(r.notified).toBe(0);
     expect(notifications).toHaveLength(0);
   });
 });

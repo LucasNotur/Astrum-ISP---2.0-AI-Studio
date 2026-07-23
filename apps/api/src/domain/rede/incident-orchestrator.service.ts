@@ -13,6 +13,7 @@
 import supabase from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
 import { detectAnomalies, anomalySeverity, type DataPoint } from './anomaly';
+import { buildNormalizationMessage } from './incident-correlation.service';
 
 export function isNocAutonomoEnabled(): boolean {
   return (process.env.NOC_AUTONOMO_ENABLED ?? '').trim().toLowerCase() === 'true';
@@ -178,4 +179,37 @@ export async function communicateIncident(
 
   await transitionIncident(tenantId, id, 'comunicada', ports);
   return { customerCount: incident.affected_customers ?? 0 };
+}
+
+/**
+ * Normaliza o incidente e — se ele já havia sido comunicado — envia a CONFIRMAÇÃO
+ * ("já normalizou") aos afetados (outage_notifications). Fecha o loop do D-04.
+ */
+export async function normalizeIncident(
+  tenantId: string,
+  id: string,
+  message: string | undefined,
+  ports: IncidentPorts = defaultPorts,
+): Promise<{ notified: number }> {
+  const incident = await loadIncident(tenantId, id, ports.db);
+  if (!canTransition(incident.status as IncidentStatus, 'normalizada')) {
+    throw new Error(`D-04: transição inválida ${incident.status} → normalizada`);
+  }
+
+  let notified = 0;
+  // Só avisa a normalização se o cliente chegou a ser avisado da queda.
+  if (incident.status === 'comunicada') {
+    const { error: notifErr } = await ports.db.from('outage_notifications').insert({
+      tenant_id: tenantId,
+      cto_id: incident.cto_id,
+      message: message ?? buildNormalizationMessage(),
+      customer_count: incident.affected_customers ?? 0,
+    });
+    if (notifErr) throw new Error(`D-04: falha ao registrar confirmação: ${notifErr.message}`);
+    notified = incident.affected_customers ?? 0;
+  }
+
+  await transitionIncident(tenantId, id, 'normalizada', ports);
+  infraLogger.info({ tenantId, id, notified }, 'D-04: incidente normalizado');
+  return { notified };
 }
