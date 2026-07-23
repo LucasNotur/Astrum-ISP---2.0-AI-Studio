@@ -89,8 +89,8 @@ export function computeShiftKm(points: Breadcrumb[], options: KmFilterOptions = 
   let discarded = 0;
 
   for (let i = 1; i < clean.length; i++) {
-    const prev = clean[i - 1];
-    const curr = clean[i];
+    const prev = clean[i - 1]!;
+    const curr = clean[i]!;
     const segKm = haversineKm(prev, curr);
     const segMeters = segKm * 1000;
 

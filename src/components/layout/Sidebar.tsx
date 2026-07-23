@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Bot, ChevronLeft, ChevronRight, LayoutDashboard, Users,
   Ticket, MessageSquare, Map, Settings, ShieldCheck,
-  CreditCard, Briefcase, Package, LogOut, Phone, BookOpen, Activity, BarChart2, Sparkles, HelpCircle, ShoppingBag, Award
+  CreditCard, Briefcase, Package, LogOut, Phone, BookOpen, Activity, BarChart2, Sparkles, HelpCircle, ShoppingBag, Award, Route
 } from 'lucide-react';
 import { HelpCenter } from '@/src/components/HelpCenter';
 import { cn } from '@/src/lib/utils';
@@ -271,6 +271,15 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
             label="Mapa de Cobertura"
             collapsed={isSidebarCollapsed}
             shortcut="Alt+5"
+          />
+        )}
+        {(isProvedorAdmin || hasAccess('os')) && (
+          <NavItem
+            active={currentPath === 'campo'}
+            onClick={() => navigate('/campo')}
+            icon={<Route size={24} />}
+            label="Operações de Campo"
+            collapsed={isSidebarCollapsed}
           />
         )}
         {hasAccess('team') && isEnabled('team') && (

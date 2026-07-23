@@ -55,6 +55,15 @@ Adendo I-1 frontend (mesma sessão):
   - src/pages/TechnicianAppPage.tsx — religada aos endpoints reais (agenda no mount c/ fallback, otimização real, check-in via sequência da máquina de estados, check-out com gate de conclusão)
   Verificação: teste de render verde, typecheck limpo, Vite sobe sem erro de console.
 
+Adendo I-2 completo + I-3 (mesma sessão):
+  - apps/api/src/domain/campo/field-reports.service.ts — deriva tempos dos eventos + agregações (10 testes)
+  - field-ops.routes.ts — shift start/end (km GPS + auditoria odômetro), location (breadcrumbs lote), media, dossiê, reports/km, reports/tempo, live
+  - src/lib/fieldOps.ts — funções do gestor (fetchLive, fetchKmReport, fetchTempoReport, fetchDossie)
+  - src/pages/FieldOpsPage.tsx — painel do gestor (rota /campo): KPIs, frota ao vivo (refresh 30s), km/dia recharts, tempo por tipo
+  - src/routes/main.routes.tsx + src/components/layout/Sidebar.tsx — rota + item de menu "Operações de Campo"
+  Testes: 63 no módulo campo verdes; typecheck backend + frontend limpos; Vite sem erro.
+  I-3 sem mapa Leaflet (dependência não instalada — board data-rich como MVP).
+
 ---
 
 [2026-07-22] Dossiê-105 Batch 8+9 — #9, #18, #20, #48, #53, #56

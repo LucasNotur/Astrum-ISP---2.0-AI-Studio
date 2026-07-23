@@ -247,13 +247,21 @@ Visual: carregar a skill `astrum-design` antes de mexer na tela (padrão do proj
 > (hoje mock) nesses endpoints + dossiê/PDF real + sign-upload de mídia.
 | **I-2 Rotas & KM** | shifts, breadcrumbs, otimizador v1 (NN+2-opt), deep-link navegação, relatórios km/tempo | 1–2 |
 
-> **I-2 OTIMIZADOR CODE-COMPLETE (2026-07-23):** `route-optimizer.service.ts`
-> (vizinho-mais-próximo + 2-opt, caminho aberto a partir da base, puro TS — 11 testes)
-> + endpoint `POST /api/v2/field/route/optimize` que carrega as OSs do dia,
-> otimiza e persiste `route_plans`/`route_stops` (idempotente por técnico+data).
-> Tabelas de shift/breadcrumbs já criadas na migration 082. **Falta:** endpoints de
-> shift start/end + ping de localização em lote + relatórios km/tempo + deep-link Waze.
+> **I-2 CODE-COMPLETE (2026-07-23):** `route-optimizer.service.ts` (NN + 2-opt, puro
+> TS — 11 testes) + `POST /route/optimize`. **Shift & relatórios (2026-07-23):**
+> endpoints `POST /shift/start`, `POST /shift/end` (km por GPS via computeShiftKm +
+> auditoria odômetro), `POST /location` (breadcrumbs em lote), `field-reports.service.ts`
+> (deriva deslocamento/execução/SLA dos eventos + agrega km-dia/tempo-tipo, 10 testes) +
+> `GET /reports/km`, `GET /reports/tempo`. **Falta:** deep-link Waze na PWA + captura
+> real de breadcrumbs no app (hoje o backend está pronto para recebê-los).
 | **I-3 Gestor ao vivo** | FieldOpsPage (mapa + dispatch + painéis + dossiê), WhatsApp "a caminho" | 2 |
+
+> **I-3 MVP CODE-COMPLETE (2026-07-23):** endpoints `GET /field/live` (frota + última
+> posição + OSs ativas), `GET /field/reports/km`, `GET /field/reports/tempo` +
+> `src/pages/FieldOpsPage.tsx` (rota `/campo`, item na sidebar): KPIs, frota ao vivo
+> (auto-refresh 30s), km/dia (recharts), tempo médio por tipo. **Sem mapa Leaflet**
+> (dependência não instalada — board data-rich como MVP; mapa fica de evolução).
+> **Falta:** dispatch drag-and-drop + dossiê visual da OS na UI + WhatsApp "a caminho".
 | **I-4 IA de campo** | validação de foto depois, resumo automático, previsão de duração, anomalias | 1–2 |
 | **I-5 → H-4** | extrair para ASTRUM CAMPO standalone (R$ 49/técnico/mês, verticais não-ISP) | pós-Atlas |
 

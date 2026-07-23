@@ -131,6 +131,51 @@ export async function completeServiceOrder(
   return transitionOs(osId, 'concluida', { ...geo, completion });
 }
 
+// ─── Gestor (I-3) ────────────────────────────────────────────────────────────
+
+export interface LiveTechnician {
+  technician_id: string;
+  name: string;
+  status: string;
+  vehicle?: string | null;
+  plate?: string | null;
+  last_location: { latitude: number; longitude: number; recorded_at: string } | null;
+  active_orders: number;
+}
+
+export async function fetchLive(): Promise<LiveTechnician[]> {
+  const res = await fetch('/api/v2/field/live', { headers: authHeaders() });
+  if (!res.ok) throw new Error(`Live HTTP ${res.status}`);
+  const data = await res.json();
+  return data.technicians ?? [];
+}
+
+export interface KmReport { by_day: { day: string; km: number }[]; total_km: number }
+
+export async function fetchKmReport(from?: string, to?: string): Promise<KmReport> {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  const res = await fetch(`/api/v2/field/reports/km${qs}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(`Report km HTTP ${res.status}`);
+  return res.json();
+}
+
+export interface TempoReport { by_type: { type: string; avgMin: number; count: number }[]; sample: number }
+
+export async function fetchTempoReport(): Promise<TempoReport> {
+  const res = await fetch('/api/v2/field/reports/tempo', { headers: authHeaders() });
+  if (!res.ok) throw new Error(`Report tempo HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function fetchDossie(osId: string): Promise<any> {
+  const res = await fetch(`/api/v2/field/os/${osId}/dossie`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(`Dossiê HTTP ${res.status}`);
+  return res.json();
+}
+
 /** Otimiza a rota do dia e retorna a ordem + km estimado. */
 export async function optimizeRoute(date?: string): Promise<OptimizedRouteResult> {
   const res = await fetch('/api/v2/field/route/optimize', {

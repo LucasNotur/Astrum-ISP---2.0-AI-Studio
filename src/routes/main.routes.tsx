@@ -17,6 +17,7 @@ import { WebhooksPage } from '../pages/WebhooksPage';
 import { SecurityPage } from '../pages/SecurityPage';
 import QualityMonitorPage from '../pages/QualityMonitorPage';
 import TechnicianAppPage from '../pages/TechnicianAppPage';
+import FieldOpsPage from '../pages/FieldOpsPage';
 import { InventoryPage } from '../pages/InventoryPage';
 import { TicketsPage } from '../pages/TicketsPage';
 import { SalesPage } from '../pages/SalesPage';
@@ -77,6 +78,7 @@ export function mainRoutes(currentUserRole: string) {
       />
       <Route path="/dashboard"        element={<DashboardPage />} />
       <Route path="/tecnico"          element={<TechnicianAppPage />} />
+      <Route path="/campo"            element={<FieldOpsPage />} />
       {/* U7-04: ChatPage (~2000 linhas) e BIPage (Recharts pesado) → lazy */}
       <Route path="/bi"               element={<L><BIPage /></L>} />
       <Route path="/chat"             element={<L><ChatPage /></L>} />
