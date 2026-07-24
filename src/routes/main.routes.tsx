@@ -2,6 +2,7 @@ import React, { lazy, Suspense } from 'react';
 import { Route, Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { DashboardPage } from '../pages/DashboardPage';
+const SmartHomePage = lazy(() => import('../pages/SmartHomePage'));
 import { SuperAdminPage } from '../pages/SuperAdminPage';
 import { SuperAdminRoute } from '../components/SuperAdminRoute';
 import { CustomersPage } from '../pages/CustomersPage';
@@ -74,8 +75,9 @@ export function mainRoutes(currentUserRole: string) {
       />
       <Route
         path="/"
-        element={<Navigate to={currentUserRole === 'tecnico' ? '/tecnico' : '/dashboard'} replace />}
+        element={<Navigate to={currentUserRole === 'tecnico' ? '/tecnico' : '/home'} replace />}
       />
+      <Route path="/home"             element={<L><SmartHomePage /></L>} />
       <Route path="/dashboard"        element={<DashboardPage />} />
       <Route path="/tecnico"          element={<TechnicianAppPage />} />
       <Route path="/campo"            element={<FieldOpsPage />} />

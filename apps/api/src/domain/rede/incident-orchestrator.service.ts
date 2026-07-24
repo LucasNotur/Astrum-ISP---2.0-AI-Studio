@@ -1,13 +1,15 @@
 /**
- * D-04 Fase 1 — NOC AUTÔNOMO: orquestrador de incidentes de rede.
+ * D-04 — NOC AUTÔNOMO: orquestrador de incidentes de rede.
  *
  * Máquina de estados: suspeita → confirmada → comunicada → normalizada
  * (cancelada de qualquer estado não-terminal). A detecção nasce da telemetria
  * (detectAnomalies IA-24 sobre network_metrics); a comunicação escreve em
  * outage_notifications (P1-02 — o canal real envia a partir dali).
  *
- * Flag NOC_AUTONOMO_ENABLED (default OFF). Aprovação humana no passo
- * "comunicar" é o padrão — auto_communicate por tenant fica para a Fase 2.
+ * Flag NOC_AUTONOMO_ENABLED (default OFF).
+ * Fase 2: auto_communicate por tenant — incidentes de severidade 'alto' avançam
+ * confirmada → comunicada sem gate humano quando o tenant ativa a flag
+ * `noc_auto_communicate` na tabela `tenants`.
  * Ports injetáveis: roda no tenant demo hoje, calibra com rede real depois.
  */
 import supabase from '../../infrastructure/database/supabase.client';
@@ -43,6 +45,20 @@ export interface IncidentPorts {
   db: typeof supabase;
 }
 export const defaultPorts: IncidentPorts = { db: supabase };
+
+// ── D-04 Fase 2: auto-communicate por tenant ──────────────────────────────
+
+export async function isAutoCommunicateEnabled(
+  tenantId: string,
+  db: typeof supabase = supabase,
+): Promise<boolean> {
+  const { data } = await db
+    .from('tenants')
+    .select('noc_auto_communicate')
+    .eq('id', tenantId)
+    .maybeSingle();
+  return data?.noc_auto_communicate === true;
+}
 
 // ── Detecção: telemetria → incidentes "suspeita" ─────────────────────────────
 
@@ -148,6 +164,15 @@ export async function transitionIncident(
     .from('incidents').update(patch)
     .eq('tenant_id', tenantId).eq('id', id);
   if (error) throw new Error(`D-04: falha na transição: ${error.message}`);
+
+  // D-04 Fase 2: auto-communicate — incidente alto confirmado avança sozinho.
+  if (to === 'confirmada' && incident.severity === 'alto') {
+    const autoEnabled = await isAutoCommunicateEnabled(tenantId, ports.db);
+    if (autoEnabled) {
+      infraLogger.info({ tenantId, id }, 'D-04: auto-communicate ativado — avançando para comunicada');
+      await communicateIncident(tenantId, id, undefined, ports);
+    }
+  }
 }
 
 /**

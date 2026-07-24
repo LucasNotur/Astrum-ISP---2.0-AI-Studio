@@ -322,6 +322,14 @@ export async function buildServer() {
   const { sheetImportRoutes } = await import('./domain/onboarding/sheet-import.routes');
   await app.register(sheetImportRoutes);
 
+  // IA-07 — Churn risk ranking (estava sem registro)
+  const { churnRoutes } = await import('./domain/ia/churn.routes');
+  await app.register(churnRoutes);
+
+  // G-01 — Home inteligente por papel (agrega incidentes, inbox, cashflow, churn, campo)
+  const { smartHomeRoutes } = await import('./domain/home/smart-home.routes');
+  await app.register(smartHomeRoutes);
+
   // Health check com status dos serviços
   app.get('/api/v2/health', async () => {
     const { getLLMStatus } = await import('./adapters/ai/llm.adapter');
@@ -541,6 +549,12 @@ export async function startFastifyServer() {
     createNetworkTelemetryWorker();
     await scheduleNetworkTelemetryJobs();
     app.log.info('[network-telemetry-worker] iniciado (*/5 * * * *)');
+
+    // F6-01 — History Import worker (on-demand via queue, sem cron).
+    // @ts-ignore
+    const { createHistoryImportWorker } = await import('../../../packages/queue/src/workers/history-import.worker');
+    createHistoryImportWorker();
+    app.log.info('[history-import-worker] iniciado (on-demand via queue)');
 
     // Agendar Batch Jobs
     await scheduleBatchJobs();

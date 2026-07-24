@@ -13,6 +13,7 @@ import { Users, DollarSign, Activity, Settings, TrendingUp, TrendingDown, Layers
 import { toast } from "sonner";
 import { supabase } from '@/src/lib/supabase';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { TOOLTIP_STYLE, GRID_STYLE } from '@/src/lib/chart-theme';
 
 interface TenantRow {
   id: string;
@@ -313,10 +314,10 @@ export const SuperAdminPage = () => {
               <CardContent>
                 <ResponsiveContainer width="100%" height={200}>
                   <LineChart data={mrrHistory}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.06)" />
-                    <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                    <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `R$${v}`} />
-                    <Tooltip formatter={(v: any) => [`R$ ${Number(v).toFixed(2)}`, 'MRR']} />
+                    <CartesianGrid {...GRID_STYLE} />
+                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }} tickFormatter={v => `R$${v}`} axisLine={false} tickLine={false} />
+                    <Tooltip {...TOOLTIP_STYLE} formatter={(v: any) => [`R$ ${Number(v).toFixed(2)}`, 'MRR']} />
                     <Line type="monotone" dataKey="mrr" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
                   </LineChart>
                 </ResponsiveContainer>

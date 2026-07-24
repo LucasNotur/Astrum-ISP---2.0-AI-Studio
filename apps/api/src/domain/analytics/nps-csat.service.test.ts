@@ -3,6 +3,8 @@ import {
   calculateNps,
   calculateCsat,
   buildSatisfactionReport,
+  getConversationCsatScore,
+  batchConversationCsatScores,
   SurveyResponse,
   NpsCsatPorts,
 } from './nps-csat.service';
@@ -92,6 +94,101 @@ describe('nps-csat.service', () => {
       expect(report.nps.total).toBe(0);
       expect(report.csat.total).toBe(0);
       expect(report.trend).toHaveLength(0);
+    });
+  });
+
+  // ── D-05 CSAT real: lookup por conversa ─────────────────────────────────
+
+  describe('getConversationCsatScore', () => {
+    function makeDb(score: number | null) {
+      return {
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                eq: () => ({
+                  order: () => ({
+                    limit: () => ({
+                      maybeSingle: () => Promise.resolve({
+                        data: score != null ? { score } : null,
+                        error: null,
+                      }),
+                    }),
+                  }),
+                }),
+              }),
+            }),
+          }),
+        }),
+      };
+    }
+
+    it('retorna a nota CSAT quando existe', async () => {
+      const score = await getConversationCsatScore('t1', 'conv-1', { db: makeDb(5) as any });
+      expect(score).toBe(5);
+    });
+
+    it('retorna null quando não há resposta CSAT', async () => {
+      const score = await getConversationCsatScore('t1', 'conv-1', { db: makeDb(null) as any });
+      expect(score).toBeNull();
+    });
+  });
+
+  describe('batchConversationCsatScores', () => {
+    it('retorna Map com scores por conversation_id', async () => {
+      const db = {
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              in: () => ({
+                eq: () => ({
+                  order: () => Promise.resolve({
+                    data: [
+                      { conversation_id: 'c1', score: 5 },
+                      { conversation_id: 'c2', score: 3 },
+                    ],
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          }),
+        }),
+      };
+      const scores = await batchConversationCsatScores('t1', ['c1', 'c2', 'c3'], { db: db as any });
+      expect(scores.get('c1')).toBe(5);
+      expect(scores.get('c2')).toBe(3);
+      expect(scores.has('c3')).toBe(false);
+    });
+
+    it('retorna Map vazio para lista vazia de IDs', async () => {
+      const db = { from: () => {} };
+      const scores = await batchConversationCsatScores('t1', [], { db: db as any });
+      expect(scores.size).toBe(0);
+    });
+
+    it('primeiro score ganha (mais recente pelo order desc)', async () => {
+      const db = {
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              in: () => ({
+                eq: () => ({
+                  order: () => Promise.resolve({
+                    data: [
+                      { conversation_id: 'c1', score: 5 },
+                      { conversation_id: 'c1', score: 2 },
+                    ],
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          }),
+        }),
+      };
+      const scores = await batchConversationCsatScores('t1', ['c1'], { db: db as any });
+      expect(scores.get('c1')).toBe(5);
     });
   });
 });

@@ -8,17 +8,14 @@ import {
   BarChart, Bar, Legend, PieChart, Pie, Cell, LineChart, Line, ComposedChart
 } from "recharts";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/src/components/ui/tabs";
-
-const COLORS = [
-  'hsl(var(--chart-1))',
-  'hsl(var(--chart-2))',
-  'hsl(var(--chart-3))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))',
-];
+import { useTheme } from 'next-themes';
+import { CHART_PALETTE, TOOLTIP_STYLE, GRID_STYLE, AXIS_STYLE, getSeriesColor } from '@/src/lib/chart-theme';
 
 export function BIPage() {
   const { customers, invoices, tickets, auditLogs, currentUserRole } = useAppStore();
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+  const COLORS = isDark ? CHART_PALETTE.dark : CHART_PALETTE.light;
   const [activeView, setActiveView] = useState("financeiro");
 
   // Finance Metrics
@@ -122,10 +119,10 @@ export function BIPage() {
                   <CardContent className="h-[300px]">
                      <ResponsiveContainer width="100%" height="100%">
                         <ComposedChart data={financeData}>
-                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                           <CartesianGrid {...GRID_STYLE} vertical={false} />
                            <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={12} />
                            <YAxis axisLine={false} tickLine={false} fontSize={12} stopColor="var(--muted)" />
-                           <RechartsTooltip contentStyle={{ borderRadius: '8px' }} />
+                           <RechartsTooltip {...TOOLTIP_STYLE} />
                            <Legend />
                            <Bar dataKey="Receita" fill="#10b981" radius={[4,4,0,0]} />
                            <Bar dataKey="Inadimplencia" fill="#ef4444" radius={[4,4,0,0]} />
@@ -155,7 +152,7 @@ export function BIPage() {
                               <Cell fill="#f59e0b" />
                               <Cell fill="#ef4444" />
                            </Pie>
-                           <RechartsTooltip />
+                           <RechartsTooltip {...TOOLTIP_STYLE} />
                            <Legend />
                         </PieChart>
                      </ResponsiveContainer>
@@ -174,10 +171,10 @@ export function BIPage() {
                   <CardContent className="h-[300px]">
                      <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={ticketsData} layout="vertical" margin={{ left: 40 }}>
-                           <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                           <CartesianGrid {...GRID_STYLE} horizontal={false} />
                            <XAxis type="number" />
                            <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} fontSize={10} width={100} />
-                           <RechartsTooltip />
+                           <RechartsTooltip {...TOOLTIP_STYLE} />
                            <Bar dataKey="quantidade" fill="#6366f1" radius={[0,4,4,0]}>
                               {ticketsData.map((entry, index) => (
                                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -218,10 +215,10 @@ export function BIPage() {
                               <stop offset="95%" stopColor="#f43f5e" stopOpacity={0}/>
                            </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <CartesianGrid {...GRID_STYLE} vertical={false} />
                         <XAxis dataKey="name" axisLine={false} tickLine={false} />
                         <YAxis axisLine={false} tickLine={false} />
-                        <RechartsTooltip />
+                        <RechartsTooltip {...TOOLTIP_STYLE} />
                         <Legend />
                         <Area type="monotone" dataKey="ResolvidosIA" name="Resolvidos pela IA" stroke="#8b5cf6" fillOpacity={1} fill="url(#colorIa)" strokeWidth={2} />
                         <Area type="monotone" dataKey="TransferidosHumano" name="Transferidos para Humano" stroke="#f43f5e" fillOpacity={1} fill="url(#colorHumano)" strokeWidth={2} />
@@ -327,10 +324,10 @@ export function BIPage() {
                   ]}
                   margin={{ top: 10, right: 20, left: 0, bottom: 5 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <CartesianGrid {...GRID_STYLE} vertical={false} />
                   <XAxis dataKey="metric" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
-                  <RechartsTooltip />
+                  <RechartsTooltip {...TOOLTIP_STYLE} />
                   <Legend />
                   <Bar dataKey="voce" name="Seu ISP" fill="#6366f1" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="meta" name="Meta ANATEL" fill="#f59e0b" radius={[4, 4, 0, 0]} />

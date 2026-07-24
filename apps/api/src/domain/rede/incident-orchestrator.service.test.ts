@@ -17,6 +17,7 @@ import {
   communicateIncident,
   normalizeIncident,
   isNocAutonomoEnabled,
+  isAutoCommunicateEnabled,
 } from './incident-orchestrator.service';
 
 describe('máquina de estados D-04', () => {
@@ -183,6 +184,135 @@ describe('transitionIncident / communicateIncident', () => {
     const { notifications } = mockIncidentDb({ id: 'i1', status: 'confirmada', cto_id: 'cto-1', affected_customers: 20 });
     const r = await normalizeIncident('t1', 'i1', undefined);
     expect(r.notified).toBe(0);
+    expect(notifications).toHaveLength(0);
+  });
+});
+
+// ── D-04 Fase 2: auto-communicate ───────────────────────────────────────────
+
+describe('isAutoCommunicateEnabled', () => {
+  it('retorna true quando tenant tem noc_auto_communicate=true', async () => {
+    const db: any = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: () => Promise.resolve({ data: { noc_auto_communicate: true }, error: null }),
+          }),
+        }),
+      }),
+    };
+    expect(await isAutoCommunicateEnabled('t1', db)).toBe(true);
+  });
+
+  it('retorna false quando flag ausente ou false', async () => {
+    const db: any = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: () => Promise.resolve({ data: { noc_auto_communicate: false }, error: null }),
+          }),
+        }),
+      }),
+    };
+    expect(await isAutoCommunicateEnabled('t1', db)).toBe(false);
+  });
+
+  it('retorna false quando tenant não encontrado', async () => {
+    const db: any = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: () => Promise.resolve({ data: null, error: null }),
+          }),
+        }),
+      }),
+    };
+    expect(await isAutoCommunicateEnabled('t1', db)).toBe(false);
+  });
+});
+
+describe('auto-communicate ao confirmar incidente alto', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  function mockAutoDb(incident: any, autoCommunicate: boolean) {
+    const updates: any[] = [];
+    const notifications: any[] = [];
+    let callCount = 0;
+
+    vi.mocked(supabase.from).mockImplementation(((table: string) => {
+      if (table === 'incidents') {
+        const chain: any = {
+          select: () => chain, eq: () => chain,
+          maybeSingle: async () => {
+            // First call: returns original; subsequent calls: patched state
+            if (callCount === 0) {
+              callCount++;
+              return { data: { ...incident }, error: null };
+            }
+            // After transition to 'confirmada', communicateIncident loads it again
+            return { data: { ...incident, status: 'confirmada', affected_customers: 3 }, error: null };
+          },
+          update: (patch: any) => {
+            updates.push(patch);
+            // Bump callCount so next load sees updated state
+            callCount++;
+            const uc: any = { eq: () => uc, then: (cb: any) => Promise.resolve({ error: null }).then(cb) };
+            return uc;
+          },
+        };
+        return chain;
+      }
+      if (table === 'customers') return makeChain([{ id: 'c1' }, { id: 'c2' }, { id: 'c3' }]);
+      if (table === 'tenants') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () => Promise.resolve({
+                data: { noc_auto_communicate: autoCommunicate },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === 'outage_notifications') {
+        return { insert: async (row: any) => { notifications.push(row); return { error: null }; } };
+      }
+      throw new Error(`tabela: ${table}`);
+    }) as any);
+    return { updates, notifications };
+  }
+
+  it('auto-comunica incidente de severidade alto quando flag do tenant está ligada', async () => {
+    const { updates, notifications } = mockAutoDb(
+      { id: 'i1', status: 'suspeita', severity: 'alto', cto_id: 'cto-1' },
+      true,
+    );
+    await transitionIncident('t1', 'i1', 'confirmada');
+    expect(updates.some((u) => u.status === 'confirmada')).toBe(true);
+    expect(updates.some((u) => u.status === 'comunicada')).toBe(true);
+    expect(notifications.length).toBeGreaterThan(0);
+  });
+
+  it('não auto-comunica quando flag desligada', async () => {
+    const { updates, notifications } = mockAutoDb(
+      { id: 'i1', status: 'suspeita', severity: 'alto', cto_id: 'cto-1' },
+      false,
+    );
+    await transitionIncident('t1', 'i1', 'confirmada');
+    expect(updates.some((u) => u.status === 'confirmada')).toBe(true);
+    expect(updates.some((u) => u.status === 'comunicada')).toBe(false);
+    expect(notifications).toHaveLength(0);
+  });
+
+  it('não auto-comunica incidente de severidade medio mesmo com flag ligada', async () => {
+    const { updates, notifications } = mockAutoDb(
+      { id: 'i1', status: 'suspeita', severity: 'medio', cto_id: 'cto-1' },
+      true,
+    );
+    await transitionIncident('t1', 'i1', 'confirmada');
+    expect(updates.some((u) => u.status === 'confirmada')).toBe(true);
+    expect(updates.some((u) => u.status === 'comunicada')).toBe(false);
     expect(notifications).toHaveLength(0);
   });
 });

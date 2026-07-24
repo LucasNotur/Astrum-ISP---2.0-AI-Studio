@@ -24,6 +24,41 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-24] Auditoria + housekeeping + D-05 KB Curadoria UI
+Tarefa: Auditar planos pendentes (G, F, D-04/D-05, H), fechar gaps reais
+Achados:
+  - PLANO_G 100% completo (G-01..G-07 executados em sessão anterior) → renomeado __CONCLUIDO
+  - PLANO_F ~100% code-complete (todas as UI pages existem: IncidentsPage, ReflectionsPage, GenesisReportPage, ValorGeradoPage com autoevo)
+  - PLANO_H gated em 10 ISPs (não executável)
+  - D-04/D-05: backend completo, UI existente — gap real: aba de curadoria KB (D-05)
+Gap fechado — D-05 KB Curadoria UI:
+  - src/pages/KnowledgeBasePage.tsx — nova aba "Curadoria IA" com: lista de rascunhos (GET /api/v2/kb/drafts), filtro por status (pendente/aprovado/rejeitado/publicado), scan de conversas (POST scan), aprovar/rejeitar com 1 clique, empty state com ação, skeletons, badge de pendentes na aba
+  - src/components/CommandPalette.tsx — adicionadas entradas: "Análise WhatsApp Engine" (genesis) e "Curadoria de artigos IA" (kb)
+  - .astrum-progress/00_PLANO_DE_ACAO_GERAL — PLANO_G movido para CONCLUIDO
+Testes: Vite compila sem erros, zero console errors.
+Status: ✅ Housekeeping completa. D-05 UI gap fechado. Todos os 4 planos do print auditados.
+
+---
+
+[2026-07-24] PLANO_G G-01 — Home inteligente por papel
+Tarefa: Executar G-01 do PLANO_G (UI/UX 2.0), primeiro item da frente 100% pendente
+Auditoria prévia: PLANO_F está essencialmente code-complete (F4-01/F4-02/F2-02/F2-03/F3-01/F6-03/F6-04/F6-05 todos existem no repo). PLANO_H gated (10 ISPs). Escolhido PLANO_G G-01 por maior impacto real.
+Achado extra: churnRoutes (IA-07) não estava registrada no server.ts — corrigido.
+Arquivos criados:
+  - apps/api/src/domain/home/smart-home.service.ts — buildSmartHome (agrega incidentes, inbox, cashflow, churn, brain, campo, CTOs por papel; health score 0-100; prioridades ranqueadas)
+  - apps/api/src/domain/home/smart-home.routes.ts — GET /api/v2/home/smart (autenticado, sem RBAC específico)
+  - apps/api/src/domain/home/smart-home.service.test.ts — 6 testes (owner/operator/viewer/empty/sorting/clamping)
+  - src/pages/SmartHomePage.tsx — health ring animado (Framer Motion), snapshot bar, action cards com severity, divulgação progressiva, lazy loaded
+Arquivos modificados:
+  - apps/api/src/server.ts — registra smartHomeRoutes + churnRoutes
+  - src/routes/main.routes.tsx — nova rota /home (lazy), default redirect "/" → /home
+  - src/components/layout/Sidebar.tsx — sidebar aponta para /home
+  - src/components/CommandPalette.tsx — adiciona "Home" (G H) ao Ctrl+K
+Testes: 6 verdes (smart-home); typecheck limpo nos arquivos novos; frontend compila sem erros.
+Status: ✅ G-01 code-complete. /home é a nova entrada padrão; /dashboard legado preservado (R5).
+
+---
+
 [2026-07-23] D-05 KB viva Fase 2 — confirmação do cliente acelera o artigo
 Tarefa: Aprofundar D-05 (último diferencial desbloqueado pela Onda 2)
 Achado: D-05 Fase 1 completo (conversa resolvida ≥7d → GPT-4o → curadoria → RAG), mas a quarentena era fixa em 7 dias para todos. Faltava a Fase 2: sinal de confirmação explícita do cliente acelerar a geração.

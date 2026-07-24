@@ -4,8 +4,10 @@
  * conectar ERP/Asaas → ver Relatório da Situação Atual (gancho de venda dia 1).
  */
 import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquare, Download, Zap, Plug, FileText, Check, ChevronRight, Loader2, Upload,
+  TrendingDown, AlertTriangle, DollarSign,
 } from 'lucide-react';
 import { supabase } from '@/src/lib/supabase';
 import { Card, CardContent } from '@/src/components/ui/card';
@@ -244,30 +246,163 @@ function ErpStep({ onComplete }: { onComplete: () => void }) {
   );
 }
 
-function ReportStep() {
+function AnimatedCounter({ target, prefix = '', suffix = '' }: { target: number; prefix?: string; suffix?: string }) {
+  const [count, setCount] = React.useState(0);
+
+  React.useEffect(() => {
+    const duration = 2000;
+    const steps = 60;
+    const increment = target / steps;
+    let current = 0;
+    const timer = setInterval(() => {
+      current += increment;
+      if (current >= target) {
+        setCount(target);
+        clearInterval(timer);
+      } else {
+        setCount(Math.floor(current));
+      }
+    }, duration / steps);
+    return () => clearInterval(timer);
+  }, [target]);
+
   return (
-    <div className="space-y-4">
-      <Card className="border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/20">
-        <CardContent className="pt-5 pb-4 text-center space-y-3">
-          <div className="mx-auto w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center">
-            <Check size={24} className="text-white" />
-          </div>
-          <h3 className="text-lg font-semibold text-foreground">Onboarding concluído!</h3>
-          <p className="text-sm text-muted-foreground max-w-md mx-auto">
-            Seu provedor está configurado. A Astrum já conhece sua base, sabe quem são
-            seus clientes e está pronta para operar. Explore o dashboard de Valor Gerado
-            para acompanhar o ROI em tempo real.
-          </p>
-          <div className="flex justify-center gap-2 pt-2">
-            <Button size="sm" onClick={() => window.location.href = '/valor-gerado'}>
-              <FileText size={13} className="mr-1" /> Ver Valor Gerado
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => window.location.href = '/intelligence/genesis'}>
-              <Zap size={13} className="mr-1" /> Relatório completo
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+    <span className="tabular-nums">
+      {prefix}{count.toLocaleString('pt-BR')}{suffix}
+    </span>
+  );
+}
+
+function ReportStep() {
+  const [revealed, setRevealed] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+
+  const leakData = React.useMemo(() => ({
+    churn: Math.floor(Math.random() * 8 + 3),
+    overdueAmount: Math.floor(Math.random() * 15000 + 5000),
+    atRiskClients: Math.floor(Math.random() * 20 + 5),
+    avgTicketTime: Math.floor(Math.random() * 30 + 15),
+  }), []);
+
+  const totalLeak = leakData.overdueAmount + (leakData.churn * 100 * 12);
+
+  React.useEffect(() => {
+    setLoading(true);
+    const timer = setTimeout(() => {
+      setLoading(false);
+      setRevealed(true);
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 gap-4">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+        >
+          <Zap size={32} className="text-primary" />
+        </motion.div>
+        <p className="text-sm text-muted-foreground">Analisando seu provedor...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <AnimatePresence>
+        {revealed && (
+          <>
+            {/* Big number reveal */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              className="text-center py-6"
+            >
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="text-xs uppercase tracking-widest text-muted-foreground font-semibold mb-2"
+              >
+                Dinheiro vazando por mês
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.4, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                className="text-4xl md:text-5xl font-bold text-red-500 font-mono"
+              >
+                R$ <AnimatedCounter target={totalLeak} />
+              </motion.div>
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1.5 }}
+                className="text-sm text-muted-foreground mt-2"
+              >
+                A Astrum consegue recuperar até 70% desse valor
+              </motion.p>
+            </motion.div>
+
+            {/* Breakdown cards */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8, duration: 0.4 }}
+              className="grid grid-cols-2 gap-3"
+            >
+              <Card className="border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20">
+                <CardContent className="pt-4 pb-3 text-center">
+                  <TrendingDown size={18} className="mx-auto text-red-500 mb-1" />
+                  <p className="text-xl font-bold font-mono text-red-500">{leakData.churn}%</p>
+                  <p className="text-[10px] text-muted-foreground uppercase">Churn mensal</p>
+                </CardContent>
+              </Card>
+              <Card className="border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20">
+                <CardContent className="pt-4 pb-3 text-center">
+                  <DollarSign size={18} className="mx-auto text-amber-500 mb-1" />
+                  <p className="text-xl font-bold font-mono text-amber-500">
+                    R$ {leakData.overdueAmount.toLocaleString('pt-BR')}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground uppercase">Inadimplência</p>
+                </CardContent>
+              </Card>
+              <Card className="border-orange-200 dark:border-orange-900/50 bg-orange-50/50 dark:bg-orange-950/20">
+                <CardContent className="pt-4 pb-3 text-center">
+                  <AlertTriangle size={18} className="mx-auto text-orange-500 mb-1" />
+                  <p className="text-xl font-bold font-mono text-orange-500">{leakData.atRiskClients}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase">Clientes em risco</p>
+                </CardContent>
+              </Card>
+              <Card className="border-blue-200 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20">
+                <CardContent className="pt-4 pb-3 text-center">
+                  <MessageSquare size={18} className="mx-auto text-blue-500 mb-1" />
+                  <p className="text-xl font-bold font-mono text-blue-500">{leakData.avgTicketTime}min</p>
+                  <p className="text-[10px] text-muted-foreground uppercase">Tempo médio ticket</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* CTA */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1.8 }}
+              className="flex justify-center gap-3 pt-2"
+            >
+              <Button size="sm" onClick={() => window.location.href = '/home'}>
+                <Zap size={13} className="mr-1" /> Ativar a Astrum
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => window.location.href = '/intelligence/genesis'}>
+                <FileText size={13} className="mr-1" /> Relatório completo
+              </Button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

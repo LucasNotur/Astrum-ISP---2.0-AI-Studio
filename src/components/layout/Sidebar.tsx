@@ -86,7 +86,7 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
   } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
-  const currentPath = location.pathname.substring(1) || 'dashboard';
+  const currentPath = location.pathname.substring(1) || 'home';
 
   const [isSuperAdmin, setIsSuperAdmin] = React.useState(false);
   const [dlqCount, setDlqCount] = React.useState(0);
@@ -171,11 +171,11 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
 
       <nav className="space-y-1 w-full flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
         {hasAccess('dashboard') && (
-          <NavItem 
-            active={currentPath === 'dashboard'} 
-            onClick={() => navigate('/dashboard')} 
-            icon={<LayoutDashboard size={24} />} 
-            label="Dashboard" 
+          <NavItem
+            active={currentPath === 'home'}
+            onClick={() => navigate('/home')}
+            icon={<LayoutDashboard size={24} />}
+            label="Home"
             collapsed={isSidebarCollapsed}
             shortcut="Alt+1"
           />

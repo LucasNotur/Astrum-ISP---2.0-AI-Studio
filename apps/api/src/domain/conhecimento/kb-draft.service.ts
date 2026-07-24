@@ -14,6 +14,7 @@ import {
   rankCandidates,
   type ConversationSignals,
 } from './kb-candidate-scoring.service';
+import { batchConversationCsatScores } from '../analytics/nps-csat.service';
 
 export interface KbDraft {
   id: string;
@@ -92,6 +93,13 @@ export async function findCandidateConversations(
   const existingIds = new Set((existing ?? []).map((e: any) => e.conversation_id));
   const candidates = convs.filter(c => !existingIds.has(c.id));
 
+  // D-05 CSAT real: busca notas em lote para não fazer N+1.
+  const csatScores = await batchConversationCsatScores(
+    tenantId,
+    candidates.map(c => c.id),
+    { db: supabase },
+  );
+
   const entries: { item: Omit<CandidateConversation, 'explicitConfirmation' | 'priority'>; signals: ConversationSignals }[] = [];
   for (const conv of candidates) {
     const { data: msgs } = await supabase
@@ -117,10 +125,9 @@ export async function findCandidateConversations(
       signals: {
         resolvedAt: conv.updated_at as string,
         messageCount: msgs.length,
-        // status='resolved' no filtro: uma conversa reaberta sai desse conjunto.
         reopened: false,
         explicitConfirmation: confirmed,
-        csatScore: null,
+        csatScore: csatScores.get(conv.id) ?? null,
       },
     });
   }

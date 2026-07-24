@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/src/lib/supabase";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { TOOLTIP_STYLE, GRID_STYLE } from '@/src/lib/chart-theme';
 import { Button } from "@/src/components/ui/button";
 import { FCRMetricsCard } from "@/src/components/FCRMetricsCard";
 import { TimeMetricsCard } from "@/src/components/TimeMetricsCard";
@@ -369,10 +370,10 @@ export default function QualityMonitorPage() {
                    { week: "Semana 3", positivos: 92, negativos: 8 },
                    { week: "Semana 4", positivos: 95, negativos: 5 }
                  ]} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="week" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
-                    <Tooltip />
+                    <CartesianGrid {...GRID_STYLE} vertical={false} />
+                    <XAxis dataKey="week" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }} />
+                    <Tooltip {...TOOLTIP_STYLE} />
                     <Line type="monotone" dataKey="positivos" stroke="#22c55e" strokeWidth={3} dot={{ r: 4 }} />
                     <Line type="monotone" dataKey="negativos" stroke="#ef4444" strokeWidth={3} dot={{ r: 4 }} />
                  </LineChart>

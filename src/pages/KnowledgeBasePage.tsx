@@ -12,7 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/src/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/src/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/src/components/ui/dialog";
-import { Search, Server, Sparkles, Plus, CheckCircle2, XCircle, RotateCcw, PenSquare, Trash2, Cpu, FileUp } from 'lucide-react';
+import { Search, Server, Sparkles, Plus, CheckCircle2, XCircle, RotateCcw, PenSquare, Trash2, Cpu, FileUp, Brain, Eye, Loader2, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { formatDistanceToNow, parseISO } from 'date-fns';
+import { ptBR as datePtBR } from 'date-fns/locale';
+import { Skeleton } from '@/src/components/Skeleton';
 
 export function KnowledgeBasePage() {
   const { user } = useAppStore();
@@ -34,6 +37,84 @@ export function KnowledgeBasePage() {
   // Drag and Drop State
   const [isDragging, setIsDragging] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<{name: string, size: number, progress: number, status: string, error?: string}[]>([]);
+
+  // D-05: KB curation queue
+  const [drafts, setDrafts] = useState<any[]>([]);
+  const [draftsLoading, setDraftsLoading] = useState(false);
+  const [draftFilter, setDraftFilter] = useState<string>('pending');
+  const [scanning, setScanning] = useState(false);
+  const [actioningId, setActioningId] = useState<string | null>(null);
+
+  const API_BASE_URL =
+    (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) ||
+    'http://localhost:3001';
+
+  async function getToken() {
+    const { data } = await supabase.auth.getSession();
+    return data?.session?.access_token ?? '';
+  }
+
+  async function fetchDrafts(status?: string) {
+    setDraftsLoading(true);
+    try {
+      const token = await getToken();
+      const qs = status ? `?status=${status}` : '';
+      const res = await fetch(`${API_BASE_URL}/api/v2/kb/drafts${qs}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDrafts(data.drafts ?? []);
+      }
+    } catch {
+    } finally {
+      setDraftsLoading(false);
+    }
+  }
+
+  async function handleScanDrafts() {
+    setScanning(true);
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_BASE_URL}/api/v2/kb/drafts/scan`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const msg = data.generated > 0
+          ? `${data.generated} rascunho(s) gerado(s) de ${data.candidates} candidato(s)`
+          : data.message || 'Nenhum candidato encontrado';
+        alert(msg);
+        fetchDrafts(draftFilter);
+      }
+    } catch {
+    } finally {
+      setScanning(false);
+    }
+  }
+
+  async function handleDraftAction(id: string, action: 'approve' | 'reject') {
+    setActioningId(id);
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_BASE_URL}/api/v2/kb/drafts/${id}/${action}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        fetchDrafts(draftFilter);
+        if (action === 'approve') fetchKBArticles(currentTenant?.id || currentTenant);
+      }
+    } catch {
+    } finally {
+      setActioningId(null);
+    }
+  }
+
+  useEffect(() => {
+    fetchDrafts(draftFilter);
+  }, [draftFilter]);
 
   // URL Scraper State
   const [urlToScrape, setUrlToScrape] = useState('');
@@ -271,6 +352,15 @@ export function KnowledgeBasePage() {
       <Tabs defaultValue="knowledge" className="w-full">
         <TabsList className="flex flex-wrap h-auto gap-1">
           <TabsTrigger value="knowledge">Artigos (Knowledge Base)</TabsTrigger>
+          <TabsTrigger value="curation" className="gap-1.5">
+            <Brain size={14} />
+            Curadoria IA
+            {drafts.filter(d => d.status === 'pending').length > 0 && (
+              <Badge variant="secondary" className="ml-1 px-1.5 min-w-5 h-5 flex items-center justify-center text-[10px] bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                {drafts.filter(d => d.status === 'pending').length}
+              </Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="searchtest">Testar Busca Semântica</TabsTrigger>
         </TabsList>
 
@@ -413,6 +503,130 @@ export function KnowledgeBasePage() {
               </table>
             </div>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="curation" className="space-y-6 pt-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-display text-lg font-semibold tracking-tight">Fila de curadoria</h3>
+              <p className="text-sm text-muted-foreground">
+                A IA detecta conversas resolvidas e gera rascunhos de artigo. Você aprova com 1 clique.
+              </p>
+            </div>
+            <Button size="sm" onClick={handleScanDrafts} disabled={scanning} className="gap-1.5 shrink-0">
+              {scanning ? <Loader2 size={14} className="animate-spin" /> : <Brain size={14} />}
+              {scanning ? 'Escaneando...' : 'Escanear conversas'}
+            </Button>
+          </div>
+
+          <div className="flex gap-2">
+            {(['pending', 'approved', 'rejected', 'published'] as const).map((s) => {
+              const labels: Record<string, string> = { pending: 'Pendentes', approved: 'Aprovados', rejected: 'Rejeitados', published: 'Publicados' };
+              return (
+                <Button
+                  key={s}
+                  size="sm"
+                  variant={draftFilter === s ? 'default' : 'outline'}
+                  onClick={() => setDraftFilter(s)}
+                  className="text-xs"
+                >
+                  {labels[s]}
+                </Button>
+              );
+            })}
+          </div>
+
+          {draftsLoading && (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-32 rounded-xl" />)}
+            </div>
+          )}
+
+          {!draftsLoading && drafts.length === 0 && (
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
+                <Brain size={32} className="text-muted-foreground" />
+                <p className="text-sm font-medium text-foreground">Nenhum rascunho {draftFilter !== 'pending' ? 'neste filtro' : 'pendente'}</p>
+                <p className="text-xs text-muted-foreground text-center max-w-sm">
+                  Rode o scan para que a IA analise conversas resolvidas e gere artigos candidatos automaticamente.
+                </p>
+                {draftFilter === 'pending' && (
+                  <Button size="sm" variant="outline" onClick={handleScanDrafts} disabled={scanning} className="mt-2 gap-1.5">
+                    <Brain size={14} />
+                    Escanear agora
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {!draftsLoading && drafts.length > 0 && (
+            <div className="space-y-3">
+              {drafts.map((draft: any) => (
+                <Card key={draft.id} className="bg-card text-card-foreground shadow-sm">
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="secondary" className={
+                            draft.status === 'pending' ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400' :
+                            draft.status === 'approved' || draft.status === 'published' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' :
+                            'bg-zinc-500/15 text-zinc-500'
+                          }>
+                            {draft.status === 'pending' ? 'Pendente' :
+                             draft.status === 'approved' ? 'Aprovado' :
+                             draft.status === 'published' ? 'Publicado' : 'Rejeitado'}
+                          </Badge>
+                          {draft.source_summary && (
+                            <span className="text-xs text-muted-foreground truncate max-w-xs">
+                              Fonte: {draft.source_summary}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-2 text-sm font-semibold text-foreground">{draft.draft_title || draft.draftTitle}</p>
+                        <p className="mt-1 text-xs text-muted-foreground line-clamp-3">
+                          {draft.draft_body || draft.draftBody}
+                        </p>
+                        <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+                          <span className="font-mono">
+                            {draft.created_at || draft.createdAt
+                              ? formatDistanceToNow(parseISO(draft.created_at || draft.createdAt), { addSuffix: true, locale: datePtBR })
+                              : ''}
+                          </span>
+                          <span>por {draft.generated_by || draft.generatedBy || 'IA'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {draft.status === 'pending' && (
+                      <div className="mt-3 flex gap-2 border-t border-border pt-3">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-emerald-600 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-700 dark:hover:bg-emerald-950 gap-1"
+                          disabled={actioningId === draft.id}
+                          onClick={() => handleDraftAction(draft.id, 'approve')}
+                        >
+                          <ThumbsUp size={13} />
+                          {actioningId === draft.id ? 'Publicando...' : 'Aprovar e publicar'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-muted-foreground gap-1"
+                          disabled={actioningId === draft.id}
+                          onClick={() => handleDraftAction(draft.id, 'reject')}
+                        >
+                          <ThumbsDown size={13} />
+                          Rejeitar
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="searchtest" className="space-y-6 pt-4">

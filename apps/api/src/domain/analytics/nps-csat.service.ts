@@ -72,6 +72,60 @@ export interface NpsCsatPorts {
   getResponses: (tenantId: string, from: string, to: string) => Promise<SurveyResponse[]>;
 }
 
+// ── D-05 CSAT real: score por conversa ─────────────────────────────────────
+
+export interface CsatLookupPorts {
+  db: { from: (table: string) => any };
+}
+
+/**
+ * Busca a nota CSAT (1..5) mais recente de uma conversa.
+ * Retorna null se não houver resposta CSAT para aquela conversa.
+ */
+export async function getConversationCsatScore(
+  tenantId: string,
+  conversationId: string,
+  ports: CsatLookupPorts,
+): Promise<number | null> {
+  const { data } = await ports.db
+    .from('survey_responses')
+    .select('score')
+    .eq('tenant_id', tenantId)
+    .eq('conversation_id', conversationId)
+    .eq('type', 'csat')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data?.score ?? null;
+}
+
+/**
+ * Busca notas CSAT em lote para múltiplas conversas.
+ * Retorna Map<conversationId, score>.
+ */
+export async function batchConversationCsatScores(
+  tenantId: string,
+  conversationIds: string[],
+  ports: CsatLookupPorts,
+): Promise<Map<string, number>> {
+  if (!conversationIds.length) return new Map();
+  const { data } = await ports.db
+    .from('survey_responses')
+    .select('conversation_id, score')
+    .eq('tenant_id', tenantId)
+    .in('conversation_id', conversationIds)
+    .eq('type', 'csat')
+    .order('created_at', { ascending: false });
+
+  const scores = new Map<string, number>();
+  for (const row of data ?? []) {
+    if (!scores.has(row.conversation_id)) {
+      scores.set(row.conversation_id, row.score);
+    }
+  }
+  return scores;
+}
+
 export async function buildSatisfactionReport(
   tenantId: string,
   from: string,
