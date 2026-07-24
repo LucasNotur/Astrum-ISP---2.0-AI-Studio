@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from 'next-themes';
 import {
   Users, MessageSquare, FileText, Wrench, LayoutDashboard,
-  Map, BarChart2, Settings, Shield, Zap, Bot, Plus,
+  Map as MapIcon, BarChart2, Settings, Shield, Zap, Bot, Plus,
   Receipt, Phone, ArrowRight, Sun, Moon, Download,
   AlertTriangle, BookOpen, Brain, PanelLeftClose, PanelLeft,
   Ticket, CreditCard, Package, Route, ShoppingBag,
@@ -78,7 +78,7 @@ const NAV_ITEMS: { label: string; path: string; icon: React.ReactNode; shortcut?
   { label: 'Financeiro',         path: '/billing',        icon: <CreditCard size={16} />,      shortcut: 'Alt+6',  keywords: 'cobrança fatura pagamento' },
   { label: 'CobrAI',             path: '/cobrai',         icon: <Zap size={16} />,             keywords: 'cobranca automatica inadimplencia' },
   { label: 'CRM Técnico / OS',   path: '/os',             icon: <Wrench size={16} />,          shortcut: 'Alt+O',  keywords: 'ordem servico tecnico' },
-  { label: 'Mapa de Cobertura',  path: '/map',            icon: <Map size={16} />,             shortcut: 'Alt+5',  keywords: 'rede mapa cto fibra' },
+  { label: 'Mapa de Cobertura',  path: '/map',            icon: <MapIcon size={16} />,          shortcut: 'Alt+5',  keywords: 'rede mapa cto fibra' },
   { label: 'Operações de Campo', path: '/campo',          icon: <Route size={16} />,           keywords: 'campo tecnico rota' },
   { label: 'BI / Relatórios',    path: '/bi',             icon: <BarChart2 size={16} />,       keywords: 'relatorio grafico business intelligence' },
   { label: 'Estoque',            path: '/inventory',      icon: <Package size={16} />,         keywords: 'material equipamento' },
