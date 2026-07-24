@@ -215,6 +215,10 @@ export async function buildServer() {
   const { erpAdminRoutes } = await import('./domain/erp/erp-admin.routes');
   await app.register(erpAdminRoutes);
 
+  // S90 — Svix outbound webhooks: configuração de endpoints pelo ISP.
+  const webhookConfigRoutes = await import('./domain/webhooks/webhook-config.routes');
+  await app.register(webhookConfigRoutes.default);
+
   const websocketRoutes = await import('./domain/realtime/websocket.routes');
   await app.register(websocketRoutes.default);
 
@@ -264,6 +268,10 @@ export async function buildServer() {
   const { fieldCopilotRoutes } = await import('./domain/campo/field-copilot.routes');
   await app.register(fieldCopilotRoutes);
 
+  // PLANO I (Uber do Técnico) I-1 — agenda + máquina de estados da OS de campo
+  const { fieldOpsRoutes } = await import('./domain/campo/field-ops.routes');
+  await app.register(fieldOpsRoutes);
+
   // D-07 — Painel comercial: funil de conversão + LTV médio
   const { vendasDashboardRoutes } = await import('./domain/vendas/vendas-dashboard.routes');
   await app.register(vendasDashboardRoutes);
@@ -303,6 +311,24 @@ export async function buildServer() {
   // D-23 — Gênesis Engine: análise retroativa do histórico de WhatsApp
   const { genesisRoutes } = await import('./domain/atendimento/genesis.routes');
   await app.register(genesisRoutes);
+
+  const { negotiationRoutes } = await import('./domain/cobranca/negotiation.routes');
+  await app.register(negotiationRoutes);
+
+  // F6-02 — Sync gateway Asaas → invoices (cobranças aparecem no CobrAI)
+  const { gatewaySyncRoutes } = await import('./domain/cobranca/gateway-sync.routes');
+  await app.register(gatewaySyncRoutes);
+
+  const { sheetImportRoutes } = await import('./domain/onboarding/sheet-import.routes');
+  await app.register(sheetImportRoutes);
+
+  // IA-07 — Churn risk ranking (estava sem registro)
+  const { churnRoutes } = await import('./domain/ia/churn.routes');
+  await app.register(churnRoutes);
+
+  // G-01 — Home inteligente por papel (agrega incidentes, inbox, cashflow, churn, campo)
+  const { smartHomeRoutes } = await import('./domain/home/smart-home.routes');
+  await app.register(smartHomeRoutes);
 
   // Health check com status dos serviços
   app.get('/api/v2/health', async () => {
@@ -430,6 +456,105 @@ export async function startFastifyServer() {
     const { createMessageWorker } = await import('../../../packages/queue/src/workers/message.worker');
     const msgWorker = createMessageWorker();
     app.log.info('[message-worker] v2 iniciado (shadow mode ativo enquanto ATENDIMENTO_ENGINE=legacy)');
+
+    // F2-01 — Nightly brain worker (03:00 BRT, flag NIGHTLY_BRAIN_ENABLED).
+    // @ts-ignore
+    const { createNightlyBrainWorker, scheduleNightlyBrainJobs } = await import('../../../packages/queue/src/workers/nightly-brain.worker');
+    const brainWorker = createNightlyBrainWorker();
+    if (brainWorker) {
+      await scheduleNightlyBrainJobs();
+      app.log.info('[nightly-brain-worker] iniciado (03:00 BRT)');
+    }
+
+    // S79 — Workers de atendimento (SLA + FCR + Snooze).
+    // @ts-ignore
+    const { createSlaWorker, scheduleSlaJobs } = await import('../../../packages/queue/src/workers/sla.worker');
+    createSlaWorker();
+    await scheduleSlaJobs();
+    app.log.info('[sla-worker] iniciado (*/5 * * * *)');
+
+    // @ts-ignore
+    const { createFcrWorker, scheduleFcrJobs } = await import('../../../packages/queue/src/workers/fcr.worker');
+    createFcrWorker();
+    await scheduleFcrJobs();
+    app.log.info('[fcr-worker] iniciado (01:00 BRT)');
+
+    // @ts-ignore
+    const { createSnoozeWorker, scheduleSnoozeJobs } = await import('../../../packages/queue/src/workers/snooze.worker');
+    createSnoozeWorker();
+    await scheduleSnoozeJobs();
+    app.log.info('[snooze-worker] iniciado (* * * * *)');
+
+    // S80 — Workers de gestão (Report + Gamification + PlanSync).
+    // @ts-ignore
+    const { createReportWorker, scheduleReportJobs } = await import('../../../packages/queue/src/workers/report.worker');
+    createReportWorker();
+    await scheduleReportJobs();
+    app.log.info('[report-worker] iniciado (23:00 BRT)');
+
+    // @ts-ignore
+    const { createGamificationWorker, scheduleGamificationJobs } = await import('../../../packages/queue/src/workers/gamification.worker');
+    createGamificationWorker();
+    await scheduleGamificationJobs();
+    app.log.info('[gamification-worker] iniciado (02:00 BRT)');
+
+    // @ts-ignore
+    const { createPlanSyncWorker, schedulePlanSyncJobs } = await import('../../../packages/queue/src/workers/plan-sync.worker');
+    createPlanSyncWorker();
+    await schedulePlanSyncJobs();
+    app.log.info('[plan-sync-worker] iniciado (00:00 BRT)');
+
+    // S81 — Workers de percepção (Vision + SiteScrape + ErpSync).
+    // @ts-ignore
+    const { createVisionWorker } = await import('../../../packages/queue/src/workers/vision.worker');
+    createVisionWorker();
+    app.log.info('[vision-worker] iniciado (on-demand via queue)');
+
+    // @ts-ignore
+    const { createSiteScrapeWorker, scheduleSiteScrapeJobs } = await import('../../../packages/queue/src/workers/site-scrape.worker');
+    createSiteScrapeWorker();
+    await scheduleSiteScrapeJobs();
+    app.log.info('[site-scrape-worker] iniciado (dom 02:00 BRT)');
+
+    // @ts-ignore
+    const { createErpSyncWorker, scheduleErpSyncJobs } = await import('../../../packages/queue/src/workers/erp-sync.worker');
+    createErpSyncWorker();
+    await scheduleErpSyncJobs();
+    app.log.info('[erp-sync-worker] iniciado (*/30 * * * *)');
+
+    // S76 — UsageSync worker (contadores Redis → Supabase, alerta budget LLM).
+    // @ts-ignore
+    const { createUsageSyncWorker, scheduleUsageSyncJobs } = await import('../../../packages/queue/src/workers/usage-sync.worker');
+    createUsageSyncWorker();
+    await scheduleUsageSyncJobs();
+    app.log.info('[usage-sync-worker] iniciado (23:30 BRT)');
+
+    // S88 — Synthetic monitor worker (sonda E2E a cada 15min).
+    // @ts-ignore
+    const { createSyntheticMonitorWorker, scheduleSyntheticMonitorJobs } = await import('../../../packages/queue/src/workers/synthetic-monitor.worker');
+    createSyntheticMonitorWorker();
+    await scheduleSyntheticMonitorJobs();
+    app.log.info('[synthetic-monitor-worker] iniciado (*/15 * * * *)');
+
+    // S92 — Crisis detector worker (crise massiva por região, */1).
+    // @ts-ignore
+    const { createCrisisWorker, scheduleCrisisJobs } = await import('../../../packages/queue/src/workers/crisis.worker');
+    createCrisisWorker();
+    await scheduleCrisisJobs();
+    app.log.info('[crisis-worker] iniciado (*/1 * * * *)');
+
+    // S93 — Network telemetry worker (SNMP poller, */5).
+    // @ts-ignore
+    const { createNetworkTelemetryWorker, scheduleNetworkTelemetryJobs } = await import('../../../packages/queue/src/workers/network-telemetry.worker');
+    createNetworkTelemetryWorker();
+    await scheduleNetworkTelemetryJobs();
+    app.log.info('[network-telemetry-worker] iniciado (*/5 * * * *)');
+
+    // F6-01 — History Import worker (on-demand via queue, sem cron).
+    // @ts-ignore
+    const { createHistoryImportWorker } = await import('../../../packages/queue/src/workers/history-import.worker');
+    createHistoryImportWorker();
+    app.log.info('[history-import-worker] iniciado (on-demand via queue)');
 
     // Agendar Batch Jobs
     await scheduleBatchJobs();

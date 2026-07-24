@@ -19,9 +19,11 @@ import { toast } from "sonner";
 import { createCustomer, updateCustomer as updateCustomerDb } from '@/src/lib/db';
 import { cn } from "@/src/lib/utils";
 import { GlowButton } from "@/src/components/ui/glow-button";
+import { CustomerDetailSheet } from '@/src/components/CustomerDetailSheet';
 
 export function CustomersPage() {
   const { customers, setCustomers, tickets, invoices, auditLogs, currentUserRole, setSelectedCustomerDetails, setIsDetailsDialogOpen, setConfirmDialog, integrationKeys, companySettings, user } = useAppStore();
+  const [detailSheetCustomerId, setDetailSheetCustomerId] = useState<string | null>(null);
   const isOwner = currentUserRole === 'owner' || currentUserRole === 'admin';
 
   const tenantId = companySettings?.tenant_id || user?.tenantId || 'default';
@@ -278,8 +280,7 @@ export function CustomersPage() {
   };
 
   const handleViewDetails = (customer: any) => {
-    setSelectedCustomerDetails(customer);
-    setIsDetailsDialogOpen(true);
+    setDetailSheetCustomerId(customer.id);
   };
 
   const exportCustomersToCSV = () => {
@@ -1382,6 +1383,12 @@ export function CustomersPage() {
              </DialogFooter>
           </DialogContent>
         </Dialog>
+
+      <CustomerDetailSheet
+        open={!!detailSheetCustomerId}
+        onClose={() => setDetailSheetCustomerId(null)}
+        customerId={detailSheetCustomerId || undefined}
+      />
     </>
   );
 }

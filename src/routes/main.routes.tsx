@@ -2,6 +2,7 @@ import React, { lazy, Suspense } from 'react';
 import { Route, Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { DashboardPage } from '../pages/DashboardPage';
+const SmartHomePage = lazy(() => import('../pages/SmartHomePage'));
 import { SuperAdminPage } from '../pages/SuperAdminPage';
 import { SuperAdminRoute } from '../components/SuperAdminRoute';
 import { CustomersPage } from '../pages/CustomersPage';
@@ -17,11 +18,15 @@ import { WebhooksPage } from '../pages/WebhooksPage';
 import { SecurityPage } from '../pages/SecurityPage';
 import QualityMonitorPage from '../pages/QualityMonitorPage';
 import TechnicianAppPage from '../pages/TechnicianAppPage';
+import FieldOpsPage from '../pages/FieldOpsPage';
 import { InventoryPage } from '../pages/InventoryPage';
 import { TicketsPage } from '../pages/TicketsPage';
 import { SalesPage } from '../pages/SalesPage';
 import { ValorGeradoPage } from '../pages/ValorGeradoPage';
 import { intelligenceRoutes } from './intelligence.routes';
+const OnboardingWizardPage = lazy(() => import('../pages/OnboardingWizardPage'));
+const HealthDashboardPage = lazy(() => import('../pages/HealthDashboardPage'));
+const PortalPage = lazy(() => import('../pages/PortalPage'));
 import { WhatsAppConnectionsPage } from '../pages/WhatsAppPage';
 import { KnowledgeBasePage } from '../pages/KnowledgeBasePage';
 import { AIConfigPage } from '../pages/AIConfigPage';
@@ -70,10 +75,12 @@ export function mainRoutes(currentUserRole: string) {
       />
       <Route
         path="/"
-        element={<Navigate to={currentUserRole === 'tecnico' ? '/tecnico' : '/dashboard'} replace />}
+        element={<Navigate to={currentUserRole === 'tecnico' ? '/tecnico' : '/home'} replace />}
       />
+      <Route path="/home"             element={<L><SmartHomePage /></L>} />
       <Route path="/dashboard"        element={<DashboardPage />} />
       <Route path="/tecnico"          element={<TechnicianAppPage />} />
+      <Route path="/campo"            element={<FieldOpsPage />} />
       {/* U7-04: ChatPage (~2000 linhas) e BIPage (Recharts pesado) → lazy */}
       <Route path="/bi"               element={<L><BIPage /></L>} />
       <Route path="/chat"             element={<L><ChatPage /></L>} />
@@ -98,6 +105,9 @@ export function mainRoutes(currentUserRole: string) {
       <Route path="/ai-config"        element={<AIConfigPage />} />
       <Route path="/team"             element={<TeamPage />} />
       <Route path="/settings"         element={<SettingsPage />} />
+      <Route path="/health"      element={<L><HealthDashboardPage /></L>} />
+      <Route path="/onboarding" element={<Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}><OnboardingWizardPage /></Suspense>} />
+      <Route path="/portal" element={<L><PortalPage /></L>} />
       {intelligenceRoutes()}
     </>
   );

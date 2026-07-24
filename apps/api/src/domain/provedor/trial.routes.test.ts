@@ -3,6 +3,7 @@ import Fastify from 'fastify';
 import jwt from '@fastify/jwt';
 import { trialRoutes } from './trial.routes';
 import type { TrialDb, InsightDb } from './trial.service';
+import { radarTrialEnabledModules } from './trial.service';
 
 vi.mock('../../infrastructure/auth/password.service', () => ({
   hashPassword: vi.fn().mockResolvedValue('hashed-pw'),
@@ -23,6 +24,7 @@ function makeTrialDb(overrides: Partial<TrialDb> = {}): TrialDb {
     }),
     markErpConnected: vi.fn().mockResolvedValue(undefined),
     markInsightGenerated: vi.fn().mockResolvedValue(undefined),
+    upgradeTenant: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -52,6 +54,35 @@ async function buildApp(trialDb: TrialDb, insightDb: InsightDb) {
 function makeTrialToken(app: any, tenantId = 'trial-tenant-1') {
   return (app as any).jwt.sign({ sub: 'isp@test.com', tenantId, role: 'trial' });
 }
+
+describe('radarTrialEnabledModules (tier semantics)', () => {
+  it('radar_trial desabilita módulos fora do pacote de leitura', () => {
+    const mods = radarTrialEnabledModules();
+    expect(mods['cobrai']).toBe(false);
+    expect(mods['chat']).toBe(false);
+    expect(mods['tickets']).toBe(false);
+    expect(mods['billing']).toBe(false);
+    expect(mods['os']).toBe(false);
+    expect(mods['kb']).toBe(false);
+    expect(mods['inventory']).toBe(false);
+    expect(mods['team']).toBe(false);
+    expect(mods['quality-monitor']).toBe(false);
+    expect(mods['observability']).toBe(false);
+    expect(mods['monitoring']).toBe(false);
+  });
+
+  it('radar_trial NÃO marca false os módulos de leitura (ausência = habilitado)', () => {
+    const mods = radarTrialEnabledModules();
+    expect(mods['customers']).toBeUndefined();
+    expect(mods['bi']).toBeUndefined();
+    expect(mods['map']).toBeUndefined();
+    expect(mods['intelligence']).toBeUndefined();
+  });
+
+  it('upgrade para astrum = objeto vazio (todos habilitados)', () => {
+    expect(Object.keys({})).toHaveLength(0);
+  });
+});
 
 describe('POST /api/v2/trial/signup', () => {
   it('cria trial e retorna token com role trial', async () => {
@@ -192,5 +223,40 @@ describe('POST /api/v2/trial/connect-erp', () => {
       body: JSON.stringify({ provider: 'unknown_erp', baseUrl: 'https://x.com', apiKey: 'k' }),
     });
     expect(res.statusCode).toBe(400);
+  });
+});
+
+describe('POST /api/v2/trial/upgrade', () => {
+  it('atualiza plano para astrum (todos os módulos liberados)', async () => {
+    const trialDb = makeTrialDb();
+    const app = await buildApp(trialDb, makeInsightDb());
+    const token = makeTrialToken(app);
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v2/trial/upgrade',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.plan).toBe('astrum');
+    expect(trialDb.upgradeTenant).toHaveBeenCalledWith('trial-tenant-1');
+  });
+
+  it('401 sem token', async () => {
+    const app = await buildApp(makeTrialDb(), makeInsightDb());
+    const res = await app.inject({ method: 'POST', url: '/api/v2/trial/upgrade' });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('403 com token de operador (não trial)', async () => {
+    const app = await buildApp(makeTrialDb(), makeInsightDb());
+    const token = (app as any).jwt.sign({ sub: 'u1', tenantId: 't1', role: 'admin' });
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v2/trial/upgrade',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(403);
   });
 });

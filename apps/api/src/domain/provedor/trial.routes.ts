@@ -140,6 +140,19 @@ export async function trialRoutes(
     });
   });
 
+  // ── POST /api/v2/trial/upgrade ─────────────────────────────────────────
+  app.post('/api/v2/trial/upgrade', {
+    preHandler: verifyTrialToken,
+  }, async (request, reply) => {
+    const { tenantId } = (request as any).user as { tenantId: string };
+    await trialDb.upgradeTenant(tenantId);
+    return reply.send({
+      ok: true,
+      plan: 'astrum',
+      message: 'Plano atualizado para Astrum. Todos os módulos liberados.',
+    });
+  });
+
   // ── POST /api/v2/trial/connect-erp ───────────────────────────────────────
   app.post('/api/v2/trial/connect-erp', {
     preHandler: verifyTrialToken,

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   Bot, ChevronLeft, ChevronRight, LayoutDashboard, Users,
   Ticket, MessageSquare, Map, Settings, ShieldCheck,
-  CreditCard, Briefcase, Package, LogOut, Phone, BookOpen, Activity, BarChart2, Sparkles, HelpCircle, ShoppingBag, Award
+  CreditCard, Briefcase, Package, LogOut, Phone, BookOpen, Activity, BarChart2, Sparkles, HelpCircle, ShoppingBag, Award, Route
 } from 'lucide-react';
 import { HelpCenter } from '@/src/components/HelpCenter';
 import { cn } from '@/src/lib/utils';
@@ -92,7 +92,7 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
   } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
-  const currentPath = location.pathname.substring(1) || 'dashboard';
+  const currentPath = location.pathname.substring(1) || 'home';
 
   const [isSuperAdmin, setIsSuperAdmin] = React.useState(false);
   const [dlqCount, setDlqCount] = React.useState(0);
@@ -214,11 +214,11 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
 
       <nav className="space-y-1 w-full flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
         {hasAccess('dashboard') && (
-          <NavItem 
-            active={currentPath === 'dashboard'} 
-            onClick={() => navigate('/dashboard')} 
-            icon={<LayoutDashboard size={24} />} 
-            label="Dashboard" 
+          <NavItem
+            active={currentPath === 'home'}
+            onClick={() => navigate('/home')}
+            icon={<LayoutDashboard size={24} />}
+            label="Home"
             collapsed={isSidebarCollapsed}
             shortcut="Alt+1"
           />
@@ -314,6 +314,15 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
             label="Mapa de Cobertura"
             collapsed={isSidebarCollapsed}
             shortcut="Alt+5"
+          />
+        )}
+        {(isProvedorAdmin || hasAccess('os')) && (
+          <NavItem
+            active={currentPath === 'campo'}
+            onClick={() => navigate('/campo')}
+            icon={<Route size={24} />}
+            label="Operações de Campo"
+            collapsed={isSidebarCollapsed}
           />
         )}
         {hasAccess('team') && isEnabled('team') && (

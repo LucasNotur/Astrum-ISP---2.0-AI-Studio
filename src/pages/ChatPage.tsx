@@ -287,6 +287,43 @@ export function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // ── Focus mode (G-05) ──
+  const [focusMode, setFocusMode] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+      if (e.key === 'f' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
+        e.preventDefault();
+        setFocusMode((v) => !v);
+        return;
+      }
+
+      if (isInput) return;
+
+      if (e.key === 'j' || e.key === 'k') {
+        e.preventDefault();
+        const idx = filteredTickets.findIndex((t) => t.id === selectedTicket?.id);
+        const next = e.key === 'j' ? idx + 1 : idx - 1;
+        if (next >= 0 && next < filteredTickets.length) {
+          setSelectedTicket(filteredTickets[next]);
+        }
+        return;
+      }
+
+      if (e.key === 'Escape' && selectedTicket) {
+        setSelectedTicket(null);
+        return;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [filteredTickets, selectedTicket, setSelectedTicket]);
+
   // ── Dialog states ──
   const [isSnoozeOpen, setIsSnoozeOpen]       = useState(false);
   const [isClosingOpen, setIsClosingOpen]     = useState(false);
@@ -583,6 +620,21 @@ export function ChatPage() {
         {/* Filter tabs + search */}
         <div className="flex items-center gap-2 px-4 py-2">
           <FilterTabs value={filterTab} onChange={setFilterTab} metrics={metrics} />
+
+          <button
+            onClick={() => setFocusMode((v) => !v)}
+            className={cn(
+              "hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors",
+              focusMode
+                ? "bg-primary/10 text-primary border-primary/30"
+                : "text-muted-foreground border-transparent hover:bg-muted",
+            )}
+            title="Modo foco (Ctrl+Shift+F)"
+          >
+            <Sparkles size={12} />
+            Foco
+          </button>
+
           <div className="ml-auto relative hidden sm:block">
             <Input
               placeholder="Buscar…"
@@ -689,6 +741,14 @@ export function ChatPage() {
               )}
             </div>
           </ScrollArea>
+
+          {/* Keyboard hints (focus mode) */}
+          {focusMode && (
+            <div className="shrink-0 flex items-center justify-center gap-3 border-t border-border px-2 py-1.5 text-[10px] text-muted-foreground bg-muted/30">
+              <span><kbd className="px-1 py-0.5 rounded border border-border bg-background font-mono">J</kbd> <kbd className="px-1 py-0.5 rounded border border-border bg-background font-mono">K</kbd> navegar</span>
+              <span><kbd className="px-1 py-0.5 rounded border border-border bg-background font-mono">Esc</kbd> voltar</span>
+            </div>
+          )}
         </aside>
 
         {/* ── Center: thread ── */}
@@ -939,8 +999,11 @@ export function ChatPage() {
           )}
         </main>
 
-        {/* ── Right: customer context ── */}
-        <aside className="hidden xl:flex w-[280px] border-l border-border flex-col bg-background shrink-0">
+        {/* ── Right: customer context (hidden in focus mode) ── */}
+        <aside className={cn(
+          "w-[280px] border-l border-border flex-col bg-background shrink-0",
+          focusMode ? "hidden" : "hidden xl:flex",
+        )}>
           {selectedTicket ? (
             <CustomerHistorySidebar
               customerId={selectedTicket.customerId}

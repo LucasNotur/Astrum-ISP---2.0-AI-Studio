@@ -11,7 +11,7 @@ import {
 } from '@/src/components/ui/card';
 import { Badge } from '@/src/components/ui/badge';
 import { Button } from '@/src/components/ui/button';
-import { Loader2, DollarSign, Bot, Clock, Ticket, TrendingUp, RefreshCw, Share2, Copy, ChevronDown, ChevronUp, Info } from 'lucide-react';
+import { Loader2, DollarSign, Bot, Clock, Ticket, TrendingUp, RefreshCw, Share2, Copy, ChevronDown, ChevronUp, Info, Brain } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { useAppStore } from '@/src/store/useAppStore';
 import { supabase } from '@/src/lib/supabase';
@@ -38,6 +38,18 @@ interface ValorKpis {
     hoursSavedNote: string;
     roiNote: string;
   };
+}
+
+interface AutoevolucaoReport {
+  month: string;
+  nights: number;
+  hypotheses: { info: number; atencao: number; critico: number };
+  actionsExecuted: number;
+  kbDraftsGenerated: number;
+  kbDraftsPublished: number;
+  incidentsDetected: number;
+  costTrendPct: number | null;
+  headline: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -128,6 +140,7 @@ export function ValorGeradoPage() {
   const [error, setError]        = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [shareUrl, setShareUrl]  = useState<string | null>(null);
+  const [autoevo, setAutoevo]    = useState<AutoevolucaoReport | null>(null);
 
   async function getToken() {
     const { data } = await supabase.auth.getSession();
@@ -186,6 +199,22 @@ export function ValorGeradoPage() {
 
   useEffect(() => { load(period); }, [period]);
 
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const token = await getToken();
+        const res = await fetch(`${API_BASE_URL}/api/v2/ia/autoevolucao/report`, {
+          headers: { Authorization: `Bearer ${token}`, 'X-Tenant-Id': tenantId },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (mounted) setAutoevo(data);
+      } catch { /* fail-open */ }
+    })();
+    return () => { mounted = false; };
+  }, [tenantId]);
+
   const hasData = kpis && kpis.totalAttendances > 0;
 
   return (
@@ -214,6 +243,32 @@ export function ValorGeradoPage() {
           </Button>
         </div>
       </div>
+
+      {/* Autoevolução headline */}
+      {autoevo && autoevo.nights > 0 && (
+        <Card className="border-indigo-300 dark:border-indigo-700 bg-indigo-50/50 dark:bg-indigo-950/30">
+          <CardContent className="pt-4 pb-4 flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 shrink-0">
+              <Brain size={18} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mb-0.5">
+                Autoevolução — {autoevo.month}
+              </p>
+              <p className="text-sm text-foreground leading-relaxed">{autoevo.headline}</p>
+              <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                <span>{autoevo.hypotheses.critico} alerta{autoevo.hypotheses.critico !== 1 ? 's' : ''} crítico{autoevo.hypotheses.critico !== 1 ? 's' : ''}</span>
+                <span>{autoevo.actionsExecuted} ação(ões) executada(s)</span>
+                {autoevo.costTrendPct !== null && (
+                  <span className={autoevo.costTrendPct <= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
+                    custo IA {autoevo.costTrendPct <= 0 ? '↓' : '↑'} {Math.abs(autoevo.costTrendPct)}%
+                  </span>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Error */}
       {error && (

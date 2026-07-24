@@ -28,6 +28,30 @@ export interface CobraiJobData {
 async function executeCobraiAction(job: Job<CobraiJobData>): Promise<void> {
   const { tenantId, customerId, invoiceId, ruleId, action, customerPhone, messageContent, amountCents } = job.data;
 
+  // Lockout: suspender tenant por inadimplência do próprio ISP com a Astrum
+  if (job.name === 'lockout_tenant') {
+    const { data: tenant } = await supabaseAdmin
+      .from('tenants')
+      .select('billing_status')
+      .eq('id', tenantId)
+      .maybeSingle();
+
+    if (tenant?.billing_status === 'overdue') {
+      await supabaseAdmin
+        .from('tenants')
+        .update({ status: 'suspended', suspended_reason: 'billing_overdue' })
+        .eq('id', tenantId);
+
+      await supabaseAdmin
+        .from('users')
+        .update({ refresh_token_revoked_at: new Date().toISOString() })
+        .eq('tenant_id', tenantId);
+
+      cobrancaLogger.info({ tenantId }, 'Tenant suspenso por inadimplência (lockout_tenant)');
+    }
+    return;
+  }
+
   // Se for evento do outbox (invoice.paid)
   if (job.name === 'invoice.paid') {
     cobrancaLogger.info({ tenantId, invoiceId }, 'Processando evento de pagamento via Outbox');
@@ -71,8 +95,8 @@ async function executeCobraiAction(job: Job<CobraiJobData>): Promise<void> {
     return;
   }
 
-  // Guardas portadas do legado (S76): janela de horário, limites, opt-out.
-  if (action === 'send_message') {
+  // Guardas portadas do legado (S76): janela, limites, opt-out, acordo, compensação.
+  if (action === 'send_message' || action === 'suspend_signal') {
     const { evaluateCobraiGate } = await import('../../../../apps/api/src/domain/cobranca/cobrai-guards');
     const { data: tenantCfg } = await supabaseAdmin
       .from('tenants')
@@ -86,6 +110,24 @@ async function executeCobraiAction(job: Job<CobraiJobData>): Promise<void> {
       .eq('status', 'sent')
       .gte('executed_at', new Date(Date.now() - 3600_000).toISOString());
 
+    const { data: customer } = await supabaseAdmin
+      .from('customers')
+      .select('marketing_opt_in, payment_agreement')
+      .eq('id', customerId)
+      .maybeSingle();
+
+    let recentPaymentCount = 0;
+    if (action === 'suspend_signal') {
+      const threeDaysAgo = new Date(Date.now() - 3 * 24 * 3600_000).toISOString();
+      const { count } = await supabaseAdmin
+        .from('payments')
+        .select('*', { count: 'exact', head: true })
+        .eq('customer_id', customerId)
+        .gte('paid_at', threeDaysAgo)
+        .in('status', ['confirmado', 'pendente_compensacao']);
+      recentPaymentCount = count ?? 0;
+    }
+
     const gate = evaluateCobraiGate({
       hour: new Date().getHours(),
       window: tenantCfg?.cobrai_window ?? null,
@@ -93,11 +135,15 @@ async function executeCobraiAction(job: Job<CobraiJobData>): Promise<void> {
       hourlyLimit: tenantCfg?.cobrai_hourly_limit ?? 30,
       sentToday: 0,
       dailyLimit: tenantCfg?.cobrai_daily_limit ?? null,
-      stage: (action as string) ?? 'lembrete',
+      stage: action ?? 'lembrete',
       stagesConfig: tenantCfg?.cobrai_stages ?? null,
+      customerOptedOut: customer?.marketing_opt_in === false,
+      paymentAgreement: customer?.payment_agreement ?? null,
+      recentPaymentCount,
     });
     if (!gate.allowed) {
       cobrancaLogger.warn({ tenantId, invoiceId, reason: gate.reason }, 'CobrAI bloqueado por guarda');
+      await supabaseAdmin.from('cobrai_jobs').update({ status: 'skipped', skip_reason: gate.reason, executed_at: new Date().toISOString() }).eq('bullmq_job_id', job.id).eq('tenant_id', tenantId);
       return;
     }
   }
