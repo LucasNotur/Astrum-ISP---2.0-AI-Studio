@@ -147,8 +147,8 @@ const defaultRolePermissions: Record<string, string[]> = {
     "whatsapp",
     "settings",
   ],
-  support: ["dashboard", "customers", "tickets", "chat", "kb"],
-  tecnico: ["dashboard", "os", "kb", "map"],
+  support: ["dashboard", "home", "customers", "tickets", "chat", "kb"],
+  tecnico: ["dashboard", "home", "os", "kb", "map", "tecnico", "campo"],
 };
 
 export const canAccess = (
@@ -156,6 +156,10 @@ export const canAccess = (
   tab: string,
   customPermissions?: Record<string, any>,
 ) => {
+  if (role === "admin" || role === "owner") return true;
+
+  const baseTab = tab.includes("/") ? tab.split("/")[0] : tab;
+
   const permissions =
     customPermissions && Object.keys(customPermissions).length > 0
       ? customPermissions
@@ -163,13 +167,11 @@ export const canAccess = (
 
   if (!permissions[role]) return false;
 
-  // If it's the old format (array of strings)
   if (Array.isArray(permissions[role])) {
-    return permissions[role].includes(tab);
+    return permissions[role].includes(baseTab);
   }
 
-  // If it's granular object format: permissions[role].dashboard = ['read', 'update'] or '*'
-  const tabPerms = permissions[role][tab];
+  const tabPerms = permissions[role][baseTab];
   if (!tabPerms) return false;
   if (tabPerms === "*") return true;
   if (Array.isArray(tabPerms) && tabPerms.length > 0) return true;
