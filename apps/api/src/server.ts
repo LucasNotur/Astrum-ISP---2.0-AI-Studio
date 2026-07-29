@@ -330,6 +330,38 @@ export async function buildServer() {
   const { smartHomeRoutes } = await import('./domain/home/smart-home.routes');
   await app.register(smartHomeRoutes);
 
+  // D-10 — ISP-BR fine-tune: pipeline de fine-tuning sobre labeled_examples
+  const { fineTuneRoutes } = await import('./domain/ml/isp-br-finetune.routes');
+  await app.register(fineTuneRoutes);
+
+  // D-13 — Connector Forge: conectores ERP gerados por agente codificador
+  const { connectorForgeRoutes } = await import('./domain/erp/connector-forge.routes');
+  await app.register(connectorForgeRoutes);
+
+  // D-16 — Foundry: automações por linguagem natural instaladas por tenant
+  const { foundryRoutes } = await import('./domain/foundry/foundry.routes');
+  await app.register(foundryRoutes);
+
+  // D-17 — Marketplace de Playbooks: políticas com prova via backtesting D-02
+  const { playbookMarketRoutes } = await import('./domain/cobranca/playbook-market.routes');
+  await app.register(playbookMarketRoutes);
+
+  // D-19 — Gêmeo do Assinante: simulação de decisão por cliente/segmento
+  const { subscriberTwinRoutes } = await import('./domain/ml/subscriber-twin.routes');
+  await app.register(subscriberTwinRoutes);
+
+  // D-20 — Copiloto do Dono: perguntas em NL respondidas com dados + ação
+  const { ownerCopilotRoutes } = await import('./domain/ia/owner-copilot.routes');
+  await app.register(ownerCopilotRoutes);
+
+  // D-21 — Onboarding IA em 1 dia: orquestrador self-service
+  const { aiOnboardingRoutes } = await import('./domain/onboarding/ai-onboarding.routes');
+  await app.register(aiOnboardingRoutes);
+
+  // D-22 — Rede de Alerta Precoce: imunidade coletiva entre tenants
+  const { threatNetworkRoutes } = await import('./domain/security/threat-network.routes');
+  await app.register(threatNetworkRoutes);
+
   // Health check com status dos serviços
   app.get('/api/v2/health', async () => {
     const { getLLMStatus } = await import('./adapters/ai/llm.adapter');

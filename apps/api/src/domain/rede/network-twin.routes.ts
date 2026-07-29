@@ -5,7 +5,7 @@
  */
 import type { FastifyInstance } from 'fastify';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
-import { simulateCtoFailure, simulateGrowth } from './network-twin.service';
+import { simulateCtoFailure, simulateGrowth, rankCtosByFailureRisk } from './network-twin.service';
 
 export async function networkTwinRoutes(app: FastifyInstance) {
   app.get('/api/v2/rede/twin/cto/:id/failure', {
@@ -18,6 +18,16 @@ export async function networkTwinRoutes(app: FastifyInstance) {
     } catch (err) {
       return reply.code(404).send({ error: (err as Error).message });
     }
+  });
+
+  // D-01 Fase 2 — probabilístico: CTOs com maior risco de falha
+  app.get('/api/v2/rede/twin/likely-failures', {
+    preHandler: [app.authenticate, requirePermission('reports', 'read')],
+  }, async (request, reply) => {
+    const { tenantId } = request.user as { tenantId: string };
+    const { limit } = request.query as any;
+    const risks = await rankCtosByFailureRisk(tenantId, undefined, { limit: limit ? parseInt(limit) : 10 });
+    return reply.send({ risks, count: risks.length });
   });
 
   app.post('/api/v2/rede/twin/growth', {

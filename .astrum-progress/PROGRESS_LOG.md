@@ -24,6 +24,65 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-28] PLANO_A — Tecnologias Inéditas D-XX (sessão D-XX-MASS)
+Tarefa: Implementar 15 D-XX restantes do Plano A — modelo ISP-BR, Foundry, marketplace de playbooks, gêmeo do assinante, copiloto do dono, onboarding IA, rede de alerta, D-01/D-08 Fase 2.
+Estado ao início: D-01/D-02/D-08 Fase 1 prontos; D-03/D-04/D-05/D-06F1/D-07/D-11/D-12/D-14/D-15/D-18/D-23 prontos; restavam D-10/D-13/D-16/D-17/D-19/D-20/D-21/D-22 + Fases 2 de D-01/D-08.
+Arquivos criados:
+  Serviços:
+  - apps/api/src/domain/ml/isp-br-finetune.service.ts (D-10)
+  - apps/api/src/domain/erp/connector-forge.service.ts (D-13)
+  - apps/api/src/domain/foundry/foundry.service.ts (D-16)
+  - apps/api/src/domain/cobranca/playbook-market.service.ts (D-17)
+  - apps/api/src/domain/ml/subscriber-twin.service.ts (D-19)
+  - apps/api/src/domain/ia/owner-copilot.service.ts (D-20)
+  - apps/api/src/domain/onboarding/ai-onboarding-orchestrator.service.ts (D-21)
+  - apps/api/src/domain/security/threat-network.service.ts (D-22)
+  Rotas:
+  - apps/api/src/domain/ml/isp-br-finetune.routes.ts
+  - apps/api/src/domain/erp/connector-forge.routes.ts
+  - apps/api/src/domain/foundry/foundry.routes.ts
+  - apps/api/src/domain/cobranca/playbook-market.routes.ts
+  - apps/api/src/domain/ml/subscriber-twin.routes.ts
+  - apps/api/src/domain/ia/owner-copilot.routes.ts
+  - apps/api/src/domain/onboarding/ai-onboarding.routes.ts
+  - apps/api/src/domain/security/threat-network.routes.ts
+  Migrations:
+  - packages/db/src/migrations/083_d10_fine_tune_runs.sql
+  - packages/db/src/migrations/084_d13_connector_drafts.sql
+  - packages/db/src/migrations/085_d16_automations.sql
+  - packages/db/src/migrations/086_d17_playbooks.sql
+  - packages/db/src/migrations/087_d19_subscriber_simulations.sql
+  - packages/db/src/migrations/088_d21_onboarding_jobs.sql
+  - packages/db/src/migrations/089_d22_threat_network.sql
+  Testes (40 passando total, 0 falhas):
+  - apps/api/src/domain/ml/isp-br-finetune.service.test.ts
+  - apps/api/src/domain/erp/connector-forge.service.test.ts
+  - apps/api/src/domain/foundry/foundry.service.test.ts
+  - apps/api/src/domain/cobranca/playbook-market.service.test.ts
+  - apps/api/src/domain/ml/subscriber-twin.service.test.ts
+  - apps/api/src/domain/ia/owner-copilot.service.test.ts
+  - apps/api/src/domain/security/threat-network.service.test.ts
+  - apps/api/src/domain/onboarding/ai-onboarding-orchestrator.service.test.ts
+Arquivos modificados:
+  - apps/api/src/server.ts — +8 registros de rotas
+  - apps/api/src/domain/rede/network-twin.service.ts — +rankCtosByFailureRisk() D-01 F2
+  - apps/api/src/domain/rede/network-twin.routes.ts — +GET /api/v2/rede/twin/likely-failures
+  - apps/api/src/domain/financeiro/cashflow-forecast.service.ts — D-08 F2: churn integration + actionSuggested
+  - apps/api/src/domain/financeiro/cashflow.routes.ts — +POST /api/v2/financeiro/cashflow/act
+  - .astrum-progress/nextgen-2.0/PLANO_A_DIFERENCIAL_TECNOLOGIAS_INEDITAS__PENDENTE.md — §10 adicionado
+Testes: npx vitest run 8 arquivos → PASS (40) FAIL (0)
+Decisões técnicas:
+  - pollDelayMs injetável no D-10 (5s prod, 0 em tests) para evitar timeout do Vitest (5s default)
+  - afterChurn arredondado a 3dp antes do threshold recommendation para evitar floating-point (0.4-0.05=0.350...3)
+  - D-22: anonimização anonymizeEvidence() remove customer_ids/tenant_id/phone; arredonda affected_count ao múltiplo de 10 (privacidade diferencial)
+  - D-17: installPlaybook captura falha de D-02 graciosamente (dados insuficientes não bloqueiam install)
+  - D-08 F2: CFO_CHURN_INTEGRATION_ENABLED (env flag) — integração IA-07 opt-in
+Status: ✅ PLANO_A D-XX MASS CONCLUÍDO. Pendências operacionais (dever do Lucas):
+  - npm run db:migrate (migrations 083–089 precisam ser aplicadas no Supabase)
+  - Setores gated desbloqueiam quando combustível chegar (≥5k exemplos D-10, ≥10 tenants D-17/D-22, LGPD D-22)
+
+---
+
 [2026-07-28] Plano I — Uber do Técnico: fechar gaps I-1..I-4
 Tarefa: Executar Plano I (campo): 7 tabelas novas, API campo, evolução da PWA existente.
 Estado ao início: backend 100% code-complete (migration 082, 94 testes passando), frontend parcialmente ligado.

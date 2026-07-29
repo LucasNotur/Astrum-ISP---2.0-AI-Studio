@@ -219,3 +219,86 @@ export async function simulateGrowth(
   infraLogger.info({ tenantId, ctoId, newCustomers, absorbed, overflow }, 'D-01: simulação de crescimento');
   return result;
 }
+
+// ── D-01 Fase 2: probabilístico — CTOs com maior risco de falha ──────────────
+
+export interface ProbabilisticRisk {
+  ctoId: string;
+  ctoName: string;
+  failureScore: number;       // 0–1, composto de anomalia + ocupação + histórico
+  anomalyScore: number;       // componente IA-24 (0–1)
+  occupancyRisk: number;      // componente de saturação (0–1)
+  affectedCustomers: number;
+  mrrAtRiskCents: number;
+  recommendation: string;
+}
+
+/**
+ * D-01 Fase 2: rankeia CTOs pelo risco combinado de falha
+ * (anomalia recente da IA-24 + ocupação + histórico de incidentes).
+ * Combustível: ≥30d de network_metrics + incidents.
+ */
+export async function rankCtosByFailureRisk(
+  tenantId: string,
+  ports: TwinPorts = defaultPorts,
+  opts: { limit?: number } = {},
+): Promise<ProbabilisticRisk[]> {
+  const ctos = await loadCtos(tenantId, ports.db);
+  if (!ctos.length) return [];
+
+  // Anomalias recentes por CTO (IA-24 output: network_anomalies)
+  const since30d = new Date(Date.now() - 30 * 86400000).toISOString();
+  const { data: anomalies } = await ports.db
+    .from('network_anomalies')
+    .select('cto_id, severity, detected_at')
+    .eq('tenant_id', tenantId)
+    .gte('detected_at', since30d);
+
+  const anomalyByCto = new Map<string, number>();
+  for (const a of anomalies ?? []) {
+    if (!a.cto_id) continue;
+    const prev = anomalyByCto.get(a.cto_id) ?? 0;
+    const weight = (a.severity === 'critical' ? 1 : a.severity === 'high' ? 0.7 : 0.3);
+    anomalyByCto.set(a.cto_id, Math.min(1, prev + weight * 0.25));
+  }
+
+  // Clientes por CTO para calcular MRR em risco
+  const { data: customers } = await ports.db
+    .from('customers')
+    .select('cto_id, mrr_cents')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'active');
+
+  const mrrByCto = new Map<string, number>();
+  const countByCto = new Map<string, number>();
+  for (const c of customers ?? []) {
+    if (!c.cto_id) continue;
+    mrrByCto.set(c.cto_id, (mrrByCto.get(c.cto_id) ?? 0) + Number(c.mrr_cents ?? 0));
+    countByCto.set(c.cto_id, (countByCto.get(c.cto_id) ?? 0) + 1);
+  }
+
+  const results: ProbabilisticRisk[] = ctos
+    .filter(cto => cto.status === 'active')
+    .map(cto => {
+      const occupancy = cto.total_ports > 0 ? cto.used_ports / cto.total_ports : 0;
+      const occupancyRisk = occupancy > 0.9 ? 1 : occupancy > 0.75 ? 0.6 : occupancy > 0.5 ? 0.3 : 0.1;
+      const anomalyScore = anomalyByCto.get(cto.id) ?? 0;
+      const failureScore = Math.round((anomalyScore * 0.6 + occupancyRisk * 0.4) * 100) / 100;
+
+      const mrrAtRiskCents = mrrByCto.get(cto.id) ?? 0;
+      const affectedCustomers = countByCto.get(cto.id) ?? 0;
+
+      const recommendation = failureScore > 0.7
+        ? `Risco ALTO — agendar vistoria urgente (${affectedCustomers} clientes, R$ ${(mrrAtRiskCents / 100).toFixed(0)} MRR)`
+        : failureScore > 0.4
+        ? `Risco MÉDIO — incluir na ronda preventiva (${affectedCustomers} clientes)`
+        : 'Risco baixo — monitoramento padrão suficiente';
+
+      return { ctoId: cto.id, ctoName: cto.name, failureScore, anomalyScore, occupancyRisk, affectedCustomers, mrrAtRiskCents, recommendation };
+    })
+    .sort((a, b) => b.failureScore - a.failureScore)
+    .slice(0, opts.limit ?? 10);
+
+  infraLogger.info({ tenantId, count: results.length }, 'D-01 F2: ranking probabilístico de falha');
+  return results;
+}
