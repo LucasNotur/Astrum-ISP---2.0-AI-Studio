@@ -681,6 +681,80 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     return reply.code(200).send({ ok: true, service_order_id: serviceOrderId, technician_id: body.technicianId });
   });
 
+  // ─── Mídia — sign-upload (direto para o Storage) ─────────────────────────────
+
+  const signUploadSchema = z.object({
+    kind: z.enum(['fachada', 'antes', 'depois', 'equipamento', 'base_cto', 'assinatura', 'documento', 'serial', 'outro']),
+    filename: z.string().min(1).max(200),
+  });
+
+  /**
+   * POST /api/v2/field/os/:id/media/sign-upload
+   * Gera uma signed URL para o browser fazer upload direto ao Supabase Storage
+   * sem passar pelo servidor. Retorna signedUrl + path (usar na chamada POST /media).
+   */
+  fastify.post('/api/v2/field/os/:id/media/sign-upload', {
+    onRequest: [fastify.authenticate],
+    preHandler: [requirePermission('service_orders', 'write'), validateBody(signUploadSchema)],
+  }, async (request, reply) => {
+    const { tenantId } = (request as any).user;
+    const serviceOrderId = (request.params as any).id as string;
+    const body = (request as any).validatedBody as z.infer<typeof signUploadSchema>;
+
+    const safe = body.filename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100);
+    const path = `tenants/${tenantId}/field-ops/${serviceOrderId}/${body.kind}/${Date.now()}_${safe}`;
+
+    const { data, error } = await (supabase.storage as any).from('uploads').createSignedUploadUrl(path);
+    if (error || !data) return reply.code(500).send({ code: 'SIGN_UPLOAD_ERROR', message: 'Falha ao gerar URL de upload.' });
+
+    return reply.code(200).send({ signed_url: data.signedUrl, path, token: data.token });
+  });
+
+  // ─── Checklist da OS ──────────────────────────────────────────────────────────
+
+  /** GET /api/v2/field/os/:id/checklist — itens de checklist da OS. */
+  fastify.get('/api/v2/field/os/:id/checklist', {
+    onRequest: [fastify.authenticate],
+    preHandler: [requirePermission('service_orders', 'read')],
+  }, async (request, reply) => {
+    const { tenantId } = (request as any).user;
+    const serviceOrderId = (request.params as any).id as string;
+
+    const { data, error } = await supabase
+      .from('service_order_checklist_items')
+      .select('id, item_key, label, required, done, done_at')
+      .eq('tenant_id', tenantId)
+      .eq('service_order_id', serviceOrderId)
+      .order('created_at', { ascending: true });
+
+    if (error) return reply.code(500).send({ code: 'CHECKLIST_ERROR', message: 'Falha ao carregar checklist.' });
+    return { items: data ?? [] };
+  });
+
+  const checklistPatchSchema = z.object({ done: z.boolean() });
+
+  /** PATCH /api/v2/field/os/:osId/checklist/:itemId — marca/desmarca item do checklist. */
+  fastify.patch('/api/v2/field/os/:osId/checklist/:itemId', {
+    onRequest: [fastify.authenticate],
+    preHandler: [requirePermission('service_orders', 'write'), validateBody(checklistPatchSchema)],
+  }, async (request, reply) => {
+    const { tenantId } = (request as any).user;
+    const { osId, itemId } = request.params as any;
+    const body = (request as any).validatedBody as z.infer<typeof checklistPatchSchema>;
+
+    const { data, error } = await supabase
+      .from('service_order_checklist_items')
+      .update({ done: body.done, done_at: body.done ? new Date().toISOString() : null })
+      .eq('tenant_id', tenantId)
+      .eq('service_order_id', osId)
+      .eq('id', itemId)
+      .select('id, done')
+      .single();
+
+    if (error || !data) return reply.code(404).send({ code: 'ITEM_NOT_FOUND', message: 'Item não encontrado.' });
+    return { id: data.id, done: data.done };
+  });
+
   /** GET /api/v2/field/live — (gestor) técnicos + última posição + OSs ativas hoje. */
   fastify.get('/api/v2/field/live', {
     onRequest: [fastify.authenticate],

@@ -24,6 +24,42 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-28] Plano I — Uber do Técnico: fechar gaps I-1..I-4
+Tarefa: Executar Plano I (campo): 7 tabelas novas, API campo, evolução da PWA existente.
+Estado ao início: backend 100% code-complete (migration 082, 94 testes passando), frontend parcialmente ligado.
+Gaps fechados nesta sessão:
+  I-1 — sign-upload: POST /api/v2/field/os/:id/media/sign-upload (signed URL para upload direto ao Storage).
+  I-1 — checklist real do DB: GET /api/v2/field/os/:id/checklist + PATCH /:itemId. TechnicianAppPage
+        carrega checklist real ao abrir OS real (fallback local se offline), sincroniza done/undone ao API.
+  I-1 — PDF dossiê rico: src/lib/signaturePad.ts expandido — busca GET /dossie antes do checkout e
+        inclui no PDF: timeline de eventos, checklist, materiais, resumo IA + assinatura.
+  I-1 — registro de mídia tipada: após upload da foto de check-in/check-out, chama POST /media com
+        kind=antes|depois + coordenadas GPS.
+  I-2 — deeplink Waze/Maps: botão "Abrir no Waze / Maps" em toda OS aberta (usa lat/lng se disponível;
+        fallback query de endereço no Google Maps).
+  I-2 — breadcrumbs GPS reais: useEffect watchPosition quando OS está "in_progress"; buffer acumula pontos
+        e envia em lote a cada 60s via POST /api/v2/field/location (sem afetar bateria).
+  I-3 — modal do dossiê na FieldOpsPage: botão "Dossiê" no painel de dispatch abre modal com
+        timeline, checklist, materiais, galeria antes/depois e resumo IA.
+  fieldOps.ts: +5 funções (fetchChecklist, markChecklistItem, registerMedia, signUploadMedia, sendLocationBatch).
+Arquivos criados: nenhum (só edições).
+Arquivos modificados:
+  - apps/api/src/domain/campo/field-ops.routes.ts — +3 endpoints (sign-upload, GET/PATCH checklist)
+  - src/lib/fieldOps.ts — +5 funções exportadas
+  - src/lib/signaturePad.ts — PDF rico com dossiê (timeline + checklist + materiais + resumo IA)
+  - src/pages/TechnicianAppPage.tsx — openOs() + GPS breadcrumbs + Waze deeplink + mídia tipada + PDF dossiê
+  - src/pages/FieldOpsPage.tsx — modal de dossiê
+  - .astrum-progress/nextgen-2.0/PLANO_I_UBER_DO_TECNICO__PENDENTE.md → __CONCLUIDO (git mv)
+  - .astrum-progress/00_PLANO_DE_ACAO_GERAL__EM_ANDAMENTO.md — PLANO_I adicionado como concluído
+Testes: npx vitest run apps/api/src/domain/campo/ → PASS (94) FAIL (0).
+Typecheck: zero erros nos arquivos do Plano I (erros pré-existentes inalterados).
+Status: ✅ Plano I CONCLUÍDO. Pendências operacionais (dever do Lucas):
+  - Lucas: npm run db:migrate (migration 082 precisa ser aplicada no Supabase de produção).
+  - Lucas: setar FIELD_WHATSAPP_NOTIFY_ENABLED=true / FIELD_SUMMARY_LLM_ENABLED=true / VISION_STRUCTURED_ENABLED=true
+    + OPENAI_API_KEY / EVOLUTION_API_* para ativar as 3 integrações IA de campo.
+
+---
+
 [2026-07-28] Plano F "Camisa 9" — fechamento formal + auditoria de estado
 Tarefa: Executar Plano F roteiro Camisa 9 (~26 tarefas atômicas).
 Achado: Plano F já estava 100% code-complete (executado em 2026-07-20). Auditoria confirmou:
@@ -3611,3 +3647,18 @@ Testes: 15 testes — todos passando.
 Status: CONCLUIDO. Score dossiê: 70 implementados + 5 parciais + 30 pendentes.
 Observação: Grupo F (Analytics) chegou a 100% de cobertura (10/10 itens implementados).
 Commit: feat(u7): qualidade continua — playwright legado, testes componente, /design, bundle splitting.
+
+---
+
+[2026-07-28] 7 telas novas — PolicyLab, CFO Virtual, Gêmeo Digital (+ 4 já existentes)
+Tarefa: Criar as UIs para os 7 módulos backend prontos (Plano F F3-01/F4-01/F4-02/F6-04).
+Arquivos criados:
+  - src/pages/intelligence/PolicyLabPage.tsx — D-02: backtesting de régua (formulário 4 parâmetros + POST /api/v2/cobranca/backtest → baseline + cenários pessimista/base/otimista + disclaimer)
+  - src/pages/intelligence/CfoPage.tsx — D-08: CFO virtual (GET /api/v2/financeiro/cashflow → KPIs, taxas observadas, tabela 3 meses × 3 cenários, seletor de janela)
+  - src/pages/intelligence/NetworkTwinPage.tsx — D-01: Gêmeo Digital (CTOs via Supabase, modo queda → failure, modo crescimento → growth, spillover/capexNeeded)
+Arquivos modificados:
+  - src/routes/intelligence.routes.tsx — rotas /intelligence/policy-lab, /cfo, /twin
+  - src/pages/intelligence/IntelligenceHubPage.tsx — 3 cards (policylab/cfo/twin; GitCompareArrows/Wallet/Layers)
+Telas que já existiam (confirmadas): NOC incidentes (IncidentsPage.tsx), Relatório Gênesis (GenesisReportPage.tsx), card autoevolução (ValorGeradoPage.tsx), Dashboard vendas (SalesPage.tsx).
+Testes: tsc 0 erros nos arquivos novos; build Vite verde 10.91s.
+Status: CONCLUIDO.

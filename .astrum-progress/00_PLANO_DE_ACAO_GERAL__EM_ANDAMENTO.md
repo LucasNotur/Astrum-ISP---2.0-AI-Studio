@@ -28,6 +28,7 @@
 | `nextgen-2.0/PLANO_C_UIUX_OPERACIONAL__CONCLUIDO.md` | UI/UX U0–U7: auditoria, tokens, componentes, onboarding, dashboards configuráveis, módulos por tenant, responsividade/PWA, qualidade (Playwright + Vitest + /design + bundle) | 2026-07-12 |
 | `nextgen-2.0/PLANO_F_EXECUCAO_CAMISA9__CONCLUIDO.md` | Roteiro Camisa 9: F1..F6 + D-01/03/09/11/12/18 executados. F1-01/02 operacionais (Lucas). D-10/13/16/17 gated por combustível externo. | 2026-07-20 |
 | `nextgen-2.0/PLANO_G_UIUX_2.0__CONCLUIDO.md` | UI/UX de referência — G-01..G-07 todos executados em 2026-07-24 | 2026-07-24 |
+| `nextgen-2.0/PLANO_I_UBER_DO_TECNICO__CONCLUIDO.md` | Uber do Técnico — I-1..I-4 (campo): 7 tabelas, API campo completa, PWA real (checklist DB, GPS, Waze, PDF dossiê), painel gestor + modal dossiê | 2026-07-28 |
 
 **Onda 1 FECHADA** (2026-07-09) — critério de fechamento cumprido: PARTE1 e PARTE2 renomeadas `__CONCLUIDO`.
 **Onda 4 FECHADA** (2026-07-12) — U0–U7 todos executados; PLANO_C renomeado `__CONCLUIDO`.

@@ -228,67 +228,36 @@ Visual: carregar a skill `astrum-design` antes de mexer na tela (padrão do proj
 |---|---|---|
 | **I-1 MVP fio-de-ponta** | Migrações §2 (premises, media, events, checklist, materials) + máquina de estados + agenda real na PWA + fotos antes/depois + assinatura + dossiê/PDF real | 2–3 |
 
-> **I-1 FRONTEND LIGADO (2026-07-23):** `src/lib/fieldOps.ts` (camada de dados, R1)
-> + `TechnicianAppPage.tsx` religada aos endpoints reais: agenda real no mount
-> (fallback IDB/mock offline), otimização via `/route/optimize`, check-in dispara a
-> sequência da máquina de estados (aceita→a_caminho→chegou→iniciada), check-out
-> chama `concluida` com o gate (checklist/foto/assinatura). Teste de render verde,
-> typecheck limpo, sem erros de console no Vite. **Falta:** dossiê/PDF real +
-> sign-upload de mídia tipada + popular checklist real (service_order_checklist_items).
->
-> **I-1 BACKEND CODE-COMPLETE (2026-07-23):** migration `082_field_ops_uber.sql`
-> aplicada no Supabase (todas as tabelas §2 + extensões). Máquina de estados pura
-> `apps/api/src/domain/campo/os-lifecycle.service.ts` (gate de conclusão: checklist
-> 100% + foto "depois" + assinatura, ou justificativa) + cálculo de KM por GPS
-> `field-km.service.ts` (haversine com filtros de accuracy/velocidade/jitter) —
-> **35 testes Vitest verdes**. Ports Supabase (`os-lifecycle.repo.ts`) + rotas
-> `field-ops.routes.ts` (`GET /api/v2/field/agenda`, `POST /api/v2/field/os/:id/transition`)
-> registradas no server.ts. **Falta (frontend):** ligar `TechnicianAppPage.tsx`
-> (hoje mock) nesses endpoints + dossiê/PDF real + sign-upload de mídia.
+> **I-1 COMPLETO (2026-07-28):** migration `082_field_ops_uber.sql` + backend
+> code-complete + frontend ligado: agenda real (fallback IDB/mock), máquina de estados,
+> checklist do DB (`GET /api/v2/field/os/:id/checklist`, `PATCH /checklist/:itemId`),
+> mídia tipada registrada no DB (`POST /media` após upload, `POST /media/sign-upload`
+> para upload direto ao Storage), PDF rico com dossiê real (timeline + checklist +
+> materiais + resumo IA + assinatura). 94 testes Vitest verdes.
+
 | **I-2 Rotas & KM** | shifts, breadcrumbs, otimizador v1 (NN+2-opt), deep-link navegação, relatórios km/tempo | 1–2 |
 
-> **I-2 CODE-COMPLETE (2026-07-23):** `route-optimizer.service.ts` (NN + 2-opt, puro
-> TS — 11 testes) + `POST /route/optimize`. **Shift & relatórios (2026-07-23):**
-> endpoints `POST /shift/start`, `POST /shift/end` (km por GPS via computeShiftKm +
-> auditoria odômetro), `POST /location` (breadcrumbs em lote), `field-reports.service.ts`
-> (deriva deslocamento/execução/SLA dos eventos + agrega km-dia/tempo-tipo, 10 testes) +
-> `GET /reports/km`, `GET /reports/tempo`. **Falta:** deep-link Waze na PWA + captura
-> real de breadcrumbs no app (hoje o backend está pronto para recebê-los).
+> **I-2 COMPLETO (2026-07-28):** otimizador NN+2-opt + shift start/end + relatórios
+> km/tempo. Deep-link Waze/Maps na PWA (botão "Abrir no Waze / Maps" em toda OS).
+> Breadcrumbs GPS enviados em lote a cada 60s via `watchPosition` + `POST /location`
+> enquanto OS estiver em andamento.
+
 | **I-3 Gestor ao vivo** | FieldOpsPage (mapa + dispatch + painéis + dossiê), WhatsApp "a caminho" | 2 |
 
-> **I-3 MVP CODE-COMPLETE (2026-07-23):** endpoints `GET /field/live` (frota + última
-> posição + OSs ativas), `GET /field/reports/km`, `GET /field/reports/tempo` +
-> `src/pages/FieldOpsPage.tsx` (rota `/campo`, item na sidebar): KPIs, frota ao vivo
-> (auto-refresh 30s), km/dia (recharts), tempo médio por tipo. **MAPA REAL (2026-07-23):**
-> `src/components/field/FieldMap.tsx` — wrapper próprio sobre **maplibre-gl** (v5,
-> instalado) com tiles **OpenStreetMap grátis** (sem API key), inspirado no mapcn
-> (AnmolSaini16/mapcn), mas trocando o CARTO comercial por OSM. Plota técnicos com
-> última posição GPS na FieldOpsPage. **DISPATCH (2026-07-23):** `dispatch.service.ts`
-> (puro, 10 testes) ranqueia técnico por proximidade+skill+carga; endpoints
-> `GET /dispatch/board` (OSs pendentes + top-3 sugestões) e `POST /os/:id/assign`
-> (atribui/reatribui + evento). Painel de dispatch na FieldOpsPage com botão "Atribuir".
-> **Falta:** dossiê visual da OS na UI (endpoint `/dossie` já existe).
+> **I-3 COMPLETO (2026-07-28):** FieldOpsPage com mapa MapLibre+OSM, frota ao vivo
+> (30s), KPIs, km/dia (recharts), dispatch com sugestão. **Modal do dossiê** ligado:
+> botão "Dossiê" em cada OS do dispatch board abre painel com timeline, checklist,
+> materiais, galeria de fotos antes/depois e resumo IA.
+
 | **I-4 IA de campo** | validação de foto depois, resumo automático, previsão de duração, anomalias | 1–2 |
 
-> **I-4 NÚCLEO CODE-COMPLETE (2026-07-23):** `field-ai.service.ts` (puro, 13 testes):
-> `predictDuration` (média histórica por tipo), `evaluateCompletionPhoto` (anti-"foto
-> do chão": reprova equipment=outro/confiança baixa), `detectRouteAnomaly` (km acima do
-> planejado / tempo 3× a média), `buildOsSummaryPrompt` + `fallbackSummary`. Endpoint
-> `POST /os/:id/summary` gera e persiste o resumo (fallback determinístico; LLM opcional
-> fica de evolução).
->
-> **I-4 INTEGRAÇÕES LIGADAS (2026-07-23):** as 3 integrações externas conectadas aos
-> motores existentes (cada uma atrás de flag, default off):
-> - **Visão:** `POST /os/:id/validate-photo` → `classifyFieldPhoto` (IA-04) +
->   `evaluateCompletionPhoto` (anti-"foto do chão"); registra mídia kind='depois'.
->   Flag `VISION_STRUCTURED_ENABLED`. Ligado no check-out da PWA (advisory).
-> - **GPT:** `POST /os/:id/summary` tenta GPT-4o-mini via `field-ai.adapter.ts`
->   (`generateText`, fail-open) quando `FIELD_SUMMARY_LLM_ENABLED=true`; senão resumo
->   determinístico. Resumo aparece na PWA ao concluir.
-> - **WhatsApp:** evento `a_caminho` dispara `sendMessage` (adapter Evolution + circuit
->   breaker) com `buildOnTheWayMessage` quando `FIELD_WHATSAPP_NOTIFY_ENABLED=true`.
-> `field-notify.service.ts` puro (9 testes). **Ativação = dever do Lucas:** setar as 3
-> flags + `OPENAI_API_KEY`/`EVOLUTION_API_*` reais no .env.
+> **I-4 COMPLETO (2026-07-28):** field-ai.service.ts (13 testes) + integrações ligadas
+> (cada uma atrás de flag, default off):
+> - **Visão:** `POST /os/:id/validate-photo` → anti-"foto do chão". Flag `VISION_STRUCTURED_ENABLED`.
+> - **GPT:** `POST /os/:id/summary` GPT-4o-mini via `field-ai.adapter.ts` (fail-open).
+>   Flag `FIELD_SUMMARY_LLM_ENABLED`. Resumo aparece na PWA ao concluir.
+> - **WhatsApp:** evento `a_caminho` → `buildOnTheWayMessage`. Flag `FIELD_WHATSAPP_NOTIFY_ENABLED`.
+> **Ativação = dever do Lucas:** setar as 3 flags + `OPENAI_API_KEY`/`EVOLUTION_API_*` no .env.
 | **I-5 → H-4** | extrair para ASTRUM CAMPO standalone (R$ 49/técnico/mês, verticais não-ISP) | pós-Atlas |
 
 DoD por fase: Vitest nos serviços novos (máquina de estados e cálculo de km são

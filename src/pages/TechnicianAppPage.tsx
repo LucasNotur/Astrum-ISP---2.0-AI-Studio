@@ -19,6 +19,7 @@ import {
   ScanSearch,
   AlertTriangle,
   CircleCheck,
+  Navigation,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -34,6 +35,11 @@ import {
   completeServiceOrder,
   validatePhoto,
   generateSummary,
+  fetchChecklist,
+  markChecklistItem,
+  registerMedia,
+  sendLocationBatch,
+  fetchDossie,
 } from "../lib/fieldOps";
 
 /** True para IDs reais de OS (UUID do backend); false para OSs mock ("OS-1023"). */
@@ -103,6 +109,9 @@ export default function TechnicianAppPage() {
 
   const [materials, setMaterials] = useState<string[]>([]);
   const [showScanner, setShowScanner] = useState(false);
+
+  // Buffer para breadcrumbs GPS (enviado em lote a cada 60s)
+  const locationBuffer = React.useRef<{ lat: number; lng: number; recordedAt: string }[]>([]);
 
   // D-06 — Copiloto de campo: diagnóstico de foto por IA
   type FieldDiagnosis = {
@@ -217,6 +226,33 @@ export default function TechnicianAppPage() {
     };
   }, []);
 
+  // GPS breadcrumbs — coleta quando OS está em andamento e envia em lote a cada 60s.
+  useEffect(() => {
+    if (selectedOs?.status !== 'in_progress' || !navigator.geolocation) return;
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        locationBuffer.current.push({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          recordedAt: new Date().toISOString(),
+        });
+      },
+      undefined,
+      { enableHighAccuracy: false, maximumAge: 30000 },
+    );
+    const interval = setInterval(() => {
+      const buf = locationBuffer.current;
+      if (buf.length > 0 && navigator.onLine) {
+        const batch = buf.splice(0, buf.length);
+        sendLocationBatch(undefined, batch).catch(() => {});
+      }
+    }, 60000);
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+      clearInterval(interval);
+    };
+  }, [selectedOs?.status]);
+
   const addToSyncQueue = async (action: string, payload: any) => {
     const db = await dbPromise;
     await db.add('sync-queue', {
@@ -310,9 +346,13 @@ export default function TechnicianAppPage() {
           if (navigator.onLine) {
             try {
               toast.loading("Enviando foto...", { id: toastId });
-              // FZ-4: Supabase Storage (data_url → Blob)
               const blob = await (await fetch(dataUrl)).blob();
               uploadedUrl = await uploadTenantFile(tenantId, "checkins", `${osId}_${ts}.jpg`, blob);
+              // Registra mídia tipada no DB (antes = check-in, depois = check-out).
+              if (isRealOsId(osId)) {
+                const kind = cameraMode === 'checkin' ? 'antes' : 'depois';
+                registerMedia(osId, { kind, url: uploadedUrl, lat, lng }).catch(() => {});
+              }
             } catch (e: any) {
               console.error(e);
               toast.error("Salvo apenas localmente. Erro no upload: " + e.message, { id: toastId });
@@ -415,23 +455,48 @@ export default function TechnicianAppPage() {
   };
 
   const toggleChecklistItem = async (itemId: string) => {
-    const updatedChecklist = selectedOs.checklist.map((item: any) =>
-      item.id === itemId ? { ...item, done: !item.done } : item
+    const item = selectedOs.checklist.find((i: any) => i.id === itemId);
+    const newDone = !item?.done;
+    const updatedChecklist = selectedOs.checklist.map((i: any) =>
+      i.id === itemId ? { ...i, done: newDone } : i
     );
     const updatedOs = { ...selectedOs, checklist: updatedChecklist };
     setSelectedOs(updatedOs);
-    
-    // Update in main list as well
-    const updatedOss = oss.map((os) =>
-      os.id === selectedOs.id ? updatedOs : os
-    );
-    setOss(updatedOss);
+    setOss((prev: any[]) => prev.map((os) => os.id === selectedOs.id ? updatedOs : os));
 
     const db = await dbPromise;
     await db.put('oss', updatedOs);
 
-    if (!navigator.onLine) {
+    if (navigator.onLine && isRealOsId(selectedOs.id)) {
+      markChecklistItem(selectedOs.id, itemId, newDone).catch(() => {});
+    } else if (!navigator.onLine) {
       await addToSyncQueue('update_checklist', { id: selectedOs.id, checklist: updatedChecklist });
+    }
+  };
+
+  /** Abre uma OS; se for real, carrega o checklist do DB para sobrescrever o mock. */
+  const openOs = async (os: any) => {
+    setSelectedOs(os);
+    if (isRealOsId(os.id) && navigator.onLine) {
+      try {
+        const items = await fetchChecklist(os.id);
+        if (items.length > 0) {
+          setSelectedOs((prev: any) => prev ? { ...prev, checklist: items } : prev);
+        }
+      } catch (e) {
+        console.warn('Checklist from API unavailable, using local:', e);
+      }
+    }
+  };
+
+  /** Deep-link Waze / Google Maps para o endereço da OS. */
+  const openNavigationApp = () => {
+    const lat = selectedOs?.latitude;
+    const lng = selectedOs?.longitude;
+    if (lat && lng) {
+      window.open(`https://waze.com/ul?ll=${lat},${lng}&navigate=yes`, '_blank');
+    } else {
+      window.open(`https://maps.google.com/maps?q=${encodeURIComponent(selectedOs?.address ?? '')}`, '_blank');
     }
   };
 
@@ -512,20 +577,25 @@ export default function TechnicianAppPage() {
     const tenantId = "default";
 
     if (navigator.onLine) {
-       toast.loading("Enviando contrato...", { id: "upload" });
-       try {
-         await processSignatureAndPdf({
-           tenantId,
-           osId,
-           selectedOs,
-           signatureData: signatureData!
-         });
-         toast.success("Contrato salvo na nuvem com sucesso!", { id: "upload" });
-       } catch (e: any) {
-         console.error(e);
-         // Erros prováveis: missing/insufficient permissions, mock env
-         toast.error("Não foi possível enviar arquivos: " + e.message, { id: "upload" });
-       }
+      toast.loading("Gerando comprovante...", { id: "upload" });
+      try {
+        // Busca dossiê real para enriquecer o PDF (timeline, checklist, materiais, resumo IA).
+        let dossie: any = undefined;
+        if (isRealOsId(osId)) {
+          dossie = await fetchDossie(osId).catch(() => undefined);
+        }
+        await processSignatureAndPdf({
+          tenantId,
+          osId,
+          selectedOs,
+          signatureData: signatureData!,
+          dossie,
+        });
+        toast.success("Comprovante salvo com sucesso!", { id: "upload" });
+      } catch (e: any) {
+        console.error(e);
+        toast.error("Não foi possível enviar o comprovante: " + e.message, { id: "upload" });
+      }
     }
 
     updateOsStatus(selectedOs.id, "completed", actionDetails);
@@ -619,6 +689,14 @@ export default function TechnicianAppPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Navegação — disponível sempre que a OS tem endereço */}
+          {selectedOs.address && (
+            <Button variant="outline" onClick={openNavigationApp} className="w-full gap-2">
+              <Navigation className="w-4 h-4 text-blue-500" />
+              Abrir no Waze / Maps
+            </Button>
+          )}
 
           {selectedOs.status === "pending" && (
             <Button onClick={handleCheckIn} className="w-full h-14 text-lg" size="lg">
@@ -813,13 +891,13 @@ export default function TechnicianAppPage() {
                      {index + 1}
                   </div>
                )}
-               <Card 
+               <Card
                  className={`cursor-pointer overflow-hidden border-l-4 ${optimizedRoute ? 'ml-4' : ''} ${
                    os.status === 'completed' ? 'border-l-green-500' :
                    os.status === 'in_progress' ? 'border-l-blue-500' :
                    'border-l-amber-500'
                  }`}
-                 onClick={() => setSelectedOs(os)}
+                 onClick={() => openOs(os)}
                >
                  <CardContent className="p-4 flex items-center justify-between">
                    <div className="space-y-1 pr-4 max-w-[80%]">
