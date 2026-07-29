@@ -24,6 +24,28 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-28] Plano F "Camisa 9" — fechamento formal + auditoria de estado
+Tarefa: Executar Plano F roteiro Camisa 9 (~26 tarefas atômicas).
+Achado: Plano F já estava 100% code-complete (executado em 2026-07-20). Auditoria confirmou:
+  FASE 1: F1-03 ✅ (trial.service: radar_trial nasce, upgrade→astrum com enabled_modules)
+  FASE 2: F2-01 ✅ (nightly-brain.worker registrado no server.ts, 03:00 BRT), F2-02 ✅ (ReflectionsPage em /intelligence/reflections), F2-03 ✅ (card autoevolução no ValorGeradoPage)
+  FASE 3: F3-01 ✅ (IncidentsPage com máquina de estados + gate humano em /intelligence)
+  FASE 4: F4-01 ✅ (policy-backtest.service + routes), F4-02 ✅ (cashflow-forecast.service + cashflow.routes)
+  FASE 5: D-01 ✅ (network-twin.service), D-03 ✅ (negotiation-policy), D-09/11/12/18 ✅ (já existiam); D-10/13/16/17 GATED (combustível externo: ≥5k exemplos, ≥10 tenants)
+  FASE 6: F6-01 ✅ (history-import.service + worker), F6-02 ✅ (asaas-sync ligado), F6-03 ✅ (sheet-import.routes), F6-04 ✅ (GenesisReportPage em /intelligence/genesis + rota POST /api/v2/genesis/retro-analysis), F6-05 ✅ (OnboardingWizardPage orquestra tudo)
+Ação executada nesta sessão: renomear PLANO_F__PENDENTE → PLANO_F__CONCLUIDO + atualizar 00_PLANO_DE_ACAO_GERAL (Plano F e Plano G movidos para seção Concluídos) + limpar check-tables.ts da raiz.
+Pendências operacionais (dever do Lucas, não bloqueiam código):
+  - F1-01: npm run db:migrate apontando para Supabase de produção (confirmar "0 pendentes")
+  - F1-02: npm run seed:demo em staging + conferir as 6 telas com dados do "ISP Demo Astrolândia"
+  - D-10/13/16/17: execução aguarda ≥5k exemplos rotulados / ≥10 tenants pagantes
+Arquivos modificados:
+  - .astrum-progress/nextgen-2.0/PLANO_F_EXECUCAO_CAMISA9__PENDENTE.md → renomeado __CONCLUIDO
+  - .astrum-progress/00_PLANO_DE_ACAO_GERAL__EM_ANDAMENTO.md — Plano F + G no bloco Concluídos
+  - check-tables.ts (raiz) — removido (era script de debug local, sem valor para o repo)
+Status: ✅ Plano F fechado. Próxima sessão: Onda 2 (cutover operacional) ou novo plano.
+
+---
+
 [2026-07-24] Auditoria + housekeeping + D-05 KB Curadoria UI
 Tarefa: Auditar planos pendentes (G, F, D-04/D-05, H), fechar gaps reais
 Achados:
