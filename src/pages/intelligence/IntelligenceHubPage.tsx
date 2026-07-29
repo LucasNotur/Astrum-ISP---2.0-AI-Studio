@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Wrench, ShieldCheck, Network, Database, Target, Activity, Terminal, FlaskConical, RefreshCw, TrendingDown, Trophy, Tags, FileSearch, Plug, HeartPulse, TrendingUp, PhoneCall, Brain, Radio, Zap } from 'lucide-react';
+import { Sparkles, Wrench, ShieldCheck, Network, Database, Target, Activity, Terminal, FlaskConical, RefreshCw, TrendingDown, Trophy, Tags, FileSearch, Plug, HeartPulse, TrendingUp, PhoneCall, Brain, Radio, Zap, GitCompareArrows, Wallet, Layers } from 'lucide-react';
 import { useFeatureFlags } from '@/src/hooks/useFeatureFlags';
 import { ptBR } from '@/src/lib/i18n/pt-br';
 import { supabase } from '@/src/lib/supabase';
@@ -42,6 +42,9 @@ export const BRANCH_REGISTRY: Branch[] = [
   { key: 'reflections', title: 'Cérebro Noturno', description: 'O que a Astrum pensou enquanto você dormia.', icon: Brain, route: '/intelligence/reflections' },
   { key: 'incidents', title: 'Incidentes de Rede', description: 'NOC autônomo: da suspeita à normalização, com gate humano.', icon: Radio, route: '/intelligence/incidents' },
   { key: 'genesis', title: 'WhatsApp Engine', description: 'Análise retroativa do histórico de conversas da sua base.', icon: Zap, route: '/intelligence/genesis' },
+  { key: 'policylab', title: 'Policy Lab', description: 'Backteste sua régua de cobrança no histórico real antes de ligar.', icon: GitCompareArrows, route: '/intelligence/policy-lab' },
+  { key: 'cfo', title: 'CFO Virtual', description: 'Projeção de caixa 90 dias: pessimista, base e otimista.', icon: Wallet, route: '/intelligence/cfo' },
+  { key: 'twin', title: 'Gêmeo Digital', description: 'Simule quedas de CTO e cenários de crescimento what-if.', icon: Layers, route: '/intelligence/twin' },
 ];
 
 export function IntelligenceHubPage() {
