@@ -11,13 +11,17 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
+      "inputs": ["src/**", "tsconfig*.json", "vite.config.*", "package.json"],
       "outputs": ["dist/**", "build/**"]
     },
     "test": {
       "dependsOn": ["^build"],
-      "cache": false
+      "inputs": ["src/**", "**/*.test.ts", "**/*.spec.ts", "vitest.config.*", "tsconfig*.json"],
+      "outputs": [],
+      "env": ["REDIS_URL", "SUPABASE_URL"]
     },
     "lint": {
+      "inputs": ["src/**", ".eslintrc*", "eslint.config.*"],
       "outputs": []
     },
     "dev": {
@@ -26,6 +30,7 @@
     },
     "typecheck": {
       "dependsOn": ["^build"],
+      "inputs": ["src/**", "tsconfig*.json"],
       "outputs": []
     }
   }
