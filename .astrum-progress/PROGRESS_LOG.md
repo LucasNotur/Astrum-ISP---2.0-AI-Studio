@@ -24,6 +24,123 @@ Observações: notas da IA sobre a sessão
 
 ---
 
+[2026-07-28] PLANO_A — Tecnologias Inéditas D-XX (sessão D-XX-MASS)
+Tarefa: Implementar 15 D-XX restantes do Plano A — modelo ISP-BR, Foundry, marketplace de playbooks, gêmeo do assinante, copiloto do dono, onboarding IA, rede de alerta, D-01/D-08 Fase 2.
+Estado ao início: D-01/D-02/D-08 Fase 1 prontos; D-03/D-04/D-05/D-06F1/D-07/D-11/D-12/D-14/D-15/D-18/D-23 prontos; restavam D-10/D-13/D-16/D-17/D-19/D-20/D-21/D-22 + Fases 2 de D-01/D-08.
+Arquivos criados:
+  Serviços:
+  - apps/api/src/domain/ml/isp-br-finetune.service.ts (D-10)
+  - apps/api/src/domain/erp/connector-forge.service.ts (D-13)
+  - apps/api/src/domain/foundry/foundry.service.ts (D-16)
+  - apps/api/src/domain/cobranca/playbook-market.service.ts (D-17)
+  - apps/api/src/domain/ml/subscriber-twin.service.ts (D-19)
+  - apps/api/src/domain/ia/owner-copilot.service.ts (D-20)
+  - apps/api/src/domain/onboarding/ai-onboarding-orchestrator.service.ts (D-21)
+  - apps/api/src/domain/security/threat-network.service.ts (D-22)
+  Rotas:
+  - apps/api/src/domain/ml/isp-br-finetune.routes.ts
+  - apps/api/src/domain/erp/connector-forge.routes.ts
+  - apps/api/src/domain/foundry/foundry.routes.ts
+  - apps/api/src/domain/cobranca/playbook-market.routes.ts
+  - apps/api/src/domain/ml/subscriber-twin.routes.ts
+  - apps/api/src/domain/ia/owner-copilot.routes.ts
+  - apps/api/src/domain/onboarding/ai-onboarding.routes.ts
+  - apps/api/src/domain/security/threat-network.routes.ts
+  Migrations:
+  - packages/db/src/migrations/083_d10_fine_tune_runs.sql
+  - packages/db/src/migrations/084_d13_connector_drafts.sql
+  - packages/db/src/migrations/085_d16_automations.sql
+  - packages/db/src/migrations/086_d17_playbooks.sql
+  - packages/db/src/migrations/087_d19_subscriber_simulations.sql
+  - packages/db/src/migrations/088_d21_onboarding_jobs.sql
+  - packages/db/src/migrations/089_d22_threat_network.sql
+  Testes (40 passando total, 0 falhas):
+  - apps/api/src/domain/ml/isp-br-finetune.service.test.ts
+  - apps/api/src/domain/erp/connector-forge.service.test.ts
+  - apps/api/src/domain/foundry/foundry.service.test.ts
+  - apps/api/src/domain/cobranca/playbook-market.service.test.ts
+  - apps/api/src/domain/ml/subscriber-twin.service.test.ts
+  - apps/api/src/domain/ia/owner-copilot.service.test.ts
+  - apps/api/src/domain/security/threat-network.service.test.ts
+  - apps/api/src/domain/onboarding/ai-onboarding-orchestrator.service.test.ts
+Arquivos modificados:
+  - apps/api/src/server.ts — +8 registros de rotas
+  - apps/api/src/domain/rede/network-twin.service.ts — +rankCtosByFailureRisk() D-01 F2
+  - apps/api/src/domain/rede/network-twin.routes.ts — +GET /api/v2/rede/twin/likely-failures
+  - apps/api/src/domain/financeiro/cashflow-forecast.service.ts — D-08 F2: churn integration + actionSuggested
+  - apps/api/src/domain/financeiro/cashflow.routes.ts — +POST /api/v2/financeiro/cashflow/act
+  - .astrum-progress/nextgen-2.0/PLANO_A_DIFERENCIAL_TECNOLOGIAS_INEDITAS__PENDENTE.md — §10 adicionado
+Testes: npx vitest run 8 arquivos → PASS (40) FAIL (0)
+Decisões técnicas:
+  - pollDelayMs injetável no D-10 (5s prod, 0 em tests) para evitar timeout do Vitest (5s default)
+  - afterChurn arredondado a 3dp antes do threshold recommendation para evitar floating-point (0.4-0.05=0.350...3)
+  - D-22: anonimização anonymizeEvidence() remove customer_ids/tenant_id/phone; arredonda affected_count ao múltiplo de 10 (privacidade diferencial)
+  - D-17: installPlaybook captura falha de D-02 graciosamente (dados insuficientes não bloqueiam install)
+  - D-08 F2: CFO_CHURN_INTEGRATION_ENABLED (env flag) — integração IA-07 opt-in
+Status: ✅ PLANO_A D-XX MASS CONCLUÍDO. Pendências operacionais (dever do Lucas):
+  - npm run db:migrate (migrations 083–089 precisam ser aplicadas no Supabase)
+  - Setores gated desbloqueiam quando combustível chegar (≥5k exemplos D-10, ≥10 tenants D-17/D-22, LGPD D-22)
+
+---
+
+[2026-07-28] Plano I — Uber do Técnico: fechar gaps I-1..I-4
+Tarefa: Executar Plano I (campo): 7 tabelas novas, API campo, evolução da PWA existente.
+Estado ao início: backend 100% code-complete (migration 082, 94 testes passando), frontend parcialmente ligado.
+Gaps fechados nesta sessão:
+  I-1 — sign-upload: POST /api/v2/field/os/:id/media/sign-upload (signed URL para upload direto ao Storage).
+  I-1 — checklist real do DB: GET /api/v2/field/os/:id/checklist + PATCH /:itemId. TechnicianAppPage
+        carrega checklist real ao abrir OS real (fallback local se offline), sincroniza done/undone ao API.
+  I-1 — PDF dossiê rico: src/lib/signaturePad.ts expandido — busca GET /dossie antes do checkout e
+        inclui no PDF: timeline de eventos, checklist, materiais, resumo IA + assinatura.
+  I-1 — registro de mídia tipada: após upload da foto de check-in/check-out, chama POST /media com
+        kind=antes|depois + coordenadas GPS.
+  I-2 — deeplink Waze/Maps: botão "Abrir no Waze / Maps" em toda OS aberta (usa lat/lng se disponível;
+        fallback query de endereço no Google Maps).
+  I-2 — breadcrumbs GPS reais: useEffect watchPosition quando OS está "in_progress"; buffer acumula pontos
+        e envia em lote a cada 60s via POST /api/v2/field/location (sem afetar bateria).
+  I-3 — modal do dossiê na FieldOpsPage: botão "Dossiê" no painel de dispatch abre modal com
+        timeline, checklist, materiais, galeria antes/depois e resumo IA.
+  fieldOps.ts: +5 funções (fetchChecklist, markChecklistItem, registerMedia, signUploadMedia, sendLocationBatch).
+Arquivos criados: nenhum (só edições).
+Arquivos modificados:
+  - apps/api/src/domain/campo/field-ops.routes.ts — +3 endpoints (sign-upload, GET/PATCH checklist)
+  - src/lib/fieldOps.ts — +5 funções exportadas
+  - src/lib/signaturePad.ts — PDF rico com dossiê (timeline + checklist + materiais + resumo IA)
+  - src/pages/TechnicianAppPage.tsx — openOs() + GPS breadcrumbs + Waze deeplink + mídia tipada + PDF dossiê
+  - src/pages/FieldOpsPage.tsx — modal de dossiê
+  - .astrum-progress/nextgen-2.0/PLANO_I_UBER_DO_TECNICO__PENDENTE.md → __CONCLUIDO (git mv)
+  - .astrum-progress/00_PLANO_DE_ACAO_GERAL__EM_ANDAMENTO.md — PLANO_I adicionado como concluído
+Testes: npx vitest run apps/api/src/domain/campo/ → PASS (94) FAIL (0).
+Typecheck: zero erros nos arquivos do Plano I (erros pré-existentes inalterados).
+Status: ✅ Plano I CONCLUÍDO. Pendências operacionais (dever do Lucas):
+  - Lucas: npm run db:migrate (migration 082 precisa ser aplicada no Supabase de produção).
+  - Lucas: setar FIELD_WHATSAPP_NOTIFY_ENABLED=true / FIELD_SUMMARY_LLM_ENABLED=true / VISION_STRUCTURED_ENABLED=true
+    + OPENAI_API_KEY / EVOLUTION_API_* para ativar as 3 integrações IA de campo.
+
+---
+
+[2026-07-28] Plano F "Camisa 9" — fechamento formal + auditoria de estado
+Tarefa: Executar Plano F roteiro Camisa 9 (~26 tarefas atômicas).
+Achado: Plano F já estava 100% code-complete (executado em 2026-07-20). Auditoria confirmou:
+  FASE 1: F1-03 ✅ (trial.service: radar_trial nasce, upgrade→astrum com enabled_modules)
+  FASE 2: F2-01 ✅ (nightly-brain.worker registrado no server.ts, 03:00 BRT), F2-02 ✅ (ReflectionsPage em /intelligence/reflections), F2-03 ✅ (card autoevolução no ValorGeradoPage)
+  FASE 3: F3-01 ✅ (IncidentsPage com máquina de estados + gate humano em /intelligence)
+  FASE 4: F4-01 ✅ (policy-backtest.service + routes), F4-02 ✅ (cashflow-forecast.service + cashflow.routes)
+  FASE 5: D-01 ✅ (network-twin.service), D-03 ✅ (negotiation-policy), D-09/11/12/18 ✅ (já existiam); D-10/13/16/17 GATED (combustível externo: ≥5k exemplos, ≥10 tenants)
+  FASE 6: F6-01 ✅ (history-import.service + worker), F6-02 ✅ (asaas-sync ligado), F6-03 ✅ (sheet-import.routes), F6-04 ✅ (GenesisReportPage em /intelligence/genesis + rota POST /api/v2/genesis/retro-analysis), F6-05 ✅ (OnboardingWizardPage orquestra tudo)
+Ação executada nesta sessão: renomear PLANO_F__PENDENTE → PLANO_F__CONCLUIDO + atualizar 00_PLANO_DE_ACAO_GERAL (Plano F e Plano G movidos para seção Concluídos) + limpar check-tables.ts da raiz.
+Pendências operacionais (dever do Lucas, não bloqueiam código):
+  - F1-01: npm run db:migrate apontando para Supabase de produção (confirmar "0 pendentes")
+  - F1-02: npm run seed:demo em staging + conferir as 6 telas com dados do "ISP Demo Astrolândia"
+  - D-10/13/16/17: execução aguarda ≥5k exemplos rotulados / ≥10 tenants pagantes
+Arquivos modificados:
+  - .astrum-progress/nextgen-2.0/PLANO_F_EXECUCAO_CAMISA9__PENDENTE.md → renomeado __CONCLUIDO
+  - .astrum-progress/00_PLANO_DE_ACAO_GERAL__EM_ANDAMENTO.md — Plano F + G no bloco Concluídos
+  - check-tables.ts (raiz) — removido (era script de debug local, sem valor para o repo)
+Status: ✅ Plano F fechado. Próxima sessão: Onda 2 (cutover operacional) ou novo plano.
+
+---
+
 [2026-07-24] Auditoria + housekeeping + D-05 KB Curadoria UI
 Tarefa: Auditar planos pendentes (G, F, D-04/D-05, H), fechar gaps reais
 Achados:
@@ -3589,3 +3706,18 @@ Testes: 15 testes — todos passando.
 Status: CONCLUIDO. Score dossiê: 70 implementados + 5 parciais + 30 pendentes.
 Observação: Grupo F (Analytics) chegou a 100% de cobertura (10/10 itens implementados).
 Commit: feat(u7): qualidade continua — playwright legado, testes componente, /design, bundle splitting.
+
+---
+
+[2026-07-28] 7 telas novas — PolicyLab, CFO Virtual, Gêmeo Digital (+ 4 já existentes)
+Tarefa: Criar as UIs para os 7 módulos backend prontos (Plano F F3-01/F4-01/F4-02/F6-04).
+Arquivos criados:
+  - src/pages/intelligence/PolicyLabPage.tsx — D-02: backtesting de régua (formulário 4 parâmetros + POST /api/v2/cobranca/backtest → baseline + cenários pessimista/base/otimista + disclaimer)
+  - src/pages/intelligence/CfoPage.tsx — D-08: CFO virtual (GET /api/v2/financeiro/cashflow → KPIs, taxas observadas, tabela 3 meses × 3 cenários, seletor de janela)
+  - src/pages/intelligence/NetworkTwinPage.tsx — D-01: Gêmeo Digital (CTOs via Supabase, modo queda → failure, modo crescimento → growth, spillover/capexNeeded)
+Arquivos modificados:
+  - src/routes/intelligence.routes.tsx — rotas /intelligence/policy-lab, /cfo, /twin
+  - src/pages/intelligence/IntelligenceHubPage.tsx — 3 cards (policylab/cfo/twin; GitCompareArrows/Wallet/Layers)
+Telas que já existiam (confirmadas): NOC incidentes (IncidentsPage.tsx), Relatório Gênesis (GenesisReportPage.tsx), card autoevolução (ValorGeradoPage.tsx), Dashboard vendas (SalesPage.tsx).
+Testes: tsc 0 erros nos arquivos novos; build Vite verde 10.91s.
+Status: CONCLUIDO.

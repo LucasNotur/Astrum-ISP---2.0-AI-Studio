@@ -7,6 +7,9 @@ export interface WhatsAppMessage {
   to: string;
   content: string;
   tenantId: string;
+  /** Chaves resolvidas pelo tenant (sobrepõem env vars). */
+  evolutionUrl?: string;
+  evolutionApiKey?: string;
 }
 
 export interface WhatsAppResponse {
@@ -16,8 +19,8 @@ export interface WhatsAppResponse {
 }
 
 async function sendWhatsAppAPI(message: WhatsAppMessage): Promise<WhatsAppResponse> {
-  const url = process.env.EVOLUTION_API_URL || 'http://localhost:8080';
-  const apiKey = process.env.EVOLUTION_API_KEY || 'dummy_key';
+  const url = message.evolutionUrl || process.env.EVOLUTION_API_URL || 'http://localhost:8080';
+  const apiKey = message.evolutionApiKey || process.env.EVOLUTION_API_KEY || 'dummy_key';
 
   const response = await fetch(`${url}/message/sendText`, {
     method: 'POST',

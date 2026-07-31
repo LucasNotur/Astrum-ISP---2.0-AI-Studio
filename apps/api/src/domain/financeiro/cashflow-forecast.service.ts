@@ -37,6 +37,12 @@ export interface CashflowForecast {
   recoverableOverdueCents: number;
   headline: string;
   assumptions: string[];
+  /** D-08 Fase 2: ação sugerida pelo CFO virtual */
+  actionSuggested?: {
+    type: 'create_campaign';
+    label: string;
+    payload: { targetSegment: string; expectedRecoveryCents: number };
+  };
 }
 
 /** Cenários: deslocamento nas taxas de pagamento (pp = pontos percentuais). */
@@ -108,7 +114,23 @@ export async function forecastCashflow(
     `Há R$ ${(baseline.unpaidCents / 100).toLocaleString('pt-BR')} de inadimplência em aberto — ` +
     `~R$ ${(recoverable / 100).toLocaleString('pt-BR')} recuperáveis na sua taxa histórica.`;
 
-  infraLogger.info({ tenantId, activeCount, base90 }, 'D-08: cashflow projetado');
+  // D-08 Fase 2: ajustar projeção com churn previsto (IA-07)
+  let churnAdjustedCount = activeCount;
+  let churnNote = 'Base ativa considerada constante (churn previsto IA-07 entra quando houver ≥90d de dados).';
+  if (process.env.CFO_CHURN_INTEGRATION_ENABLED === 'true') {
+    const { data: recentChurn } = await db
+      .from('churn_scores')
+      .select('score')
+      .eq('tenant_id', tenantId)
+      .gte('scored_at', new Date(Date.now() - 7 * 86400000).toISOString());
+    if (recentChurn && recentChurn.length > 0) {
+      const avgChurn = recentChurn.reduce((s: number, r: any) => s + Number(r.score), 0) / recentChurn.length;
+      churnAdjustedCount = Math.round(activeCount * (1 - avgChurn * 0.1)); // 10% dos high-churn viram churn/mês
+      churnNote = `Churn previsto integrado (IA-07): ${(avgChurn * 100).toFixed(1)}% de risco médio → base projetada cai ${activeCount - churnAdjustedCount} clientes no trimestre.`;
+    }
+  }
+
+  infraLogger.info({ tenantId, activeCount, base90, churnAdjustedCount }, 'D-08: cashflow projetado');
 
   return {
     activeCustomers: activeCount,
@@ -122,9 +144,18 @@ export async function forecastCashflow(
     openOverdueCents: baseline.unpaidCents,
     recoverableOverdueCents: recoverable,
     headline,
+    // D-08 Fase 2: ação sugerida — campanha de recuperação dos inadimplentes
+    actionSuggested: recoverable > 0 ? {
+      type: 'create_campaign' as const,
+      label: `Criar campanha de recuperação (R$ ${(recoverable / 100).toLocaleString('pt-BR')} recuperáveis)`,
+      payload: {
+        targetSegment: 'overdue',
+        expectedRecoveryCents: recoverable,
+      },
+    } : undefined,
     assumptions: [
-      `Taxas de pagamento observadas nos últimos ${windowDays}d aplicadas aos próximos 90d (sazonalidade entra na Fase 2 com IA-25).`,
-      'Base ativa considerada constante (churn previsto IA-07 entra na Fase 2).',
+      `Taxas de pagamento observadas nos últimos ${windowDays}d aplicadas aos próximos 90d (sazonalidade entra com IA-25).`,
+      churnNote,
       `Cenários deslocam a taxa de coleta em ${SCENARIO_SHIFT_PP.pessimista * 100}pp / +${SCENARIO_SHIFT_PP.otimista * 100}pp.`,
       'Recuperável = estoque de inadimplência × taxa histórica de recuperação tardia.',
     ],

@@ -26,9 +26,13 @@
 | `ia-nextgen/PARTE1_IA01-IA10_backend__CONCLUIDO.md` | IA-01..IA-10 100% (A3 da IA-08 fechou em 2026-07-09) | 2026-07-09 |
 | `ia-nextgen/PARTE2_IA11-IA46_fullstack__CONCLUIDO.md` | Fase 1 + Fase 2 100% (GATED IA-18/20/41 documentadas à parte, reavaliadas na Onda 5) | 2026-07-09 |
 | `nextgen-2.0/PLANO_C_UIUX_OPERACIONAL__CONCLUIDO.md` | UI/UX U0–U7: auditoria, tokens, componentes, onboarding, dashboards configuráveis, módulos por tenant, responsividade/PWA, qualidade (Playwright + Vitest + /design + bundle) | 2026-07-12 |
+| `nextgen-2.0/PLANO_F_EXECUCAO_CAMISA9__CONCLUIDO.md` | Roteiro Camisa 9: F1..F6 + D-01/03/09/11/12/18 executados. F1-01/02 operacionais (Lucas). D-10/13/16/17 gated por combustível externo. | 2026-07-20 |
+| `nextgen-2.0/PLANO_G_UIUX_2.0__CONCLUIDO.md` | UI/UX de referência — G-01..G-07 todos executados em 2026-07-24 | 2026-07-24 |
+| `nextgen-2.0/PLANO_I_UBER_DO_TECNICO__CONCLUIDO.md` | Uber do Técnico — I-1..I-4 (campo): 7 tabelas, API campo completa, PWA real (checklist DB, GPS, Waze, PDF dossiê), painel gestor + modal dossiê | 2026-07-28 |
 
 **Onda 1 FECHADA** (2026-07-09) — critério de fechamento cumprido: PARTE1 e PARTE2 renomeadas `__CONCLUIDO`.
 **Onda 4 FECHADA** (2026-07-12) — U0–U7 todos executados; PLANO_C renomeado `__CONCLUIDO`.
+**Plano F FECHADO** (2026-07-20) — todas as 6 fases executadas; arquivo renomeado `__CONCLUIDO` em 2026-07-28.
 
 ### 🔶 Em andamento (código avançado, falta fechar)
 | Plano | Feito | Falta |
@@ -41,8 +45,6 @@
 | `nextgen-2.0/PLANO_B_PARIDADE_CONCORRENTES__PENDENTE.md` | Escada de entrada via ERP + blocos P0–P6. **P0–P5 CODE-COMPLETE (2026-07-09/11)** — migrations pendentes (dever do Lucas: `trust_unlock_*`, `tenant_meta_pages`, `tenant_email_inboxes`, `067_p3_sales_leads`, `068_p5_valor_gerado`) | **P6 bloqueado em parceria comercial CPE/OZmap (Lucas)** — Onda 3 |
 | `nextgen-2.0/PLANO_A_DIFERENCIAL_TECNOLOGIAS_INEDITAS__PENDENTE.md` | 18 tecnologias inéditas D-01..D-18 (§2b D-13..D-18 adicionadas no checkup 2026-07-12; D-05/D-06 F1/D-07 já executadas) | Gates de combustível (tráfego real, dados, conectores) — Onda 5 |
 | `nextgen-2.0/PLANO_E_AUTOEVOLUCAO__PENDENTE.md` | Cérebro noturno — **E-01/E-02 CODIFICADOS 2026-07-13** (ai_reflections + hipóteses por regras, rodando no tenant demo); E-03..E-05 restam | Calibragem com tráfego real (Onda 2); código não bloqueia mais |
-| `nextgen-2.0/PLANO_F_EXECUCAO_CAMISA9__PENDENTE.md` | Roteiro passo-a-passo (arquivos+irmão+teste) de TODOS os pendentes para modelo menor (Sonnet) executar sozinho | Pronto para executar |
-| `nextgen-2.0/PLANO_G_UIUX_2.0__CONCLUIDO.md` | UI/UX de referência — G-01..G-07 todos executados em 2026-07-24 | ✅ CONCLUÍDO |
 | `nextgen-2.0/PLANO_H_CONSTELACAO__PENDENTE.md` | Os produtos além do ISP: Atlas (rastreadoras ~75% reuso), Cobra (cobrança universal), Gênesis standalone, Túnel, Selo, Foundry — 3 horizontes com gatilhos | Horizonte 2 = 10 ISPs pagantes (§0 é lei) |
 
 ### 📋 Aguardando decisão (dever de casa do LUCAS — §4)

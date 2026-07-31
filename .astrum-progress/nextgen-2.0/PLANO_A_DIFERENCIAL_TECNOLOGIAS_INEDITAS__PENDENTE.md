@@ -631,6 +631,88 @@ que dobra como ROTEIRO DA DEMO DE VENDA):
 19 testes novos. Telas ficam para o PLANO_G/PLANO_F (Sonnet executa — a parte
 difícil, os motores, está pronta e testada).
 
+---
+
+## §10 — D-10/D-13/D-16/D-17/D-19/D-20/D-21/D-22 EXECUTADOS (2026-07-28, sessão D-XX-MASS)
+
+As 8 tecnologias inéditas da segunda e terceira geração foram codificadas com o padrão
+ports-injetáveis + feature flag, mesma disciplina dos motores D-01/D-02/D-08:
+
+**40 testes Vitest passando (todos PASS).**
+
+### D-10 — Modelo próprio ISP-BR
+- `apps/api/src/domain/ml/isp-br-finetune.service.ts` — pipeline completo:
+  exportar JSONL → submit job → poll → eval antes/depois → **promove SÓ se melhorar** (regra inegociável)
+- `packages/db/src/migrations/083_d10_fine_tune_runs.sql` — tabela `fine_tune_runs`
+- Rotas: POST /api/v2/ia/fine-tune/run (202 async), GET /runs, GET /export
+- Flag: `FINE_TUNE_ENABLED`. Porta: `pollDelayMs` configurável (5s prod, 0 testes).
+- Combustível gate: ≥5k exemplos rotulados (IA-29).
+
+### D-13 — Conectores que se escrevem sozinhos
+- `apps/api/src/domain/erp/connector-forge.service.ts` — agente GPT-4o gera adapter
+  no padrão `IErpAdapter`, roda 4 testes de contrato automáticos, status 'ready'/'testing'
+- `packages/db/src/migrations/084_d13_connector_drafts.sql` — tabela `connector_drafts`
+- Rotas: POST /api/v2/erp/forge, GET /forge, GET /forge/:id
+- Flag: `CONNECTOR_FORGE_ENABLED`. Combustível: 2+ pedidos de ERP fora do top-5.
+
+### D-16 — Foundry (automações por linguagem natural)
+- `apps/api/src/domain/foundry/foundry.service.ts` — NL → query+schedule+template+outputAction
+  via GPT-4o; dupla validação: sql-guard (IA-44) + allowlist de tabelas permitidas
+- `packages/db/src/migrations/085_d16_automations.sql` — tabela `automations`
+- Rotas: POST /api/v2/foundry/automate, GET /automations, PATCH /:id/activate/pause
+- Flag: `FOUNDRY_ENABLED`. Combustível: 5+ tenants ativos.
+
+### D-17 — Marketplace de playbooks com prova
+- `apps/api/src/domain/cobranca/playbook-market.service.ts` — publishPlaybook, listPlaybooks,
+  **installPlaybook (roda D-02 backtest ANTES de ativar — prova no histórico do comprador)**,
+  activateInstalledPlaybook
+- `packages/db/src/migrations/086_d17_playbooks.sql` — tabelas `playbooks` + `playbook_installs`
+- Rotas: GET/POST /api/v2/playbooks, POST /:id/install, POST /:id/activate
+- Combustível: ≥10 tenants + D-02 rodando.
+
+### D-19 — Gêmeo do Assinante
+- `apps/api/src/domain/ml/subscriber-twin.service.ts` — simulateAction + simulateSegment
+  com elasticidades EXPLÍCITAS (SENSITIVITY map calibrável quando houver 90d de dados IA-26)
+  e recomendação proceed/reconsider/avoid por afterChurn
+- `packages/db/src/migrations/087_d19_subscriber_simulations.sql`
+- Rotas: POST /twin/customer/:id/simulate, POST /twin/segment/simulate, GET /twin/simulations
+- Combustível: 90d de histórico ações→respostas (IA-26).
+
+### D-20 — Copiloto do Dono
+- `apps/api/src/domain/ia/owner-copilot.service.ts` — NL → SQL (GPT-4o + sql-guard)
+  → execução segura → síntese em linguagem natural (GPT-4o-mini) com dados reais
+- Rota: POST /api/v2/owner/ask
+- Combustível: dados reais + sql-guard ligado.
+
+### D-21 — Onboarding de ISP em 1 dia
+- `apps/api/src/domain/onboarding/ai-onboarding-orchestrator.service.ts` — orquestrador
+  de 7 passos: erp_connection → customer_import → network_mapping → constitution_generation
+  → kb_backfill → whatsapp_analysis → report_generation. Continua mesmo se um passo falha.
+- `packages/db/src/migrations/088_d21_onboarding_jobs.sql`
+- Rotas: POST /api/v2/onboarding/ai/start (202 async), GET /:id, GET /
+- Combustível: 2+ onboardings reais para calibrar.
+
+### D-22 — Rede de Alerta Precoce entre ISPs
+- `apps/api/src/domain/security/threat-network.service.ts` — broadcast + anonimização
+  (privacy differential: strips customer_ids, arredonda affected_count para múltiplos de 10),
+  broadcastThreatSignal exclui o tenant de origem da notificação
+- `packages/db/src/migrations/089_d22_threat_network.sql` — tabelas `threat_signals` + `tenant_immunizations`
+- Rotas: POST /api/v2/threats/broadcast, GET /threats, GET /threats/:id/immunized
+- Combustível: ≥10 tenants + LGPD aprovada.
+
+### D-01 Fase 2 — Ranking probabilístico de falha
+- `rankCtosByFailureRisk()` adicionado ao `network-twin.service.ts`
+  Score composto: 60% anomalia (IA-24 via `network_anomalies`) + 40% ocupação
+- Rota: GET /api/v2/rede/twin/likely-failures
+
+### D-08 Fase 2 — Churn + botão "agir"
+- `cashflow-forecast.service.ts`: integração opcional IA-07 via `CFO_CHURN_INTEGRATION_ENABLED`
+  + campo `actionSuggested` na resposta quando há recuperável > 0
+- `cashflow.routes.ts`: endpoint POST /api/v2/financeiro/cashflow/act — cria campanha
+  de recuperação em `campaign_variants` a partir da sugestão do CFO virtual
+
+---
+
 ### D-23 — Gênesis Engine: plug-and-play + análise retroativa do WhatsApp
 **(adicionado 2026-07-13 — ideia do Lucas, núcleo já codado)**
 **O que é:** o provedor conecta WhatsApp + ERP + gateway (Asaas) + CRM — ou até

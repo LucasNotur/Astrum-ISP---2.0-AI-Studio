@@ -237,6 +237,85 @@ export async function generateSummary(osId: string): Promise<{ summary: string; 
   return res.json();
 }
 
+// ─── Checklist ───────────────────────────────────────────────────────────────
+
+export interface FieldChecklistItemFull extends FieldChecklistItem {
+  item_key: string;
+  required: boolean;
+  done_at: string | null;
+}
+
+export async function fetchChecklist(osId: string): Promise<FieldChecklistItemFull[]> {
+  const res = await fetch(`/api/v2/field/os/${osId}/checklist`, { headers: authHeaders() });
+  if (!res.ok) throw new Error(`Checklist HTTP ${res.status}`);
+  const data = await res.json();
+  return (data.items ?? []).map((i: any) => ({
+    id: i.id,
+    item_key: i.item_key ?? '',
+    text: i.label ?? i.item_key,
+    required: i.required ?? false,
+    done: i.done ?? false,
+    done_at: i.done_at ?? null,
+  }));
+}
+
+export async function markChecklistItem(osId: string, itemId: string, done: boolean): Promise<boolean> {
+  const res = await fetch(`/api/v2/field/os/${osId}/checklist/${itemId}`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify({ done }),
+  });
+  return res.ok;
+}
+
+// ─── Mídia tipada ─────────────────────────────────────────────────────────────
+
+export async function registerMedia(
+  osId: string,
+  opts: { kind: string; url: string; lat?: number; lng?: number; note?: string },
+): Promise<string | null> {
+  const res = await fetch(`/api/v2/field/os/${osId}/media`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({
+      kind: opts.kind, url: opts.url,
+      lat: opts.lat, lng: opts.lng,
+      takenAt: new Date().toISOString(),
+      note: opts.note,
+    }),
+  });
+  if (!res.ok) return null;
+  const data = await res.json().catch(() => ({}));
+  return data.id ?? null;
+}
+
+export interface SignUploadResult { signedUrl: string; path: string; token: string }
+
+export async function signUploadMedia(osId: string, kind: string, filename: string): Promise<SignUploadResult> {
+  const res = await fetch(`/api/v2/field/os/${osId}/media/sign-upload`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ kind, filename }),
+  });
+  if (!res.ok) throw new Error(`Sign upload HTTP ${res.status}`);
+  return res.json();
+}
+
+// ─── Localização GPS ─────────────────────────────────────────────────────────
+
+export async function sendLocationBatch(
+  shiftId: string | undefined,
+  points: { lat: number; lng: number; recordedAt: string }[],
+): Promise<void> {
+  if (points.length === 0) return;
+  const res = await fetch('/api/v2/field/location', {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ shiftId, points }),
+  });
+  if (!res.ok) throw new Error(`Location batch HTTP ${res.status}`);
+}
+
 /** Otimiza a rota do dia e retorna a ordem + km estimado. */
 export async function optimizeRoute(date?: string): Promise<OptimizedRouteResult> {
   const res = await fetch('/api/v2/field/route/optimize', {

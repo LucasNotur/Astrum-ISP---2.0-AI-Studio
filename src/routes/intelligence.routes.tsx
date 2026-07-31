@@ -22,6 +22,9 @@ const VoiceQaPage          = lazy(() => import('../pages/intelligence/VoiceQaPag
 const ReflectionsPage      = lazy(() => import('../pages/intelligence/ReflectionsPage'));
 const IncidentsPage        = lazy(() => import('../pages/intelligence/IncidentsPage'));
 const GenesisReportPage    = lazy(() => import('../pages/intelligence/GenesisReportPage'));
+const PolicyLabPage        = lazy(() => import('../pages/intelligence/PolicyLabPage'));
+const CfoPage              = lazy(() => import('../pages/intelligence/CfoPage'));
+const NetworkTwinPage      = lazy(() => import('../pages/intelligence/NetworkTwinPage'));
 
 const fallback = <div className="p-10 text-center text-muted-foreground">Carregando...</div>;
 
@@ -53,6 +56,9 @@ export function intelligenceRoutes() {
       <Route path="/intelligence/reflections"  element={<S><ReflectionsPage /></S>} />
       <Route path="/intelligence/incidents"   element={<S><IncidentsPage /></S>} />
       <Route path="/intelligence/genesis"    element={<S><GenesisReportPage /></S>} />
+      <Route path="/intelligence/policy-lab" element={<S><PolicyLabPage /></S>} />
+      <Route path="/intelligence/cfo"        element={<S><CfoPage /></S>} />
+      <Route path="/intelligence/twin"       element={<S><NetworkTwinPage /></S>} />
     </>
   );
 }

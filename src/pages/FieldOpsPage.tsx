@@ -11,13 +11,13 @@ import { motion } from 'framer-motion';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
 } from 'recharts';
-import { RefreshCw, Truck, MapPin, Clock, Route, Users, Activity, UserPlus } from 'lucide-react';
+import { RefreshCw, Truck, MapPin, Clock, Route, Users, Activity, UserPlus, FileText, X, CheckCircle, Circle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { toast } from 'sonner';
 import { FieldMap, type MapMarker } from '../components/field/FieldMap';
 import {
-  fetchLive, fetchKmReport, fetchTempoReport, fetchDispatchBoard, assignOs,
+  fetchLive, fetchKmReport, fetchTempoReport, fetchDispatchBoard, assignOs, fetchDossie,
   type LiveTechnician, type KmReport, type TempoReport, type DispatchBoardItem,
 } from '../lib/fieldOps';
 
@@ -53,6 +53,21 @@ export default function FieldOpsPage() {
   const [dispatch, setDispatch] = useState<DispatchBoardItem[]>([]);
   const [assigning, setAssigning] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [dossie, setDossie] = useState<any | null>(null);
+  const [dossieLoading, setDossieLoading] = useState(false);
+
+  const openDossie = async (osId: string) => {
+    setDossieLoading(true);
+    setDossie(null);
+    try {
+      const data = await fetchDossie(osId);
+      setDossie(data);
+    } catch {
+      toast.error('Falha ao carregar dossiê da OS.');
+    } finally {
+      setDossieLoading(false);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -162,25 +177,26 @@ export default function FieldOpsPage() {
                       <div className="font-semibold truncate">{d.customer_name} · <span className="text-zinc-500 font-normal capitalize">{(d.type || '').replace(/_/g, ' ')}</span></div>
                       <div className="text-sm text-zinc-500 truncate">{d.address || 'Sem endereço'}</div>
                     </div>
-                    {top ? (
-                      <div className="flex items-center gap-3 flex-shrink-0">
-                        <div className="text-right">
-                          <div className="text-xs text-zinc-500">Sugestão</div>
-                          <div className="text-sm font-medium flex items-center gap-1">
-                            {top.name}
-                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300">
-                              {top.reasons.join(' · ')}
-                            </span>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Button size="sm" variant="ghost" className="gap-1 text-zinc-500"
+                        onClick={() => openDossie(d.service_order_id)}>
+                        <FileText className="w-4 h-4" /> Dossiê
+                      </Button>
+                      {top ? (
+                        <div className="flex items-center gap-2">
+                          <div className="text-right hidden md:block">
+                            <div className="text-xs text-zinc-500">Sugestão</div>
+                            <div className="text-sm font-medium">{top.name}</div>
                           </div>
+                          <Button size="sm" className="gap-1" disabled={assigning === d.service_order_id}
+                            onClick={() => handleAssign(d.service_order_id, top.technician_id, top.name)}>
+                            <UserPlus className="w-4 h-4" /> Atribuir
+                          </Button>
                         </div>
-                        <Button size="sm" className="gap-1" disabled={assigning === d.service_order_id}
-                          onClick={() => handleAssign(d.service_order_id, top.technician_id, top.name)}>
-                          <UserPlus className="w-4 h-4" /> Atribuir
-                        </Button>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-zinc-400 flex-shrink-0">Nenhum técnico elegível</span>
-                    )}
+                      ) : (
+                        <span className="text-xs text-zinc-400">Sem técnico elegível</span>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               );
@@ -268,6 +284,123 @@ export default function FieldOpsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal do Dossiê da OS */}
+      {(dossie || dossieLoading) && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-end md:items-center justify-center p-4">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b dark:border-zinc-800">
+              <h2 className="font-bold flex items-center gap-2">
+                <FileText className="w-5 h-5 text-indigo-500" />
+                Dossiê da OS
+                {dossie?.order?.id && (
+                  <span className="text-xs font-mono text-zinc-400">{String(dossie.order.id).slice(0, 8)}…</span>
+                )}
+              </h2>
+              <button onClick={() => setDossie(null)} className="p-1.5 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-4 space-y-4 flex-1">
+              {dossieLoading && (
+                <p className="text-sm text-zinc-500 text-center py-8">Carregando dossiê…</p>
+              )}
+
+              {dossie && (
+                <>
+                  {/* Cabeçalho da OS */}
+                  <div className="space-y-1">
+                    <div className="font-semibold">{dossie.order?.customer_name}</div>
+                    <div className="text-sm text-zinc-500">{dossie.order?.address}</div>
+                    <div className="text-xs px-2 py-0.5 rounded-full inline-block bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 capitalize">
+                      {dossie.order?.type?.replace(/_/g, ' ')} · {dossie.order?.status}
+                    </div>
+                  </div>
+
+                  {/* Timeline */}
+                  {dossie.timeline?.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Timeline</h3>
+                      <div className="space-y-1.5">
+                        {dossie.timeline.map((ev: any, i: number) => (
+                          <div key={i} className="flex gap-2 text-sm">
+                            <span className="text-zinc-400 font-mono text-xs w-10 flex-shrink-0 mt-0.5">
+                              {new Date(ev.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <span className="capitalize">{ev.event.replace(/_/g, ' ')}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Checklist */}
+                  {dossie.checklist?.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Checklist</h3>
+                      <div className="space-y-1.5">
+                        {dossie.checklist.map((item: any, i: number) => (
+                          <div key={i} className="flex gap-2 items-center text-sm">
+                            {item.done
+                              ? <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                              : <Circle className="w-4 h-4 text-zinc-300 flex-shrink-0" />}
+                            <span className={item.done ? 'line-through text-zinc-400' : ''}>{item.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Materiais */}
+                  {dossie.materials?.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">Materiais</h3>
+                      <div className="space-y-1">
+                        {dossie.materials.map((m: any, i: number) => (
+                          <div key={i} className="text-sm flex gap-2">
+                            <span className="font-medium">{m.name}</span>
+                            {m.serial_number && <span className="text-zinc-400 font-mono text-xs">{m.serial_number}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Galeria de fotos */}
+                  {dossie.media?.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
+                        Fotos ({dossie.media.length})
+                      </h3>
+                      <div className="grid grid-cols-3 gap-2">
+                        {dossie.media.map((m: any, i: number) => (
+                          <a key={i} href={m.url} target="_blank" rel="noopener noreferrer"
+                            className="relative group rounded overflow-hidden aspect-square bg-zinc-100 dark:bg-zinc-800">
+                            <img src={m.thumbnail_url ?? m.url} alt={m.kind}
+                              className="w-full h-full object-cover" />
+                            <span className="absolute bottom-0 inset-x-0 text-center text-[9px] font-bold bg-black/50 text-white uppercase py-0.5">
+                              {m.kind}
+                            </span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Resumo IA */}
+                  {dossie.order?.ai_summary && (
+                    <div className="p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-sm text-indigo-800 dark:text-indigo-200">
+                      <span className="font-semibold text-xs uppercase tracking-wider block mb-1">Resumo IA</span>
+                      {dossie.order.ai_summary}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

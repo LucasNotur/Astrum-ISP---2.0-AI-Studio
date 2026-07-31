@@ -7,19 +7,25 @@
  * resumo determinístico (fallbackSummary).
  */
 import { generateText } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { openai, createOpenAI } from '@ai-sdk/openai';
 import { infraLogger } from '../../infrastructure/logging/logger';
-
-const summaryModel = openai('gpt-4o-mini');
 
 /**
  * Gera o resumo da OS com GPT-4o-mini a partir do prompt já montado
  * (buildOsSummaryPrompt). Retorna null em erro para o fallback assumir.
+ * @param apiKey Chave OpenAI do tenant (sobrepõe env var OPENAI_API_KEY).
  */
-export async function generateOsSummaryLLM(prompt: string, tenantId: string): Promise<string | null> {
+export async function generateOsSummaryLLM(
+  prompt: string,
+  tenantId: string,
+  apiKey?: string,
+): Promise<string | null> {
+  const model = apiKey
+    ? createOpenAI({ apiKey })('gpt-4o-mini')
+    : openai('gpt-4o-mini');
   try {
     const { text } = await generateText({
-      model: summaryModel as any,
+      model: model as any,
       prompt,
       maxOutputTokens: 180,
       temperature: 0.3,
