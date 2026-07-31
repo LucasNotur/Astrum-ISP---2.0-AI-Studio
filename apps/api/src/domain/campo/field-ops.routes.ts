@@ -20,6 +20,7 @@ import {
 import { suggestTechnicians, type DispatchTech, type DispatchOs } from './dispatch.service';
 import { classifyFieldPhoto } from '../../infrastructure/vision/vision.service';
 import { sendMessage } from '../../adapters/whatsapp/whatsapp.adapter';
+import { resolveTenantKeys } from '../../lib/tenant-keys';
 
 const OS_EVENTS = [
   'criada', 'atribuida', 'aceita', 'a_caminho', 'chegou',
@@ -121,7 +122,6 @@ async function notifyOnTheWay(tenantId: string, serviceOrderId: string, technici
     .eq('tenant_id', tenantId).eq('id', serviceOrderId).maybeSingle();
   if (!os) return false;
 
-  // Telefone do cliente (customers.phone) — desnormalizado no nome se faltar.
   let phone: string | null = null;
   if (os.customer_id) {
     const { data: cust } = await supabase
@@ -130,13 +130,19 @@ async function notifyOnTheWay(tenantId: string, serviceOrderId: string, technici
   }
   if (!phone) return false;
 
-  const { data: tech } = await supabase
-    .from('technicians').select('name').eq('tenant_id', tenantId).eq('id', technicianId).maybeSingle();
+  const [{ data: tech }, keys] = await Promise.all([
+    supabase.from('technicians').select('name').eq('tenant_id', tenantId).eq('id', technicianId).maybeSingle(),
+    resolveTenantKeys(tenantId),
+  ]);
 
   const content = buildOnTheWayMessage({
     customerName: os.customer_name, technicianName: tech?.name,
   });
-  const res = await sendMessage({ to: phone, content, tenantId });
+  const res = await sendMessage({
+    to: phone, content, tenantId,
+    evolutionUrl: keys.evolutionUrl || undefined,
+    evolutionApiKey: keys.evolutionApiKey || undefined,
+  });
   return res.status === 'sent';
 }
 
@@ -570,7 +576,8 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     let summary = fallbackSummary(ctx);
     let source: 'llm' | 'fallback' = 'fallback';
     if (isFieldSummaryLlmEnabled()) {
-      const llm = await generateOsSummaryLLM(buildOsSummaryPrompt(ctx), tenantId);
+      const keys = await resolveTenantKeys(tenantId);
+      const llm = await generateOsSummaryLLM(buildOsSummaryPrompt(ctx), tenantId, keys.openaiApiKey || undefined);
       if (llm) { summary = llm; source = 'llm'; }
     }
 
