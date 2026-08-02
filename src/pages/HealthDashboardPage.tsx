@@ -6,7 +6,7 @@ import {
   CardTitle,
 } from "@/src/components/ui/card";
 import { Badge } from "@/src/components/ui/badge";
-import { useAppStore } from "@/src/store/useAppStore";
+import { supabase } from "@/src/lib/supabase";
 
 interface QueueStatus {
   name: string;
@@ -84,7 +84,6 @@ function MetricCard({
 }
 
 export default function HealthDashboardPage() {
-  const { token } = useAppStore();
   const [data, setData] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -93,7 +92,9 @@ export default function HealthDashboardPage() {
     async function fetchHealth() {
       try {
         setLoading(true);
-        const baseUrl = import.meta.env.VITE_API_URL || "";
+        const baseUrl = (import.meta as any).env?.VITE_API_URL || "";
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
@@ -133,7 +134,7 @@ export default function HealthDashboardPage() {
     fetchHealth();
     const interval = setInterval(fetchHealth, 30_000);
     return () => clearInterval(interval);
-  }, [token]);
+  }, []);
 
   if (loading && !data) {
     return (
