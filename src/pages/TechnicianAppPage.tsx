@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   CircleCheck,
   Navigation,
+  Briefcase,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -42,41 +43,8 @@ import {
   fetchDossie,
 } from "../lib/fieldOps";
 
-/** True para IDs reais de OS (UUID do backend); false para OSs mock ("OS-1023"). */
+/** True para IDs reais de OS (UUID do backend); false para OSs de fallback local. */
 const isRealOsId = (id: string) => typeof id === "string" && !id.startsWith("OS-");
-
-// Mock Data for OSs (Ordem de Serviço)
-const MOCK_OSS = [
-  {
-    id: "OS-1023",
-    title: "Instalação FTTH - Plano 500MB",
-    client: "João da Silva",
-    address: "Rua das Flores, 123 - Centro",
-    scheduledTime: "10:00",
-    status: "pending",
-    type: "installation",
-    checklist: [
-      { id: "c1", text: "Passagem de cabo drop", done: false },
-      { id: "c2", text: "Instalação da roseta", done: false },
-      { id: "c3", text: "Configuração do roteador Wi-Fi", done: false },
-      { id: "c4", text: "Teste de velocidade", done: false },
-    ],
-  },
-  {
-    id: "OS-1024",
-    title: "Reparo - Rompimento Externo",
-    client: "Maria Oliveira",
-    address: "Av. Paulista, 1500 - Bela Vista",
-    scheduledTime: "14:30",
-    status: "pending",
-    type: "repair",
-    checklist: [
-      { id: "c1", text: "Localização da falha", done: false },
-      { id: "c2", text: "Fusão de fibra", done: false },
-      { id: "c3", text: "Validação de potência óptica", done: false },
-    ],
-  },
-];
 
 // IDB setup
 const dbPromise = openDB('astrum-tech-db', 1, {
@@ -91,7 +59,7 @@ const dbPromise = openDB('astrum-tech-db', 1, {
 });
 
 export default function TechnicianAppPage() {
-  const [oss, setOss] = useState(MOCK_OSS);
+  const [oss, setOss] = useState<any[]>([]);
   const [selectedOs, setSelectedOs] = useState<any>(null);
   const [gpsLocation, setGpsLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [photo, setPhoto] = useState<string | null>(null);
@@ -175,16 +143,7 @@ export default function TechnicianAppPage() {
       }
 
       const cachedOss = await db.getAll('oss');
-      if (cachedOss.length > 0) {
-        setOss(cachedOss);
-      } else {
-        const tx = db.transaction('oss', 'readwrite');
-        for (const os of MOCK_OSS) {
-          tx.store.put(os);
-        }
-        await tx.done;
-        setOss(MOCK_OSS);
-      }
+      setOss(cachedOss);
     };
     loadOss();
     
@@ -880,6 +839,13 @@ export default function TechnicianAppPage() {
         )}
 
         <div className="space-y-4 relative">
+          {oss.length === 0 && !optimizedRoute && (
+            <div className="text-center py-12 text-zinc-400">
+              <Briefcase className="w-12 h-12 mx-auto mb-3 opacity-40" />
+              <p className="font-medium">Nenhuma OS agendada para hoje</p>
+              <p className="text-sm mt-1">Suas ordens de serviço aparecerão aqui quando forem atribuídas.</p>
+            </div>
+          )}
           {(optimizedRoute ? optimizedRoute.route : oss).map((os: any, index: number) => (
             <motion.div
               key={os.id}

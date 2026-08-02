@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import {
   Bot, ChevronLeft, ChevronRight, LayoutDashboard, Users,
   Ticket, MessageSquare, Map, Settings, ShieldCheck,
-  CreditCard, Briefcase, Package, LogOut, Phone, BookOpen, Activity, BarChart2, Sparkles, HelpCircle, ShoppingBag, Award, Route
+  CreditCard, Briefcase, Package, LogOut, Phone, BookOpen, Activity, BarChart2, Sparkles, HelpCircle, ShoppingBag, Award, Route,
+  DollarSign, Plug, Link2, Shield, HeartPulse
 } from 'lucide-react';
 import { HelpCenter } from '@/src/components/HelpCenter';
 import { cn } from '@/src/lib/utils';
@@ -334,6 +335,15 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
                 collapsed={isSidebarCollapsed}
               />
             )}
+            {isProvedorAdmin && (
+              <NavItem
+                active={currentPath === 'ai-costs'}
+                onClick={() => navigate('/ai-costs')}
+                icon={<DollarSign size={24} />}
+                label="Custos de IA"
+                collapsed={isSidebarCollapsed}
+              />
+            )}
           </>
         )}
 
@@ -384,6 +394,7 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
                 <div className="space-y-1 mt-2">
                   {hasAccess('observability') && isEnabled('observability') && <NavItem active={currentPath === 'observability'} onClick={() => navigate('/observability')} icon={<Activity size={isSidebarCollapsed?24:18} />} label="Logs e Auditoria IA" collapsed={isSidebarCollapsed} />}
                   {hasAccess('monitoring') && isEnabled('monitoring') && <NavItem active={currentPath === 'monitoring'} onClick={() => navigate('/monitoring')} icon={<Activity size={isSidebarCollapsed?24:18} />} label="Monitoramento (Falhas)" collapsed={isSidebarCollapsed} badge={dlqCount} />}
+                  {isProvedorAdmin && <NavItem active={currentPath === 'health'} onClick={() => navigate('/health')} icon={<HeartPulse size={isSidebarCollapsed?24:18} />} label="Saúde do Sistema" collapsed={isSidebarCollapsed} />}
                 </div>
             )}
           </>
@@ -404,13 +415,40 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
               />
             )}
             {hasAccess('settings') && (
-              <NavItem 
-                active={currentPath === 'settings'} 
-                onClick={() => navigate('/settings')} 
-                icon={<Settings size={24} />} 
-                label="Configurações Gerais" 
+              <NavItem
+                active={currentPath === 'settings'}
+                onClick={() => navigate('/settings')}
+                icon={<Settings size={24} />}
+                label="Configurações Gerais"
                 collapsed={isSidebarCollapsed}
                 shortcut="Alt+9"
+              />
+            )}
+            {isProvedorAdmin && (
+              <NavItem
+                active={currentPath === 'integrations'}
+                onClick={() => navigate('/integrations')}
+                icon={<Plug size={24} />}
+                label="Integrações ERP"
+                collapsed={isSidebarCollapsed}
+              />
+            )}
+            {isProvedorAdmin && (
+              <NavItem
+                active={currentPath === 'webhooks'}
+                onClick={() => navigate('/webhooks')}
+                icon={<Link2 size={24} />}
+                label="Webhooks"
+                collapsed={isSidebarCollapsed}
+              />
+            )}
+            {isProvedorAdmin && (
+              <NavItem
+                active={currentPath === 'security'}
+                onClick={() => navigate('/security')}
+                icon={<Shield size={24} />}
+                label="Segurança"
+                collapsed={isSidebarCollapsed}
               />
             )}
             {isSuperAdmin && (

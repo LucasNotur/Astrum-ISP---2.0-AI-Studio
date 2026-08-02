@@ -34,14 +34,41 @@ export function TeamPage() {
     return () => { if (typeof unsub === 'function') unsub(); };
   }, [tenantId]);
 
-  const teamPerformanceData = useMemo(() => {
-    return teamMembers.map((member) => ({
-      name: member.name,
-      tickets: Math.floor(Math.random() * 50) + 10,
-      rating: (Math.random() * 1.5 + 3.5).toFixed(1),
-      responseTime: (Math.random() * 5 + 2).toFixed(1),
-    }));
-  }, [teamMembers]);
+  const [teamPerformanceData, setTeamPerformanceData] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!tenantId || tenantId === 'DEFAULT_TENANT' || teamMembers.length === 0) {
+      setTeamPerformanceData([]);
+      return;
+    }
+    const currentMonth = new Date().toISOString().substring(0, 7);
+    supabase.from('tickets')
+      .select('assigned_to,created_at,updated_at,status')
+      .eq('tenant_id', tenantId)
+      .gte('created_at', `${currentMonth}-01`)
+      .then(({ data }) => {
+        const rows = data ?? [];
+        const byMember: Record<string, { count: number; totalMinutes: number }> = {};
+        rows.forEach((t: any) => {
+          if (!t.assigned_to) return;
+          if (!byMember[t.assigned_to]) byMember[t.assigned_to] = { count: 0, totalMinutes: 0 };
+          byMember[t.assigned_to].count++;
+          if (t.status === 'resolved' && t.updated_at && t.created_at) {
+            const diff = (new Date(t.updated_at).getTime() - new Date(t.created_at).getTime()) / 60000;
+            if (diff > 0) byMember[t.assigned_to].totalMinutes += diff;
+          }
+        });
+        setTeamPerformanceData(teamMembers.map((m: any) => {
+          const stats = byMember[m.id];
+          return {
+            name: m.name,
+            tickets: stats?.count ?? 0,
+            rating: '—',
+            responseTime: stats && stats.count > 0 ? (stats.totalMinutes / stats.count).toFixed(1) : '—',
+          };
+        }));
+      });
+  }, [tenantId, teamMembers]);
 
   const handleDeleteTeamMember = async (id: string) => {
     if (!window.confirm('Tem certeza que deseja remover este colaborador?')) return;
@@ -121,14 +148,14 @@ export function TeamPage() {
     const currentMonth = new Date().toISOString().substring(0, 7);
     // ranking usa tickets resolvidos pelo agente no mês
     supabase.from('tickets')
-      .select('resolved_by,status,created_at')
+      .select('assigned_to,status,created_at')
       .eq('tenant_id', tenantId)
       .eq('status', 'resolved')
       .gte('created_at', `${currentMonth}-01`)
       .then(({ data }) => {
         const scoreMap: Record<string, number> = {};
         (data ?? []).forEach((t: any) => {
-          if (t.resolved_by) scoreMap[t.resolved_by] = (scoreMap[t.resolved_by] || 0) + 10;
+          if (t.assigned_to) scoreMap[t.assigned_to] = (scoreMap[t.assigned_to] || 0) + 10;
         });
         setRanking(Object.entries(scoreMap).map(([id, points]) => ({ id, points })).sort((a, b) => b.points - a.points));
       });

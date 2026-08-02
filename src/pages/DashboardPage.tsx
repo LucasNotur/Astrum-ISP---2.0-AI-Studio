@@ -610,19 +610,21 @@ export function DashboardPage() {
     id: log.id,
   }));
   const categoryEfficiencyData = useMemo(() => {
-    const defaultData = [
-      { subject: "Suporte", A: 0, fullMark: 100 },
-      { subject: "Financeiro", A: 0, fullMark: 100 },
-      { subject: "Vendas", A: 0, fullMark: 100 },
-      { subject: "Retenção", A: 0, fullMark: 100 },
+    const priorities = [
+      { subject: "Urgente", key: "urgent" },
+      { subject: "Alta", key: "high" },
+      { subject: "Média", key: "medium" },
+      { subject: "Baixa", key: "low" },
     ];
-    if (tickets.length === 0) return defaultData;
+    if (tickets.length === 0) return priorities.map(p => ({ subject: p.subject, A: 0, fullMark: 100 }));
 
-    // Quick mock calculation based on tickets count just to avoid hardcoded fake numbers that look like actual data
-    return defaultData.map((d) => ({
-      ...d,
-      A: tickets.length > 0 ? Math.min(100, tickets.length * 5) : 0,
-    }));
+    const resolved = tickets.filter((t: any) => t.status === 'resolved');
+    return priorities.map(p => {
+      const pTickets = tickets.filter((t: any) => t.priority === p.key);
+      const pResolved = resolved.filter((t: any) => t.priority === p.key);
+      const rate = pTickets.length > 0 ? Math.round((pResolved.length / pTickets.length) * 100) : 0;
+      return { subject: p.subject, A: rate, fullMark: 100 };
+    });
   }, [tickets]);
 
   const handleExportDashboardPDF = () => {
@@ -639,8 +641,7 @@ export function DashboardPage() {
         ["Clientes Ativos", activeCustomersCount.toString()],
         ["Tickets Hoje", ticketsToday.toString()],
         ["Tickets em Aberto", openTickets.toString()],
-        ["Taxa de Churn (Simulada)", "1.2%"],
-        ["Disponibilidade da Rede", "99.9%"],
+        ["Clientes em Risco de Churn", churnData.length > 0 ? `${churnData.filter(c => c.riskScore > 70).length} (${activeCustomersCount > 0 ? ((churnData.filter(c => c.riskScore > 70).length / activeCustomersCount) * 100).toFixed(1) : '0'}%)` : 'Sem dados'],
       ],
       theme: "grid",
     });
