@@ -1,245 +1,109 @@
-import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { openDB } from "idb";
-import jsPDF from "jspdf";
-import { uploadTenantFile } from "../lib/storage";
-import { SignaturePad } from "../components/SignaturePad";
-import { processSignatureAndPdf } from "../lib/signaturePad";
-import { Html5QrcodeScanner } from "html5-qrcode";
-import {
-  MapPin,
-  Camera,
-  CheckCircle2,
-  Clock,
-  ChevronRight,
-  ArrowLeft,
-  PenTool,
-  Upload,
-  QrCode,
-  ScanSearch,
-  AlertTriangle,
-  CircleCheck,
-  Navigation,
-  Briefcase,
-} from "lucide-react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { Button } from "../components/ui/button";
-import { Card, CardContent } from "../components/ui/card";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
-import { toast } from "sonner";
-import {
-  fetchAgenda,
-  optimizeRoute as apiOptimizeRoute,
-  startServiceOrder,
-  completeServiceOrder,
-  validatePhoto,
-  generateSummary,
-  fetchChecklist,
-  markChecklistItem,
-  registerMedia,
-  sendLocationBatch,
-  fetchDossie,
-} from "../lib/fieldOps";
+import React, { useEffect } from 'react';
+import { openDB } from 'idb';
+import { toast } from 'sonner';
+import { useTechAppStore } from '../store/techAppStore';
+import { fetchAgenda } from '../lib/fieldOps';
+import { BottomNav } from '../components/tech-app/BottomNav';
+import { MapView } from '../components/tech-app/MapView';
+import { NavigationView } from '../components/tech-app/NavigationView';
+import { ActiveOsView } from '../components/tech-app/ActiveOsView';
+import { AgendaView } from '../components/tech-app/AgendaView';
+import { MyDayView } from '../components/tech-app/MyDayView';
 
-/** True para IDs reais de OS (UUID do backend); false para OSs de fallback local. */
-const isRealOsId = (id: string) => typeof id === "string" && !id.startsWith("OS-");
-
-// IDB setup
 const dbPromise = openDB('astrum-tech-db', 1, {
   upgrade(db) {
-    if (!db.objectStoreNames.contains('oss')) {
-      db.createObjectStore('oss', { keyPath: 'id' });
-    }
-    if (!db.objectStoreNames.contains('sync-queue')) {
-      db.createObjectStore('sync-queue', { keyPath: 'id', autoIncrement: true });
-    }
+    if (!db.objectStoreNames.contains('oss')) db.createObjectStore('oss', { keyPath: 'id' });
+    if (!db.objectStoreNames.contains('sync-queue')) db.createObjectStore('sync-queue', { keyPath: 'id', autoIncrement: true });
   },
 });
 
 export default function TechnicianAppPage() {
-  const [oss, setOss] = useState<any[]>([]);
-  const [selectedOs, setSelectedOs] = useState<any>(null);
-  const [gpsLocation, setGpsLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [photo, setPhoto] = useState<string | null>(null);
-  const [signatureData, setSignatureData] = useState<string | null>(null);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const currentView = useTechAppStore((s) => s.currentView);
+  const setOsList = useTechAppStore((s) => s.setOsList);
+  const setGps = useTechAppStore((s) => s.setGps);
+  const setIsOnline = useTechAppStore((s) => s.setIsOnline);
+  const setDeferredInstallPrompt = useTechAppStore((s) => s.setDeferredInstallPrompt);
 
-  const [optimizedRoute, setOptimizedRoute] = useState<any>(null);
-  const [isOptimizing, setIsOptimizing] = useState(false);
-
-  const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
-  const [cameraMode, setCameraMode] = useState<"checkin" | "checkout" | null>(null);
-  const videoRef = React.useRef<HTMLVideoElement>(null);
-  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
-
-  const [materials, setMaterials] = useState<string[]>([]);
-  const [showScanner, setShowScanner] = useState(false);
-
-  // Buffer para breadcrumbs GPS (enviado em lote a cada 60s)
-  const locationBuffer = React.useRef<{ lat: number; lng: number; recordedAt: string }[]>([]);
-
-  // D-06 — Copiloto de campo: diagnóstico de foto por IA
-  type FieldDiagnosis = {
-    equipment: string;
-    issue: string;
-    severity: 'baixa' | 'media' | 'alta' | 'critica';
-    recommendedAction: string;
-    confidence: number;
-    lowConfidence: boolean;
-  };
-  const [fieldDiagnosis, setFieldDiagnosis] = useState<FieldDiagnosis | null>(null);
-  const [isDiagnosing, setIsDiagnosing] = useState(false);
-
+  // Load agenda (online → API, offline → IDB cache)
   useEffect(() => {
-    if (showScanner) {
-      const scanner = new Html5QrcodeScanner(
-        "reader",
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        false
-      );
-      scanner.render(
-        (decodedText) => {
-          setMaterials((prev) => {
-             if (!prev.includes(decodedText)) {
-                toast.success(`Material adicionado: ${decodedText}`);
-                return [...prev, decodedText];
-             }
-             return prev;
-          });
-          scanner.clear();
-          setShowScanner(false);
-        },
-        (error) => {} // ignore errors while scanning
-      );
-
-      return () => {
-         scanner.clear().catch(console.error);
-      };
-    }
-  }, [showScanner]);
-
-  useEffect(() => {
-    // Carrega a agenda: tenta o backend real (online); cai para cache IDB / mock.
     const loadOss = async () => {
       const db = await dbPromise;
-
       if (navigator.onLine) {
         try {
           const agenda = await fetchAgenda();
-          if (agenda.length >= 0) {
-            setOss(agenda as any);
-            const tx = db.transaction('oss', 'readwrite');
-            await tx.store.clear();
-            for (const os of agenda) tx.store.put(os);
-            await tx.done;
-            return;
-          }
+          setOsList(agenda as any);
+          const tx = db.transaction('oss', 'readwrite');
+          await tx.store.clear();
+          for (const os of agenda) tx.store.put(os);
+          await tx.done;
+          return;
         } catch (e) {
-          console.warn('Agenda real indisponível, usando cache/mock:', e);
+          console.warn('Agenda API indisponível, usando cache:', e);
         }
       }
-
-      const cachedOss = await db.getAll('oss');
-      setOss(cachedOss);
+      const cached = await db.getAll('oss');
+      setOsList(cached);
     };
     loadOss();
-    
-    // Service Worker registration
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker
-        .register("/sw.js")
-        .catch((err) => console.warn("SW registration failed:", err));
-    }
-
-    // Listen for TRIGGER_SYNC message from SW (background sync event)
-    const handleSwMessage = (event: MessageEvent) => {
-      if (event.data?.type === "TRIGGER_SYNC") {
-        syncPendingActions();
-      }
-    };
-    navigator.serviceWorker?.addEventListener("message", handleSwMessage);
-
-    const handleInstallPrompt = (e: any) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-    window.addEventListener("beforeinstallprompt", handleInstallPrompt);
-
-    const handleOnline = () => {
-      setIsOnline(true);
-      syncPendingActions();
-    };
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-
-    return () => {
-      window.removeEventListener("beforeinstallprompt", handleInstallPrompt);
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-      navigator.serviceWorker?.removeEventListener("message", handleSwMessage);
-    };
   }, []);
 
-  // GPS breadcrumbs — coleta quando OS está em andamento e envia em lote a cada 60s.
+  // GPS tracking
   useEffect(() => {
-    if (selectedOs?.status !== 'in_progress' || !navigator.geolocation) return;
+    if (!navigator.geolocation) return;
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
-        locationBuffer.current.push({
+        setGps({
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
-          recordedAt: new Date().toISOString(),
+          accuracy: pos.coords.accuracy,
+          heading: pos.coords.heading,
+          speed: pos.coords.speed,
+          timestamp: pos.timestamp,
         });
       },
       undefined,
-      { enableHighAccuracy: false, maximumAge: 30000 },
+      { enableHighAccuracy: true, maximumAge: 10000 },
     );
-    const interval = setInterval(() => {
-      const buf = locationBuffer.current;
-      if (buf.length > 0 && navigator.onLine) {
-        const batch = buf.splice(0, buf.length);
-        sendLocationBatch(undefined, batch).catch(() => {});
-      }
-    }, 60000);
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
+
+  // Online/offline
+  useEffect(() => {
+    const onOnline = () => { setIsOnline(true); syncPending(); };
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
     return () => {
-      navigator.geolocation.clearWatch(watchId);
-      clearInterval(interval);
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
     };
-  }, [selectedOs?.status]);
+  }, []);
 
-  const addToSyncQueue = async (action: string, payload: any) => {
-    const db = await dbPromise;
-    await db.add('sync-queue', {
-      action,
-      payload,
-      timestamp: Date.now()
-    });
-    
-    if ('serviceWorker' in navigator && 'SyncManager' in window) {
-      const reg = await navigator.serviceWorker.ready;
-      try {
-        await (reg as any).sync.register('sync-oss');
-      } catch (e) {
-        console.log("Background sync failed to register", e);
-      }
+  // Service Worker
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+      const handleMsg = (e: MessageEvent) => { if (e.data?.type === 'TRIGGER_SYNC') syncPending(); };
+      navigator.serviceWorker.addEventListener('message', handleMsg);
+      return () => navigator.serviceWorker.removeEventListener('message', handleMsg);
     }
-  };
+  }, []);
 
-  const syncPendingActions = async () => {
+  // PWA install prompt
+  useEffect(() => {
+    const handler = (e: any) => { e.preventDefault(); setDeferredInstallPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const syncPending = async () => {
     if (!navigator.onLine) return;
     const db = await dbPromise;
     const queue = await db.getAll('sync-queue');
     if (queue.length === 0) return;
-
-    toast.loading("Sincronizando dados offline...", { id: "sync" });
+    toast.loading('Sincronizando...', { id: 'sync' });
     try {
       for (const item of queue) {
-        // Send each queued action to the API via Supabase REST
         await fetch('/api/service-orders/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -247,676 +111,25 @@ export default function TechnicianAppPage() {
         });
         await db.delete('sync-queue', item.id);
       }
-      toast.success("Sincronização concluída!", { id: "sync" });
+      toast.success('Sincronizado!', { id: 'sync' });
     } catch {
-      toast.error("Erro na sincronização.", { id: "sync" });
+      toast.error('Erro na sincronização.', { id: 'sync' });
     }
   };
-
-  const stopCamera = () => {
-    if (mediaStream) {
-      mediaStream.getTracks().forEach((track) => track.stop());
-      setMediaStream(null);
-    }
-  };
-
-  const openCamera = async (mode: "checkin" | "checkout") => {
-    setCameraMode(mode);
-    setIsCameraModalOpen(true);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-      setMediaStream(stream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-      }
-    } catch (err) {
-      toast.error("Erro ao acessar a câmera.");
-      setIsCameraModalOpen(false);
-    }
-  };
-
-  const captureAndProceed = async () => {
-    if (!videoRef.current || !cameraMode) return;
-    const canvas = document.createElement("canvas");
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.drawImage(videoRef.current, 0, 0);
-    const dataUrl = canvas.toDataURL("image/jpeg");
-    stopCamera();
-    setIsCameraModalOpen(false);
-
-    // After getting picture, get location
-    if ("geolocation" in navigator) {
-      const toastId = toast.loading(`Processando ${cameraMode === "checkin" ? "Check-in" : "Check-out"}...`);
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          setGpsLocation({ lat, lng });
-
-          const tenantId = "default";
-          const osId = selectedOs.id;
-          const ts = Date.now();
-          let uploadedUrl = dataUrl; // fallback
-
-          if (navigator.onLine) {
-            try {
-              toast.loading("Enviando foto...", { id: toastId });
-              const blob = await (await fetch(dataUrl)).blob();
-              uploadedUrl = await uploadTenantFile(tenantId, "checkins", `${osId}_${ts}.jpg`, blob);
-              // Registra mídia tipada no DB (antes = check-in, depois = check-out).
-              if (isRealOsId(osId)) {
-                const kind = cameraMode === 'checkin' ? 'antes' : 'depois';
-                registerMedia(osId, { kind, url: uploadedUrl, lat, lng }).catch(() => {});
-              }
-            } catch (e: any) {
-              console.error(e);
-              toast.error("Salvo apenas localmente. Erro no upload: " + e.message, { id: toastId });
-            }
-          }
-
-          if (cameraMode === "checkin") {
-             const actionDetails = {
-               checkin_at: new Date().toISOString(),
-               checkin_lat: lat,
-               checkin_lng: lng,
-               checkin_photo_url: uploadedUrl
-             };
-             // Máquina de estados real: avança até "iniciada" (aceita→a_caminho→chegou→iniciada).
-             if (navigator.onLine && isRealOsId(selectedOs.id)) {
-               const r = await startServiceOrder(selectedOs.id, { lat, lng });
-               if (!r.ok) {
-                 toast.error("Não foi possível iniciar a OS: " + (r.error ?? ""), { id: toastId });
-                 return;
-               }
-             }
-             await updateOsStatus(selectedOs.id, "in_progress", actionDetails);
-             toast.success("Check-in realizado com sucesso!", { id: toastId });
-          } else {
-             const actionDetails = { 
-               checkout_at: new Date().toISOString(), 
-               checkout_lat: lat, 
-               checkout_lng: lng, 
-               checkout_photo_url: uploadedUrl,
-               photo, signatureData, materials
-             };
-             // Proceed with checkout logic that was in handleCheckOut
-             await processCheckOut(actionDetails, toastId);
-          }
-        },
-        (error) => {
-          toast.error("Erro ao obter localização: " + error.message);
-        }
-      );
-    } else {
-      toast.error("Geolocalização não suportada.");
-    }
-  };
-
-  const handleDiagnoseEquipment = async (file: File) => {
-    if (!navigator.onLine) {
-      toast.error("Diagnóstico de IA requer conexão com a internet.");
-      return;
-    }
-    setIsDiagnosing(true);
-    setFieldDiagnosis(null);
-    const toastId = toast.loading("Analisando equipamento com IA...");
-    try {
-      const blob = file;
-      const tenantId = "default";
-      const osId = selectedOs?.id ?? "unknown";
-      const uploadedUrl = await uploadTenantFile(tenantId, "field-diagnoses", `${osId}_${Date.now()}.jpg`, blob);
-
-      const token = localStorage.getItem("sb-access-token") ?? "";
-      const res = await fetch("/api/v2/field/diagnose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          image_url: uploadedUrl,
-          service_order_id: selectedOs?.id?.startsWith("OS-") ? undefined : selectedOs?.id,
-        }),
-      });
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setFieldDiagnosis(data);
-      toast.success("Diagnóstico concluído!", { id: toastId });
-    } catch (e: any) {
-      toast.error("Erro no diagnóstico: " + (e.message ?? "tente novamente"), { id: toastId });
-    } finally {
-      setIsDiagnosing(false);
-    }
-  };
-
-  const handleCheckIn = () => {
-    openCamera("checkin");
-  };
-
-  const updateOsStatus = async (id: string, newStatus: string, actionDetails: any = null) => {
-    const updatedOss = oss.map((os) => (os.id === id ? { ...os, status: newStatus } : os));
-    setOss(updatedOss);
-    setSelectedOs((prev: any) => ({ ...prev, status: newStatus }));
-
-    const db = await dbPromise;
-    const osToUpdate = updatedOss.find(os => os.id === id);
-    if (osToUpdate) {
-      await db.put('oss', osToUpdate);
-    }
-
-    if (!navigator.onLine) {
-      await addToSyncQueue('update_os', { id, newStatus, actionDetails });
-    } else {
-      console.log("Sincronizando edição de OS:", { id, newStatus, actionDetails });
-    }
-  };
-
-  const toggleChecklistItem = async (itemId: string) => {
-    const item = selectedOs.checklist.find((i: any) => i.id === itemId);
-    const newDone = !item?.done;
-    const updatedChecklist = selectedOs.checklist.map((i: any) =>
-      i.id === itemId ? { ...i, done: newDone } : i
-    );
-    const updatedOs = { ...selectedOs, checklist: updatedChecklist };
-    setSelectedOs(updatedOs);
-    setOss((prev: any[]) => prev.map((os) => os.id === selectedOs.id ? updatedOs : os));
-
-    const db = await dbPromise;
-    await db.put('oss', updatedOs);
-
-    if (navigator.onLine && isRealOsId(selectedOs.id)) {
-      markChecklistItem(selectedOs.id, itemId, newDone).catch(() => {});
-    } else if (!navigator.onLine) {
-      await addToSyncQueue('update_checklist', { id: selectedOs.id, checklist: updatedChecklist });
-    }
-  };
-
-  /** Abre uma OS; se for real, carrega o checklist do DB para sobrescrever o mock. */
-  const openOs = async (os: any) => {
-    setSelectedOs(os);
-    if (isRealOsId(os.id) && navigator.onLine) {
-      try {
-        const items = await fetchChecklist(os.id);
-        if (items.length > 0) {
-          setSelectedOs((prev: any) => prev ? { ...prev, checklist: items } : prev);
-        }
-      } catch (e) {
-        console.warn('Checklist from API unavailable, using local:', e);
-      }
-    }
-  };
-
-  /** Deep-link Waze / Google Maps para o endereço da OS. */
-  const openNavigationApp = () => {
-    const lat = selectedOs?.latitude;
-    const lng = selectedOs?.longitude;
-    if (lat && lng) {
-      window.open(`https://waze.com/ul?ll=${lat},${lng}&navigate=yes`, '_blank');
-    } else {
-      window.open(`https://maps.google.com/maps?q=${encodeURIComponent(selectedOs?.address ?? '')}`, '_blank');
-    }
-  };
-
-  const allChecklistDone = selectedOs?.checklist.every((item: any) => item.done);
-
-  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          // Configurable size limit: max 1024px
-          const MAX_SIZE = 1024;
-          if (width > height && width > MAX_SIZE) {
-            height *= MAX_SIZE / width;
-            width = MAX_SIZE;
-          } else if (height > MAX_SIZE) {
-            width *= MAX_SIZE / height;
-            height = MAX_SIZE;
-          }
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-             ctx.drawImage(img, 0, 0, width, height);
-             // compress with 0.7 quality
-             setPhoto(canvas.toDataURL('image/jpeg', 0.7));
-          }
-        };
-        img.src = reader.result as string;
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const processCheckOut = async (actionDetails: any, toastId: string | number) => {
-    const osId = selectedOs.id;
-
-    // Máquina de estados real: concluir aplica o gate (checklist/foto/assinatura).
-    if (navigator.onLine && isRealOsId(osId)) {
-      const checklist = selectedOs.checklist ?? [];
-      const r = await completeServiceOrder(
-        osId,
-        {
-          checklistTotal: checklist.length,
-          checklistDone: checklist.filter((i: any) => i.done).length,
-          photosDepois: photo ? 1 : 0,
-          hasSignature: !!signatureData,
-        },
-        { lat: actionDetails?.checkout_lat, lng: actionDetails?.checkout_lng },
-      );
-      if (!r.ok) {
-        const faltando = r.missing?.length ? ` Falta: ${r.missing.join(", ")}.` : "";
-        toast.error("Conclusão bloqueada." + faltando, { id: toastId });
-        return;
-      }
-    }
-
-    toast.success("Ordem de Serviço finalizada com sucesso!", { id: toastId });
-
-    // I-4 — validação da foto "depois" (advisory) + resumo automático da OS.
-    if (navigator.onLine && isRealOsId(osId)) {
-      const photoUrl = actionDetails?.checkout_photo_url;
-      if (photoUrl && !String(photoUrl).startsWith("data:")) {
-        validatePhoto(osId, photoUrl)
-          .then((v) => { if (!v.valid) toast.warning(`Foto de conclusão: ${v.reason}`); })
-          .catch(() => {});
-      }
-      generateSummary(osId)
-        .then((s) => toast.message("Resumo da OS gerado", { description: s.summary }))
-        .catch(() => {});
-    }
-
-    const tenantId = "default";
-
-    if (navigator.onLine) {
-      toast.loading("Gerando comprovante...", { id: "upload" });
-      try {
-        // Busca dossiê real para enriquecer o PDF (timeline, checklist, materiais, resumo IA).
-        let dossie: any = undefined;
-        if (isRealOsId(osId)) {
-          dossie = await fetchDossie(osId).catch(() => undefined);
-        }
-        await processSignatureAndPdf({
-          tenantId,
-          osId,
-          selectedOs,
-          signatureData: signatureData!,
-          dossie,
-        });
-        toast.success("Comprovante salvo com sucesso!", { id: "upload" });
-      } catch (e: any) {
-        console.error(e);
-        toast.error("Não foi possível enviar o comprovante: " + e.message, { id: "upload" });
-      }
-    }
-
-    updateOsStatus(selectedOs.id, "completed", actionDetails);
-    setSelectedOs(null);
-    setGpsLocation(null);
-    setPhoto(null);
-    setSignatureData(null);
-  };
-
-  const handleCheckOut = async () => {
-    if (!allChecklistDone) {
-      toast.error("Conclua todos os itens do checklist antes de finalizar.");
-      return;
-    }
-    if (!signatureData) {
-      toast.error("A assinatura digital do cliente é obrigatória.");
-      return;
-    }
-    openCamera("checkout");
-  };
-
-  const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      console.log('User accepted the install prompt');
-    }
-    setDeferredPrompt(null);
-  };
-
-  const handleOptimizeRoute = async () => {
-    if (!isOnline) {
-      toast.error('Necessário conexão para otimizar rota');
-      return;
-    }
-    setIsOptimizing(true);
-    const toastId = toast.loading("Calculando melhor rota...");
-    try {
-      const result = await apiOptimizeRoute();
-      if (result.stops.length === 0) {
-        toast.message("Sem paradas com localização para otimizar.", { id: toastId });
-        setIsOptimizing(false);
-        return;
-      }
-      // Reordena as OSs da tela conforme a ordem otimizada retornada pelo backend.
-      const byId = new Map(oss.map((o: any) => [o.id, o]));
-      const ordered = result.stops
-        .map((s) => byId.get(s.serviceOrderId))
-        .filter(Boolean);
-      setOptimizedRoute({ totalDistance: result.totalKm, route: ordered });
-      toast.success(`Rota otimizada — ${result.totalKm} km`, { id: toastId });
-    } catch (e: any) {
-      toast.error("Erro na otimização: " + (e.message ?? "tente novamente"), { id: toastId });
-    } finally {
-      setIsOptimizing(false);
-    }
-  };
-
-  if (selectedOs) {
-    return (
-      <div className="min-h-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-100 flex flex-col pb-20">
-        <header className="sticky top-0 z-10 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b dark:border-zinc-800 p-4 flex items-center gap-3">
-          <button onClick={() => setSelectedOs(null)} className="p-2 -ml-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div className="flex-1">
-            <h1 className="font-semibold text-lg">{selectedOs.id}</h1>
-            <p className="text-xs text-zinc-500">{selectedOs.title}</p>
-          </div>
-          <div className={`px-2 py-1 rounded text-xs font-medium ${
-            selectedOs.status === 'completed' ? 'bg-green-100 text-green-700' :
-            selectedOs.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
-            'bg-amber-100 text-amber-700'
-          }`}>
-            {selectedOs.status === 'completed' ? 'Finalizado' :
-             selectedOs.status === 'in_progress' ? 'Em Andamento' :
-             'Pendente'}
-          </div>
-        </header>
-
-        <main className="flex-1 p-4 space-y-6 max-w-lg mx-auto w-full">
-          {/* Info Card */}
-          <Card>
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="font-semibold">{selectedOs.client}</h2>
-                  <p className="text-sm text-zinc-500 mt-1">{selectedOs.address}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Navegação — disponível sempre que a OS tem endereço */}
-          {selectedOs.address && (
-            <Button variant="outline" onClick={openNavigationApp} className="w-full gap-2">
-              <Navigation className="w-4 h-4 text-blue-500" />
-              Abrir no Waze / Maps
-            </Button>
-          )}
-
-          {selectedOs.status === "pending" && (
-            <Button onClick={handleCheckIn} className="w-full h-14 text-lg" size="lg">
-              <MapPin className="w-5 h-5 auto mr-2" />
-              Fazer Check-in (GPS)
-            </Button>
-          )}
-
-          {selectedOs.status === "in_progress" && (
-             <div className="space-y-6">
-                <div>
-                   <h3 className="text-sm font-semibold text-zinc-500 tracking-wider uppercase mb-3">Checklist de Execução</h3>
-                   <Card>
-                      <CardContent className="p-0 divide-y dark:divide-zinc-800">
-                         {selectedOs.checklist.map((item: any) => (
-                           <label key={item.id} className="flex items-center gap-3 p-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
-                             <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${item.done ? 'bg-blue-500 border-blue-500 text-white' : 'border-zinc-300 dark:border-zinc-600'}`}>
-                                {item.done && <CheckCircle2 className="w-4 h-4" />}
-                             </div>
-                             <span className={`text-sm ${item.done ? 'line-through text-zinc-400' : ''}`}>{item.text}</span>
-                           </label>
-                         ))}
-                      </CardContent>
-                   </Card>
-                </div>
-
-                {/* D-06 — Diagnóstico visual de equipamento */}
-                <div>
-                   <h3 className="text-sm font-semibold text-zinc-500 tracking-wider uppercase mb-3">Diagnóstico IA de Equipamento</h3>
-                   <Card>
-                      <CardContent className="p-4 space-y-3">
-                         <label className={`flex items-center justify-center gap-2 w-full h-12 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${isDiagnosing ? 'opacity-50 pointer-events-none' : 'border-indigo-300 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/10'}`}>
-                            <ScanSearch className="w-5 h-5 text-indigo-500" />
-                            <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
-                               {isDiagnosing ? "Analisando..." : "Fotografar equipamento para diagnóstico"}
-                            </span>
-                            <input
-                               type="file"
-                               accept="image/*"
-                               capture="environment"
-                               className="hidden"
-                               disabled={isDiagnosing}
-                               onChange={(e) => { const f = e.target.files?.[0]; if (f) handleDiagnoseEquipment(f); }}
-                            />
-                         </label>
-                         {fieldDiagnosis && (
-                            <div className={`rounded-lg p-3 border space-y-1 text-sm ${
-                               fieldDiagnosis.severity === 'critica' ? 'border-red-400 bg-red-50 dark:bg-red-900/10' :
-                               fieldDiagnosis.severity === 'alta'    ? 'border-orange-400 bg-orange-50 dark:bg-orange-900/10' :
-                               fieldDiagnosis.severity === 'media'   ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/10' :
-                               'border-green-400 bg-green-50 dark:bg-green-900/10'
-                            }`}>
-                               <div className="flex items-center gap-2 font-semibold">
-                                  {fieldDiagnosis.severity === 'critica' || fieldDiagnosis.severity === 'alta'
-                                     ? <AlertTriangle className="w-4 h-4 text-red-500" />
-                                     : <CircleCheck className="w-4 h-4 text-green-500" />
-                                  }
-                                  <span className="capitalize">{fieldDiagnosis.equipment.replace('_', ' ')} — {fieldDiagnosis.issue.replace(/_/g, ' ')}</span>
-                                  <span className={`ml-auto text-xs px-1.5 py-0.5 rounded font-bold uppercase ${
-                                     fieldDiagnosis.severity === 'critica' ? 'bg-red-500 text-white' :
-                                     fieldDiagnosis.severity === 'alta'    ? 'bg-orange-500 text-white' :
-                                     fieldDiagnosis.severity === 'media'   ? 'bg-yellow-500 text-white' :
-                                     'bg-green-500 text-white'
-                                  }`}>{fieldDiagnosis.severity}</span>
-                               </div>
-                               <p className="text-zinc-600 dark:text-zinc-400">{fieldDiagnosis.recommendedAction}</p>
-                               {fieldDiagnosis.lowConfidence && (
-                                  <p className="text-xs text-amber-600">⚠ Confiança baixa — confirmar manualmente</p>
-                               )}
-                            </div>
-                         )}
-                      </CardContent>
-                   </Card>
-                </div>
-
-                <div>
-                   <h3 className="text-sm font-semibold text-zinc-500 tracking-wider uppercase mb-3">Baixa de Materiais (QR Code)</h3>
-                   <Card>
-                      <CardContent className="p-4 space-y-4">
-                         {materials.length > 0 && (
-                            <div className="space-y-2 mb-4">
-                               {materials.map((m, idx) => (
-                                  <div key={idx} className="flex items-center justify-between bg-zinc-100 dark:bg-zinc-800 p-2 rounded text-sm">
-                                     <span>{m}</span>
-                                     <button onClick={() => setMaterials(materials.filter((_, i) => i !== idx))} className="text-red-500 text-xs font-bold uppercase">
-                                        Remover
-                                     </button>
-                                  </div>
-                               ))}
-                            </div>
-                         )}
-                         
-                         {showScanner ? (
-                            <div className="space-y-2">
-                               <div id="reader" className="w-full bg-white text-black" />
-                               <Button variant="outline" className="w-full" onClick={() => setShowScanner(false)}>Cancelar</Button>
-                            </div>
-                         ) : (
-                            <Button variant="outline" onClick={() => setShowScanner(true)} className="w-full h-12 flex gap-2">
-                               <QrCode className="w-5 h-5 text-indigo-500" />
-                               Ler QR Code do Material
-                            </Button>
-                         )}
-                      </CardContent>
-                   </Card>
-                </div>
-
-                <div>
-                   <h3 className="text-sm font-semibold text-zinc-500 tracking-wider uppercase mb-3">Assinatura do Cliente</h3>
-                   <Card>
-                      <CardContent className="p-3">
-                         {signatureData ? (
-                            <div className="space-y-4">
-                               <img src={signatureData} alt="Assinatura Cliente" className="border rounded bg-white w-full object-contain h-[150px]" />
-                               <Button variant="ghost" size="sm" onClick={() => setSignatureData(null)} type="button" className="w-full">
-                                  Refazer Assinatura
-                               </Button>
-                            </div>
-                         ) : (
-                            <div style={{ touchAction: 'none' }}>
-                               <SignaturePad onConfirm={setSignatureData} />
-                            </div>
-                         )}
-                      </CardContent>
-                   </Card>
-                </div>
-
-                <Button 
-                  onClick={handleCheckOut} 
-                  className="w-full h-14 text-lg" 
-                  size="lg"
-                  disabled={!allChecklistDone || !photo || !signatureData}
-                >
-                  <CheckCircle2 className="w-5 h-5 mr-2" />
-                  Finalizar OS e Check-out
-                </Button>
-             </div>
-          )}
-        </main>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-black text-zinc-900 dark:text-zinc-100 flex flex-col pb-20">
-      <header className="sticky top-0 z-10 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b dark:border-zinc-800 p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="font-semibold text-xl">Agenda do Dia</h1>
-            <p className="text-xs text-zinc-500 capitalize">{format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}</p>
-          </div>
-          {deferredPrompt && (
-            <Button size="sm" onClick={handleInstallClick} className="flex gap-2">
-               Instalar App
-            </Button>
-          )}
-        </div>
-        {!isOnline && (
-          <div className="mt-2 text-xs py-1 px-2 border border-amber-500/50 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded flex justify-center uppercase font-bold tracking-wider">
-            SISTEMA OFFLINE • DADOS SALVOS LOCALMENTE
-          </div>
-        )}
-      </header>
+    <div className="h-screen w-screen bg-zinc-950 text-white flex flex-col overflow-hidden">
+      {/* View content */}
+      <div className="flex-1 relative overflow-hidden">
+        {currentView === 'map' && <MapView />}
+        {currentView === 'navigation' && <NavigationView />}
+        {currentView === 'active-os' && <ActiveOsView />}
+        {currentView === 'agenda' && <AgendaView />}
+        {currentView === 'my-day' && <MyDayView />}
+      </div>
 
-      <main className="flex-1 p-4 max-w-lg mx-auto w-full">
-        <div className="flex justify-between items-center mb-4">
-           <h2 className="text-sm font-bold text-zinc-500 uppercase tracking-wider">Ordens de Serviço</h2>
-           <Button variant="outline" size="sm" onClick={handleOptimizeRoute} disabled={isOptimizing || !isOnline} className="gap-2 text-xs h-8">
-             <MapPin className="w-3 h-3" />
-             Otimizar Rota
-           </Button>
-        </div>
-
-        {optimizedRoute && (
-           <div className="mb-6 p-4 border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-900/10 rounded-xl space-y-2">
-              <h3 className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider flex items-center gap-1">
-                 <CheckCircle2 className="w-4 h-4" /> Rota Otimizada
-              </h3>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">Distância total estimada: <span className="font-bold text-zinc-900 dark:text-zinc-100">{optimizedRoute.totalDistance} km</span></p>
-           </div>
-        )}
-
-        <div className="space-y-4 relative">
-          {oss.length === 0 && !optimizedRoute && (
-            <div className="text-center py-12 text-zinc-400">
-              <Briefcase className="w-12 h-12 mx-auto mb-3 opacity-40" />
-              <p className="font-medium">Nenhuma OS agendada para hoje</p>
-              <p className="text-sm mt-1">Suas ordens de serviço aparecerão aqui quando forem atribuídas.</p>
-            </div>
-          )}
-          {(optimizedRoute ? optimizedRoute.route : oss).map((os: any, index: number) => (
-            <motion.div
-              key={os.id}
-              whileTap={{ scale: 0.98 }}
-              className="relative"
-            >
-               {optimizedRoute && (
-                  <div className="absolute -left-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold z-10 shadow-sm border-2 border-zinc-50 dark:border-black">
-                     {index + 1}
-                  </div>
-               )}
-               <Card
-                 className={`cursor-pointer overflow-hidden border-l-4 ${optimizedRoute ? 'ml-4' : ''} ${
-                   os.status === 'completed' ? 'border-l-green-500' :
-                   os.status === 'in_progress' ? 'border-l-blue-500' :
-                   'border-l-amber-500'
-                 }`}
-                 onClick={() => openOs(os)}
-               >
-                 <CardContent className="p-4 flex items-center justify-between">
-                   <div className="space-y-1 pr-4 max-w-[80%]">
-                     <div className="flex items-center gap-2 text-sm text-zinc-500">
-                        <Clock className="w-4 h-4" />
-                        <span>{os.scheduledTime}</span>
-                        <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800">{os.id}</span>
-                     </div>
-                     <h3 className="font-semibold truncate">{os.title}</h3>
-                     <p className="text-sm text-zinc-600 dark:text-zinc-400 truncate">{os.client} • {os.address}</p>
-                   </div>
-                   <ChevronRight className="w-5 h-5 text-zinc-400 flex-shrink-0" />
-                 </CardContent>
-               </Card>
-            </motion.div>
-          ))}
-        </div>
-      </main>
-
-      {/* MODAL DE CÂMERA */}
-      <AnimatePresence>
-        {isCameraModalOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black flex flex-col"
-          >
-            <div className="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
-               <video ref={videoRef} className="w-full h-full object-cover" playsInline muted></video>
-               
-               <div className="absolute top-4 left-4 right-4 flex items-center justify-between z-10">
-                 <button onClick={() => { stopCamera(); setIsCameraModalOpen(false); }} className="text-white p-2">
-                   <ArrowLeft className="w-6 h-6" />
-                 </button>
-                 <span className="text-white font-medium bg-black/50 px-3 py-1 rounded-full text-xs">
-                    {cameraMode === "checkin" ? "Foto de Check-in" : "Foto de Check-out"}
-                 </span>
-                 <div className="w-10"></div>
-               </div>
-
-               <div className="absolute bottom-8 inset-x-0 flex justify-center z-10">
-                 <button 
-                   onClick={captureAndProceed}
-                   className="w-16 h-16 rounded-full border-4 border-white bg-white/20 flex items-center justify-center backdrop-blur-sm"
-                 >
-                   <div className="w-12 h-12 bg-white rounded-full"></div>
-                 </button>
-               </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Bottom Navigation */}
+      <BottomNav />
     </div>
   );
 }
