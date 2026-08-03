@@ -104,13 +104,13 @@ export function NavigationView() {
         source: 'nav-route',
         paint: {
           'line-width': 6,
+          // Gradiente de trânsito da imagem 5: azul → ciano → laranja → vermelho
           'line-gradient': [
             'interpolate', ['linear'], ['line-progress'],
-            0, tech.accent,
-            0.55, tech.accent,
-            0.7, tech.trafficMed,
-            0.85, tech.trafficHeavy,
-            1, tech.trafficHeavy,
+            0, '#2E7DFF',
+            0.4, '#22D3EE',
+            0.7, '#F59E0B',
+            1, '#EF4444',
           ],
         },
         layout: { 'line-cap': 'round', 'line-join': 'round' },

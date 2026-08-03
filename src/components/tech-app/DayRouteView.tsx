@@ -36,29 +36,30 @@ export function DayRouteView() {
   const totalMin = osrmRoute ? Math.round(osrmRoute.duration / 60) : pending.length * 35;
   const totalKm = osrmRoute ? osrmRoute.distance : pending.length * 4200;
 
+  // Linha de metrô (imagem 1): trilho AMARELO percorrido, VERMELHO no trecho atual
+  const METRO = { line: '#F5C400', current: '#FF3B30', upcoming: '#6b6f2a' };
+
   // Constrói a linha do tempo documentada a partir do turno + OS
   const events: Ev[] = [];
   events.push({
     kind: 'shift', time: shift?.startedAt ? new Date(shift.startedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '07:00',
-    title: 'Turno iniciado', sub: shift?.odometerStart ? `Odômetro ${shift.odometerStart.toLocaleString('pt-BR')} km` : 'Início da jornada', color: tech.done,
+    title: 'Turno iniciado', sub: shift?.odometerStart ? `Odômetro ${shift.odometerStart.toLocaleString('pt-BR')} km` : 'Início da jornada', color: METRO.line,
   });
 
   const STREETS = ['R. Augusta, Av. Paulista', 'Al. Santos, R. Haddock Lobo', 'Av. Rebouças, R. Oscar Freire', 'R. da Consolação'];
-  let doneIdx = 0;
   osList.forEach((os, i) => {
-    const c = os.status === 'completed' ? tech.done : os.status === 'in_progress' ? tech.accent : tech.pending;
+    const c = os.status === 'completed' ? METRO.line : os.status === 'in_progress' ? METRO.current : METRO.upcoming;
     // Segmento de deslocamento
     events.push({ kind: 'drive', title: `Percurso até ${os.client.split(' ')[0]}`, sub: `${STREETS[i % STREETS.length]} · ~12 min · 4,2 km`, color: c });
     if (os.status === 'completed') {
-      events.push({ kind: 'arrive', time: os.scheduledTime, title: `Chegada — ${os.client}`, sub: 'Check-in com foto registrado', color: tech.done, os: os.id });
-      events.push({ kind: 'exec', title: 'Execução', sub: 'Checklist concluído · 45 min no local', color: tech.done, os: os.id });
-      events.push({ kind: 'done', time: addMin(os.scheduledTime, 45), title: 'OS concluída', sub: 'Assinatura + comprovante emitido', color: tech.done, os: os.id });
-      doneIdx = events.length;
+      events.push({ kind: 'arrive', time: os.scheduledTime, title: `Chegada — ${os.client}`, sub: 'Check-in com foto registrado', color: METRO.line, os: os.id });
+      events.push({ kind: 'exec', title: 'Execução', sub: 'Checklist concluído · 45 min no local', color: METRO.line, os: os.id });
+      events.push({ kind: 'done', time: addMin(os.scheduledTime, 45), title: 'OS concluída', sub: 'Assinatura + comprovante emitido', color: METRO.line, os: os.id });
     } else if (os.status === 'in_progress') {
-      events.push({ kind: 'arrive', time: os.scheduledTime, title: `Chegada — ${os.client}`, sub: 'Check-in às ' + os.scheduledTime, color: tech.accent, os: os.id });
-      events.push({ kind: 'current', title: 'Posição atual', sub: 'Executando serviço agora', color: tech.accent, os: os.id });
+      events.push({ kind: 'arrive', time: os.scheduledTime, title: `Chegada — ${os.client}`, sub: 'Check-in às ' + os.scheduledTime, color: METRO.current, os: os.id });
+      events.push({ kind: 'current', title: 'Posição atual', sub: 'Executando serviço agora', color: METRO.current, os: os.id });
     } else {
-      events.push({ kind: 'arrive', time: os.scheduledTime, title: `${os.client}`, sub: `Previsto ${os.scheduledTime} · ${os.type}`, color: tech.pending, os: os.id });
+      events.push({ kind: 'arrive', time: os.scheduledTime, title: `${os.client}`, sub: `Previsto ${os.scheduledTime} · ${os.type}`, color: METRO.upcoming, os: os.id });
     }
   });
 
@@ -128,7 +129,7 @@ export function DayRouteView() {
                   <>
                     <div className="flex items-center justify-center rounded-full flex-shrink-0" style={{
                       width: 28, height: 28, background: ev.color, color: '#0a0a0b',
-                      boxShadow: isCurrent ? `0 0 0 4px ${tech.accentDim}` : 'none',
+                      boxShadow: isCurrent ? '0 0 0 4px rgba(255,59,48,0.25)' : 'none',
                     }}>
                       {iconFor(ev.kind)}
                     </div>
@@ -149,12 +150,12 @@ export function DayRouteView() {
                 ) : (
                   <div>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[15px] font-bold truncate" style={{ color: isCurrent ? tech.accentLight : tech.text }}>{ev.title}</span>
+                      <span className="text-[15px] font-bold truncate" style={{ color: isCurrent ? '#FF3B30' : tech.text }}>{ev.title}</span>
                       {ev.time && <span className="text-xs font-semibold tabular-nums flex-shrink-0" style={{ color: tech.textSecondary }}>{ev.time}</span>}
                     </div>
                     {ev.sub && <p className="text-xs mt-0.5" style={{ color: tech.textMuted }}>{ev.sub}</p>}
                     {isCurrent && (
-                      <span className="inline-block mt-1.5 px-2 py-0.5 text-[10px] font-bold rounded-md" style={{ background: tech.accentDim, color: tech.accentLight }}>
+                      <span className="inline-block mt-1.5 px-2 py-0.5 text-[10px] font-bold rounded-md" style={{ background: 'rgba(255,59,48,0.16)', color: '#FF3B30' }}>
                         VOCÊ ESTÁ AQUI
                       </span>
                     )}
@@ -168,13 +169,13 @@ export function DayRouteView() {
 
       {/* Chips fixos (imagem 1: "35mins Left" / "Busiest") */}
       <div className="fixed left-0 right-0 px-4 flex items-center justify-between z-20 pointer-events-none" style={{ bottom: 80 }}>
-        <div className="flex items-center gap-2 px-4 py-2 pointer-events-auto" style={{ background: `${tech.card}f2`, backdropFilter: 'blur(20px)', borderRadius: 20, border: `1px solid ${tech.border}` }}>
-          <Clock size={14} style={{ color: tech.accentLight }} />
-          <span className="text-sm font-bold" style={{ color: tech.text }}>{formatDuration(totalMin * 60)} restante</span>
+        <div className="flex items-center gap-2 px-4 py-2 pointer-events-auto" style={{ background: 'rgba(40,40,44,0.92)', backdropFilter: 'blur(20px)', borderRadius: 20 }}>
+          <Clock size={14} style={{ color: '#fff' }} />
+          <span className="text-sm font-bold" style={{ color: '#fff' }}>{formatDuration(totalMin * 60)} restante</span>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 pointer-events-auto" style={{ background: `${tech.card}f2`, backdropFilter: 'blur(20px)', borderRadius: 20, border: `1px solid ${tech.border}` }}>
-          <TrendingUp size={14} style={{ color: tech.lemon }} />
-          <span className="text-sm font-bold" style={{ color: tech.lemon }}>{formatDistance(totalKm)}</span>
+        <div className="flex items-center gap-2 px-4 py-2 pointer-events-auto" style={{ background: 'rgba(22,163,74,0.18)', backdropFilter: 'blur(20px)', borderRadius: 20, border: '1px solid rgba(22,163,74,0.4)' }}>
+          <TrendingUp size={14} style={{ color: '#22c55e' }} />
+          <span className="text-sm font-bold" style={{ color: '#22c55e' }}>{formatDistance(totalKm)}</span>
         </div>
       </div>
     </div>

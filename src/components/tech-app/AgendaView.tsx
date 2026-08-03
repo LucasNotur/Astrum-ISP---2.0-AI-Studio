@@ -4,24 +4,33 @@ import { Search, Wrench, MapPin, Route, ArrowRight, Zap } from 'lucide-react';
 import { useTechAppStore } from '../../store/techAppStore';
 import { optimizeRoute as apiOptimizeRoute } from '../../lib/fieldOps';
 import { fetchOsrmRoute, formatDistance } from '../../lib/osrm';
-import { tech } from './theme';
 import { toast } from 'sonner';
 
-const STATUS_LABELS: Record<string, string> = {
-  pending: 'Agendada', in_progress: 'Em rota', completed: 'Concluída',
+/**
+ * Lista de clientes — clone da imagem 7 (tickets de voo): preto & branco de
+ * alto contraste. Fundo quase preto, título enorme em branco, cartões BRANCOS
+ * em formato de bilhete com recorte perfurado e tipografia preta pesada.
+ */
+
+// Paleta B&W da referência (imagem 7)
+const C = {
+  bg: '#0b0b0c',
+  title: '#ffffff',
+  sub: '#8a8a90',
+  card: '#ffffff',
+  ink: '#0e0e10',
+  inkSoft: '#6b7280',
+  line: '#e5e7eb',
+  chipOn: '#ffffff',
+  chipOnInk: '#0e0e10',
+  chipOff: '#161618',
+  chipOffInk: '#9a9aa0',
 };
-const STATUS_COLOR: Record<string, string> = {
-  pending: tech.pending, in_progress: tech.accent, completed: tech.done,
-};
+const STATUS_LABELS: Record<string, string> = { pending: 'Agendada', in_progress: 'Em rota', completed: 'Concluída' };
+const STATUS_COLOR: Record<string, string> = { pending: '#F5A524', in_progress: '#3D5AFE', completed: '#16a34a' };
 
 type Seg = 'ativas' | 'concluidas';
 
-/**
- * Lista de clientes — estrutura de "ticket de embarque" da imagem 7:
- * cartão em formato de bilhete com stub lateral, linha de rota tracejada
- * (horário → serviço → bairro), recorte perfurado e rodapé com dados.
- * Título grande + toggle de segmento no topo, como no "Buy Your Ticket Here".
- */
 export function AgendaView() {
   const osList = useTechAppStore((s) => s.osList);
   const setActiveOs = useTechAppStore((s) => s.setActiveOs);
@@ -68,106 +77,96 @@ export function AgendaView() {
   const openOs = (os: any) => { setActiveOs(os); setView('active-os'); };
 
   return (
-    <div className="h-full overflow-y-auto pb-24" style={{ background: tech.bg }}>
-      {/* Título grande estilo imagem 7 */}
+    <div className="h-full overflow-y-auto pb-24" style={{ background: C.bg }}>
+      {/* Título enorme (imagem 7) */}
       <div className="px-5 pt-14 pb-3">
-        <p className="text-sm font-medium" style={{ color: tech.textSecondary }}>Sua jornada de hoje</p>
-        <h1 className="text-[32px] font-extrabold leading-none tracking-tight mt-1" style={{ color: tech.text }}>
+        <p className="text-sm font-medium" style={{ color: C.sub }}>Sua jornada de hoje</p>
+        <h1 className="text-[34px] font-extrabold leading-[1.02] tracking-tight mt-1" style={{ color: C.title }}>
           Clientes a<br />atender
         </h1>
       </div>
 
-      {/* Toggle de segmento (One way / Round trip → Ativas / Concluídas) */}
-      <div className="mx-5 mb-3 flex p-1 rounded-full" style={{ background: tech.card, border: `1px solid ${tech.border}` }}>
+      {/* Toggle de segmento */}
+      <div className="mx-5 mb-3 flex p-1 rounded-full" style={{ background: C.chipOff }}>
         {(['ativas', 'concluidas'] as Seg[]).map((s) => (
           <button key={s} onClick={() => setSeg(s)}
             className="flex-1 py-2.5 text-sm font-bold rounded-full transition-colors"
-            style={{ background: seg === s ? tech.accent : 'transparent', color: seg === s ? tech.onAccent : tech.textSecondary }}>
+            style={{ background: seg === s ? C.chipOn : 'transparent', color: seg === s ? C.chipOnInk : C.chipOffInk }}>
             {s === 'ativas' ? `Ativas (${pending.length})` : `Concluídas (${osList.length - pending.length})`}
           </button>
         ))}
       </div>
 
       {/* Busca + otimizar */}
-      <div className="mx-5 mb-4 flex gap-2">
-        <div className="flex-1 flex items-center gap-2 px-4 py-3 rounded-2xl" style={{ background: tech.card, border: `1px solid ${tech.border}` }}>
-          <Search size={16} style={{ color: tech.textMuted }} />
+      <div className="mx-5 mb-5 flex gap-2">
+        <div className="flex-1 flex items-center gap-2 px-4 py-3 rounded-2xl" style={{ background: C.chipOff }}>
+          <Search size={16} style={{ color: C.sub }} />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar cliente ou endereço"
-            className="flex-1 bg-transparent text-sm outline-none" style={{ color: tech.text }} />
+            className="flex-1 bg-transparent text-sm outline-none" style={{ color: C.title }} />
         </div>
         <button onClick={handleOptimize} disabled={optimizing || pending.length < 2}
           className="flex items-center justify-center px-4 rounded-2xl active:scale-95 transition-transform disabled:opacity-40"
-          style={{ background: tech.accent, color: tech.onAccent }}>
+          style={{ background: C.card, color: C.ink }}>
           <Route size={18} className={optimizing ? 'animate-spin' : ''} />
         </button>
       </div>
 
-      {/* Tickets */}
-      <div className="px-5 space-y-3.5">
+      {/* Tickets brancos */}
+      <div className="px-5 space-y-4">
         {visible.map((os, idx) => {
-          const color = STATUS_COLOR[os.status];
+          const sc = STATUS_COLOR[os.status];
           return (
             <motion.button key={os.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }}
-              onClick={() => openOs(os)} className="w-full text-left active:scale-[0.99] transition-transform">
-              <div className="flex" style={{ filter: 'drop-shadow(0 10px 24px rgba(0,0,0,0.35))' }}>
-                {/* Stub lateral colorido */}
-                <div className="flex flex-col items-center justify-center px-3 rounded-l-2xl"
-                  style={{ background: color, minWidth: 46 }}>
-                  <span className="text-[10px] font-bold tracking-widest" style={{ color: '#0a0a0b', writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
-                    OS {String(idx + 1).padStart(2, '0')}
+              onClick={() => openOs(os)} className="w-full text-left active:scale-[0.99] transition-transform"
+              style={{ filter: 'drop-shadow(0 12px 26px rgba(0,0,0,0.45))' }}>
+              <div className="relative rounded-[22px] overflow-hidden" style={{ background: C.card }}>
+                {/* Cabeçalho: serviço + status */}
+                <div className="flex items-center justify-between px-5 pt-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex items-center justify-center rounded-xl" style={{ width: 30, height: 30, background: '#f3f4f6' }}>
+                      <Wrench size={15} style={{ color: C.ink }} />
+                    </div>
+                    <span className="text-[13px] font-bold" style={{ color: C.inkSoft }}>{os.type}</span>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold px-2.5 py-1 rounded-full" style={{ background: `${sc}1f`, color: sc }}>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: sc }} />{STATUS_LABELS[os.status]}
                   </span>
                 </div>
 
-                {/* Corpo do ticket */}
-                <div className="flex-1 relative rounded-r-2xl overflow-hidden" style={{ background: tech.card, border: `1px solid ${tech.border}`, borderLeft: 'none' }}>
-                  {/* Cabeçalho: serviço + status */}
-                  <div className="flex items-center justify-between px-4 pt-3.5">
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center justify-center rounded-lg" style={{ width: 26, height: 26, background: tech.elevated }}>
-                        <Wrench size={13} style={{ color: tech.textSecondary }} />
-                      </div>
-                      <span className="text-xs font-bold" style={{ color: tech.textSecondary }}>{os.type}</span>
-                    </div>
-                    <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full" style={{ background: `${color}22`, color }}>
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />{STATUS_LABELS[os.status]}
-                    </span>
+                {/* Rota: horário → destino */}
+                <div className="flex items-center justify-between px-5 py-3.5">
+                  <div>
+                    <p className="text-[30px] font-extrabold leading-none tracking-tight tabular-nums" style={{ color: C.ink }}>{os.scheduledTime}</p>
+                    <p className="text-[11px] mt-1 font-medium" style={{ color: C.inkSoft }}>agendado</p>
                   </div>
+                  <div className="flex-1 flex items-center px-3">
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#c7c9cf' }} />
+                    <span className="flex-1 border-t border-dashed" style={{ borderColor: C.line }} />
+                    <ArrowRight size={17} style={{ color: C.ink }} />
+                    <span className="flex-1 border-t border-dashed" style={{ borderColor: C.line }} />
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: C.ink }} />
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[16px] font-extrabold leading-tight" style={{ color: C.ink }}>{shortArea(os.address)}</p>
+                    <p className="text-[11px] mt-1 font-medium" style={{ color: C.inkSoft }}>destino</p>
+                  </div>
+                </div>
 
-                  {/* Linha de rota estilo bilhete: horário → serviço → bairro */}
-                  <div className="flex items-center justify-between px-4 py-3">
-                    <div>
-                      <p className="text-[26px] font-extrabold leading-none tracking-tight tabular-nums" style={{ color: tech.text }}>{os.scheduledTime}</p>
-                      <p className="text-[11px] mt-1" style={{ color: tech.textMuted }}>agendado</p>
-                    </div>
-                    <div className="flex-1 flex items-center px-3">
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: tech.textDim }} />
-                      <span className="flex-1 border-t border-dashed" style={{ borderColor: tech.border }} />
-                      <ArrowRight size={16} style={{ color }} />
-                      <span className="flex-1 border-t border-dashed" style={{ borderColor: tech.border }} />
-                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[15px] font-extrabold leading-tight" style={{ color: tech.text }}>{shortArea(os.address)}</p>
-                      <p className="text-[11px] mt-1" style={{ color: tech.textMuted }}>destino</p>
-                    </div>
-                  </div>
+                {/* Perfuração (recorte com a cor do fundo) */}
+                <div className="relative" style={{ height: 22 }}>
+                  <span className="absolute rounded-full" style={{ width: 22, height: 22, background: C.bg, left: -11, top: 0 }} />
+                  <span className="absolute rounded-full" style={{ width: 22, height: 22, background: C.bg, right: -11, top: 0 }} />
+                  <span className="absolute left-4 right-4" style={{ top: 10, borderTop: `2px dashed ${C.line}` }} />
+                </div>
 
-                  {/* Perfuração */}
-                  <div className="relative" style={{ height: 20 }}>
-                    <span className="absolute rounded-full" style={{ width: 16, height: 16, background: tech.bg, left: -9, top: 2, border: `1px solid ${tech.border}` }} />
-                    <span className="absolute rounded-full" style={{ width: 16, height: 16, background: tech.bg, right: -9, top: 2, border: `1px solid ${tech.border}` }} />
-                    <span className="absolute left-3 right-3 top-1/2" style={{ borderTop: `1px dashed ${tech.border}` }} />
+                {/* Rodapé: cliente */}
+                <div className="flex items-center gap-2.5 px-5 pb-4 pt-1.5">
+                  <MapPin size={14} style={{ color: C.inkSoft }} className="flex-shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[15px] font-extrabold truncate" style={{ color: C.ink }}>{os.client}</p>
+                    <p className="text-[11px] truncate" style={{ color: C.inkSoft }}>{os.address}</p>
                   </div>
-
-                  {/* Rodapé: cliente + endereço */}
-                  <div className="flex items-center gap-2 px-4 pb-3.5 pt-1">
-                    <MapPin size={13} style={{ color: tech.textDim }} className="flex-shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold truncate" style={{ color: tech.text }}>{os.client}</p>
-                      <p className="text-[11px] truncate" style={{ color: tech.textMuted }}>{os.address}</p>
-                    </div>
-                    {os.status === 'in_progress' && <Zap size={16} style={{ color: tech.accent }} />}
-                  </div>
+                  {os.status === 'in_progress' && <Zap size={17} style={{ color: STATUS_COLOR.in_progress }} />}
                 </div>
               </div>
             </motion.button>
@@ -176,7 +175,7 @@ export function AgendaView() {
 
         {visible.length === 0 && (
           <div className="text-center py-20">
-            <p className="text-sm" style={{ color: tech.textDim }}>Nenhum cliente {seg === 'ativas' ? 'ativo' : 'concluído'}{query ? ' nesta busca' : ''}.</p>
+            <p className="text-sm" style={{ color: C.sub }}>Nenhum cliente {seg === 'ativas' ? 'ativo' : 'concluído'}{query ? ' nesta busca' : ''}.</p>
           </div>
         )}
       </div>
@@ -184,7 +183,6 @@ export function AgendaView() {
   );
 }
 
-/** extrai o bairro/rua curto do endereço para o "destino" do ticket */
 function shortArea(address: string): string {
   const parts = address.split('—');
   if (parts.length > 1) return parts[1].split(',')[0].trim();
