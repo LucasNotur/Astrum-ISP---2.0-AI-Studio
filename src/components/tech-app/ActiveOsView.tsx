@@ -5,10 +5,14 @@ import {
   Upload, AlertTriangle, CircleCheck, ScanSearch, Phone, MapPin,
 } from 'lucide-react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Headset, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTechAppStore } from '../../store/techAppStore';
 import { StatusTimeline } from './StatusTimeline';
 import { ClientDossier } from './ClientDossier';
+import { SlideToConfirm } from './SlideToConfirm';
+import { OsReceipt } from './OsReceipt';
+import { tech } from './theme';
 import { SignaturePad } from '../SignaturePad';
 import { uploadTenantFile } from '../../lib/storage';
 import { processSignatureAndPdf } from '../../lib/signaturePad';
@@ -17,8 +21,6 @@ import {
   startServiceOrder, completeServiceOrder, fetchChecklist, markChecklistItem,
   registerMedia, validatePhoto, generateSummary, fetchDossie,
 } from '../../lib/fieldOps';
-import { Button } from '../ui/button';
-import { Card, CardContent } from '../ui/card';
 
 const isRealOsId = (id: string) => typeof id === 'string' && !id.startsWith('OS-');
 
@@ -40,11 +42,11 @@ export function ActiveOsView() {
   const [showCamera, setShowCamera] = useState(false);
   const [cameraMode, setCameraMode] = useState<'checkin' | 'checkout' | 'equipment' | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
 
-  // Load checklist when OS changes
   useEffect(() => {
     if (!activeOs) return;
     setChecklist(activeOs.checklist || []);
@@ -55,7 +57,6 @@ export function ActiveOsView() {
     }
   }, [activeOs?.id]);
 
-  // QR Scanner
   useEffect(() => {
     if (!showScanner) return;
     const scanner = new Html5QrcodeScanner('qr-reader', { fps: 10, qrbox: { width: 250, height: 250 } }, false);
@@ -75,12 +76,21 @@ export function ActiveOsView() {
 
   if (!activeOs) {
     return (
-      <div className="flex flex-col items-center justify-center h-full px-6 text-center">
+      <div className="flex flex-col items-center justify-center h-full px-6 text-center" style={{ background: '#0a0a0b' }}>
         <ClipboardEmpty />
-        <p className="text-zinc-400 text-sm mt-4">Nenhuma OS selecionada</p>
-        <Button variant="outline" className="mt-3" onClick={() => setView('agenda')}>
+        <p className="text-sm mt-4" style={{ color: '#555' }}>Nenhuma OS selecionada</p>
+        <button
+          onClick={() => setView('agenda')}
+          className="mt-4 px-6 py-2.5 text-sm font-bold active:scale-95 transition-transform"
+          style={{
+            background: 'transparent',
+            color: '#3D5AFE',
+            borderRadius: '14px',
+            border: '1px solid rgba(61,90,254,0.3)',
+          }}
+        >
           Ver agenda
-        </Button>
+        </button>
       </div>
     );
   }
@@ -223,8 +233,7 @@ export function ActiveOsView() {
       }
 
       updateOsLocally('completed');
-      setActiveOs(null);
-      setView('map');
+      setShowReceipt(true); // comprovante estilo boarding pass
     } finally {
       setProcessing(false);
       setPhoto(null);
@@ -259,19 +268,30 @@ export function ActiveOsView() {
   };
 
   return (
-    <div className="h-full overflow-y-auto pb-20 bg-zinc-950">
+    <div className="h-full overflow-y-auto pb-20" style={{ background: '#0a0a0b' }}>
       {/* Header */}
-      <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3 bg-zinc-950/95 backdrop-blur border-b border-zinc-800">
-        <button onClick={() => { setActiveOs(null); setView('map'); }} className="p-1 text-zinc-400">
+      <div
+        className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3"
+        style={{
+          background: 'rgba(10,10,10,0.95)',
+          backdropFilter: 'blur(20px)',
+          borderBottom: '1px solid #1a1a1a',
+        }}
+      >
+        <button
+          onClick={() => { setActiveOs(null); setView('map'); }}
+          className="p-1.5 active:scale-90 transition-transform"
+          style={{ color: '#888' }}
+        >
           <ArrowLeft size={20} />
         </button>
         <div className="flex-1 min-w-0">
-          <h2 className="text-white font-semibold text-sm truncate">OS — {activeOs.client}</h2>
-          <p className="text-zinc-500 text-xs truncate">{activeOs.type}</p>
+          <h2 className="text-white font-bold text-[15px] truncate">OS — {activeOs.client}</h2>
+          <p className="text-xs truncate" style={{ color: '#555' }}>{activeOs.type}</p>
         </div>
       </div>
 
-      <div className="px-4 py-4 space-y-4">
+      <div className="px-4 py-5 space-y-5">
         {/* Status Timeline */}
         <StatusTimeline status={activeOs.status} />
 
@@ -279,101 +299,181 @@ export function ActiveOsView() {
         <ClientDossier osId={activeOs.id} clientName={activeOs.client} address={activeOs.address} type={activeOs.type} />
 
         {/* Action buttons by phase */}
-        <Card className="bg-zinc-800/50 border-zinc-700">
-          <CardContent className="p-3 space-y-2">
-            {activeOs.status === 'pending' && (
-              <div className="space-y-2">
-                <Button className="w-full bg-indigo-600 hover:bg-indigo-700" onClick={handleNavigate}>
-                  <Navigation size={16} className="mr-2" /> Ir para o cliente
-                </Button>
-                <Button variant="outline" className="w-full" onClick={handleCheckin}>
-                  <Camera size={16} className="mr-2" /> Check-in (cheguei)
-                </Button>
-              </div>
-            )}
+        <div style={{ background: '#151517', borderRadius: '16px', border: '1px solid #1a1a1a' }} className="p-4 space-y-3">
+          {activeOs.status === 'pending' && (
+            <div className="space-y-3">
+              <button
+                onClick={handleNavigate}
+                className="w-full flex items-center justify-center gap-2 py-3.5 text-sm font-bold active:scale-[0.98] transition-transform"
+                style={{
+                  background: '#3D5AFE',
+                  color: '#ffffff',
+                  borderRadius: '14px',
+                }}
+              >
+                <Navigation size={16} /> Ir para o cliente
+              </button>
+              {/* Check-in por deslizar — evita toque acidental */}
+              <SlideToConfirm
+                label="Arraste para confirmar chegada"
+                confirmedLabel="Chegou! Abrindo câmera…"
+                onConfirm={handleCheckin}
+              />
+            </div>
+          )}
 
-            {activeOs.status === 'in_progress' && (
-              <div className="space-y-3">
-                {/* Checklist */}
-                <div>
-                  <p className="text-zinc-400 text-xs font-medium mb-2">Checklist ({checklist.filter((i) => i.done).length}/{checklist.length})</p>
-                  <div className="space-y-1">
-                    {checklist.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => toggleChecklist(item.id)}
-                        className={`w-full flex items-center gap-2 p-2 rounded-lg text-left transition-colors ${
-                          item.done ? 'bg-green-900/20' : 'bg-zinc-900/50 active:bg-zinc-800'
-                        }`}
+          {activeOs.status === 'in_progress' && (
+            <div className="space-y-4">
+              {/* Checklist */}
+              <div>
+                <p className="text-xs font-bold mb-2" style={{ color: '#666' }}>
+                  Checklist ({checklist.filter((i) => i.done).length}/{checklist.length})
+                </p>
+                <div className="space-y-1.5">
+                  {checklist.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => toggleChecklist(item.id)}
+                      className="w-full flex items-center gap-3 p-3 text-left transition-all active:opacity-80"
+                      style={{
+                        borderRadius: '12px',
+                        background: item.done ? 'rgba(61,90,254,0.06)' : '#1a1a1a',
+                        border: item.done ? '1px solid rgba(61,90,254,0.15)' : '1px solid #222',
+                      }}
+                    >
+                      {item.done ? (
+                        <CheckCircle2 size={18} style={{ color: '#3D5AFE' }} />
+                      ) : (
+                        <div className="w-[18px] h-[18px] rounded-full" style={{ border: '2px solid #333' }} />
+                      )}
+                      <span
+                        className="text-xs flex-1"
+                        style={{
+                          color: item.done ? '#666' : '#ccc',
+                          textDecoration: item.done ? 'line-through' : 'none',
+                        }}
                       >
-                        {item.done ? <CheckCircle2 size={16} className="text-green-500" /> : <div className="w-4 h-4 rounded-full border border-zinc-600" />}
-                        <span className={`text-xs flex-1 ${item.done ? 'text-zinc-500 line-through' : 'text-zinc-300'}`}>
-                          {item.text || item.label}
-                        </span>
-                      </button>
+                        {item.text || item.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tools row */}
+              <div className="flex gap-2">
+                {[
+                  { icon: Camera, label: 'Foto', action: () => openCamera('equipment') },
+                  { icon: QrCode, label: 'QR Code', action: () => setShowScanner(true) },
+                  { icon: PenTool, label: 'Assinar', action: () => setShowSignature(true) },
+                ].map(({ icon: Icon, label, action }) => (
+                  <button
+                    key={label}
+                    onClick={action}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold active:scale-95 transition-transform"
+                    style={{
+                      background: '#1a1a1a',
+                      border: '1px solid #222',
+                      borderRadius: '12px',
+                      color: '#888',
+                    }}
+                  >
+                    <Icon size={14} /> {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Materials scanned */}
+              {materials.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold mb-1.5" style={{ color: '#666' }}>Materiais ({materials.length})</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {materials.map((m, i) => (
+                      <span
+                        key={i}
+                        className="text-xs px-2.5 py-1"
+                        style={{ background: '#1a1a1a', color: '#ccc', borderRadius: '8px' }}
+                      >
+                        {m}
+                      </span>
                     ))}
                   </div>
                 </div>
+              )}
 
-                {/* Tools row */}
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="flex-1" onClick={() => openCamera('equipment')}>
-                    <Camera size={14} className="mr-1" /> Foto
-                  </Button>
-                  <Button variant="outline" size="sm" className="flex-1" onClick={() => setShowScanner(true)}>
-                    <QrCode size={14} className="mr-1" /> QR Code
-                  </Button>
-                  <Button variant="outline" size="sm" className="flex-1" onClick={() => setShowSignature(true)}>
-                    <PenTool size={14} className="mr-1" /> Assinar
-                  </Button>
-                </div>
-
-                {/* Materials scanned */}
-                {materials.length > 0 && (
-                  <div>
-                    <p className="text-zinc-400 text-xs font-medium mb-1">Materiais ({materials.length})</p>
-                    <div className="flex flex-wrap gap-1">
-                      {materials.map((m, i) => (
-                        <span key={i} className="text-xs bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded">{m}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Signature status */}
-                {signatureData && (
-                  <div className="flex items-center gap-2 p-2 bg-green-900/20 rounded-lg">
-                    <CircleCheck size={14} className="text-green-500" />
-                    <span className="text-xs text-green-400">Assinatura capturada</span>
-                  </div>
-                )}
-
-                {/* Complete button */}
-                <Button
-                  className="w-full bg-green-600 hover:bg-green-700"
-                  onClick={handleCheckout}
-                  disabled={processing || !allChecklistDone || !signatureData}
+              {/* Signature status */}
+              {signatureData && (
+                <div
+                  className="flex items-center gap-2 p-3"
+                  style={{
+                    background: 'rgba(61,90,254,0.06)',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(61,90,254,0.15)',
+                  }}
                 >
-                  {processing ? 'Processando...' : 'Finalizar OS'}
-                </Button>
-                {(!allChecklistDone || !signatureData) && (
-                  <p className="text-xs text-zinc-600 text-center">
-                    {!allChecklistDone && 'Complete o checklist. '}
-                    {!signatureData && 'Obtenha a assinatura.'}
-                  </p>
-                )}
-              </div>
-            )}
+                  <CircleCheck size={14} style={{ color: '#3D5AFE' }} />
+                  <span className="text-xs font-medium" style={{ color: '#3D5AFE' }}>Assinatura capturada</span>
+                </div>
+              )}
 
-            {activeOs.status === 'completed' && (
-              <div className="text-center py-4">
-                <CircleCheck size={32} className="text-green-500 mx-auto mb-2" />
-                <p className="text-green-400 text-sm font-medium">OS Concluída</p>
+              {/* Concluir por deslizar */}
+              <SlideToConfirm
+                label={processing ? 'Processando…' : 'Arraste para concluir OS'}
+                confirmedLabel="Concluindo…"
+                color={tech.done}
+                disabled={processing || !allChecklistDone || !signatureData}
+                onConfirm={handleCheckout}
+              />
+              {(!allChecklistDone || !signatureData) && (
+                <p className="text-xs text-center" style={{ color: '#444' }}>
+                  {!allChecklistDone && 'Complete o checklist. '}
+                  {!signatureData && 'Obtenha a assinatura.'}
+                </p>
+              )}
+
+              {/* Falar com a central — inspirado no "chat with support" */}
+              <button
+                className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-semibold active:scale-95 transition-transform"
+                style={{ background: 'transparent', color: tech.textSecondary, borderRadius: '12px', border: `1px solid ${tech.border}` }}
+                onClick={() => toast.message('Central de operações', { description: 'Abrindo canal com o despacho…' })}
+              >
+                <Headset size={14} /> Falar com a central
+              </button>
+            </div>
+          )}
+
+          {activeOs.status === 'completed' && (
+            <div className="text-center py-6">
+              <div className="mx-auto mb-3 flex items-center justify-center rounded-full"
+                style={{ width: 48, height: 48, background: tech.accentDim }}>
+                <CircleCheck size={28} style={{ color: tech.done }} />
               </div>
-            )}
-          </CardContent>
-        </Card>
+              <p className="text-sm font-bold mb-4" style={{ color: tech.done }}>OS Concluída</p>
+              <button
+                onClick={() => setShowReceipt(true)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold active:scale-95 transition-transform"
+                style={{ background: tech.accent, color: tech.onAccent, borderRadius: '14px' }}
+              >
+                <FileText size={16} /> Ver comprovante
+              </button>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Comprovante estilo boarding pass */}
+      <AnimatePresence>
+        {showReceipt && activeOs && (
+          <OsReceipt
+            os={activeOs}
+            onClose={() => {
+              setShowReceipt(false);
+              if (activeOs.status === 'completed') { setActiveOs(null); setView('map'); }
+            }}
+            onDownload={() => toast.success('Comprovante em PDF gerado!')}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Camera Modal */}
       <AnimatePresence>
@@ -382,16 +482,18 @@ export function ActiveOsView() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black flex flex-col"
+            className="fixed inset-0 z-50 flex flex-col"
+            style={{ background: '#000' }}
           >
             <video ref={videoRef} className="flex-1 object-cover" autoPlay playsInline muted />
-            <div className="flex items-center justify-center gap-6 p-6 bg-black/80">
-              <button onClick={stopCamera} className="p-3 bg-zinc-800 rounded-full text-white">
-                <ArrowLeft size={20} />
+            <div className="flex items-center justify-center gap-8 p-6" style={{ background: 'rgba(0,0,0,0.9)' }}>
+              <button onClick={stopCamera} className="p-3 rounded-full" style={{ background: '#1a1a1a' }}>
+                <ArrowLeft size={20} style={{ color: '#fff' }} />
               </button>
               <button
                 onClick={cameraMode === 'checkin' ? handleCaptureAndCheckin : cameraMode === 'checkout' ? handleCaptureAndCheckout : () => { capturePhoto(); }}
-                className="w-16 h-16 rounded-full border-4 border-white bg-white/20 active:scale-90 transition-transform"
+                className="w-16 h-16 rounded-full active:scale-90 transition-transform"
+                style={{ border: '4px solid #3D5AFE', background: 'rgba(61,90,254,0.15)' }}
               />
             </div>
           </motion.div>
@@ -405,9 +507,10 @@ export function ActiveOsView() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-zinc-950/95 flex flex-col items-center justify-center p-6"
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6"
+            style={{ background: 'rgba(10,10,10,0.97)' }}
           >
-            <h3 className="text-white font-semibold mb-4">Assinatura do Cliente</h3>
+            <h3 className="text-white font-bold text-lg mb-4">Assinatura do Cliente</h3>
             <SignaturePad
               onConfirm={(data: string) => {
                 setSignatureData(data);
@@ -416,7 +519,11 @@ export function ActiveOsView() {
               }}
               onClear={() => setSignatureData(null)}
             />
-            <button onClick={() => setShowSignature(false)} className="mt-4 text-zinc-500 text-sm">
+            <button
+              onClick={() => setShowSignature(false)}
+              className="mt-4 text-sm"
+              style={{ color: '#555' }}
+            >
               Cancelar
             </button>
           </motion.div>
@@ -430,11 +537,16 @@ export function ActiveOsView() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-zinc-950/95 flex flex-col items-center justify-center p-6"
+            className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6"
+            style={{ background: 'rgba(10,10,10,0.97)' }}
           >
-            <h3 className="text-white font-semibold mb-4">Scanner de Material</h3>
+            <h3 className="text-white font-bold text-lg mb-4">Scanner de Material</h3>
             <div id="qr-reader" className="w-full max-w-sm" />
-            <button onClick={() => setShowScanner(false)} className="mt-4 text-zinc-500 text-sm">
+            <button
+              onClick={() => setShowScanner(false)}
+              className="mt-4 text-sm"
+              style={{ color: '#555' }}
+            >
               Cancelar
             </button>
           </motion.div>
@@ -446,7 +558,7 @@ export function ActiveOsView() {
 
 function ClipboardEmpty() {
   return (
-    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-zinc-600">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: '#333' }}>
       <rect x="8" y="2" width="8" height="4" rx="1" />
       <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2" />
       <path d="M12 11v6M9 14h6" />

@@ -22,9 +22,9 @@ const OSM_STYLE: maplibregl.StyleSpecification = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: '#eab308',
-  in_progress: '#3b82f6',
-  completed: '#22c55e',
+  pending: '#F5A524',
+  in_progress: '#3D5AFE',
+  completed: '#00C2A8',
 };
 
 export function MapView() {
@@ -59,7 +59,6 @@ export function MapView() {
     };
   }, []);
 
-  // Technician position marker (blue pulsing dot)
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !gps) return;
@@ -67,9 +66,9 @@ export function MapView() {
     if (!techMarkerRef.current) {
       const el = document.createElement('div');
       el.innerHTML = `
-        <div style="position:relative;width:24px;height:24px;">
-          <div style="position:absolute;inset:0;border-radius:50%;background:rgba(59,130,246,0.3);animation:pulse-ring 2s ease-out infinite;"></div>
-          <div style="position:absolute;top:4px;left:4px;width:16px;height:16px;border-radius:50%;background:#3b82f6;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);"></div>
+        <div style="position:relative;width:28px;height:28px;">
+          <div style="position:absolute;inset:0;border-radius:50%;background:rgba(61,90,254,0.25);animation:pulse-ring 2s ease-out infinite;"></div>
+          <div style="position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:50%;background:#3D5AFE;border:3px solid #0a0a0b;box-shadow:0 2px 10px rgba(61,90,254,0.4);"></div>
         </div>
       `;
       techMarkerRef.current = new maplibregl.Marker({ element: el })
@@ -80,7 +79,6 @@ export function MapView() {
     }
   }, [gps]);
 
-  // OS markers
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -95,23 +93,23 @@ export function MapView() {
     if (gps) bounds.extend([gps.lng, gps.lat]);
 
     for (const os of withCoords) {
-      const color = STATUS_COLORS[os.status] || '#6b7280';
+      const color = STATUS_COLORS[os.status] || '#555';
       const isActive = activeOs?.id === os.id;
 
       const el = document.createElement('div');
       el.style.cssText = `
-        width:${isActive ? 20 : 14}px;
-        height:${isActive ? 20 : 14}px;
+        width:${isActive ? 22 : 16}px;
+        height:${isActive ? 22 : 16}px;
         border-radius:50%;
         background:${color};
-        border:${isActive ? 3 : 2}px solid #fff;
-        box-shadow:0 2px 6px rgba(0,0,0,0.4);
+        border:${isActive ? 3 : 2}px solid #0a0a0b;
+        box-shadow:0 2px 8px rgba(0,0,0,0.5)${isActive ? ', 0 0 0 3px rgba(61,90,254,0.3)' : ''};
         cursor:pointer;
         transition:all 0.2s;
       `;
 
       const popup = new maplibregl.Popup({ offset: 12, closeButton: false })
-        .setHTML(`<div style="font-size:12px;max-width:180px;"><strong>${os.client}</strong><br/>${os.type}<br/><span style="color:#888">${os.scheduledTime}</span></div>`);
+        .setHTML(`<div style="font-size:12px;max-width:180px;font-family:system-ui;"><strong>${os.client}</strong><br/>${os.type}<br/><span style="color:#888">${os.scheduledTime}</span></div>`);
 
       const marker = new maplibregl.Marker({ element: el })
         .setLngLat([os.longitude!, os.latitude!])
@@ -128,7 +126,6 @@ export function MapView() {
     }
   }, [osList, activeOs, gps]);
 
-  // Route polyline
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -163,18 +160,27 @@ export function MapView() {
       });
 
       map.addLayer({
+        id: 'route-outline',
+        type: 'line',
+        source: 'route',
+        paint: {
+          'line-color': '#0a0a0b',
+          'line-width': 7,
+          'line-opacity': 0.5,
+        },
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+      });
+
+      map.addLayer({
         id: 'route-line',
         type: 'line',
         source: 'route',
         paint: {
-          'line-color': '#6366f1',
+          'line-color': '#3D5AFE',
           'line-width': 4,
-          'line-opacity': 0.8,
+          'line-opacity': 0.9,
         },
-        layout: {
-          'line-cap': 'round',
-          'line-join': 'round',
-        },
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
       });
     };
 
@@ -185,7 +191,6 @@ export function MapView() {
     }
   }, [osrmRoute]);
 
-  // Build route when we have GPS + OS with coords
   useEffect(() => {
     if (!gps || osList.length === 0) return;
     const pending = osList.filter(
@@ -234,9 +239,14 @@ export function MapView() {
         )}
         <button
           onClick={handleRecenter}
-          className="p-2.5 bg-zinc-900/80 backdrop-blur rounded-full text-white shadow-lg active:scale-95 transition-transform"
+          className="p-3 backdrop-blur-lg shadow-xl active:scale-95 transition-transform"
+          style={{
+            background: 'rgba(17,17,17,0.9)',
+            borderRadius: '50%',
+            border: '1px solid #222',
+          }}
         >
-          <Crosshair size={18} />
+          <Crosshair size={18} style={{ color: '#fff' }} />
         </button>
       </div>
 
@@ -244,10 +254,16 @@ export function MapView() {
       {activeOs && activeOs.latitude && activeOs.longitude && (
         <button
           onClick={handleStartNav}
-          className="absolute bottom-[220px] right-4 z-10 flex items-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-full shadow-xl active:scale-95 transition-transform"
+          className="absolute bottom-[240px] right-4 z-10 flex items-center gap-2 px-5 py-3 shadow-xl active:scale-95 transition-transform"
+          style={{
+            background: '#3D5AFE',
+            color: '#ffffff',
+            borderRadius: '20px',
+            fontWeight: 700,
+          }}
         >
           <Navigation size={18} />
-          <span className="text-sm font-semibold">Navegar</span>
+          <span className="text-sm">Navegar</span>
         </button>
       )}
 

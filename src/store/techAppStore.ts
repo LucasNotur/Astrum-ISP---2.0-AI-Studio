@@ -2,7 +2,14 @@ import { create } from 'zustand';
 import type { FieldOs, OptimizedRouteResult } from '../lib/fieldOps';
 import type { OsrmRoute, OsrmStep } from '../lib/osrm';
 
-export type TechView = 'map' | 'navigation' | 'active-os' | 'agenda' | 'my-day';
+export type TechView =
+  | 'map'
+  | 'navigation'
+  | 'active-os'
+  | 'agenda'
+  | 'my-day'
+  | 'day-route'   // Rota do dia (timeline vertical de paradas) — inspirado no Citymapper/transit
+  | 'day-report'; // Relatório de fim de turno — inspirado no report do Yango
 
 export interface GpsPosition {
   lat: number;

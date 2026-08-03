@@ -10,10 +10,10 @@ const STATUS_LABELS: Record<string, string> = {
   completed: 'Concluída',
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-yellow-500',
-  in_progress: 'bg-blue-500',
-  completed: 'bg-green-500',
+const STATUS_DOT: Record<string, string> = {
+  pending: '#F5A524',
+  in_progress: '#3D5AFE',
+  completed: '#00C2A8',
 };
 
 export function OsBottomSheet() {
@@ -29,25 +29,41 @@ export function OsBottomSheet() {
 
   if (!currentOs && pendingOs.length === 0) {
     return (
-      <div className="absolute bottom-16 left-3 right-3 z-10 p-4 bg-zinc-900/90 backdrop-blur rounded-2xl text-center">
-        <p className="text-zinc-400 text-sm">Nenhuma OS pendente para hoje</p>
+      <div
+        className="absolute bottom-20 left-3 right-3 z-10 p-5 text-center"
+        style={{
+          background: 'rgba(17,17,17,0.95)',
+          borderRadius: '20px',
+          border: '1px solid #222',
+          backdropFilter: 'blur(20px)',
+        }}
+      >
+        <p style={{ color: '#555' }} className="text-sm">Nenhuma OS pendente para hoje</p>
       </div>
     );
   }
 
   return (
     <motion.div
-      className="absolute bottom-16 left-0 right-0 z-10"
+      className="absolute bottom-20 left-0 right-0 z-10"
       initial={{ y: 0 }}
       animate={{ y: 0 }}
     >
-      <div className="mx-3 bg-zinc-900/95 backdrop-blur-lg rounded-2xl shadow-2xl border border-zinc-800 overflow-hidden">
+      <div
+        className="mx-3 shadow-2xl overflow-hidden"
+        style={{
+          background: 'rgba(17,17,17,0.97)',
+          borderRadius: '20px',
+          border: '1px solid #222',
+          backdropFilter: 'blur(20px)',
+        }}
+      >
         {/* Handle */}
         <button
           onClick={() => setExpanded(!expanded)}
-          className="w-full flex items-center justify-center py-1.5"
+          className="w-full flex items-center justify-center py-2"
         >
-          <div className="w-10 h-1 bg-zinc-700 rounded-full" />
+          <div className="w-10 h-1 rounded-full" style={{ background: '#333' }} />
         </button>
 
         {/* Current OS Card */}
@@ -55,28 +71,33 @@ export function OsBottomSheet() {
           <div className="px-4 pb-3">
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className={`w-2 h-2 rounded-full ${STATUS_COLORS[currentOs.status] || 'bg-zinc-500'}`} />
-                  <span className="text-xs text-zinc-500">{STATUS_LABELS[currentOs.status] || currentOs.status}</span>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span
+                    className="w-2 h-2 rounded-full"
+                    style={{ background: STATUS_DOT[currentOs.status] || '#555' }}
+                  />
+                  <span className="text-xs font-medium" style={{ color: '#888' }}>
+                    {STATUS_LABELS[currentOs.status] || currentOs.status}
+                  </span>
                   {osrmRoute && (
-                    <span className="text-xs text-indigo-400 ml-auto">
+                    <span className="text-xs font-semibold ml-auto" style={{ color: '#3D5AFE' }}>
                       ETA {formatDuration(osrmRoute.duration)}
                     </span>
                   )}
                 </div>
-                <h3 className="text-white font-semibold text-sm truncate">{currentOs.client}</h3>
-                <div className="flex items-center gap-1 mt-0.5">
-                  <MapPin size={12} className="text-zinc-500 flex-shrink-0" />
-                  <span className="text-xs text-zinc-400 truncate">{currentOs.address}</span>
+                <h3 className="text-white font-bold text-[15px] truncate">{currentOs.client}</h3>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <MapPin size={12} style={{ color: '#555' }} className="flex-shrink-0" />
+                  <span className="text-xs truncate" style={{ color: '#888' }}>{currentOs.address}</span>
                 </div>
-                <div className="flex items-center gap-3 mt-1.5">
-                  <div className="flex items-center gap-1">
-                    <Wrench size={12} className="text-zinc-500" />
-                    <span className="text-xs text-zinc-400">{currentOs.type}</span>
+                <div className="flex items-center gap-4 mt-2">
+                  <div className="flex items-center gap-1.5">
+                    <Wrench size={12} style={{ color: '#555' }} />
+                    <span className="text-xs" style={{ color: '#888' }}>{currentOs.type}</span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Clock size={12} className="text-zinc-500" />
-                    <span className="text-xs text-zinc-400">{currentOs.scheduledTime}</span>
+                  <div className="flex items-center gap-1.5">
+                    <Clock size={12} style={{ color: '#555' }} />
+                    <span className="text-xs" style={{ color: '#888' }}>{currentOs.scheduledTime}</span>
                   </div>
                 </div>
               </div>
@@ -85,7 +106,12 @@ export function OsBottomSheet() {
                   setActiveOs(currentOs);
                   setView('active-os');
                 }}
-                className="ml-3 px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg active:scale-95 transition-transform flex-shrink-0"
+                className="ml-3 px-5 py-2 text-xs font-bold active:scale-95 transition-transform flex-shrink-0"
+                style={{
+                  background: '#3D5AFE',
+                  color: '#ffffff',
+                  borderRadius: '14px',
+                }}
               >
                 Abrir OS
               </button>
@@ -103,8 +129,8 @@ export function OsBottomSheet() {
               transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >
-              <div className="border-t border-zinc-800 px-4 py-2">
-                <p className="text-xs text-zinc-500 mb-2">{pendingOs.length} OS restantes</p>
+              <div className="px-4 py-2" style={{ borderTop: '1px solid #222' }}>
+                <p className="text-xs mb-2" style={{ color: '#555' }}>{pendingOs.length} OS restantes</p>
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {pendingOs.map((os) => (
                     <button
@@ -113,18 +139,22 @@ export function OsBottomSheet() {
                         setActiveOs(os);
                         setExpanded(false);
                       }}
-                      className={`w-full text-left p-2 rounded-lg transition-colors ${
-                        os.id === currentOs?.id
-                          ? 'bg-indigo-600/20 border border-indigo-600/30'
-                          : 'bg-zinc-800/50 active:bg-zinc-700/50'
-                      }`}
+                      className="w-full text-left p-3 transition-colors active:opacity-80"
+                      style={{
+                        borderRadius: '14px',
+                        background: os.id === currentOs?.id ? 'rgba(61,90,254,0.08)' : '#1a1a1a',
+                        border: os.id === currentOs?.id ? '1px solid rgba(61,90,254,0.2)' : '1px solid #222',
+                      }}
                     >
                       <div className="flex items-center gap-2">
-                        <span className={`w-1.5 h-1.5 rounded-full ${STATUS_COLORS[os.status] || 'bg-zinc-500'}`} />
-                        <span className="text-white text-xs font-medium truncate flex-1">{os.client}</span>
-                        <span className="text-zinc-500 text-xs">{os.scheduledTime}</span>
+                        <span
+                          className="w-2 h-2 rounded-full"
+                          style={{ background: STATUS_DOT[os.status] || '#555' }}
+                        />
+                        <span className="text-white text-xs font-semibold truncate flex-1">{os.client}</span>
+                        <span className="text-xs" style={{ color: '#555' }}>{os.scheduledTime}</span>
                       </div>
-                      <p className="text-zinc-500 text-xs mt-0.5 truncate pl-3.5">{os.address}</p>
+                      <p className="text-xs mt-1 truncate pl-4" style={{ color: '#555' }}>{os.address}</p>
                     </button>
                   ))}
                 </div>
@@ -137,7 +167,8 @@ export function OsBottomSheet() {
         {pendingOs.length > 1 && (
           <button
             onClick={() => setExpanded(!expanded)}
-            className="w-full flex items-center justify-center py-1.5 text-zinc-500"
+            className="w-full flex items-center justify-center py-2"
+            style={{ color: '#555' }}
           >
             {expanded ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
           </button>

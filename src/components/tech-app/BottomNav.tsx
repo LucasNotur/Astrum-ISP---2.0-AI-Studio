@@ -16,8 +16,10 @@ export function BottomNav() {
   const navigation = useTechAppStore((s) => s.navigation);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-zinc-900 border-t border-zinc-800 safe-area-bottom">
-      <div className="flex items-center justify-around h-14">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 safe-area-bottom"
+      style={{ background: '#151517', borderTop: '1px solid #222' }}
+    >
+      <div className="flex items-center justify-around h-16 px-2">
         {tabs.map(({ view, icon: Icon, label }) => {
           const isActive = currentView === view;
           const isNavPulse = view === 'navigation' && navigation?.isActive;
@@ -25,19 +27,41 @@ export function BottomNav() {
             <button
               key={view}
               onClick={() => setView(view)}
-              className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
-                isActive
-                  ? 'text-indigo-400'
-                  : 'text-zinc-500 active:text-zinc-300'
-              }`}
+              className="flex items-center justify-center transition-all duration-200"
+              style={isActive ? {
+                background: '#3D5AFE',
+                borderRadius: '24px',
+                padding: '8px 16px',
+                gap: '6px',
+              } : {
+                padding: '8px 12px',
+                gap: '4px',
+                flexDirection: 'column' as const,
+              }}
             >
               <div className="relative">
-                <Icon size={20} strokeWidth={isActive ? 2.5 : 1.5} />
+                <Icon
+                  size={isActive ? 18 : 20}
+                  strokeWidth={isActive ? 2.5 : 1.5}
+                  style={{ color: isActive ? '#ffffff' : '#666' }}
+                />
                 {isNavPulse && (
-                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                  <span
+                    className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full animate-pulse"
+                    style={{ background: '#3D5AFE' }}
+                  />
                 )}
               </div>
-              <span className="text-[10px] mt-0.5 leading-none">{label}</span>
+              <span
+                className="leading-none font-semibold"
+                style={{
+                  fontSize: isActive ? '12px' : '10px',
+                  color: isActive ? '#ffffff' : '#666',
+                  marginTop: isActive ? 0 : '2px',
+                }}
+              >
+                {label}
+              </span>
             </button>
           );
         })}

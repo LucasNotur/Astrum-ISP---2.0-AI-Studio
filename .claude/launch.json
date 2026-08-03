@@ -9,9 +9,9 @@
     },
     {
       "name": "astrum-vite",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:vite"],
-      "port": 5173
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--port", "5175"],
+      "port": 5175
     },
     {
       "name": "astrum-api",

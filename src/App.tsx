@@ -248,11 +248,21 @@ import { CustomerDetailsDialog } from "./components/CustomerDetailsDialog";
 import WebchatPage from "./pages/WebchatPage";
 import OperatorMobilePage from "./pages/OperatorMobilePage";
 import PortalPage from "./pages/PortalPage";
+import TechPreview from "./pages/TechPreview";
 
 const queryClient = new QueryClient();
 
 export default function App() {
   const routerLocation = useLocation();
+
+  if (routerLocation.pathname === '/tech-preview') {
+      return (
+          <Routes>
+              <Route path="/tech-preview" element={<TechPreview />} />
+          </Routes>
+      );
+  }
+
   if (routerLocation.pathname.startsWith('/webchat') || routerLocation.pathname.startsWith('/operador-mobile')) {
       return (
           <Routes>

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { openDB } from 'idb';
 import { toast } from 'sonner';
 import { useTechAppStore } from '../store/techAppStore';
@@ -9,6 +9,9 @@ import { NavigationView } from '../components/tech-app/NavigationView';
 import { ActiveOsView } from '../components/tech-app/ActiveOsView';
 import { AgendaView } from '../components/tech-app/AgendaView';
 import { MyDayView } from '../components/tech-app/MyDayView';
+import { DayRouteView } from '../components/tech-app/DayRouteView';
+import { DayReportView } from '../components/tech-app/DayReportView';
+import { TeachingScreen } from '../components/tech-app/TeachingScreen';
 
 const dbPromise = openDB('astrum-tech-db', 1, {
   upgrade(db) {
@@ -19,10 +22,18 @@ const dbPromise = openDB('astrum-tech-db', 1, {
 
 export default function TechnicianAppPage() {
   const currentView = useTechAppStore((s) => s.currentView);
+  const osList = useTechAppStore((s) => s.osList);
   const setOsList = useTechAppStore((s) => s.setOsList);
   const setGps = useTechAppStore((s) => s.setGps);
   const setIsOnline = useTechAppStore((s) => s.setIsOnline);
   const setDeferredInstallPrompt = useTechAppStore((s) => s.setDeferredInstallPrompt);
+  const [showIntro, setShowIntro] = useState(() => {
+    try { return localStorage.getItem('astrum-tech-intro-seen') !== '1'; } catch { return true; }
+  });
+  const dismissIntro = () => {
+    try { localStorage.setItem('astrum-tech-intro-seen', '1'); } catch {}
+    setShowIntro(false);
+  };
 
   // Load agenda (online → API, offline → IDB cache)
   useEffect(() => {
@@ -117,8 +128,12 @@ export default function TechnicianAppPage() {
     }
   };
 
+  if (showIntro) {
+    return <TeachingScreen techName="Técnico" osCount={osList.length} onContinue={dismissIntro} />;
+  }
+
   return (
-    <div className="h-screen w-screen bg-zinc-950 text-white flex flex-col overflow-hidden">
+    <div className="h-screen w-screen text-white flex flex-col overflow-hidden" style={{ background: '#0a0a0b' }}>
       {/* View content */}
       <div className="flex-1 relative overflow-hidden">
         {currentView === 'map' && <MapView />}
@@ -126,6 +141,8 @@ export default function TechnicianAppPage() {
         {currentView === 'active-os' && <ActiveOsView />}
         {currentView === 'agenda' && <AgendaView />}
         {currentView === 'my-day' && <MyDayView />}
+        {currentView === 'day-route' && <DayRouteView />}
+        {currentView === 'day-report' && <DayReportView />}
       </div>
 
       {/* Bottom Navigation */}

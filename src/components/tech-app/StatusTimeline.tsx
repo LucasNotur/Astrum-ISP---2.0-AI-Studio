@@ -32,19 +32,27 @@ export function StatusTimeline({ status, className = '' }: StatusTimelineProps) 
         return (
           <React.Fragment key={phase.key}>
             {idx > 0 && (
-              <div className={`flex-1 h-0.5 ${isDone ? 'bg-indigo-500' : 'bg-zinc-700'}`} />
+              <div
+                className="flex-1 h-0.5"
+                style={{ background: isDone ? '#3D5AFE' : '#222' }}
+              />
             )}
             <div className="flex flex-col items-center">
               <div
-                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-all ${
-                  isDone
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-zinc-800 text-zinc-500 border border-zinc-700'
-                } ${isCurrent ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-zinc-900' : ''}`}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all"
+                style={{
+                  background: isDone ? '#3D5AFE' : '#1a1a1a',
+                  color: isDone ? '#ffffff' : '#555',
+                  border: isDone ? 'none' : '1px solid #333',
+                  boxShadow: isCurrent ? '0 0 0 3px rgba(61,90,254,0.3)' : 'none',
+                }}
               >
-                {isDone && idx < currentIdx ? <Check size={12} /> : idx + 1}
+                {isDone && idx < currentIdx ? <Check size={12} strokeWidth={3} /> : idx + 1}
               </div>
-              <span className={`text-[9px] mt-1 whitespace-nowrap ${isDone ? 'text-indigo-400' : 'text-zinc-600'}`}>
+              <span
+                className="text-[9px] mt-1.5 whitespace-nowrap font-medium"
+                style={{ color: isDone ? '#3D5AFE' : '#555' }}
+              >
                 {phase.label}
               </span>
             </div>
