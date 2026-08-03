@@ -16,7 +16,8 @@ import {
 import { Badge } from "@/src/components/ui/badge";
 import { StatCard } from "@/src/components/ui/StatCard";
 import { cn } from "@/src/lib/utils";
-import { CheckCircle2, TrendingDown, Smile } from "lucide-react";
+import { CheckCircle2, TrendingDown, Smile, Meh, Frown } from "lucide-react";
+import { RingChart, RingLegend, ASTRUM_SEMANTIC } from "@/src/components/ui/ring-chart";
 import { PieChart, Pie, Cell } from "recharts";
 import { FCRMetricsCard } from "@/src/components/FCRMetricsCard";
 import { CardDescription } from "@/src/components/ui/card";
@@ -94,6 +95,7 @@ export function DashboardPage() {
 
   const [upsellEvents, setUpsellEvents] = useState<any[]>([]);
   const [csatRatings, setCsatRatings] = useState<any[]>([]);
+  const [loadedAt] = useState(() => new Date()); // D-008 — status line do hero
 
   const dashTenantId = companySettings?.tenant_id || 'DEFAULT_TENANT';
   const {
@@ -684,19 +686,19 @@ export function DashboardPage() {
       case 'stat-cards':
         return (
           <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-5">
-            <StatCard loading={loading} title="Tickets Hoje" value={ticketsToday.toString()} icon={<Ticket className="text-orange-600" />} trend={ticketsTrend} up={!ticketsTrend.startsWith("-")} />
+            <StatCard loading={loading} title="Tickets Hoje" value={ticketsToday.toString()} icon={<Ticket />} tone="orange" trend={ticketsTrend} up={!ticketsTrend.startsWith("-")} />
             {isOwner ? (
               <>
-                <StatCard loading={loading} title="Ticket Médio" value={`R$ ${avgTicket.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<DollarSign className="text-emerald-500" />} trend="" up />
-                <StatCard loading={loading} title="Faturamento (MRR)" value={`R$ ${totalMrr.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<DollarSign className="text-green-600" />} trend={mrrTrend} up={!mrrTrend.startsWith("-")} />
-                <StatCard loading={loading} title="Clientes Ativos" value={activeCustomersCount.toString()} icon={<Users className="text-blue-600" />} trend={customersTrend} up />
-                <StatCard loading={loading} title="Resolução IA" value={`${aiResolutionRate.toFixed(1)}%`} icon={<Bot className="text-purple-600" />} trend={aiResolutionTrend} up={!aiResolutionTrend.startsWith("-")} />
+                <StatCard loading={loading} title="Ticket Médio" value={`R$ ${avgTicket.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<DollarSign />} tone="signal" trend="" up />
+                <StatCard loading={loading} title="Faturamento (MRR)" value={`R$ ${totalMrr.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<DollarSign />} tone="signal" trend={mrrTrend} up={!mrrTrend.startsWith("-")} />
+                <StatCard loading={loading} title="Clientes Ativos" value={activeCustomersCount.toString()} icon={<Users />} tone="fiber" trend={customersTrend} up />
+                <StatCard loading={loading} title="Resolução IA" value={`${aiResolutionRate.toFixed(1)}%`} icon={<Bot />} tone="nebula" trend={aiResolutionTrend} up={!aiResolutionTrend.startsWith("-")} />
               </>
             ) : (
               <>
-                <StatCard loading={loading} title="Tickets Pendentes" value={tickets.filter((t) => t.status === "open").length.toString()} icon={<AlertTriangle className="text-amber-500" />} trend="" up={false} />
-                <StatCard loading={loading} title="SLA Médio" value={`${avgResponseTime.toFixed(1)}s`} icon={<Clock className="text-blue-600" />} trend="-0.5s" up />
-                <StatCard loading={loading} title="Satisfação (NPS)" value={`${npsData.overallNPS}`} icon={<Smile className="text-green-600" />} trend={`${npsData.count} avaliações (30d)`} up />
+                <StatCard loading={loading} title="Tickets Pendentes" value={tickets.filter((t) => t.status === "open").length.toString()} icon={<AlertTriangle />} tone="amber" trend="" up={false} />
+                <StatCard loading={loading} title="SLA Médio" value={`${avgResponseTime.toFixed(1)}s`} icon={<Clock />} tone="fiber" trend="-0.5s" up />
+                <StatCard loading={loading} title="Satisfação (NPS)" value={`${npsData.overallNPS}`} icon={<Smile />} tone="signal" trend={`${npsData.count} avaliações (30d)`} up />
               </>
             )}
           </div>
@@ -773,50 +775,63 @@ export function DashboardPage() {
       exit={{ opacity: 0, x: -10 }}
       className="space-y-8"
     >
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={handleExportDashboardPDF}
-          >
-            <FileText size={14} />{" "}
-            <span className="hidden md:inline">Exportar PDF</span>
-          </Button>
-          {dashboardSubTab === "overview" && (
+      {/* D-008 — hero da página: status line + título display + ações */}
+      <header className="space-y-4">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full rounded-full bg-astrum-signal opacity-50 animate-ping" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-astrum-signal" />
+          </span>
+          Última atualização: <span className="text-foreground font-medium">{loadedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
+        </div>
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <h1 className="font-display text-3xl md:text-4xl font-medium tracking-tight leading-[1.1] max-w-[14ch]">
+            Central de Operações
+          </h1>
+          <div className="flex items-center gap-2 shrink-0">
             <Button
-              variant={dashEditMode ? "default" : "outline"}
+              variant="outline"
               size="sm"
-              className="gap-2"
-              onClick={() => setDashEditMode((v) => !v)}
+              className="gap-2 rounded-full"
+              onClick={handleExportDashboardPDF}
             >
-              {dashEditMode ? <X size={14} /> : <Settings2 size={14} />}
-              <span className="hidden md:inline">{dashEditMode ? "Fechar" : "Configurar"}</span>
+              <FileText size={14} />{" "}
+              <span className="hidden md:inline">Exportar PDF</span>
             </Button>
-          )}
-          <div className="flex items-center overflow-x-auto bg-zinc-100 dark:bg-muted p-1.5 rounded-[20px] w-full md:w-auto border border-zinc-200/50 dark:border-white/5 backdrop-blur-md">
-            <button
-              onClick={() => setDashboardSubTab("overview")}
-              className={`text-[11px] px-6 py-2.5 whitespace-nowrap rounded-[16px] transition-all duration-300 font-bold ${dashboardSubTab === "overview" ? "bg-amber-400 text-black shadow-lg shadow-amber-500/20" : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"}`}
-            >
-              Visão Geral
-            </button>
-            <button
-              onClick={() => setDashboardSubTab("performance")}
-              className={`text-[11px] px-6 py-2.5 whitespace-nowrap rounded-[16px] transition-all duration-300 font-bold ${dashboardSubTab === "performance" ? "bg-amber-400 text-black shadow-lg shadow-amber-500/20" : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"}`}
-            >
-              Performance
-            </button>
-            {isOwner && (
-              <button
-                onClick={() => setDashboardSubTab("ia")}
-                className={`text-[11px] px-6 py-2.5 whitespace-nowrap rounded-[16px] transition-all duration-300 font-bold ${dashboardSubTab === "ia" ? "bg-amber-400 text-black shadow-lg shadow-amber-500/20" : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"}`}
+            {dashboardSubTab === "overview" && (
+              <Button
+                variant={dashEditMode ? "default" : "outline"}
+                size="sm"
+                className="gap-2 rounded-full"
+                onClick={() => setDashEditMode((v) => !v)}
               >
-                Inteligência Artificial & Preditivo
-              </button>
+                {dashEditMode ? <X size={14} /> : <Settings2 size={14} />}
+                <span className="hidden md:inline">{dashEditMode ? "Fechar" : "Configurar"}</span>
+              </Button>
             )}
           </div>
+        </div>
+        <div className="flex items-center overflow-x-auto bg-secondary/60 p-1 rounded-full w-full md:w-fit border border-border">
+          <button
+            onClick={() => setDashboardSubTab("overview")}
+            className={`text-xs px-5 py-2 whitespace-nowrap rounded-full transition-colors duration-fast font-medium ${dashboardSubTab === "overview" ? "bg-primary text-primary-foreground shadow-2" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            Visão Geral
+          </button>
+          <button
+            onClick={() => setDashboardSubTab("performance")}
+            className={`text-xs px-5 py-2 whitespace-nowrap rounded-full transition-colors duration-fast font-medium ${dashboardSubTab === "performance" ? "bg-primary text-primary-foreground shadow-2" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            Performance
+          </button>
+          {isOwner && (
+            <button
+              onClick={() => setDashboardSubTab("ia")}
+              className={`text-xs px-5 py-2 whitespace-nowrap rounded-full transition-colors duration-fast font-medium ${dashboardSubTab === "ia" ? "bg-primary text-primary-foreground shadow-2" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Inteligência Artificial & Preditivo
+            </button>
+          )}
         </div>
       </header>
 
@@ -1228,101 +1243,28 @@ export function DashboardPage() {
                   Humor predominante nos atendimentos.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center justify-center py-4">
-                  <div className="relative w-40 h-40">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={[
-                            {
-                              name: "Positivo",
-                              value: sentimentCounts.POSITIVO,
-                              color: "#10b981",
-                            },
-                            {
-                              name: "Neutro",
-                              value: sentimentCounts.NEUTRO,
-                              color: "#94a3b8",
-                            },
-                            {
-                              name: "Negativo",
-                              value: sentimentCounts.NEGATIVO,
-                              color: "#ef4444",
-                            },
-                          ]}
-                          innerRadius={60}
-                          outerRadius={80}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {[
-                            {
-                              name: "Positivo",
-                              value: sentimentCounts.POSITIVO,
-                              color: "#10b981",
-                            },
-                            {
-                              name: "Neutro",
-                              value: sentimentCounts.NEUTRO,
-                              color: "#94a3b8",
-                            },
-                            {
-                              name: "Negativo",
-                              value: sentimentCounts.NEGATIVO,
-                              color: "#ef4444",
-                            },
-                          ].map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <p className="text-2xl font-bold">
-                        {(
-                          (sentimentCounts.POSITIVO /
-                            (sentimentCounts.POSITIVO +
-                              sentimentCounts.NEUTRO +
-                              sentimentCounts.NEGATIVO || 1)) *
-                          100
-                        ).toFixed(0)}
-                        %
-                      </p>
-                      <p className="text-[10px] text-zinc-500 uppercase font-bold">
-                        Positivo
-                      </p>
-                    </div>
-                  </div>
+              <CardContent className="space-y-5">
+                {/* D-015 — anel padrão com badge de fonte por fatia */}
+                <div className="flex justify-center py-2">
+                  <RingChart
+                    size={190}
+                    thickness={15}
+                    segments={[
+                      { value: sentimentCounts.POSITIVO, color: ASTRUM_SEMANTIC.ok, icon: <Smile size={15} strokeWidth={2} className="text-astrum-signal" />, label: 'Satisfeito' },
+                      { value: sentimentCounts.NEUTRO, color: ASTRUM_SEMANTIC.neutral, icon: <Meh size={15} strokeWidth={2} className="text-astrum-slate" />, label: 'Neutro' },
+                      { value: sentimentCounts.NEGATIVO, color: ASTRUM_SEMANTIC.bad, icon: <Frown size={15} strokeWidth={2} className="text-astrum-red" />, label: 'Insatisfeito' },
+                    ]}
+                    centerValue={`${((sentimentCounts.POSITIVO / (sentimentCounts.POSITIVO + sentimentCounts.NEUTRO + sentimentCounts.NEGATIVO || 1)) * 100).toFixed(0)}%`}
+                    centerLabel="positivo"
+                  />
                 </div>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-green-500" />
-                      <span>Satisfeito</span>
-                    </div>
-                    <span className="font-bold">
-                      {sentimentCounts.POSITIVO}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-zinc-400" />
-                      <span>Neutro</span>
-                    </div>
-                    <span className="font-bold">{sentimentCounts.NEUTRO}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-red-500" />
-                      <span>Insatisfeito</span>
-                    </div>
-                    <span className="font-bold">
-                      {sentimentCounts.NEGATIVO}
-                    </span>
-                  </div>
-                </div>
+                <RingLegend
+                  items={[
+                    { label: 'Satisfeito', value: sentimentCounts.POSITIVO, color: ASTRUM_SEMANTIC.ok, icon: <Smile size={15} strokeWidth={2} className="text-astrum-signal" /> },
+                    { label: 'Neutro', value: sentimentCounts.NEUTRO, color: ASTRUM_SEMANTIC.neutral, icon: <Meh size={15} strokeWidth={2} className="text-astrum-slate" /> },
+                    { label: 'Insatisfeito', value: sentimentCounts.NEGATIVO, color: ASTRUM_SEMANTIC.bad, icon: <Frown size={15} strokeWidth={2} className="text-astrum-red" /> },
+                  ]}
+                />
               </CardContent>
             </Card>
           </div>

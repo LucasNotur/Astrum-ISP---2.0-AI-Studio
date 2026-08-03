@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Phone, CheckCircle2, XCircle, RefreshCw, QrCode, MessageSquare, LogOut, Loader2, Save, Plus, Trash2, Activity, ShieldAlert, Play, Info } from 'lucide-react';
+import { Phone, CheckCircle2, XCircle, RefreshCw, QrCode, MessageSquare, LogOut, Loader2, Save, Plus, Trash2, Activity, ShieldAlert, Play, Info } from "lucide-react";
+import { GlowButton } from "@/src/components/ui/glow-button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/src/components/ui/card";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
@@ -214,41 +215,43 @@ export function WhatsAppConnectionsPage() {
       className="space-y-6 max-w-5xl mx-auto pb-10"
     >
       <Tabs defaultValue="connections" value={activeTab} onValueChange={setActiveTab}>
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        {/* D-008 — hero da seção: eyebrow + título display + ações */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-6">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-zinc-900 dark:text-white flex items-center gap-2">
-              <Phone className="text-green-500" size={28} />
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Phone size={13} strokeWidth={1.75} className="text-astrum-signal" />
+              Canais · <span className="font-mono text-foreground">{connections.length}</span> conexões
+            </div>
+            <h1 className="font-display text-3xl md:text-4xl font-medium tracking-tight leading-[1.1] mt-2">
               WhatsApp
             </h1>
-            <p className="text-zinc-500 dark:text-zinc-400 mt-1">
-              Gerencie Conexões e Templates HSM.
-            </p>
           </div>
-          
-          <div className="flex items-center gap-4">
-            <TabsList className="bg-zinc-100 dark:bg-zinc-800/50 p-1">
-               <TabsTrigger value="connections" className="data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700">Conexões</TabsTrigger>
-               <TabsTrigger value="templates" className="data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-700">Templates HSM</TabsTrigger>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <TabsList className="bg-secondary/60 border border-border rounded-full p-1 gap-0.5">
+               <TabsTrigger value="connections" className="rounded-full px-3.5 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2">Conexões</TabsTrigger>
+               <TabsTrigger value="templates" className="rounded-full px-3.5 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2">Templates HSM</TabsTrigger>
             </TabsList>
+            {/* D-011 — glow CTA: a ação de criação da tela */}
+            {activeTab === 'connections' && (
+              <GlowButton icon={<Plus size={16} strokeWidth={2.5} />} onClick={() => setIsAddOpen(true)}>
+                Nova Conexão
+              </GlowButton>
+            )}
           </div>
         </div>
 
         <TabsContent value="connections" className="space-y-6">
-           <div className="flex justify-end">
-              <Button onClick={() => setIsAddOpen(true)} className="bg-indigo-600 hover:bg-indigo-700">
-                <Plus size={16} className="mr-2" /> Nova Conexão
-              </Button>
-           </div>
            
            <div className="grid grid-cols-1 gap-6">
              {connections.length === 0 ? (
-                <Card className="shadow-sm border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+                <Card className="shadow-sm border-border bg-secondary/30">
                   <CardContent className="flex flex-col items-center justify-center p-12 text-center">
-                    <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-full flex items-center justify-center mb-4">
-                      <Phone size={24} className="text-zinc-400" />
+                    <div className="w-16 h-16 bg-secondary dark:bg-secondary rounded-full flex items-center justify-center mb-4">
+                      <Phone size={24} className="text-muted-foreground" />
                     </div>
-                    <h3 className="text-lg font-bold text-zinc-900 dark:text-white mb-2">Nenhuma conexão configurada</h3>
-                    <p className="text-zinc-500 max-w-md mx-auto mb-6">
+                    <h3 className="text-lg font-bold text-foreground mb-2">Nenhuma conexão configurada</h3>
+                    <p className="text-muted-foreground max-w-md mx-auto mb-6">
                       Adicione uma conta de WhatsApp para gerar os QR Codes e vincular com a plataforma.
                     </p>
                     <Button onClick={() => setIsAddOpen(true)} variant="outline">
@@ -262,12 +265,12 @@ export function WhatsAppConnectionsPage() {
                  const isConnected = state.status === 'connected';
 
                  return (
-                   <Card key={conn.id} className="shadow-sm border-zinc-200 dark:border-zinc-800 relative overflow-hidden">
-                     <CardHeader className="border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 pb-4">
+                   <Card key={conn.id} className="shadow-sm border-border relative overflow-hidden">
+                     <CardHeader className="border-b border-border bg-secondary/30 pb-4">
                        <div className="flex justify-between items-center">
                          <div className="flex items-center gap-3">
-                           <Avatar className="h-10 w-10 border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
-                             <AvatarFallback className="bg-green-100 text-green-700 font-bold dark:bg-green-900/30 dark:text-green-500">
+                           <Avatar className="h-10 w-10 border border-border bg-white dark:bg-secondary">
+                             <AvatarFallback className="bg-astrum-signal/15 text-astrum-signal font-bold">
                                {conn.alias ? conn.alias[0].toUpperCase() : 'W'}
                              </AvatarFallback>
                            </Avatar>
@@ -278,12 +281,12 @@ export function WhatsAppConnectionsPage() {
                          </div>
                          <div className="flex items-center gap-3">
                            <Badge variant={isConnected ? "default" : "secondary"} className={cn(
-                             isConnected ? "bg-green-100 hover:bg-green-200 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                             isConnected ? "bg-astrum-signal/15 hover:bg-astrum-signal/25 text-astrum-signal" : "bg-astrum-red/15 hover:bg-astrum-red/25 text-astrum-red"
                            )}>
                              {isConnected ? <CheckCircle2 size={12} className="mr-1" /> : <XCircle size={12} className="mr-1" />}
                              {isConnected ? "Conectado" : "Desconectado"}
                            </Badge>
-                           <Button variant="ghost" size="icon" onClick={() => handleRemoveConnection(conn.id, conn.instanceName)} className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
+                           <Button variant="ghost" size="icon" onClick={() => handleRemoveConnection(conn.id, conn.instanceName)} className="text-astrum-red hover:text-astrum-red hover:bg-astrum-red/10">
                              <Trash2 size={16} />
                            </Button>
                          </div>
@@ -295,45 +298,45 @@ export function WhatsAppConnectionsPage() {
                          <div className="flex-1 space-y-4 w-full">
                            {isConnected ? (
                              <div className="flex items-center gap-4">
-                               <Button variant="outline" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 border-red-200 dark:border-red-900/30" onClick={() => disconnectInstance(conn)}>
+                               <Button variant="outline" size="sm" className="text-astrum-red hover:text-astrum-red hover:bg-astrum-red/10 border-astrum-red/30" onClick={() => disconnectInstance(conn)}>
                                  <LogOut size={14} className="mr-2" /> Desconectar
                                </Button>
                              </div>
                            ) : (
-                             <div className="text-sm text-zinc-500 dark:text-zinc-400">
+                             <div className="text-sm text-muted-foreground">
                                Clique em <strong>Obter QR Code</strong> e escaneie com o app do WhatsApp para conectar.
                              </div>
                            )}
 
                            {/* Saúde da Instância */}
-                           <div className="mt-6 border-t border-zinc-100 dark:border-zinc-800 pt-6">
+                           <div className="mt-6 border-t border-border pt-6">
                              <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                               <Activity size={16} className="text-zinc-500" />
+                               <Activity size={16} className="text-muted-foreground" />
                                <span>Saúde da Instância</span>
                              </h4>
                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                               <div className="bg-zinc-50 dark:bg-zinc-900/50 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800">
-                                 <div className="text-xs text-zinc-500 mb-1">Risco de Ban</div>
+                               <div className="bg-secondary/40 p-3 rounded-lg border border-border">
+                                 <div className="text-xs text-muted-foreground mb-1">Risco de Ban</div>
                                  <div className="font-medium flex items-center gap-2">
                                    {healthStats[conn.id]?.ban_signals > 0 ? (
-                                     <span className="text-red-500 flex items-center gap-1"><ShieldAlert size={14} /> {healthStats[conn.id]?.ban_signals} sinais</span>
+                                     <span className="text-astrum-red flex items-center gap-1"><ShieldAlert size={14} /> {healthStats[conn.id]?.ban_signals} sinais</span>
                                    ) : (
-                                     <span className="text-green-500">Normal</span>
+                                     <span className="text-astrum-signal">Normal</span>
                                    )}
                                  </div>
                                </div>
-                               <div className="bg-zinc-50 dark:bg-zinc-900/50 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800">
-                                 <div className="text-xs text-zinc-500 mb-1">Rate Limiter</div>
+                               <div className="bg-secondary/40 p-3 rounded-lg border border-border">
+                                 <div className="text-xs text-muted-foreground mb-1">Rate Limiter</div>
                                  <div className="font-medium">
-                                   {healthStats[conn.id]?.is_paused ? <span className="text-red-500 text-xs">Pausado (30m)</span> : <span className="text-green-500 text-xs">Liberado</span>}
+                                   {healthStats[conn.id]?.is_paused ? <span className="text-astrum-red text-xs">Pausado (30m)</span> : <span className="text-astrum-signal text-xs">Liberado</span>}
                                  </div>
                                </div>
-                               <div className="bg-zinc-50 dark:bg-zinc-900/50 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800">
-                                 <div className="text-xs text-zinc-500 mb-1">Envios Diários</div>
+                               <div className="bg-secondary/40 p-3 rounded-lg border border-border">
+                                 <div className="text-xs text-muted-foreground mb-1">Envios Diários</div>
                                  <div className="font-medium">{healthStats[conn.id]?.daily_messages_today || 0} msgs</div>
                                </div>
-                               <div className="bg-zinc-50 dark:bg-zinc-900/50 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800">
-                                 <div className="text-xs text-zinc-500 mb-1">Fila Global</div>
+                               <div className="bg-secondary/40 p-3 rounded-lg border border-border">
+                                 <div className="text-xs text-muted-foreground mb-1">Fila Global</div>
                                  <div className="font-medium">{healthStats[conn.id]?.messages_in_queue || 0} msgs</div>
                                </div>
                              </div>
@@ -341,13 +344,13 @@ export function WhatsAppConnectionsPage() {
                          </div>
 
                          {/* QR Code Area */}
-                         <div className="w-full lg:w-72 flex flex-col items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-900/30 rounded-2xl border border-zinc-200 dark:border-zinc-800">
+                         <div className="w-full lg:w-72 flex flex-col items-center justify-center p-6 bg-secondary/40 dark:bg-card/30 rounded-2xl border border-border">
                            {isConnected ? (
                              <div className="text-center space-y-3">
-                               <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 text-green-500 rounded-full flex items-center justify-center mx-auto mb-2">
+                               <div className="w-20 h-20 bg-astrum-signal/15 text-astrum-signal rounded-full flex items-center justify-center mx-auto mb-2">
                                  <MessageSquare size={36} />
                                </div>
-                               <h4 className="font-bold text-zinc-800 dark:text-zinc-200">WhatsApp Conectado!</h4>
+                               <h4 className="font-bold text-foreground">WhatsApp Conectado!</h4>
                                <Button variant="outline" size="sm" onClick={() => fetchStatusAndQr(conn)} disabled={state.isFetching} className="w-full mt-2">
                                  <RefreshCw size={14} className={cn("mr-2", state.isFetching && "animate-spin")} /> Verificar Status
                                </Button>
@@ -367,11 +370,11 @@ export function WhatsAppConnectionsPage() {
                              </div>
                            ) : (
                              <div className="text-center space-y-4 py-4">
-                               <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                               <div className="w-16 h-16 bg-astrum-fiber/15 text-astrum-fiber rounded-full flex items-center justify-center mx-auto mb-2">
                                  <QrCode size={28} />
                                </div>
                                <div>
-                                 <h4 className="font-bold text-zinc-800 dark:text-zinc-200 text-sm mb-1">Pronto para Conectar?</h4>
+                                 <h4 className="font-bold text-foreground text-sm mb-1">Pronto para Conectar?</h4>
                                </div>
                                <Button onClick={() => fetchStatusAndQr(conn)} disabled={state.isFetching} className="w-full shadow-sm bg-[#25D366] hover:bg-[#1EBE5D] text-white">
                                  {state.isFetching ? (
@@ -417,12 +420,12 @@ export function WhatsAppConnectionsPage() {
                 value={newConn.alias}
                 onChange={e => setNewConn(p => ({ ...p, alias: e.target.value }))}
               />
-              <p className="text-xs text-zinc-500">Como esta conexão será rotulada dentro do sistema Astrum.</p>
+              <p className="text-xs text-muted-foreground">Como esta conexão será rotulada dentro do sistema Astrum.</p>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancelar</Button>
-            <Button onClick={handleAddConnection} className="bg-indigo-600 hover:bg-indigo-700">Adicionar Conexão</Button>
+            <Button onClick={handleAddConnection}>Adicionar Conexão</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -582,13 +585,13 @@ function WhatsAppTemplatesTab({ tenantId, connections, integrationKeys }: any) {
 
   const getStatusBadge = (status: string) => {
     switch(status) {
-      case 'APPROVED': return <Badge className="bg-green-100 text-green-700">Aprovado</Badge>;
+      case 'APPROVED': return <Badge className="bg-astrum-signal/15 text-astrum-signal">Aprovado</Badge>;
       case 'REJECTED': 
         return (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger>
-                 <Badge className="bg-red-100 text-red-700 flex items-center gap-1 cursor-help"><XCircle size={12}/> Rejeitado</Badge>
+                 <Badge className="bg-astrum-red/15 text-astrum-red flex items-center gap-1 cursor-help"><XCircle size={12}/> Rejeitado</Badge>
               </TooltipTrigger>
               <TooltipContent>Violou as políticas de spam.</TooltipContent>
             </Tooltip>
@@ -600,25 +603,25 @@ function WhatsAppTemplatesTab({ tenantId, connections, integrationKeys }: any) {
   };
 
   const getCategoryBadgeColor = (cat: string) => {
-     if (cat === 'MARKETING') return 'bg-purple-100 text-purple-700 hover:bg-purple-200';
-     if (cat === 'UTILITY') return 'bg-blue-100 text-blue-700 hover:bg-blue-200';
-     if (cat === 'AUTHENTICATION') return 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200';
-     return 'bg-zinc-100 text-zinc-700';
+     if (cat === 'MARKETING') return 'bg-astrum-orange/15 text-astrum-orange hover:bg-astrum-orange/25';
+     if (cat === 'UTILITY') return 'bg-astrum-fiber/15 text-astrum-fiber hover:bg-astrum-fiber/25';
+     if (cat === 'AUTHENTICATION') return 'bg-astrum-lemon/15 text-astrum-lemon hover:bg-astrum-lemon/25';
+     return 'bg-secondary text-foreground/80';
   };
 
   return (
     <div className="space-y-6">
-       <div className="flex justify-between items-center bg-white dark:bg-zinc-900 p-4 rounded-lg border border-zinc-200 dark:border-zinc-800">
+       <div className="flex justify-between items-center bg-white dark:bg-card p-4 rounded-lg border border-border">
          <div>
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-gray-100">Templates HSM (Mensagens Ativas)</h2>
-            <p className="text-sm text-zinc-500">Crie, teste e gerencie seus templates aprovados pela Meta para iniciação de conversas.</p>
+            <h2 className="text-lg font-semibold text-foreground">Templates HSM (Mensagens Ativas)</h2>
+            <p className="text-sm text-muted-foreground">Crie, teste e gerencie seus templates aprovados pela Meta para iniciação de conversas.</p>
          </div>
-         <Button onClick={() => setIsCreateOpen(true)} className="bg-indigo-600 hover:bg-indigo-700">
+         <Button onClick={() => setIsCreateOpen(true)}>
             <Plus size={16} className="mr-2" /> Novo Template
          </Button>
        </div>
 
-       <Card className="border border-zinc-200 dark:border-zinc-800">
+       <Card className="border border-border">
           <CardContent className="p-0 overflow-x-auto">
              <Table>
                 <TableHeader>
@@ -632,19 +635,19 @@ function WhatsAppTemplatesTab({ tenantId, connections, integrationKeys }: any) {
                 </TableHeader>
                 <TableBody>
                    {loading ? (
-                     <TableRow><TableCell colSpan={5} className="text-center py-8"><Loader2 className="animate-spin mx-auto text-zinc-400" size={24} /></TableCell></TableRow>
+                     <TableRow><TableCell colSpan={5} className="text-center py-8"><Loader2 className="animate-spin mx-auto text-muted-foreground" size={24} /></TableCell></TableRow>
                    ) : templates.length === 0 ? (
-                     <TableRow><TableCell colSpan={5} className="text-center py-8 text-zinc-500">Nenhum template criado</TableCell></TableRow>
+                     <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhum template criado</TableCell></TableRow>
                    ) : templates.map(t => (
                      <TableRow key={t.id}>
-                       <TableCell className="font-medium text-zinc-900 dark:text-zinc-100">{t.name}</TableCell>
+                       <TableCell className="font-medium text-foreground">{t.name}</TableCell>
                        <TableCell><Badge variant="secondary" className={getCategoryBadgeColor(t.category)}>{t.category}</Badge></TableCell>
                        <TableCell>{getStatusBadge(t.status)}</TableCell>
                        <TableCell>{t.language}</TableCell>
                        <TableCell className="text-right space-x-2">
                           <Button variant="outline" size="sm" onClick={() => openTest(t)}><Play size={14} className="mr-1"/> Testar</Button>
                           {(t.status === 'PENDING' || t.status === 'REJECTED') && (
-                             <Button variant="ghost" size="sm" onClick={() => handleDelete(t.id)} className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
+                             <Button variant="ghost" size="sm" onClick={() => handleDelete(t.id)} className="text-astrum-red hover:text-astrum-red hover:bg-astrum-red/10">
                                <Trash2 size={16}/>
                              </Button>
                           )}
@@ -716,7 +719,7 @@ function WhatsAppTemplatesTab({ tenantId, connections, integrationKeys }: any) {
                  <div className="space-y-2">
                     <Label className="flex justify-between">
                        Corpo da Mensagem
-                       <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full dark:bg-indigo-900/30 dark:text-indigo-400">{bodyVarCount} Variáveis</span>
+                       <span className="text-xs text-astrum-fiber bg-astrum-fiber/10 px-2 py-0.5 rounded-full">{bodyVarCount} Variáveis</span>
                     </Label>
                     <Textarea 
                        className="min-h-[120px]" 
@@ -732,14 +735,14 @@ function WhatsAppTemplatesTab({ tenantId, connections, integrationKeys }: any) {
               </div>
 
               {/* Preview Area */}
-              <div className="bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl flex items-center justify-center p-4">
-                 <div className="w-full max-w-[300px] h-full rounded-3xl bg-[url('https://i.pinimg.com/originals/97/c0/07/97c00759d90d786d9b6096d274ad3e07.png')] bg-cover relative flex flex-col pt-12 pb-8 px-4 opacity-100 shadow-md border-4 border-zinc-800/10">
-                    <div className="bg-[#E7FFDB] text-zinc-800 text-sm p-3 rounded-lg rounded-tr-none shadow-sm mt-auto relative break-words">
+              <div className="bg-secondary dark:bg-card border border-border rounded-xl flex items-center justify-center p-4">
+                 <div className="w-full max-w-[300px] h-full rounded-3xl bg-[url('https://i.pinimg.com/originals/97/c0/07/97c00759d90d786d9b6096d274ad3e07.png')] bg-cover relative flex flex-col pt-12 pb-8 px-4 opacity-100 shadow-md border-4 border-border">
+                    <div className="bg-[#E7FFDB] text-foreground text-sm p-3 rounded-lg rounded-tr-none shadow-sm mt-auto relative break-words">
                        {formData.header_type === 'text' && formData.header_content && <div className="font-bold mb-2 text-base">{formData.header_content}</div>}
-                       {formData.header_type === 'image' && <div className="w-full h-24 bg-zinc-200 dark:bg-zinc-300 rounded mb-2 flex items-center justify-center text-zinc-500 font-medium">[IMAGEM]</div>}
-                       {formData.header_type === 'video' && <div className="w-full h-24 bg-zinc-200 dark:bg-zinc-300 rounded mb-2 flex items-center justify-center text-zinc-500 font-medium">[VÍDEO]</div>}
-                       <div className="whitespace-pre-wrap">{formData.body || <span className="text-zinc-400">Corpo do template</span>}</div>
-                       {formData.footer && <div className="text-[11px] text-zinc-500 mt-2 leading-none uppercase">{formData.footer}</div>}
+                       {formData.header_type === 'image' && <div className="w-full h-24 bg-secondary rounded mb-2 flex items-center justify-center text-muted-foreground font-medium">[IMAGEM]</div>}
+                       {formData.header_type === 'video' && <div className="w-full h-24 bg-secondary rounded mb-2 flex items-center justify-center text-muted-foreground font-medium">[VÍDEO]</div>}
+                       <div className="whitespace-pre-wrap">{formData.body || <span className="text-muted-foreground">Corpo do template</span>}</div>
+                       {formData.footer && <div className="text-[11px] text-muted-foreground mt-2 leading-none uppercase">{formData.footer}</div>}
                     </div>
                  </div>
               </div>
@@ -747,7 +750,7 @@ function WhatsAppTemplatesTab({ tenantId, connections, integrationKeys }: any) {
 
            <DialogFooter>
              <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancelar</Button>
-             <Button onClick={handleCreate} disabled={!formData.name || !formData.body} className="bg-indigo-600 hover:bg-indigo-700">Submeter Template</Button>
+             <Button onClick={handleCreate} disabled={!formData.name || !formData.body}>Submeter Template</Button>
            </DialogFooter>
          </DialogContent>
        </Dialog>
@@ -782,7 +785,7 @@ function WhatsAppTemplatesTab({ tenantId, connections, integrationKeys }: any) {
                     <Label className="font-semibold">Variáveis do Template</Label>
                     {Array.from({length: getVarCount(selectedTemplate.body)}, (_, i) => i + 1).map(num => (
                        <div key={num} className="space-y-1">
-                          <Label className="text-xs text-zinc-500">{`{{${num}}}`}</Label>
+                          <Label className="text-xs text-muted-foreground">{`{{${num}}}`}</Label>
                           <Input 
                              placeholder={`Variável ${num}`}
                              value={testData.vars[num] || ''}
@@ -796,7 +799,7 @@ function WhatsAppTemplatesTab({ tenantId, connections, integrationKeys }: any) {
            
            <DialogFooter>
              <Button variant="outline" onClick={() => setIsTestOpen(false)}>Cancelar</Button>
-             <Button onClick={handleTest} disabled={testLoading} className="bg-indigo-600 hover:bg-indigo-700">
+             <Button onClick={handleTest} disabled={testLoading}>
                {testLoading ? <><Loader2 size={16} className="animate-spin mr-2"/>Enviando...</> : 'Enviar Teste'}
              </Button>
            </DialogFooter>

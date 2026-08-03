@@ -5,8 +5,9 @@ import {
   Minus, 
   RefreshCw, 
   Layers, 
-  Map as MapIcon, 
+  Map as MapIcon,
 } from 'lucide-react';
+import { GlowButton } from '@/src/components/ui/glow-button';
 import { Button } from '@/src/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/src/components/ui/card";
 import { Badge } from "@/src/components/ui/badge";
@@ -94,11 +95,21 @@ export function MapPage() {
       animate={{ opacity: 1, x: 0 }}
       className="space-y-6"
     >
-      <header className="flex items-center justify-between">
-        
-        <Button className="gap-2">
-          <Plus size={18} /> Nova CTO
-        </Button>
+      {/* D-008 — hero da seção: eyebrow + título display + ações */}
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <MapIcon size={13} strokeWidth={1.75} />
+            Rede · <span className="font-mono text-foreground">{ctos.length}</span> CTOs mapeadas
+          </div>
+          <h1 className="font-display text-3xl md:text-4xl font-medium tracking-tight leading-[1.1] mt-2">
+            Mapa da Rede
+          </h1>
+        </div>
+        {/* D-011 — glow CTA: a ação de criação da tela */}
+        <GlowButton icon={<Plus size={16} strokeWidth={2.5} />}>
+          Nova CTO
+        </GlowButton>
       </header>
       
       {/* IA-24 — Saúde da Rede */}
@@ -112,7 +123,7 @@ export function MapPage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { label: 'CTOs Totais',    value: total,    color: '',                                  border: 'border-l-[--color-astrum-fiber]' },
-              { label: 'Operacionais',   value: livre,    color: 'text-emerald-600 dark:text-emerald-400', border: 'border-l-emerald-500' },
+              { label: 'Operacionais',   value: livre,    color: 'text-astrum-signal', border: 'border-l-astrum-signal' },
               { label: 'Em Atenção',     value: atencao,  color: 'text-[--color-astrum-amber]',       border: 'border-l-[--color-astrum-amber]' },
               { label: 'Críticas/Erro',  value: critica,  color: 'text-[--color-astrum-red]',         border: 'border-l-[--color-astrum-red]' },
             ].map(({ label, value, color, border }) => (
@@ -126,17 +137,17 @@ export function MapPage() {
       })()}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2 border-none shadow-sm h-[600px] flex flex-col bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden">
-          <CardHeader className="border-b dark:border-zinc-800 flex flex-row items-center justify-between">
+        <Card className="lg:col-span-2 border border-border shadow-1 h-[600px] flex flex-col bg-card rounded-stable-xl overflow-hidden">
+          <CardHeader className="border-b border-border flex flex-row items-center justify-between">
             <div>
               <CardTitle>Visualização da Rede</CardTitle>
               <CardDescription>Mapa interativo de CTOs e cobertura.</CardDescription>
             </div>
-            <div className="flex gap-2 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-lg">
+            <div className="flex gap-1 bg-secondary/60 border border-border p-1 rounded-full">
               <Button 
                 variant={mapFilter === 'all' ? 'default' : 'ghost'} 
                 size="sm" 
-                className="text-[10px] h-7 px-3 rounded-md"
+                className="text-[10px] h-7 px-3 rounded-full"
                 onClick={() => setMapFilter('all')}
               >
                 Todas
@@ -144,7 +155,7 @@ export function MapPage() {
               <Button 
                 variant={mapFilter === 'available' ? 'default' : 'ghost'} 
                 size="sm" 
-                className="text-[10px] h-7 px-3 rounded-md"
+                className="text-[10px] h-7 px-3 rounded-full"
                 onClick={() => setMapFilter('available')}
               >
                 Disponíveis
@@ -152,21 +163,21 @@ export function MapPage() {
               <Button 
                 variant={mapFilter === 'full' ? 'default' : 'ghost'} 
                 size="sm" 
-                className="text-[10px] h-7 px-3 rounded-md"
+                className="text-[10px] h-7 px-3 rounded-full"
                 onClick={() => setMapFilter('full')}
               >
                 Lotadas
               </Button>
             </div>
           </CardHeader>
-          <div className="flex-1 relative bg-zinc-50 dark:bg-zinc-950 overflow-hidden">
+          <div className="flex-1 relative bg-background overflow-hidden">
             {/* Background overlay */}
             <div className="absolute inset-0 opacity-20 pointer-events-none">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" />
             </div>
 
             <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
-              <div className="flex bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm rounded-lg border border-zinc-200 dark:border-zinc-800 p-1 shadow-sm">
+              <div className="flex bg-card/90 backdrop-blur-sm rounded-lg border border-border p-1 shadow-sm">
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMapZoom(prev => Math.min(prev * 1.2, 5))}>
                   <Plus size={14} />
                 </Button>
@@ -180,7 +191,7 @@ export function MapPage() {
               <Button 
                 variant={isHeatmapVisible ? "default" : "outline"} 
                 size="sm" 
-                className="h-8 gap-2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm"
+                className="h-8 gap-2 bg-card/90 backdrop-blur-sm"
                 onClick={() => setIsHeatmapVisible(!isHeatmapVisible)}
               >
                 <Layers size={14} /> Heatmap
@@ -188,12 +199,12 @@ export function MapPage() {
               <Button 
                 variant={isOSLayerVisible ? "default" : "outline"} 
                 size="sm" 
-                className="h-8 gap-2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm"
+                className="h-8 gap-2 bg-card/90 backdrop-blur-sm"
                 onClick={() => setIsOSLayerVisible(!isOSLayerVisible)}
               >
                 <Layers size={14} /> OSs do Dia
               </Button>
-              <Button variant="outline" size="sm" className="h-8 gap-2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm">
+              <Button variant="outline" size="sm" className="h-8 gap-2 bg-card/90 backdrop-blur-sm">
                 <MapIcon size={14} /> Satélite
               </Button>
             </div>
@@ -234,10 +245,10 @@ export function MapPage() {
                   const x = 400 + (cto.longitude - (-46.6333)) * 5000;
                   const y = 300 - (cto.latitude - (-23.5505)) * 5000;
                   const occupation = cto.usedPorts / cto.totalPorts;
-                  let color = "#22c55e";
-                  if (occupation >= 1) color = "#dc2626";
-                  else if (occupation >= 0.8) color = "#f97316";
-                  else if (occupation >= 0.5) color = "#facc15";
+                  let color = "#00C2A8";
+                  if (occupation >= 1) color = "#E5484D";
+                  else if (occupation >= 0.8) color = "#F0713C";
+                  else if (occupation >= 0.5) color = "#F5A524";
 
                   return (
                     <circle 
@@ -263,10 +274,10 @@ export function MapPage() {
                     const occupation = cto.usedPorts / cto.totalPorts;
                     
                     // Heatmap color logic
-                    let colorClass = "fill-green-500";
-                    let strokeClass = "stroke-green-500";
-                    if (occupation >= 1) { colorClass = "fill-red-600"; strokeClass = "stroke-red-600"; }
-                    else if (occupation >= 0.8) { colorClass = "fill-orange-500"; strokeClass = "stroke-orange-500"; }
+                    let colorClass = "fill-astrum-signal";
+                    let strokeClass = "stroke-astrum-signal";
+                    if (occupation >= 1) { colorClass = "fill-astrum-red"; strokeClass = "stroke-astrum-red"; }
+                    else if (occupation >= 0.8) { colorClass = "fill-astrum-orange"; strokeClass = "stroke-astrum-orange"; }
                     else if (occupation >= 0.5) { colorClass = "fill-yellow-400"; strokeClass = "stroke-yellow-400"; }
                     
                     return (
@@ -286,7 +297,7 @@ export function MapPage() {
                                 x1={x} y1={y} 
                                 x2={400 + (ctos[i-1].longitude - (-46.6333)) * 5000} 
                                 y2={300 - (ctos[i-1].latitude - (-23.5505)) * 5000} 
-                                className="stroke-zinc-200 dark:stroke-zinc-800 stroke-[0.5] stroke-dasharray-[4,4]"
+                                className="stroke-border stroke-[0.5] stroke-dasharray-[4,4]"
                               />
                             )}
 
@@ -307,7 +318,7 @@ export function MapPage() {
                                 cx={x} 
                                 cy={y} 
                                 r={15 / mapZoom} 
-                                className="animate-ping opacity-30 fill-none stroke-red-500 stroke-2"
+                                className="animate-ping opacity-30 fill-none stroke-astrum-red stroke-2"
                               />
                             )}
                             <circle 
@@ -332,33 +343,33 @@ export function MapPage() {
                             />
                           </g>
                         </TooltipTrigger>
-                        <TooltipContent className="bg-zinc-900 text-white border-zinc-800 p-3 rounded-xl shadow-xl z-50">
+                        <TooltipContent className="bg-card text-white border-border p-3 rounded-xl shadow-xl z-50">
                           <div className="space-y-2 min-w-[180px]">
-                            <div className="flex items-center gap-2 border-b border-zinc-800 pb-2 mb-2">
+                            <div className="flex items-center gap-2 border-b border-border pb-2 mb-2">
                               <div className={cn(
                                 "w-2 h-2 rounded-full", 
-                                occupation >= 1 ? "bg-red-500" : 
-                                occupation >= 0.8 ? "bg-orange-500" : "bg-green-500"
+                                occupation >= 1 ? "bg-astrum-red" : 
+                                occupation >= 0.8 ? "bg-astrum-orange" : "bg-astrum-signal"
                               )} />
                               <p className="font-bold text-sm">{cto.name}</p>
                             </div>
                             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
-                              <span className="text-zinc-400 uppercase font-bold">Ocupação</span>
+                              <span className="text-muted-foreground uppercase font-bold">Ocupação</span>
                               <span className="text-right font-mono">{cto.usedPorts} / {cto.totalPorts} ({Math.round(occupation * 100)}%)</span>
                               
-                              <span className="text-zinc-400 uppercase font-bold">Status</span>
+                              <span className="text-muted-foreground uppercase font-bold">Status</span>
                               <span className={cn("text-right font-bold uppercase", 
-                                cto.status === 'active' ? "text-green-400" : 
-                                cto.status === 'full' ? "text-red-400" : "text-orange-400"
+                                cto.status === 'active' ? "text-astrum-signal" : 
+                                cto.status === 'full' ? "text-astrum-red" : "text-astrum-orange"
                               )}>
                                 {cto.status === 'active' ? 'Operacional' : cto.status === 'full' ? 'Lotada' : 'Manutenção'}
                               </span>
                               
-                              <span className="text-zinc-400 uppercase font-bold">Coordenadas</span>
-                              <span className="text-right font-mono text-zinc-500">{cto.latitude.toFixed(4)}, {cto.longitude.toFixed(4)}</span>
+                              <span className="text-muted-foreground uppercase font-bold">Coordenadas</span>
+                              <span className="text-right font-mono text-muted-foreground">{cto.latitude.toFixed(4)}, {cto.longitude.toFixed(4)}</span>
                             </div>
-                            <div className="pt-2 border-t border-zinc-800 mt-2">
-                              <p className="text-[9px] text-zinc-500 italic text-center">Clique para detalhes técnicos</p>
+                            <div className="pt-2 border-t border-border mt-2">
+                              <p className="text-[9px] text-muted-foreground italic text-center">Clique para detalhes técnicos</p>
                             </div>
                           </div>
                         </TooltipContent>
@@ -378,14 +389,14 @@ export function MapPage() {
                       let strokeClass = "stroke-yellow-500";
                       
                       if (os.status === 'in_progress') {
-                        colorClass = "fill-blue-500";
-                        strokeClass = "stroke-blue-600";
+                        colorClass = "fill-astrum-fiber";
+                        strokeClass = "stroke-astrum-fiber";
                       } else if (os.status === 'completed') {
-                        colorClass = "fill-green-500";
-                        strokeClass = "stroke-green-600";
+                        colorClass = "fill-astrum-signal";
+                        strokeClass = "stroke-astrum-signal";
                       } else if (os.status === 'delayed') {
-                        colorClass = "fill-red-500";
-                        strokeClass = "stroke-red-600";
+                        colorClass = "fill-astrum-red";
+                        strokeClass = "stroke-astrum-red";
                       }
 
                       return (
@@ -411,28 +422,28 @@ export function MapPage() {
                               <circle cx={x} cy={y-22} r="4" fill="white" />
                             </g>
                           </TooltipTrigger>
-                          <TooltipContent className="bg-zinc-900 text-white border-zinc-800 p-3 rounded-xl shadow-xl z-50">
+                          <TooltipContent className="bg-card text-white border-border p-3 rounded-xl shadow-xl z-50">
                             <div className="space-y-2 min-w-[200px]">
-                              <div className="flex items-center gap-2 border-b border-zinc-800 pb-2 mb-2">
+                              <div className="flex items-center gap-2 border-b border-border pb-2 mb-2">
                                 <div className={cn("w-2 h-2 rounded-full", colorClass.replace('fill-', 'bg-'))} />
                                 <p className="font-bold text-sm">{os.id}</p>
                               </div>
                               <div className="grid grid-cols-[80px_1fr] gap-x-2 gap-y-1 text-[10px]">
-                                <span className="text-zinc-400 font-bold uppercase">Cliente</span>
+                                <span className="text-muted-foreground font-bold uppercase">Cliente</span>
                                 <span>{os.client}</span>
                                 
-                                <span className="text-zinc-400 font-bold uppercase">Técnico</span>
+                                <span className="text-muted-foreground font-bold uppercase">Técnico</span>
                                 <span>{os.tech}</span>
                                 
-                                <span className="text-zinc-400 font-bold uppercase">Tipo</span>
+                                <span className="text-muted-foreground font-bold uppercase">Tipo</span>
                                 <span>{os.type}</span>
                                 
-                                <span className="text-zinc-400 font-bold uppercase">Status</span>
+                                <span className="text-muted-foreground font-bold uppercase">Status</span>
                                 <span className={cn(
                                   "uppercase font-bold",
                                   os.status === 'pending' ? 'text-yellow-400' :
-                                  os.status === 'in_progress' ? 'text-blue-400' :
-                                  os.status === 'completed' ? 'text-green-400' : 'text-red-400'
+                                  os.status === 'in_progress' ? 'text-astrum-fiber' :
+                                  os.status === 'completed' ? 'text-astrum-signal' : 'text-astrum-red'
                                 )}>
                                   {os.status === 'pending' ? 'Pendente' : 
                                    os.status === 'in_progress' ? 'Em Execução' :
@@ -449,44 +460,44 @@ export function MapPage() {
               </g>
             </svg>
             
-            <div className="absolute bottom-4 left-4 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-2">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1">Ocupação (Heatmap)</p>
+            <div className="absolute bottom-4 left-4 bg-card/90 backdrop-blur-sm p-3 rounded-xl border border-border shadow-sm space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Ocupação (Heatmap)</p>
               <div className="flex items-center gap-2 text-xs">
-                <div className="w-3 h-3 rounded-full bg-green-500" />
-                <span className="dark:text-zinc-300">Livre (0% - 49%)</span>
+                <div className="w-3 h-3 rounded-full bg-astrum-signal" />
+                <span className="text-foreground/80">Livre (0% - 49%)</span>
               </div>
               <div className="flex items-center gap-2 text-xs">
                 <div className="w-3 h-3 rounded-full bg-yellow-400" />
-                <span className="dark:text-zinc-300">Atenção (50% - 79%)</span>
+                <span className="text-foreground/80">Atenção (50% - 79%)</span>
               </div>
               <div className="flex items-center gap-2 text-xs">
-                <div className="w-3 h-3 rounded-full bg-orange-500" />
-                <span className="dark:text-zinc-300">Crítico (80% - 99%)</span>
+                <div className="w-3 h-3 rounded-full bg-astrum-orange" />
+                <span className="text-foreground/80">Crítico (80% - 99%)</span>
               </div>
               <div className="flex items-center gap-2 text-xs">
-                <div className="w-3 h-3 rounded-full bg-red-600" />
-                <span className="dark:text-zinc-300">Lotada (100%)</span>
+                <div className="w-3 h-3 rounded-full bg-astrum-red" />
+                <span className="text-foreground/80">Lotada (100%)</span>
               </div>
             </div>
 
             {isOSLayerVisible && (
-              <div className="absolute bottom-4 right-4 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-1">Status OS</p>
+              <div className="absolute bottom-4 right-4 bg-card/90 backdrop-blur-sm p-3 rounded-xl border border-border shadow-sm space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Status OS</p>
                 <div className="flex items-center gap-2 text-xs">
                   <div className="w-3 h-3 rounded-full bg-yellow-400" />
-                  <span className="dark:text-zinc-300">Pendente</span>
+                  <span className="text-foreground/80">Pendente</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs">
-                  <div className="w-3 h-3 rounded-full bg-blue-500" />
-                  <span className="dark:text-zinc-300">Em Execução</span>
+                  <div className="w-3 h-3 rounded-full bg-astrum-fiber" />
+                  <span className="text-foreground/80">Em Execução</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs">
-                  <div className="w-3 h-3 rounded-full bg-green-500" />
-                  <span className="dark:text-zinc-300">Concluída</span>
+                  <div className="w-3 h-3 rounded-full bg-astrum-signal" />
+                  <span className="text-foreground/80">Concluída</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs">
-                  <div className="w-3 h-3 rounded-full bg-red-500" />
-                  <span className="dark:text-zinc-300">Atrasada</span>
+                  <div className="w-3 h-3 rounded-full bg-astrum-red" />
+                  <span className="text-foreground/80">Atrasada</span>
                 </div>
               </div>
             )}
@@ -502,24 +513,24 @@ export function MapPage() {
             <div className="p-4 space-y-4">
               {ctos.length > 0 ? ctos.map((cto: any) => {
                 const occupation = cto.usedPorts / cto.totalPorts;
-                let colorClass = "bg-green-500";
-                if (occupation >= 1) colorClass = "bg-red-600";
-                else if (occupation >= 0.8) colorClass = "bg-orange-500";
+                let colorClass = "bg-astrum-signal";
+                if (occupation >= 1) colorClass = "bg-astrum-red";
+                else if (occupation >= 0.8) colorClass = "bg-astrum-orange";
                 else if (occupation >= 0.5) colorClass = "bg-yellow-400";
 
                 return (
-                  <div key={cto.id} className="p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 space-y-2">
+                  <div key={cto.id} className="p-3 rounded-xl border border-border bg-secondary/30 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-sm">{cto.name}</span>
                       <Badge variant={occupation >= 1 ? 'destructive' : 'outline'} className="text-[10px]">
                         {cto.usedPorts}/{cto.totalPorts} Portas
                       </Badge>
                     </div>
-                    <div className="flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400">
+                    <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                       <span>Lat: {cto.latitude?.toFixed(4)}</span>
                       <span>Lng: {cto.longitude?.toFixed(4)}</span>
                     </div>
-                    <div className="h-1.5 w-full bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                    <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
                       <div 
                         className={cn("h-full rounded-full transition-all duration-500", colorClass)} 
                         style={{ width: `${occupation * 100}%` }} 
@@ -528,7 +539,7 @@ export function MapPage() {
                   </div>
                 );
               }) : (
-                <div className="text-center py-10 text-zinc-400 text-sm italic">
+                <div className="text-center py-10 text-muted-foreground text-sm italic">
                   Nenhuma CTO cadastrada.
                 </div>
               )}

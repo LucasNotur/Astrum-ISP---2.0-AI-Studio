@@ -9,7 +9,8 @@ import { Badge } from "@/src/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
-import { Bot, Sparkles, Plus, Edit2, Trash2, Download, Database, Upload, Eye, EyeOff, ShieldAlert, Lock, Info, ExternalLink, Clock, BookOpen, Zap, Send, RefreshCw } from 'lucide-react';
+import { Bot, Sparkles, Plus, Edit2, Trash2, Download, Database, Upload, Eye, EyeOff, ShieldAlert, Lock, Info, ExternalLink, Clock, BookOpen, Zap, Send, RefreshCw, Smile, Meh, Frown } from 'lucide-react';
+import { RingChart, RingLegend, ASTRUM_SEMANTIC } from '@/src/components/ui/ring-chart';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/src/components/ui/dialog';
 import { useAppStore } from '@/src/store/useAppStore';
 import { getSystemPrompts, saveSystemPrompts, seedKnowledgeBase, createKBArticle, updateKBArticle, deleteKBArticle } from '@/src/lib/db';
@@ -68,15 +69,15 @@ export function AIConfigPage() {
   const [isTestingAgent, setIsTestingAgent] = useState(false);
 
   const sentimentChartData = useMemo(() => {
-    if (!auditLogs || auditLogs.length === 0) return [{ name: 'Sem Dados', value: 1, color: '#f4f4f5' }];
+    if (!auditLogs || auditLogs.length === 0) return [{ name: 'Sem Dados', value: 1, color: ASTRUM_SEMANTIC.neutral }];
     const counts = auditLogs.reduce((acc: any, log: any) => {
       if (log.sentiment) acc[log.sentiment] = (acc[log.sentiment] || 0) + 1;
       return acc;
     }, { POSITIVO: 0, NEUTRO: 0, NEGATIVO: 0 });
     return [
-      { name: 'Positivo', value: counts.POSITIVO, color: '#22c55e' },
-      { name: 'Neutro', value: counts.NEUTRO, color: '#a1a1aa' },
-      { name: 'Negativo', value: counts.NEGATIVO, color: '#ef4444' },
+      { name: 'Positivo', value: counts.POSITIVO, color: ASTRUM_SEMANTIC.ok },
+      { name: 'Neutro', value: counts.NEUTRO, color: ASTRUM_SEMANTIC.neutral },
+      { name: 'Negativo', value: counts.NEGATIVO, color: ASTRUM_SEMANTIC.bad },
     ].filter((d) => d.value > 0);
   }, [auditLogs]);
 
@@ -658,37 +659,26 @@ export function AIConfigPage() {
                         <CardHeader>
                           <CardTitle className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Distribuição de Sentimento</CardTitle>
                         </CardHeader>
-                        <CardContent className="flex justify-center">
-                          <div className="h-[200px] w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <PieChart>
-                                <Pie
-                                  data={sentimentChartData}
-                                  cx="50%"
-                                  cy="50%"
-                                  innerRadius={60}
-                                  outerRadius={80}
-                                  paddingAngle={5}
-                                  dataKey="value"
-                                >
-                                  {sentimentChartData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                  ))}
-                                </Pie>
-                                <Tooltip 
-                                  formatter={(value: number) => [`${value} interações`, 'Quantidade']}
-                                  contentStyle={{ 
-                                    borderRadius: '8px', 
-                                    border: '1px solid hsl(var(--border))', 
-                                    backgroundColor: 'hsl(var(--card))',
-                                    color: 'hsl(var(--foreground))',
-                                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' 
-                                  }}
-                                />
-                                <Legend verticalAlign="bottom" height={36} iconType="circle" />
-                              </PieChart>
-                            </ResponsiveContainer>
-                          </div>
+                        {/* D-015 — anel padrão com badge de fonte por fatia */}
+                        <CardContent className="flex flex-col items-center gap-4">
+                          <RingChart
+                            size={190}
+                            segments={sentimentChartData.map((d) => ({
+                              value: d.value,
+                              color: d.color,
+                              label: d.name,
+                              icon: d.name === 'Positivo'
+                                ? <Smile size={15} strokeWidth={2} className="text-astrum-signal" />
+                                : d.name === 'Negativo'
+                                ? <Frown size={15} strokeWidth={2} className="text-astrum-red" />
+                                : <Meh size={15} strokeWidth={2} className="text-astrum-slate" />,
+                            }))}
+                            centerValue={sentimentChartData.reduce((s, d) => s + d.value, 0)}
+                            centerLabel="interações"
+                          />
+                          <RingLegend
+                            items={sentimentChartData.map((d) => ({ label: d.name, value: d.value, color: d.color }))}
+                          />
                         </CardContent>
                       </Card>
                       <Card className="border-none shadow-sm md:col-span-2">

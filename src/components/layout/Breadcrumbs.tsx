@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { ChevronRight } from 'lucide-react';
+import { Home } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 
 const PATH_LABELS: Record<string, string> = {
@@ -61,15 +61,19 @@ export function Breadcrumbs({ className }: { className?: string }) {
   return (
     <nav
       aria-label="breadcrumb"
-      className={cn('flex items-center gap-1 text-sm text-muted-foreground min-w-0', className)}
+      className={cn('flex items-center gap-2 text-sm text-muted-foreground min-w-0', className)}
     >
+      {/* D-006 — home + separador "/" como no padrão do topbar */}
+      <Link to="/" aria-label="Início" className="hover:text-foreground transition-colors duration-fast">
+        <Home size={15} strokeWidth={1.75} className="shrink-0" />
+      </Link>
       {segments.map((seg, i) => {
         const isLast = i === segments.length - 1;
         const to = '/' + segments.slice(0, i + 1).join('/');
 
         return (
           <React.Fragment key={to}>
-            {i > 0 && <ChevronRight size={12} className="shrink-0 opacity-40" />}
+            <span aria-hidden className="opacity-40">/</span>
             {isLast ? (
               <span className="font-medium text-foreground truncate">{label(seg)}</span>
             ) : (

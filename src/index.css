@@ -20,6 +20,8 @@
   --color-astrum-orange: #F0713C;
   --color-astrum-red: #E5484D;
   --color-astrum-slate: #5B6472;
+  --color-astrum-lemon: #F2E349; /* D-002 — accent de marca (detalhe, nunca área grande/CTA) */
+  --color-astrum-nebula: #A855F7; /* D-015 — violeta cósmico do espectro de gráficos (só em dataviz) */
 
   /* U1-02 — Elevação (4 níveis; valores reais em :root/.dark) */
   --shadow-0: none;
@@ -113,7 +115,7 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
+    --radius: 1rem; /* D-004 — mesmo raio nos 2 temas */
     /* U1-02 — Elevação light */
     --shadow-1-raw: 0 1px 0 hsl(var(--border));
     --shadow-2-raw: 0 1px 3px rgb(0 0 0 / 0.10), 0 1px 2px rgb(0 0 0 / 0.06);
@@ -121,26 +123,27 @@
     --shadow-4-raw: 0 8px 30px rgb(0 0 0 / 0.18), 0 4px 8px rgb(0 0 0 / 0.12);
   }
   .dark {
-    --background: 228 10% 6%;
+    /* F1 (design-lab) — D-001 dark-first, D-002 accent limão, D-003 primary branco */
+    --background: 240 4% 4%;
     --foreground: 0 0% 98%;
-    --card: 228 12% 16%;
+    --card: 240 4% 9%;
     --card-foreground: 0 0% 98%;
-    --popover: 228 12% 16%;
+    --popover: 240 5% 11%;
     --popover-foreground: 0 0% 98%;
-    --primary: 350 89% 50%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 228 12% 20%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 4% 6%;
+    --secondary: 240 4% 14%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 228 12% 20%;
-    --muted-foreground: 228 5% 65%;
-    --accent: 45 100% 51%;
-    --accent-foreground: 228 10% 6%;
+    --muted: 240 4% 14%;
+    --muted-foreground: 240 4% 62%;
+    --accent: 55 87% 62%;
+    --accent-foreground: 240 4% 6%;
     --destructive: 350 89% 50%;
     --destructive-foreground: 0 0% 98%;
-    --border: 228 12% 20%;
-    --input: 228 12% 20%;
-    --ring: 45 100% 51%;
-    --radius: 1.5rem;
+    --border: 240 4% 14%;
+    --input: 240 4% 12%;
+    --ring: 55 87% 62%;
+    --radius: 1rem; /* D-004 — mesmo raio nos 2 temas (C4 morta na raiz) */
     /* U1-02 — Elevação dark (mais fortes; background escuro absorve sombra) */
     --shadow-2-raw: 0 1px 3px rgb(0 0 0 / 0.30), 0 1px 2px rgb(0 0 0 / 0.20);
     --shadow-3-raw: 0 4px 12px rgb(0 0 0 / 0.40), 0 2px 4px rgb(0 0 0 / 0.25);
@@ -186,6 +189,43 @@
 
 .dark .ticket-shape {
   filter: drop-shadow(0 8px 30px rgba(0, 0, 0, 0.4)) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+/* D-017 — brilho ambiente cósmico do shell (referência: launcher Neo Aura).
+   Nebulosa discreta nos cantos superiores; o conteúdo continua legível por cima. */
+@utility astrum-ambient {
+  background-image:
+    radial-gradient(60% 45% at 8% -6%, color-mix(in srgb, var(--color-astrum-nebula) 16%, transparent) 0%, transparent 70%),
+    radial-gradient(50% 40% at 96% -4%, color-mix(in srgb, var(--color-astrum-fiber) 12%, transparent) 0%, transparent 72%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+/* D-011 — glow neon do CTA de destaque (print #5). Máx. 1 por tela. */
+@utility glow-fiber {
+  background: linear-gradient(180deg, #6d89ff 0%, #3d5afe 55%, #2f48d1 100%);
+  box-shadow:
+    0 0 22px rgba(61, 90, 254, 0.55),
+    0 0 70px rgba(61, 90, 254, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -6px 14px rgba(0, 0, 0, 0.18);
+}
+@utility glow-lemon {
+  background: linear-gradient(180deg, #f7ec7a 0%, #f2e349 55%, #d8c92e 100%);
+  box-shadow:
+    0 0 22px rgba(242, 227, 73, 0.45),
+    0 0 70px rgba(242, 227, 73, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -6px 14px rgba(0, 0, 0, 0.12);
+}
+
+/* D-010 — painel de arte da tela de login (gradiente do print de referência #4) */
+@utility login-art {
+  background:
+    radial-gradient(120% 95% at 88% 70%, rgba(240, 138, 60, 0.80), transparent 62%),
+    radial-gradient(85% 65% at 12% 55%, rgba(120, 165, 130, 0.45), transparent 60%),
+    radial-gradient(70% 50% at 70% 15%, rgba(0, 0, 0, 0.55), transparent 70%),
+    linear-gradient(160deg, #101012 0%, #17171a 45%, #2b2015 100%);
 }
 
 @media (prefers-reduced-motion: reduce) {

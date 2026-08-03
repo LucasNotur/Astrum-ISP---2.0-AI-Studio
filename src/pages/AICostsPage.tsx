@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
+import { RingChart, RingLegend } from "@/src/components/ui/ring-chart";
 import { Badge } from "@/src/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
 import { Button } from "@/src/components/ui/button";
@@ -573,20 +574,42 @@ export function AICostsPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm">
+        <Card className="border border-border rounded-stable-xl shadow-1">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Custo por modelo</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={modelCosts} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,.06)" />
-                <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={v => `$${v.toFixed(4)}`} />
-                <YAxis type="category" dataKey="model" width={110} tick={{ fontSize: 10 }} />
-                <RechartsTooltip formatter={((v: number) => fmtUsd(v)) as any} />
-                <Bar dataKey="cost" fill="#6366f1" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {/* D-015 — anel com ícone da fonte em cada fatia + total no centro */}
+            {(() => {
+              const providerGlyph = (model: string) => {
+                const m = model.toLowerCase();
+                const letter = m.includes('claude') ? 'A' : m.includes('gemini') ? 'G' : 'O';
+                return <span className="text-[13px] font-bold leading-none">{letter}</span>;
+              };
+              const ringTotal = modelCosts.reduce((s, m) => s + m.cost, 0);
+              return (
+                <div className="flex flex-col sm:flex-row items-center gap-6">
+                  <RingChart
+                    segments={modelCosts.map((m) => ({
+                      value: m.cost,
+                      icon: providerGlyph(m.model),
+                      label: m.model,
+                    }))}
+                    size={210}
+                    centerValue={fmtUsd(ringTotal)}
+                    centerLabel="total no período"
+                  />
+                  <RingLegend
+                    className="flex-1"
+                    items={modelCosts.map((m) => ({
+                      label: m.model,
+                      value: fmtUsd(m.cost),
+                      icon: providerGlyph(m.model),
+                    }))}
+                  />
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
       </div>

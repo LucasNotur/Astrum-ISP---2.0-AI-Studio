@@ -1,6 +1,9 @@
 # PLANO G — UI/UX 2.0: da paridade à referência de mercado
 # Criado em 2026-07-13 por Fable 5. Pesquisa de mercado jul/2026 (fontes no fim).
 # Pré-requisito de TODA sessão: abrir a skill `astrum-design` (regra U2).
+# ROTEIRO CAMISA-9 (para o executor menor/Sonnet): FASE 7 do
+# `PLANO_F_EXECUCAO_CAMISA9__PENDENTE.md` (F7-01..F7-08, adicionada 2026-07-19).
+# Este arquivo é a INTENÇÃO (o "porquê" de cada G-XX); o PLANO_F é o "como".
 
 > **A tese:** o Plano C (U0–U8) tirou a Astrum do feio e a colocou no consistente.
 > O Plano G a leva do consistente ao **memorável** — o padrão de Linear, Stripe e
