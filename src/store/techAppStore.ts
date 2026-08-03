@@ -8,8 +8,9 @@ export type TechView =
   | 'active-os'
   | 'agenda'
   | 'my-day'
-  | 'day-route'   // Rota do dia (timeline vertical de paradas) — inspirado no Citymapper/transit
-  | 'day-report'; // Relatório de fim de turno — inspirado no report do Yango
+  | 'day-route'   // Jornada hora a hora — inspirado no Citymapper/transit
+  | 'day-report'  // Relatório de fim de turno — inspirado no report do Yango
+  | 'profile';    // Perfil / conta
 
 export interface GpsPosition {
   lat: number;
@@ -70,7 +71,19 @@ interface TechAppState {
 
   deferredInstallPrompt: any;
   setDeferredInstallPrompt: (prompt: any) => void;
+
+  // Modo demo: pula câmera/API para simular o fluxo só com toques
+  demoMode: boolean;
+  setDemoMode: (v: boolean) => void;
+
+  // Tela de apresentação (onboarding / rever tutorial)
+  introOpen: boolean;
+  setIntroOpen: (v: boolean) => void;
 }
+
+const introInit = (() => {
+  try { return localStorage.getItem('astrum-tech-intro-seen') !== '1'; } catch { return true; }
+})();
 
 export const useTechAppStore = create<TechAppState>((set) => ({
   currentView: 'map',
@@ -127,4 +140,13 @@ export const useTechAppStore = create<TechAppState>((set) => ({
 
   deferredInstallPrompt: null,
   setDeferredInstallPrompt: (deferredInstallPrompt) => set({ deferredInstallPrompt }),
+
+  demoMode: false,
+  setDemoMode: (demoMode) => set({ demoMode }),
+
+  introOpen: introInit,
+  setIntroOpen: (introOpen) => {
+    try { if (!introOpen) localStorage.setItem('astrum-tech-intro-seen', '1'); } catch {}
+    set({ introOpen });
+  },
 }));

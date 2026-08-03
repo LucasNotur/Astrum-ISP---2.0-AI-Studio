@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { openDB } from 'idb';
 import { toast } from 'sonner';
 import { useTechAppStore } from '../store/techAppStore';
@@ -11,6 +11,7 @@ import { AgendaView } from '../components/tech-app/AgendaView';
 import { MyDayView } from '../components/tech-app/MyDayView';
 import { DayRouteView } from '../components/tech-app/DayRouteView';
 import { DayReportView } from '../components/tech-app/DayReportView';
+import { ProfileView } from '../components/tech-app/ProfileView';
 import { TeachingScreen } from '../components/tech-app/TeachingScreen';
 
 const dbPromise = openDB('astrum-tech-db', 1, {
@@ -27,13 +28,8 @@ export default function TechnicianAppPage() {
   const setGps = useTechAppStore((s) => s.setGps);
   const setIsOnline = useTechAppStore((s) => s.setIsOnline);
   const setDeferredInstallPrompt = useTechAppStore((s) => s.setDeferredInstallPrompt);
-  const [showIntro, setShowIntro] = useState(() => {
-    try { return localStorage.getItem('astrum-tech-intro-seen') !== '1'; } catch { return true; }
-  });
-  const dismissIntro = () => {
-    try { localStorage.setItem('astrum-tech-intro-seen', '1'); } catch {}
-    setShowIntro(false);
-  };
+  const introOpen = useTechAppStore((s) => s.introOpen);
+  const setIntroOpen = useTechAppStore((s) => s.setIntroOpen);
 
   // Load agenda (online → API, offline → IDB cache)
   useEffect(() => {
@@ -128,8 +124,8 @@ export default function TechnicianAppPage() {
     }
   };
 
-  if (showIntro) {
-    return <TeachingScreen techName="Técnico" osCount={osList.length} onContinue={dismissIntro} />;
+  if (introOpen) {
+    return <TeachingScreen techName="Técnico" osCount={osList.length} onContinue={() => setIntroOpen(false)} />;
   }
 
   return (
@@ -143,6 +139,7 @@ export default function TechnicianAppPage() {
         {currentView === 'my-day' && <MyDayView />}
         {currentView === 'day-route' && <DayRouteView />}
         {currentView === 'day-report' && <DayReportView />}
+        {currentView === 'profile' && <ProfileView />}
       </div>
 
       {/* Bottom Navigation */}

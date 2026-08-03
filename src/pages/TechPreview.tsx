@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useTechAppStore } from '../store/techAppStore';
 import { BottomNav } from '../components/tech-app/BottomNav';
 import { MapView } from '../components/tech-app/MapView';
@@ -8,11 +8,13 @@ import { AgendaView } from '../components/tech-app/AgendaView';
 import { MyDayView } from '../components/tech-app/MyDayView';
 import { DayRouteView } from '../components/tech-app/DayRouteView';
 import { DayReportView } from '../components/tech-app/DayReportView';
+import { ProfileView } from '../components/tech-app/ProfileView';
 import { TeachingScreen } from '../components/tech-app/TeachingScreen';
 
+// IDs começam com "OS-" → tratados como demo (sem chamadas de API/backend)
 const MOCK_OS = [
   {
-    id: 'preview-1',
+    id: 'OS-PREVIEW-1',
     client: 'João da Silva',
     address: 'Rua Augusta, 1200 — Consolação, SP',
     type: 'Instalação',
@@ -23,12 +25,12 @@ const MOCK_OS = [
     checklist: [
       { id: 'c1', text: 'Verificar sinal na CTO', done: false },
       { id: 'c2', text: 'Passar cabo até cliente', done: false },
-      { id: 'c3', text: 'Configurar ONU', done: true },
+      { id: 'c3', text: 'Configurar ONU', done: false },
       { id: 'c4', text: 'Testar velocidade', done: false },
     ],
   },
   {
-    id: 'preview-2',
+    id: 'OS-PREVIEW-2',
     client: 'Maria Oliveira',
     address: 'Av. Paulista, 900 — Bela Vista, SP',
     type: 'Reparo',
@@ -42,7 +44,7 @@ const MOCK_OS = [
     ],
   },
   {
-    id: 'preview-3',
+    id: 'OS-PREVIEW-3',
     client: 'Pedro Santos',
     address: 'Rua Oscar Freire, 300 — Jardins, SP',
     type: 'Manutenção preventiva',
@@ -53,7 +55,7 @@ const MOCK_OS = [
     checklist: [],
   },
   {
-    id: 'preview-4',
+    id: 'OS-PREVIEW-4',
     client: 'Ana Costa',
     address: 'Al. Santos, 450 — Cerqueira César, SP',
     type: 'Troca de equipamento',
@@ -61,18 +63,25 @@ const MOCK_OS = [
     scheduledTime: '14:00',
     latitude: -23.5580,
     longitude: -46.6620,
-    checklist: [],
+    checklist: [
+      { id: 'c7', text: 'Retirar equipamento antigo', done: false },
+      { id: 'c8', text: 'Instalar novo roteador', done: false },
+      { id: 'c9', text: 'Validar navegação', done: false },
+    ],
   },
 ];
 
 export default function TechPreview() {
   const currentView = useTechAppStore((s) => s.currentView);
+  const introOpen = useTechAppStore((s) => s.introOpen);
+  const setIntroOpen = useTechAppStore((s) => s.setIntroOpen);
   const setOsList = useTechAppStore((s) => s.setOsList);
   const setGps = useTechAppStore((s) => s.setGps);
   const setIsOnline = useTechAppStore((s) => s.setIsOnline);
-  const [showIntro, setShowIntro] = useState(true);
+  const setDemoMode = useTechAppStore((s) => s.setDemoMode);
 
   useEffect(() => {
+    setDemoMode(true); // simulação só com toques (sem câmera/backend)
     setOsList(MOCK_OS as any);
     setIsOnline(true);
     setGps({
@@ -80,13 +89,13 @@ export default function TechPreview() {
       lng: -46.6333,
       accuracy: 10,
       heading: 45,
-      speed: 0,
+      speed: 10.5, // ~38 km/h para o velocímetro do nav
       timestamp: Date.now(),
     });
   }, []);
 
-  if (showIntro) {
-    return <TeachingScreen techName="Técnico Astrum" osCount={MOCK_OS.length} onContinue={() => setShowIntro(false)} />;
+  if (introOpen) {
+    return <TeachingScreen techName="Técnico Astrum" osCount={MOCK_OS.length} onContinue={() => setIntroOpen(false)} />;
   }
 
   return (
@@ -99,6 +108,7 @@ export default function TechPreview() {
         {currentView === 'my-day' && <MyDayView />}
         {currentView === 'day-route' && <DayRouteView />}
         {currentView === 'day-report' && <DayReportView />}
+        {currentView === 'profile' && <ProfileView />}
       </div>
       <BottomNav />
     </div>

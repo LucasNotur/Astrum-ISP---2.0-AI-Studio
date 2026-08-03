@@ -32,6 +32,7 @@ export function ActiveOsView() {
   const startNavigation = useTechAppStore((s) => s.startNavigation);
   const osList = useTechAppStore((s) => s.osList);
   const setOsList = useTechAppStore((s) => s.setOsList);
+  const demoMode = useTechAppStore((s) => s.demoMode);
 
   const [checklist, setChecklist] = useState<any[]>([]);
   const [photo, setPhoto] = useState<string | null>(null);
@@ -132,13 +133,21 @@ export function ActiveOsView() {
     return dataUrl;
   };
 
+  // Foto placeholder para o modo demo (simulação só com toques, sem câmera)
+  const DEMO_IMG = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="#3D5AFE"/></svg>');
+
   const handleCheckin = async () => {
+    if (demoMode) { runCheckin(DEMO_IMG); return; }
     openCamera('checkin');
   };
 
   const handleCaptureAndCheckin = async () => {
     const img = capturePhoto();
     if (!img) return;
+    runCheckin(img);
+  };
+
+  const runCheckin = async (img: string) => {
     setProcessing(true);
     const tid = toast.loading('Processando check-in...');
 
@@ -174,12 +183,17 @@ export function ActiveOsView() {
   const handleCheckout = async () => {
     if (!allChecklistDone) { toast.error('Complete todos os itens do checklist.'); return; }
     if (!signatureData) { toast.error('Assinatura do cliente é obrigatória.'); return; }
+    if (demoMode) { runCheckout(DEMO_IMG); return; }
     openCamera('checkout');
   };
 
   const handleCaptureAndCheckout = async () => {
     const img = capturePhoto();
     if (!img) return;
+    runCheckout(img);
+  };
+
+  const runCheckout = async (img: string) => {
     setPhoto(img);
     setProcessing(true);
     const tid = toast.loading('Finalizando OS...');
