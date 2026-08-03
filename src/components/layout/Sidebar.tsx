@@ -3,7 +3,7 @@ import {
   Bot, ChevronLeft, ChevronRight, LayoutDashboard, Users,
   Ticket, MessageSquare, Map, Settings, ShieldCheck,
   CreditCard, Briefcase, Package, LogOut, Phone, BookOpen, Activity, BarChart2, Sparkles, HelpCircle, ShoppingBag, Award, Route,
-  DollarSign, Plug, Link2, Shield, HeartPulse
+  DollarSign, Plug, Link2, Shield, HeartPulse, Smartphone
 } from 'lucide-react';
 import { HelpCenter } from '@/src/components/HelpCenter';
 import { cn } from '@/src/lib/utils';
@@ -323,6 +323,15 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
             onClick={() => navigate('/campo')}
             icon={<Route size={24} />}
             label="Operações de Campo"
+            collapsed={isSidebarCollapsed}
+          />
+        )}
+        {(isProvedorAdmin || hasAccess('os')) && (
+          <NavItem
+            active={currentPath === 'tecnico'}
+            onClick={() => navigate('/tecnico')}
+            icon={<Smartphone size={24} />}
+            label="App Técnico"
             collapsed={isSidebarCollapsed}
           />
         )}
