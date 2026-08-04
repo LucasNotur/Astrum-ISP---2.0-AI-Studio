@@ -79,10 +79,19 @@ interface TechAppState {
   // Tela de apresentação (onboarding / rever tutorial)
   introOpen: boolean;
   setIntroOpen: (v: boolean) => void;
+
+  // Tema claro/escuro global
+  themeMode: 'light' | 'dark';
+  setThemeMode: (m: 'light' | 'dark') => void;
+  toggleTheme: () => void;
 }
 
 const introInit = (() => {
   try { return localStorage.getItem('astrum-tech-intro-seen') !== '1'; } catch { return true; }
+})();
+
+const themeInit: 'light' | 'dark' = (() => {
+  try { return localStorage.getItem('astrum-tech-theme') === 'light' ? 'light' : 'dark'; } catch { return 'dark'; }
 })();
 
 export const useTechAppStore = create<TechAppState>((set) => ({
@@ -149,4 +158,15 @@ export const useTechAppStore = create<TechAppState>((set) => ({
     try { if (!introOpen) localStorage.setItem('astrum-tech-intro-seen', '1'); } catch {}
     set({ introOpen });
   },
+
+  themeMode: themeInit,
+  setThemeMode: (themeMode) => {
+    try { localStorage.setItem('astrum-tech-theme', themeMode); } catch {}
+    set({ themeMode });
+  },
+  toggleTheme: () => set((s) => {
+    const next = s.themeMode === 'dark' ? 'light' : 'dark';
+    try { localStorage.setItem('astrum-tech-theme', next); } catch {}
+    return { themeMode: next };
+  }),
 }));

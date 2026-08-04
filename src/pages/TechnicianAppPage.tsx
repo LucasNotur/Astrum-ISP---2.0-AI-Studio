@@ -13,6 +13,7 @@ import { DayRouteView } from '../components/tech-app/DayRouteView';
 import { DayReportView } from '../components/tech-app/DayReportView';
 import { ProfileView } from '../components/tech-app/ProfileView';
 import { TeachingScreen } from '../components/tech-app/TeachingScreen';
+import { tech } from '../components/tech-app/theme';
 
 const dbPromise = openDB('astrum-tech-db', 1, {
   upgrade(db) {
@@ -30,6 +31,7 @@ export default function TechnicianAppPage() {
   const setDeferredInstallPrompt = useTechAppStore((s) => s.setDeferredInstallPrompt);
   const introOpen = useTechAppStore((s) => s.introOpen);
   const setIntroOpen = useTechAppStore((s) => s.setIntroOpen);
+  const themeMode = useTechAppStore((s) => s.themeMode);
 
   // Load agenda (online → API, offline → IDB cache)
   useEffect(() => {
@@ -129,7 +131,7 @@ export default function TechnicianAppPage() {
   }
 
   return (
-    <div className="h-screen w-screen text-white flex flex-col overflow-hidden" style={{ background: '#0a0a0b' }}>
+    <div key={themeMode} className="h-screen w-screen flex flex-col overflow-hidden" style={{ background: tech.bg, color: tech.text }}>
       {/* View content */}
       <div className="flex-1 relative overflow-hidden">
         {currentView === 'map' && <MapView />}

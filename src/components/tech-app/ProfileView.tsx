@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  Wifi, WifiOff, Play, Square, Smartphone, GraduationCap, Headset, LogOut, ChevronRight,
+  Wifi, WifiOff, Play, Square, Smartphone, GraduationCap, Headset, LogOut, ChevronRight, Sun, Moon,
 } from 'lucide-react';
 import { useTechAppStore } from '../../store/techAppStore';
 import { tech } from './theme';
@@ -17,6 +17,8 @@ export function ProfileView() {
   const deferredInstallPrompt = useTechAppStore((s) => s.deferredInstallPrompt);
   const setDeferredInstallPrompt = useTechAppStore((s) => s.setDeferredInstallPrompt);
   const setIntroOpen = useTechAppStore((s) => s.setIntroOpen);
+  const themeMode = useTechAppStore((s) => s.themeMode);
+  const toggleTheme = useTechAppStore((s) => s.toggleTheme);
 
   const toggleShift = () => {
     if (shift) { setShift(null); toast.success('Turno encerrado!'); }
@@ -65,6 +67,21 @@ export function ProfileView() {
               {shift ? <><Square size={14} /> Encerrar</> : <><Play size={14} /> Iniciar</>}
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Tema claro/escuro */}
+      <div className="px-4 mb-2">
+        <div className="flex items-center gap-3 p-4" style={{ background: tech.card, borderRadius: 14, border: `1px solid ${tech.borderSubtle}` }}>
+          <div className="flex items-center justify-center rounded-xl" style={{ width: 36, height: 36, background: tech.elevated }}>
+            {themeMode === 'dark' ? <Moon size={18} style={{ color: tech.accentLight }} /> : <Sun size={18} style={{ color: tech.accentLight }} />}
+          </div>
+          <span className="flex-1 text-sm font-semibold" style={{ color: tech.text }}>Tema {themeMode === 'dark' ? 'escuro' : 'claro'}</span>
+          <button onClick={toggleTheme} className="relative rounded-full transition-colors" style={{ width: 48, height: 28, background: themeMode === 'dark' ? tech.border : tech.accent }}>
+            <span className="absolute top-1 rounded-full flex items-center justify-center" style={{ width: 20, height: 20, background: '#fff', left: themeMode === 'dark' ? 4 : 24, transition: 'left .2s' }}>
+              {themeMode === 'dark' ? <Moon size={11} style={{ color: '#333' }} /> : <Sun size={11} style={{ color: tech.accent }} />}
+            </span>
+          </button>
         </div>
       </div>
 

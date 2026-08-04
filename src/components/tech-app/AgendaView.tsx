@@ -4,28 +4,14 @@ import { Search, Wrench, MapPin, Route, ArrowRight, Zap } from 'lucide-react';
 import { useTechAppStore } from '../../store/techAppStore';
 import { optimizeRoute as apiOptimizeRoute } from '../../lib/fieldOps';
 import { fetchOsrmRoute, formatDistance } from '../../lib/osrm';
+import { tech } from './theme';
 import { toast } from 'sonner';
 
 /**
- * Lista de clientes — clone da imagem 7 (tickets de voo): preto & branco de
- * alto contraste. Fundo quase preto, título enorme em branco, cartões BRANCOS
- * em formato de bilhete com recorte perfurado e tipografia preta pesada.
+ * Lista de clientes — clone da imagem 7 (tickets de voo): alto contraste.
+ * Cartões sempre BRANCOS (o "bilhete"), com recorte perfurado e tipografia
+ * preta pesada. Fundo/título adaptam ao tema (claro ou escuro).
  */
-
-// Paleta B&W da referência (imagem 7)
-const C = {
-  bg: '#0b0b0c',
-  title: '#ffffff',
-  sub: '#8a8a90',
-  card: '#ffffff',
-  ink: '#0e0e10',
-  inkSoft: '#6b7280',
-  line: '#e5e7eb',
-  chipOn: '#ffffff',
-  chipOnInk: '#0e0e10',
-  chipOff: '#161618',
-  chipOffInk: '#9a9aa0',
-};
 const STATUS_LABELS: Record<string, string> = { pending: 'Agendada', in_progress: 'Em rota', completed: 'Concluída' };
 const STATUS_COLOR: Record<string, string> = { pending: '#F5A524', in_progress: '#3D5AFE', completed: '#16a34a' };
 
@@ -43,6 +29,21 @@ export function AgendaView() {
   const [optimizing, setOptimizing] = useState(false);
   const [seg, setSeg] = useState<Seg>('ativas');
   const [query, setQuery] = useState('');
+
+  // Cartão sempre branco (o bilhete); resto adapta ao tema
+  const C = {
+    bg: tech.bg,
+    title: tech.text,
+    sub: tech.textMuted,
+    card: '#ffffff',
+    ink: '#0e0e10',
+    inkSoft: '#6b7280',
+    line: '#e5e7eb',
+    chipOn: tech.text,
+    chipOnInk: tech.bg,
+    chipOff: tech.elevated,
+    chipOffInk: tech.textSecondary,
+  };
 
   const pending = osList.filter((o) => o.status !== 'completed');
 
@@ -106,7 +107,7 @@ export function AgendaView() {
         </div>
         <button onClick={handleOptimize} disabled={optimizing || pending.length < 2}
           className="flex items-center justify-center px-4 rounded-2xl active:scale-95 transition-transform disabled:opacity-40"
-          style={{ background: C.card, color: C.ink }}>
+          style={{ background: tech.accent, color: tech.onAccent }}>
           <Route size={18} className={optimizing ? 'animate-spin' : ''} />
         </button>
       </div>
