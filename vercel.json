@@ -5,6 +5,7 @@
   "installCommand": "npm install --workspaces=false --include=dev --no-audit --no-fund",
   "framework": null,
   "rewrites": [
+    { "source": "/api/:path*", "destination": "https://api.astrumlabs.online/api/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
