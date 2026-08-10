@@ -46,7 +46,11 @@
 
 ## 🔜 PRÓXIMOS P0/P1 (ainda não iniciados)
 
-- [ ] **P0-D (resto)** — migrar o JWT do frontend de `localStorage` (`sb-access-token`) para **cookie httpOnly+Secure+SameSite**. É refactor de front (afeta `MyDayView.tsx`, `fieldOps.ts`, todos os `getSession`/fetch autenticados) — precisa de plano dedicado. Amplificado pela falta de CSP (SEC-R2).
+- [ ] **P0-D — CORRIGIDO/REBAIXADO (2026-08-10):** a auditoria dizia "JWT em localStorage". **Verificação do código refuta isso para o app real:** App.tsx usa `supabase.auth.signInWithPassword` com `persistSession: false` → a sessão fica **em memória**, NÃO no localStorage. O `auth-v2.ts` (localStorage `astrum_auth`) NÃO é o caminho ativo; os 3 reads de `sb-access-token` no tech-app não têm gravador (feature morta). **Cookie httpOnly NÃO se aplica bem aqui**: o frontend fala direto com o Supabase PostgREST via supabase-js, que precisa do token acessível ao JS. Ações reais que sobram:
+  - [ ] **A verdadeira mitigação de XSS é CSP (SEC-R2)** — o Express raiz (`server.ts`) que serve o SPA não tem `helmet`/CSP. Adicionar CSP (começar em **Report-Only** para não quebrar). ⚠️ `server.ts` raiz tem alterações não commitadas suas — coordenar antes de editar.
+  - [ ] Manter `persistSession: false` (é o comportamento seguro).
+  - [ ] Limpar/confirmar os reads mortos de `localStorage['sb-access-token']` em `MyDayView.tsx`, `fieldOps.ts`, `ProviderFallbackOrderCard.tsx` (ou ligar um gravador consciente — hoje leem chave nunca escrita).
+  - [ ] HIBP continua válido (item P3 acima).
 - [ ] **MT-02 (P1)** — backend legado roda tudo por `service_role` (bypassa RLS); isolamento depende de `.where(tenant)` manual. Raiz de classe — ver `firestore.ts`, `mapping.ts`.
 - [ ] **MT-03 (P1)** — leaks cross-tenant no pipeline de IA (`messageWorker.ts:604`, `dbAdmin.ts:206,219`) — `customers`/`network_ctos`/billing por CPF sem filtro de tenant.
 - [ ] **APPSEC-02 (P1)** — bucket Storage `uploads` `public=true` com escrita/leitura cross-tenant.
