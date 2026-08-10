@@ -5,7 +5,6 @@
  * As leituras real-time vivem em ./supabaseDb.ts (re-exportadas aqui).
  * Plano: .astrum-progress/PLANO_FIRESTORE_ZERO__CONCLUIDO.md (FZ-4).
  */
-import forge from "node-forge";
 import { supabase } from "./supabase.ts";
 import {
   getCustomers,
@@ -61,61 +60,11 @@ export const updateTechnician = async (id: string, data: any, _tenantId: string 
 export const updateServiceOrder = async (id: string, data: any) =>
   sbUpdateServiceOrder(id, data);
 
-// ─── Criptografia de CPF (pura — sem banco) ──────────────────────────────────
-
-export const encryptCpf = (cpf: string): string => {
-  if (!cpf) return cpf;
-  const keyHex =
-    ((typeof import.meta !== "undefined" && (import.meta as any).env && (import.meta as any).env.VITE_CPF_ENCRYPTION_KEY) ||
-    (typeof process !== "undefined" && process.env && process.env.VITE_CPF_ENCRYPTION_KEY)) ||
-    "0000000000000000000000000000000000000000000000000000000000000000";
-  try {
-    const key = forge.util.hexToBytes(keyHex);
-    if (key.length !== 32) return cpf;
-    const iv = forge.random.getBytesSync(12);
-    const cipher = forge.cipher.createCipher("AES-GCM", key);
-    cipher.start({ iv: iv });
-    cipher.update(forge.util.createBuffer(cpf, "utf8"));
-    cipher.finish();
-    const encrypted = cipher.output.getBytes();
-    const tag = cipher.mode.tag.getBytes();
-    return (
-      forge.util.encode64(iv) +
-      ":" +
-      forge.util.encode64(tag) +
-      ":" +
-      forge.util.encode64(encrypted)
-    );
-  } catch (err) {
-    return cpf;
-  }
-};
-
-export const decryptCpf = (encryptedCpf: string): string => {
-  if (!encryptedCpf || typeof encryptedCpf !== "string" || !encryptedCpf.includes(":"))
-    return encryptedCpf;
-  const keyHex =
-    ((typeof import.meta !== "undefined" && (import.meta as any).env && (import.meta as any).env.VITE_CPF_ENCRYPTION_KEY) ||
-    (typeof process !== "undefined" && process.env && process.env.VITE_CPF_ENCRYPTION_KEY)) ||
-    "0000000000000000000000000000000000000000000000000000000000000000";
-  try {
-    const key = forge.util.hexToBytes(keyHex);
-    if (key.length !== 32) return encryptedCpf;
-    const parts = encryptedCpf.split(":");
-    if (parts.length !== 3) return encryptedCpf;
-    const iv = forge.util.decode64(parts[0]);
-    const tag = forge.util.decode64(parts[1]);
-    const encrypted = forge.util.decode64(parts[2]);
-    const decipher = forge.cipher.createDecipher("AES-GCM", key);
-    decipher.start({ iv: iv, tag: forge.util.createBuffer(tag) });
-    decipher.update(forge.util.createBuffer(encrypted));
-    const pass = decipher.finish();
-    if (pass) return decipher.output.toString();
-    return encryptedCpf;
-  } catch (err) {
-    return encryptedCpf;
-  }
-};
+// ─── Criptografia de CPF ──────────────────────────────────────────────────────
+// SEC-R1/APPSEC-01: a cifra vive em ./fieldCipher (fail-closed, sem chave VITE_ no
+// bundle, sem fallback de chave-zero). Aqui só re-exportamos as assinaturas históricas.
+// Estas funções são backend-only (exigem CPF_ENCRYPTION_KEY em process.env).
+export { encryptCpf, decryptCpf } from "./fieldCipher";
 
 export const maskCpfForLog = (cpf?: string): string => {
   if (!cpf) return "";

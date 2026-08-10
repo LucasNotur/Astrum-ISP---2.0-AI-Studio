@@ -80,8 +80,9 @@ export async function subscriberPortalRoutes(
       return reply.code(401).send({ error: 'CPF ou contrato inválidos' });
     }
 
+    // AUTH-01: aud dedicado — defesa em profundidade contra reuso do token em rotas de operador.
     const token = (app as any).jwt.sign(
-      { sub: authResult.customerId, tenantId: authResult.tenantId, role: 'subscriber' },
+      { sub: authResult.customerId, tenantId: authResult.tenantId, role: 'subscriber', aud: 'subscriber-portal' },
       { expiresIn: '24h' },
     );
 

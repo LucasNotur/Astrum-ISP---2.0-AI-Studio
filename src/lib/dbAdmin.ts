@@ -1,7 +1,7 @@
 import { adminDb as db } from "./firebaseAdmin";
 import admin from "./firebaseAdmin";
 import { logger } from "./logger";
-import forge from "node-forge";
+import { encryptCpf as _encryptCpf, decryptCpf as _decryptCpf } from "./fieldCipher";
 import { getEmbeddingProvider } from './embeddingProvider';
 import { getVectorStore } from './vectorStore';
 
@@ -251,62 +251,10 @@ export const runDiagnosticsReal = async (customerId: string) => {
   };
 };
 
-export const encryptCpf = (cpf: string): string => {
-  if (!cpf) return cpf;
-  const keyHex = process.env.VITE_CPF_ENCRYPTION_KEY || "0000000000000000000000000000000000000000000000000000000000000000";
-  try {
-    const key = forge.util.hexToBytes(keyHex);
-    if (key.length !== 32) return cpf;
-    const iv = forge.random.getBytesSync(12);
-    const cipher = forge.cipher.createCipher("AES-GCM", key);
-    cipher.start({ iv: iv });
-    cipher.update(forge.util.createBuffer(cpf, "utf8"));
-    cipher.finish();
-    const encrypted = cipher.output.getBytes();
-    const tag = cipher.mode.tag.getBytes();
-    return (
-      forge.util.encode64(iv) +
-      ":" +
-      forge.util.encode64(tag) +
-      ":" +
-      forge.util.encode64(encrypted)
-    );
-  } catch (err) {
-    return cpf;
-  }
-};
-
-export const decryptCpf = (encryptedCpf: string): string => {
-  if (
-    !encryptedCpf ||
-    typeof encryptedCpf !== "string" ||
-    !encryptedCpf.includes(":")
-  )
-    return encryptedCpf;
-  const keyHex = process.env.VITE_CPF_ENCRYPTION_KEY || "0000000000000000000000000000000000000000000000000000000000000000";
-  try {
-    const key = forge.util.hexToBytes(keyHex);
-    if (key.length !== 32) return encryptedCpf;
-    const parts = encryptedCpf.split(":");
-    if (parts.length !== 3) return encryptedCpf;
-    const iv = forge.util.decode64(parts[0]);
-    const tag = forge.util.decode64(parts[1]);
-    const encrypted = forge.util.decode64(parts[2]);
-    const decipher = forge.cipher.createDecipher("AES-GCM", key);
-    decipher.start({
-      iv: iv,
-      tag: forge.util.createBuffer(tag),
-    });
-    decipher.update(forge.util.createBuffer(encrypted));
-    const pass = decipher.finish();
-    if (pass) {
-      return decipher.output.toString();
-    }
-    return encryptedCpf;
-  } catch (err) {
-    return encryptedCpf;
-  }
-};
+// SEC-R1/APPSEC-01: cifra unificada e fail-closed em ./fieldCipher
+// (sem chave-zero, sem VITE_, nunca retorna texto puro). Protege CPF e credenciais de ERP.
+export const encryptCpf = _encryptCpf;
+export const decryptCpf = _decryptCpf;
 
 export const getIXCCredentials = async (tenantId: string = "default") => {
   const keys = await getIntegrationKeys(tenantId);

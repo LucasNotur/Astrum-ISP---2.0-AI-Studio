@@ -65,6 +65,14 @@ export async function buildServer() {
       // Bug S68: responder 401 explícito (antes ia sem status → virava 500 em alguns casos).
       return reply.code(401).send({ code: 'UNAUTHORIZED', message: 'Token ausente ou inválido.' });
     }
+    // AUTH-01 (auditoria 2026-08-10): token de ASSINANTE (portal do cliente final) é
+    // assinado com o MESMO JWT_SECRET. Sem esta checagem, um assinante autenticado usava
+    // rotas de OPERADOR (ex.: /api/v2/conversations/inbox) e lia o atendimento de todos os
+    // clientes do provedor. Rotas de operador NUNCA aceitam token de assinante.
+    const u = (request as any).user ?? {};
+    if (u.role === 'subscriber' || u.aud === 'subscriber-portal') {
+      return reply.code(403).send({ code: 'FORBIDDEN', message: 'Token de assinante não é válido para esta rota.' });
+    }
   });
 
   const idempotencyPlugin = await import('./infrastructure/idempotency/idempotency.middleware');
