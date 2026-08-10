@@ -191,9 +191,12 @@ export const deleteKBArticle = async (id: string) => {
   await db.collection("knowledge_base").doc(id).delete();
 };
 
-export const checkCoverageReal = async (cep: string) => {
+// MT-03: tenantId é OBRIGATÓRIO — sem ele a query rodaria como service_role sobre network_ctos
+// de TODOS os tenants (vazamento de topologia de rede por CEP entre provedores).
+export const checkCoverageReal = async (cep: string, tenantId: string) => {
   try {
-    const keys = await getIntegrationKeys();
+    if (!tenantId) throw new Error("checkCoverageReal: tenantId obrigatório (MT-03)");
+    const keys = await getIntegrationKeys(tenantId);
     const mapsKey = (keys as any).googleMapsKey;
 
     if (!mapsKey) {
@@ -203,7 +206,10 @@ export const checkCoverageReal = async (cep: string) => {
       };
     }
 
-    const snapshot = await db.collection("network_ctos").where("cep", "==", cep).get();
+    const snapshot = await db.collection("network_ctos")
+      .where("tenantId", "==", tenantId)
+      .where("cep", "==", cep)
+      .get();
     const ctos = snapshot.docs.map((doc) => doc.data());
     const available = ctos.some((cto) => (cto.usedPorts || 0) < (cto.totalPorts || 0));
     return {
@@ -216,9 +222,12 @@ export const checkCoverageReal = async (cep: string) => {
   }
 };
 
-export const getBillingStatusReal = async (cpf: string) => {
+// MT-03: tenantId obrigatório — sem ele consultaria invoices de todos os tenants por CPF.
+export const getBillingStatusReal = async (cpf: string, tenantId: string) => {
   try {
+    if (!tenantId) throw new Error("getBillingStatusReal: tenantId obrigatório (MT-03)");
     const snapshot = await db.collection("invoices")
+      .where("tenantId", "==", tenantId)
       .where("customer_cpf", "==", cpf)
       .where("status", "==", "pending")
       .get();

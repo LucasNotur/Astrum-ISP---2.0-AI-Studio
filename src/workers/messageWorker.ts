@@ -600,8 +600,11 @@ export const processMessageJob = async (job: any) => {
         .replace("@s.whatsapp.net", "")
         .replace(/\D/g, "");
       const { safeFirestoreGet } = await import("../lib/dbSafe");
+      // MT-03 (auditoria 2026-08-10): FILTRAR por tenant. Antes buscava TODOS os clientes de
+      // TODOS os tenants e casava por telefone globalmente → associação cross-tenant. Roda como
+      // service_role (bypassa RLS), então o filtro tem de ser explícito aqui.
       const { data: custSnap, degraded: custDegraded } = await safeFirestoreGet(
-        () => db.collection("customers").get(),
+        () => db.collection("customers").where("tenantId", "==", tenantId).get(),
         { docs: [] as any[] } as any,
         'customer_lookup'
       );

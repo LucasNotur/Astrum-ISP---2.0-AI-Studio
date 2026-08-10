@@ -2857,7 +2857,7 @@ Use o 'ID do Banco' sempre que uma ferramenta lhe pedir o 'customerId'. Use outr
                 "Por favor, responda exatamente: 'Não consegui localizar seus dados. Pode confirmar seu número de CPF?'",
             };
           } else if (toolCall.function.name === "check_coverage") {
-            toolResult = await checkCoverageReal(args.cep as string);
+            toolResult = await checkCoverageReal(args.cep as string, tenantId);
           } else if (toolCall.function.name === "check_billing_status") {
             const { maskCpfForLog } = await import("./dbAdmin");
             const { logDataAccess } = await import("./audit");
