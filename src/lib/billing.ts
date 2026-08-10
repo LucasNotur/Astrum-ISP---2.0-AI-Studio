@@ -103,7 +103,9 @@ export const createSubscription = async (tenantId: string, planId: string) => {
      tenant_id: tenantId,
      plan: planId,
      status: 'ACTIVE',
-     amount_cents: value * 100,
+     // BILL-05: dinheiro em inteiro. value*100 sobre float (99.9*100 = 9990.000000000002)
+     // entraria numa coluna INTEGER. Math.round garante centavos inteiros exatos.
+     amount_cents: Math.round(value * 100),
      next_billing_date: nextDueDate,
      asaas_customer_id: asaas_customer_id,
      asaas_subscription_id: data.id
