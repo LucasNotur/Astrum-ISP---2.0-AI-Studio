@@ -22,6 +22,17 @@ function getRedis(): Redis {
 const BLACKLIST_PREFIX = 'auth:blacklist:'
 
 /**
+ * AUTH-04 (auditoria 2026-08-10): fail-open vs fail-closed é um trade-off
+ * segurança × disponibilidade. Default = fail-open (comportamento histórico: um Redis
+ * fora NÃO derruba a autenticação, mas um token revogado passa durante a falha).
+ * Em produção com dados sensíveis, setar AUTH_REVOCATION_FAIL_CLOSED=true torna a
+ * revogação confiável — ao custo de que uma indisponibilidade do Redis bloqueia auth.
+ */
+function failClosed(): boolean {
+  return process.env.AUTH_REVOCATION_FAIL_CLOSED === 'true'
+}
+
+/**
  * Adiciona um token à blacklist.
  * TTL = tempo restante até exp do token (não guardamos tokens já expirados).
  */
@@ -39,17 +50,17 @@ export async function blacklistToken(jti: string, expiresAt: number): Promise<vo
 
 /**
  * Verifica se um token está na blacklist.
- * Fail-open: se Redis estiver down, permite a requisição (fail-open é deliberado
- * para não derrubar o sistema em falha de infra — trocar para fail-closed se
- * o requisito de segurança for mais alto que disponibilidade).
+ * Em falha do Redis: fail-open (default) permite; fail-closed (env) trata como
+ * blacklistado (bloqueia). Ver failClosed()/AUTH-04.
  */
 export async function isTokenBlacklisted(jti: string): Promise<boolean> {
   try {
     const val = await getRedis().get(`${BLACKLIST_PREFIX}${jti}`)
     return val !== null
   } catch (err) {
-    logger.warn({ err, jti }, 'Redis blacklist indisponível — fail-open')
-    return false // fail-open: preferimos disponibilidade a bloqueio total
+    const fc = failClosed()
+    logger.warn({ err, jti, failClosed: fc }, `Redis blacklist indisponível — ${fc ? 'fail-closed (bloqueia)' : 'fail-open'}`)
+    return fc // fail-closed → considera blacklistado; fail-open → permite
   }
 }
 
@@ -80,7 +91,9 @@ export async function getUserRevokeTimestamp(uid: string): Promise<number | null
     const val = await getRedis().get(`auth:revoke_before:${uid}`)
     return val ? parseInt(val, 10) : null
   } catch (err) {
-    logger.warn({ err, uid }, 'Redis revoke check indisponível — fail-open')
-    return null
+    const fc = failClosed()
+    logger.warn({ err, uid, failClosed: fc }, `Redis revoke check indisponível — ${fc ? 'fail-closed (bloqueia)' : 'fail-open'}`)
+    // fail-closed → retorna "agora": qualquer token com iat < now é tratado como revogado (bloqueia tudo).
+    return fc ? Math.floor(Date.now() / 1000) : null
   }
 }
