@@ -36,3 +36,33 @@ export function decryptCredentials<T = Record<string, unknown>>(payload: string,
   const out = Buffer.concat([decipher.update(Buffer.from(dataB64, 'base64')), decipher.final()]);
   return JSON.parse(out.toString('utf8')) as T;
 }
+
+// ── Helpers por-string (SEC-R5) — cifram um único valor (ex.: chave de integração) ──
+
+/** Cifra uma string única. Mesmo envelope iv:tag:cipher. Lança sem ERP_CRED_KEY. */
+export function encryptString(plain: string, keyOverride?: Buffer): string {
+  const key = keyOverride ?? getKey();
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv(ALGO, key, iv);
+  const data = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  return [iv.toString('base64'), authTag.toString('base64'), data.toString('base64')].join(':');
+}
+
+/** Decifra uma string cifrada por encryptString. Lança se a tag GCM não bater. */
+export function decryptString(payload: string, keyOverride?: Buffer): string {
+  const key = keyOverride ?? getKey();
+  const [ivB64, tagB64, dataB64] = payload.split(':');
+  if (!ivB64 || !tagB64 || !dataB64) throw new Error('Payload de credencial malformado');
+  const decipher = crypto.createDecipheriv(ALGO, key, Buffer.from(ivB64, 'base64'));
+  decipher.setAuthTag(Buffer.from(tagB64, 'base64'));
+  const out = Buffer.concat([decipher.update(Buffer.from(dataB64, 'base64')), decipher.final()]);
+  return out.toString('utf8');
+}
+
+/** Heurística: valor está no envelope iv:tag:cipher (3 partes base64 não-vazias)? */
+export function looksEncrypted(v: string | undefined | null): boolean {
+  if (!v || typeof v !== 'string') return false;
+  const parts = v.split(':');
+  return parts.length === 3 && parts.every((p) => p.length > 0 && /^[A-Za-z0-9+/=]+$/.test(p));
+}
