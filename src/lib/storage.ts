@@ -2,6 +2,11 @@
  * FZ-4 — Storage 100% Supabase (bucket "uploads", migration 032).
  * Assinaturas preservadas do módulo antigo (Firebase Storage).
  * Paths continuam tenant-scoped: tenants/{tenantId}/{category}/{filename}.
+ *
+ * APPSEC-02 (migration 093): a ESCRITA (insert/update/delete) agora é isolada por tenant
+ * via RLS em storage.objects — validateTenantPath abaixo é defesa em profundidade (UX/erro
+ * cedo), não a única barreira. A LEITURA ainda é pública (getPublicUrl); fechar exige
+ * bucket privado + signed URLs (follow-up).
  */
 import { supabase } from "./supabase";
 
