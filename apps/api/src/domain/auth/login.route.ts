@@ -1,10 +1,19 @@
 import type { FastifyInstance } from 'fastify';
-import { verifyPassword, rehashIfNeeded } from '../../infrastructure/auth/password.service';
+import { verifyPassword, rehashIfNeeded, hashPassword } from '../../infrastructure/auth/password.service';
 import { generateTokenPair } from '../../infrastructure/auth/jwt.service';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { securityLogger } from '../../infrastructure/logging/logger';
 import { validateBody } from '../../infrastructure/validation/zod-validator';
 import { loginBodySchema } from '../../../../../packages/shared/src/schemas';
+
+// AUTH-03: hash "dummy" para equalizar o tempo de resposta quando o e-mail não existe.
+// Sem isso, argon2.verify só roda para e-mail existente → o delta de latência revela quais
+// e-mails têm conta (enumeração de usuário). Calculado uma vez, sob demanda.
+let _dummyHash: Promise<string> | null = null;
+function dummyHash(): Promise<string> {
+  if (!_dummyHash) _dummyHash = hashPassword('x'.repeat(16));
+  return _dummyHash;
+}
 
 export async function loginRoute(fastify: FastifyInstance) {
   fastify.post('/api/v2/auth/login', {
@@ -23,6 +32,9 @@ export async function loginRoute(fastify: FastifyInstance) {
     const GENERIC_ERROR = { code: 'INVALID_CREDENTIALS', message: 'Email ou senha incorretos.' };
 
     if (!user || !user.active) {
+      // AUTH-03: roda um argon2.verify contra o hash dummy para o tempo de resposta ser
+      // equivalente ao de um e-mail existente (fecha o oráculo de enumeração de usuário).
+      await verifyPassword(await dummyHash(), password).catch(() => {});
       securityLogger.warn({ email }, 'Tentativa de login com email não encontrado ou inativo');
       return reply.status(401).send(GENERIC_ERROR);
     }

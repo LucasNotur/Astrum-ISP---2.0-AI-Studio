@@ -5,31 +5,23 @@ import { verifySupabaseToken } from "../lib/authVerify";
 export const requirePermission = (resource: string, action: string) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
+      // MT-04: SEM fallback x-user-id/body.userId — isso permitia forjar a identidade
+      // apenas setando um header. Exige sempre um Bearer token verificado.
       const authHeader = req.headers.authorization;
       if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        // Fallback for dev or specific integrations
-        const fallbackUserId = req.headers["x-user-id"] || req.body?.userId;
-        if (!fallbackUserId) {
-          return res
-            .status(401)
-            .json({
-              error: "Missing or invalid Authorization header",
-              details: "A valid token or 'x-user-id' is required.",
-            });
-        }
-        (req as any).userId = fallbackUserId;
-      } else {
-        const token = authHeader.split("Bearer ")[1];
-        try {
-          const decodedToken = await verifySupabaseToken(token);
-          (req as any).userId = decodedToken.uid;
-        } catch (e) {
-          return res.status(401).json({ error: "Invalid token" });
-        }
+        return res.status(401).json({ error: "Missing or invalid Authorization header" });
       }
+      const token = authHeader.split("Bearer ")[1];
+      let decodedToken;
+      try {
+        decodedToken = await verifySupabaseToken(token);
+      } catch (e) {
+        return res.status(401).json({ error: "Invalid token" });
+      }
+      (req as any).userId = decodedToken.uid;
 
-      const userId = (req as any).userId;
-      const tenantId = (req as any).tenantId;
+      const userId = decodedToken.uid;
+      const tenantId = (req as any).tenantId ?? decodedToken.tenantId;
 
       if (!tenantId) {
         return res
@@ -37,11 +29,11 @@ export const requirePermission = (resource: string, action: string) => {
           .json({ error: "TenantId required before permission check" });
       }
 
+      // MT-04: contexto ABAC só com dados server-side (tenant + params de rota),
+      // NUNCA mesclar body/query controlados pelo cliente (poderiam satisfazer condições ABAC).
       const context = {
         tenantId,
         ...(req.params || {}),
-        ...(req.body || {}),
-        ...(req.query || {}),
       };
 
       const hasAccess = await checkPermissionAdmin(
