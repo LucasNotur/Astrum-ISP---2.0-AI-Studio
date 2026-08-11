@@ -1,4 +1,5 @@
 import express from "express";
+import { sendServerError } from "../lib/httpErrors.ts";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import swaggerJsDoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
@@ -129,7 +130,7 @@ router.get("/tickets", requireApiKey, async (req, res) => {
     
     res.json({ data: tickets, count: tickets.length });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, error, "api_v1_error");
   }
 });
 
@@ -176,7 +177,7 @@ router.get("/customers", requireApiKey, async (req, res) => {
     
     res.json({ data: customers, count: customers.length });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, error, "api_v1_error");
   }
 });
 
@@ -228,7 +229,7 @@ router.get("/metrics/daily", requireApiKey, async (req, res) => {
        ai_handled: resolved
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, error, "api_v1_error");
   }
 });
 
@@ -259,7 +260,7 @@ router.get("/metrics/summary", requireApiKey, async (req, res) => {
         total_customers: customersCount.data().count
      });
   } catch (error: any) {
-     res.status(500).json({ error: error.message });
+     sendServerError(res, error, "api_v1_error");
   }
 });
 

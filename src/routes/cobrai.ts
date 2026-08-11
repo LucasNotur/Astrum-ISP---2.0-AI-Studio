@@ -1,4 +1,5 @@
 import express from "express";
+import { sendServerError } from "../lib/httpErrors.ts";
 import { cobraiQueue, processCobraiJob } from "../workers/cobraiWorker.ts";
 import { adminDb as db } from "../lib/firebaseAdmin.ts";
 
@@ -82,7 +83,7 @@ cobraiRouter.delete("/queue/:id", async (req, res) => {
     return res.json({ ok: true });
   } catch (err: any) {
     console.error("Error in DELETE /queue/:id:", err);
-    return res.status(500).json({ error: err.message });
+    return sendServerError(res, err, "cobrai_error");
   }
 });
 
@@ -135,6 +136,6 @@ cobraiRouter.post("/send-now", async (req, res) => {
     }
   } catch (err: any) {
     console.error("Error in POST /send-now:", err);
-    return res.status(500).json({ error: err.message });
+    return sendServerError(res, err, "cobrai_error");
   }
 });

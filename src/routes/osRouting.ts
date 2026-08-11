@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { sendServerError } from "../lib/httpErrors.ts";
 
 export const osRoutingRouter = Router();
 
@@ -85,7 +86,7 @@ osRoutingRouter.post("/optimize-route", async (req, res) => {
     const optimized = await optimizeRoute(oss);
     res.json({ route: optimized });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    sendServerError(res, err, "os_routing_error");
   }
 });
 

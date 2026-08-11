@@ -1,4 +1,5 @@
 import express from "express";
+import { sendServerError } from "../lib/httpErrors.ts";
 import { adminDb as db } from "../lib/firebaseAdmin.ts";
 import { getTenantQueue, messageQueue } from "../lib/queue.ts";
 import { cobraiQueue } from "../workers/cobraiWorker.ts";
@@ -26,7 +27,7 @@ dlqRouter.get("/", async (req, res) => {
     return res.json(jobs);
   } catch (err: any) {
     console.error("Error listing DLQ jobs:", err);
-    return res.status(500).json({ error: err.message });
+    return sendServerError(res, err, "dlq_error");
   }
 });
 
@@ -70,6 +71,6 @@ dlqRouter.post("/:id/retry", async (req, res) => {
     return res.json({ ok: true });
   } catch (err: any) {
     console.error("Error retrying DLQ job:", err);
-    return res.status(500).json({ error: err.message });
+    return sendServerError(res, err, "dlq_error");
   }
 });

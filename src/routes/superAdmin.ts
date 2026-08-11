@@ -1,6 +1,7 @@
 import express from "express";
 import { adminDb as db } from "../lib/firebaseAdmin.ts";
 import { verifySupabaseToken } from "../lib/authVerify.ts";
+import { sendServerError } from "../lib/httpErrors.ts";
 
 export const superAdminRouter = express.Router();
 
@@ -74,7 +75,7 @@ superAdminRouter.get("/ai-circuit", verifySuperAdmin, async (req: express.Reques
 
     res.json({ circuitStatus, fallbacks });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, error, "superadmin_error");
   }
 });
 
@@ -87,7 +88,7 @@ superAdminRouter.get("/tenants", verifySuperAdmin, async (req: express.Request, 
     }));
     res.json(tenants);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, error, "superadmin_error");
   }
 });
 
@@ -102,7 +103,7 @@ superAdminRouter.post("/custom-domains", verifySuperAdmin, express.json(), async
     });
     res.json({ status: "success", domain, tenantId });
   } catch(e: any) {
-    res.status(500).json({ error: e.message });
+    sendServerError(res, e, "superadmin_error");
   }
 });
 
@@ -114,7 +115,7 @@ superAdminRouter.get("/tenants/:id", verifySuperAdmin, async (req: express.Reque
     }
     res.json({ id: doc.id, ...doc.data() });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, error, "superadmin_error");
   }
 });
 
@@ -128,7 +129,7 @@ superAdminRouter.post("/tenants/:id/suspend", verifySuperAdmin, express.json(), 
     await docRef.update({ status: "suspended" });
     res.json({ success: true, message: "Tenant suspended" });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, error, "superadmin_error");
   }
 });
 
@@ -142,7 +143,7 @@ superAdminRouter.post("/tenants/:id/reactivate", verifySuperAdmin, express.json(
     await docRef.update({ status: "active" });
     res.json({ success: true, message: "Tenant reactivated" });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, error, "superadmin_error");
   }
 });
 
@@ -227,7 +228,7 @@ superAdminRouter.get("/metrics", verifySuperAdmin, async (req: express.Request, 
       total_tenants: tenantsSnap.size,
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    sendServerError(res, error, "superadmin_error");
   }
 });
 
