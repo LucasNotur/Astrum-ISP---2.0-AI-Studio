@@ -741,6 +741,7 @@ export const processMessageJob = async (job: any) => {
       if (processedTextMessage && /^[1-5]$/.test(processedTextMessage.trim())) {
 
         const csatCheckQ = db.collection("tickets")
+          .where("tenantId", "==", tenantId) // MT-02: defesa em profundidade (customerId já é tenant-bound)
           .where("customerId", "==", customerId)
           .orderBy("createdAt", "desc")
           .limit(1);
@@ -839,6 +840,7 @@ export const processMessageJob = async (job: any) => {
       } else {
         // Fallback robusto se n tiver ticketId no worker (nao deve ocorrer pela mudança no server.ts)
         const tQuery = db.collection("tickets")
+          .where("tenantId", "==", tenantId) // MT-02: defesa em profundidade (customerId já é tenant-bound)
           .where("customerId", "==", customerId)
           .where("status", "in", ["open", "in-progress", "escalated"]);
         const tSnap = await tQuery.get();
