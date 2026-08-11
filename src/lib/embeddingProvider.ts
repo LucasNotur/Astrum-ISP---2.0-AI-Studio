@@ -8,7 +8,10 @@ export interface EmbeddingProvider {
 }
 
 function createProviderFromConfig(config: any): EmbeddingProvider {
-  const client = new OpenAI({ apiKey: config.api_key, dangerouslyAllowBrowser: true });
+  // LLM-03 (auditoria 2026-08-10): SEM dangerouslyAllowBrowser. Este módulo é backend-only;
+  // o flag desativava a proteção do SDK OpenAI que impede instanciar o cliente (com api_key)
+  // em ambiente de browser — um landmine caso o módulo caísse num bundle do frontend.
+  const client = new OpenAI({ apiKey: config.api_key });
   return {
     embed: async (text: string) => {
       const response = await client.embeddings.create({
