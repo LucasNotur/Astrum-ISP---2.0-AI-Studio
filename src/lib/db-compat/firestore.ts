@@ -32,6 +32,34 @@ const log = {
   error: (msg: string, meta?: any) => console.error(`[db-compat] ${msg}`, meta ?? ''),
 };
 
+// ── MT-02 (auditoria 2026-08-10): guard de isolamento de tenant no backend ───────────
+// O backend legado roda TODO via service_role (bypassa RLS), então o isolamento depende de
+// cada query filtrar por tenant manualmente. Este guard torna a classe de bug VISÍVEL: se uma
+// tabela tenant-scoped for consultada sem filtro de tenant (e sem lookup por `id` único),
+// avisa uma vez por tabela. STRICT_TENANT_GUARD=true faz LANÇAR (para CI/staging/teste de RLS).
+const TENANT_SCOPED_TABLES = new Set([
+  'customers', 'tickets', 'invoices', 'messages', 'conversations', 'service_orders',
+  'network_ctos', 'payments', 'technicians', 'inventory', 'notifications', 'cobrai_jobs',
+  'knowledge_documents',
+]);
+const tenantGuardWarned = new Set<string>();
+
+export function assertTenantScopedFilter(
+  table: string,
+  filters: Array<{ field: string; op: string }>,
+  fixedFilters: Record<string, any> = {},
+): void {
+  if (!TENANT_SCOPED_TABLES.has(table)) return;
+  const hasTenant =
+    Object.keys(fixedFilters).some((k) => k === 'tenant_id') ||
+    filters.some((f) => toSnake(f.field) === 'tenant_id');
+  const hasUniqueId = filters.some((f) => f.op === '==' && toSnake(f.field) === 'id');
+  if (hasTenant || hasUniqueId) return;
+  const msg = `MT-02: query em '${table}' SEM filtro de tenant (service_role bypassa RLS — risco cross-tenant)`;
+  if (process.env.STRICT_TENANT_GUARD === 'true') throw new Error(`[db-compat] ${msg}`);
+  if (!tenantGuardWarned.has(table)) { tenantGuardWarned.add(table); log.warn(msg); }
+}
+
 // Fallbacks para legacy_docs são logados uma vez por (path-shape, reason)
 const loggedFallbacks = new Set<string>();
 setRouteLogger(({ path, reason }) => {
@@ -457,6 +485,7 @@ export class Query {
     const route = resolveRoute(this.segments);
 
     if (route.kind === 'native') {
+      assertTenantScopedFilter(route.table, this.filters, route.fixedFilters);
       const pushed = await this.execNative(route);
       if (pushed) return pushed;
       // Fallback: busca ampla + engine JS (pushdown falhou — coluna desconhecida etc.)
