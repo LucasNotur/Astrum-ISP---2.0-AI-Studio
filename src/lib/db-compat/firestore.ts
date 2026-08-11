@@ -432,6 +432,7 @@ export class Query {
   protected orders: Order[] = [];
   protected _limit: number | null = null;
   protected _offset = 0;
+  protected _crossTenant = false; // MT-02: marca query intencionalmente cross-tenant (workers de sistema)
 
   constructor(protected readonly segments: string[]) {}
 
@@ -445,6 +446,18 @@ export class Query {
     q.orders = [...this.orders];
     q._limit = this._limit;
     q._offset = this._offset;
+    q._crossTenant = this._crossTenant;
+    return q;
+  }
+
+  /**
+   * MT-02: declara EXPLICITAMENTE que esta query varre múltiplos tenants de propósito
+   * (ex.: worker de SLA que processa tickets de todos os tenants). Isenta do guard de
+   * isolamento — sem isso, STRICT_TENANT_GUARD=true quebraria jobs de sistema legítimos.
+   */
+  crossTenant(): Query {
+    const q = this.clone();
+    q._crossTenant = true;
     return q;
   }
 
@@ -485,7 +498,7 @@ export class Query {
     const route = resolveRoute(this.segments);
 
     if (route.kind === 'native') {
-      assertTenantScopedFilter(route.table, this.filters, route.fixedFilters);
+      if (!this._crossTenant) assertTenantScopedFilter(route.table, this.filters, route.fixedFilters);
       const pushed = await this.execNative(route);
       if (pushed) return pushed;
       // Fallback: busca ampla + engine JS (pushdown falhou — coluna desconhecida etc.)
