@@ -178,17 +178,18 @@ Recomendação por endpoint. `bknd` = tem lógica de backend hoje? (grep). Confi
 | `/api/knowledge/reindex*` + `/search-test` + `/rag/scrape-url` + `/integrations/embeddings\|vectorstore/test` | ⏸️ **GAP SEPARADO** (vector/RAG) — precisam do backend de embeddings/qdrant. `loadConfigs` fica no-op inofensivo (guard `.id` próprio). Não tocado nesta rodada. | 🟡 |
 
 ### ❓ VERIFICAR (decisão sua / preciso de 1 olhada rápida)
-| Endpoint | Dúvida |
-|---|---|
-| `/api/upsell/convert` | há 4 arquivos com "upsell" — é monetização real ou demo? |
-| `/api/unmask` | operador precisa revelar PII mascarada? Se sim → construir COM auditoria; se é só display → remover |
-| `/api/voip/initiate-call` | click-to-call é feature? (há infra Twilio/voz no apps/api) |
-| `/api/service-orders/sync` (TechnicianApp) | sincronizar OS — mapeia p/ field-ops do apps/api? |
-| `/api/backup/trigger` | backup manual — real ou os backups já são automáticos? |
-| `/api/rag/scrape-url` | scrape de URL p/ RAG — há `site-scrape.worker`; construir wiring ou já coberto? |
-| `/api/incidents/*` (ServiceOrders, T2) | adaptar o front p/ `/api/v2/rede/incidents` OU criar `/active`+`/resolve`? |
-| `/api/tickets/human-response` (Chat, T2) | resposta humana ao ticket — criar rota no `/api/v2/tickets`? |
-| `/api/billing/*` (Billing, T2) | usa `apps/frontend` billing OU `/api/v2/billing`? |
+**Triagem investigada 2026-08-13** (call site do front + backend disponível). Rec: 🟢 caminho claro · 🟡 precisa decisão.
+| Endpoint (tela) | Achado da investigação | Recomendação | Rec |
+|---|---|---|---|
+| `/api/rag/scrape-url` (KnowledgeBase) | o worker **`site-scrape.worker.ts` EXISTE** (packages/queue) + apps/api tem `/api/v2/documents` e `/api/v2/rag/query`. Só falta a rota que enfileira o worker. | **CONSTRUIR** rota `/api/v2/rag/scrape-url` que enfileira o site-scrape (lógica já existe). | 🟢 |
+| `/api/tickets/human-response` (Chat) | marca `human_responded=true` num ticket escalado quando o operador responde (`{ticketId}`). apps/api tem `/api/v2/tickets` + `/api/v2/tickets/:id` (sem human-response). Coluna `tickets` provavelmente tem o campo. | **CONSTRUIR** (mínimo): `PATCH /api/v2/tickets/:id/human-response` OU set via `/api/v2/tickets/:id`. | 🟢 |
+| `/api/backup/trigger` (Settings) | **sem** rota no apps/api; Supabase cloud faz backup automático gerenciado. Botão "backup manual" provável vestígio/demo. | **REMOVER** o botão (ou esconder) — confirmar que não há requisito de export manual. | 🟡 |
+| `/api/unmask` (MaskedSensitiveData) | revela PII mascarada com `reason` obrigatório + `x-tenant-id`. **Sem** endpoint no apps/api. Feature de segurança real (revelar PII com auditoria LGPD). Manda `{value, reason}` e espera o valor cru — **design pendente:** `value` é o mascarado? o back precisa achar o original. | **CONSTRUIR COM auditoria** (audit_log de quem/quando/porquê) — mas precisa definir o contrato (referência vs valor). | 🟡 |
+| `/api/voip/initiate-call` (Chat) | click-to-call outbound. Telefonia do apps/api é **só INBOUND** (`/telephony/voice/incoming` + stream); não há iniciação de chamada. Infra Twilio existe. | **CONSTRUIR** endpoint outbound (se click-to-call for prioridade) OU adiar. | 🟡 |
+| `/api/upsell/convert` (App) | registra conversão de upsell (`customerId, currentPlan, suggestedPlan, outcome`); toast diz "Dashboard atualizado". **Sem** backend no apps/api. | **CONSTRUIR** rota que grava o evento (tabela/metrics) — **se** houver dashboard que consome; senão REMOVER. | 🟡 |
+| `/api/service-orders/sync` (TechnicianApp) | PWA do técnico enfileira mutações de OS offline e sincroniza (`item` = mutação). apps/api tem `campo` (field-ops) + `/api/v2/portal/service-orders` (é o portal do ASSINANTE, ≠). | **CONSTRUIR/mapear** rota de sync p/ o domínio `campo`. | 🟡 |
+| `/api/incidents/active` + `/:id/resolve` (ServiceOrders, T2) | apps/api tem `/api/v2/rede/incidents` (GET) + `/:id/{scan,confirm,normalize,cancel,communicate}` — **sem** `/active` nem `/resolve`. A `IncidentsPage` já usa o certo. | **ADAPTAR o front** (ServiceOrdersPage) p/ `/api/v2/rede/incidents` + mapear "resolve"→ação (`normalize`/`cancel`?). | 🟡 |
+| `/api/billing/subscription\|invoices/:tenantId` (Billing, T2) | view de billing do provedor. Invoices vivem no Supabase (`invoices` — a própria BillingPage já usa `supabase.from('invoices')` no simulatePayment). apps/api tem `/api/v2/billing/plan` (onboarding). Subscription = fonte incerta. | **ADAPTAR**: invoices direto do Supabase; subscription mapear p/ `/api/v2/billing/plan` (decidir fonte). | 🟡 |
 
 ## 6. Ordem recomendada de execução
 Fase 0 (cliente central + inventário) → Fase 1 (matar os 404) → Fase 2 (portar rota a rota) → Fase 3 (SPA) → Fase 4 (aposentar Express). Fases 0 e 1 dão o maior alívio imediato com o menor risco.
