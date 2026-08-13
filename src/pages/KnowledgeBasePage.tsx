@@ -8,6 +8,8 @@ import { Badge } from "@/src/components/ui/badge";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import { supabase } from '@/src/lib/supabase';
+import { createKBArticle, updateKBArticle, deleteKBArticle } from '@/src/lib/db';
+import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/components/ui/select";
 import { Textarea } from "@/src/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/src/components/ui/tabs";
@@ -145,9 +147,11 @@ export function KnowledgeBasePage() {
   const [searchResults, setSearchResults] = useState<any>(null);
 
   useEffect(() => {
-    if (currentTenant?.id) {
+    // `currentTenant` é a string do tenant id (user.tenantId); o guard antigo
+    // `currentTenant?.id` era sempre undefined → a lista nunca carregava.
+    if (currentTenant && currentTenant !== 'DEFAULT_TENANT') {
       loadConfigs();
-      fetchKBArticles(currentTenant.id);
+      fetchKBArticles(currentTenant);
     }
   }, [currentTenant]);
 
@@ -223,29 +227,38 @@ export function KnowledgeBasePage() {
   };
 
   const handleSaveArticle = async () => {
-    if (!currentTenant?.id) return;
-    if (editingArticle) {
-      await fetch(`/api/knowledge/articles/${editingArticle.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...articleForm, tenantId: currentTenant.id })
-      });
-    } else {
-      await fetch('/api/knowledge/articles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...articleForm, tenantId: currentTenant.id })
-      });
+    if (!currentTenant || currentTenant === 'DEFAULT_TENANT') return;
+    try {
+      // Repontado do 404 /api/knowledge/articles p/ o Supabase direto
+      // (knowledge_articles), o mesmo caminho já usado na leitura (fetchKBArticles).
+      if (editingArticle) {
+        await updateKBArticle(editingArticle.id, {
+          title: articleForm.title, content: articleForm.content, category: articleForm.category,
+        });
+      } else {
+        await createKBArticle({
+          tenant_id: currentTenant, title: articleForm.title,
+          content: articleForm.content, category: articleForm.category,
+        });
+      }
+      setIsArticleModalOpen(false);
+      fetchKBArticles(currentTenant);
+      toast.success(editingArticle ? 'Artigo atualizado' : 'Artigo criado');
+    } catch (e: any) {
+      toast.error('Erro ao salvar artigo: ' + (e?.message || 'desconhecido'));
     }
-    setIsArticleModalOpen(false);
-    fetchKBArticles(currentTenant.id);
   };
 
   const handleDeleteArticle = async (id: string) => {
-    if (!currentTenant?.id) return;
+    if (!currentTenant || currentTenant === 'DEFAULT_TENANT') return;
     if (!confirm('Excluir artigo?')) return;
-    await fetch(`/api/knowledge/articles/${id}?tenantId=${currentTenant.id}`, { method: 'DELETE' });
-    fetchKBArticles(currentTenant.id);
+    try {
+      await deleteKBArticle(id);
+      fetchKBArticles(currentTenant);
+      toast.success('Artigo removido');
+    } catch (e: any) {
+      toast.error('Erro ao remover artigo: ' + (e?.message || 'desconhecido'));
+    }
   };
 
   const testSearch = async () => {
