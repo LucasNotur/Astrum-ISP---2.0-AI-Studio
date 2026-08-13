@@ -17,6 +17,7 @@ import { Switch } from "@/src/components/ui/switch";
 import { Save, Bug, Database, BellRing, LogOut, Copy, RefreshCw, Settings as SettingsIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/src/lib/supabase';
+import { apiGet, apiPost, apiPut, apiDelete } from '@/src/lib/apiClient';
 import { QRCodeSVG } from 'qrcode.react';
 import { useAppStore } from '../store/useAppStore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
@@ -429,12 +430,19 @@ export function SettingsPage() {
     setIsSavingModules(false);
   };
 
-  useEffect(() => {
+  // Fase 1: antes lia de `tenants.departments` (coluna INEXISTENTE → sempre vazio) e
+  // escrevia em /api/departments (404). Agora vai pela tabela `departments` (migration
+  // 097) via GET /api/v2/departments (tenant do JWT).
+  const fetchDepartments = async () => {
     if (!tenantId || tenantId === 'DEFAULT_TENANT') return;
-    // S99 — departments from tenants JSONB column
-    supabase.from('tenants').select('departments').eq('id', tenantId).maybeSingle()
-      .then(({ data }) => setDepartments(data?.departments ?? []));
-    return () => {};
+    try {
+      const data = await apiGet<{ departments: any[] }>('/api/v2/departments');
+      setDepartments(data.departments ?? []);
+    } catch { setDepartments([]); }
+  };
+
+  useEffect(() => {
+    fetchDepartments();
   }, [tenantId]);
 
   useEffect(() => {
@@ -542,19 +550,17 @@ export function SettingsPage() {
   const handleFetchHolidays = async () => {
       setIsFetchingHolidays(true);
       try {
-         const res = await fetch("/api/settings/holidays/fetch-national", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ tenantId })
-         });
-         const data = await res.json();
-         if (res.ok) {
-            toast.success(`Foram carregados ${data.count} feriados nacionais!`);
-         } else {
-            toast.error(data.error || "Erro ao carregar feriados");
-         }
-      } catch (e) {
-         toast.error("Erro ao carregar feriados");
+         // Tenant vem do JWT no backend (dropado o tenantId do body).
+         const data = await apiPost<{ count: number; total: number; year: number }>(
+            "/api/v2/settings/holidays/fetch-national", {}
+         );
+         toast.success(`Foram carregados ${data.count} feriados nacionais de ${data.year}!`);
+         // Recarrega a lista da fonte (o backend mesclou em tenants.holidays).
+         const { data: row } = await supabase.from('tenants').select('holidays').eq('id', tenantId).maybeSingle();
+         const list = row?.holidays ?? [];
+         setHolidays([...list].sort((a: any, b: any) => a.date.localeCompare(b.date)));
+      } catch (e: any) {
+         toast.error(e?.message || "Erro ao carregar feriados");
       } finally {
          setIsFetchingHolidays(false);
       }
@@ -605,94 +611,45 @@ export function SettingsPage() {
   const [rbxCredentials, setRbxCredentials] = useState({ url: '', token: '' });
   const [isTestingRbx, setIsTestingRbx] = useState(false);
   
-  const fetchIXCCredentials = async () => {
-    try {
-      const res = await fetch(`/api/integrations/ixc?tenantId=${tenantId}`);
-      if (res.ok) {
-        setIxcCredentials(await res.json());
-      }
-    } catch(e) {}
-  };
+  // Fase 1 — credenciais ERP migradas para /api/v2/erp/* (API que CIFRA server-side →
+  // mata o SEC-R5: a chave não trafega mais em texto puro do browser). O GET novo NÃO
+  // devolve o segredo (por design), então os formulários não pré-preenchem o token —
+  // exibimos só "configurado". Para trocar, reentre o segredo. O /test usa a credencial
+  // JÁ SALVA (cifrada), então salve antes de testar.
+  const [configuredProviders, setConfiguredProviders] = useState<Set<string>>(new Set());
 
-  const fetchVoalleCredentials = async () => {
+  const fetchErpStatus = async () => {
     try {
-      const res = await fetch(`/api/integrations/voalle?tenantId=${tenantId}`);
-      if (res.ok) {
-        setVoalleCredentials(await res.json());
-      }
-    } catch(e) {}
-  };
-
-  const fetchHubsoftCredentials = async () => {
-    try {
-      const res = await fetch(`/api/integrations/hubsoft?tenantId=${tenantId}`);
-      if (res.ok) {
-        setHubsoftCredentials(await res.json());
-      }
-    } catch(e) {}
-  };
-
-  const fetchSgpCredentials = async () => {
-    try {
-      const res = await fetch(`/api/integrations/sgp?tenantId=${tenantId}`);
-      if (res.ok) {
-        setSgpCredentials(await res.json());
-      }
-    } catch(e) {}
-  };
-
-  const fetchRbxCredentials = async () => {
-    try {
-      const res = await fetch(`/api/integrations/rbx?tenantId=${tenantId}`);
-      if (res.ok) {
-        setRbxCredentials(await res.json());
-      }
-    } catch(e) {}
+      const data = await apiGet<{ credentials: Array<{ provider: string; active: boolean }> }>(
+        '/api/v2/erp/credentials',
+      );
+      setConfiguredProviders(new Set((data.credentials ?? []).filter((c) => c.active).map((c) => c.provider)));
+    } catch { /* sem credenciais ou sem permissão — deixa o set vazio */ }
   };
 
   useEffect(() => {
-    fetchIXCCredentials();
-    fetchVoalleCredentials();
-    fetchHubsoftCredentials();
-    fetchSgpCredentials();
-    fetchRbxCredentials();
+    fetchErpStatus();
   }, [tenantId]);
 
   const saveVoalleCredentials = async () => {
     try {
       toast.info('Salvando credenciais Voalle...');
-      const res = await fetch('/api/integrations/voalle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...voalleCredentials, tenantId })
-      });
-      if (res.ok) {
-        toast.success('Credenciais Voalle salvas com sucesso!');
-        fetchVoalleCredentials();
-      } else {
-        toast.error('Falha ao salvar credenciais Voalle.');
-      }
-    } catch (e) {
-      toast.error('Erro ao salvar credenciais Voalle.');
+      await apiPost('/api/v2/erp/credentials', { provider: 'voalle', credentials: voalleCredentials, active: true });
+      toast.success('Credenciais Voalle salvas com sucesso!');
+      fetchErpStatus();
+    } catch (e: any) {
+      toast.error(`Erro ao salvar credenciais Voalle: ${e.message}`);
     }
   };
 
   const testVoalleConnection = async () => {
     setIsTestingVoalle(true);
     try {
-      const res = await fetch('/api/integrations/voalle/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...voalleCredentials, tenantId })
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast.success(`Conexão bem sucedida.`);
-      } else {
-        toast.error(`Falha no teste: ${data.error}`);
-      }
-    } catch(e: any) {
-      toast.error(`Erro ao testar: ${e.message}`);
+      // Testa a credencial JÁ SALVA (cifrada no servidor) — salve antes de testar.
+      await apiPost('/api/v2/erp/credentials/voalle/test', {});
+      toast.success('Conexão Voalle bem sucedida.');
+    } catch (e: any) {
+      toast.error(`Falha no teste: ${e.message}`);
     } finally {
       setIsTestingVoalle(false);
     }
@@ -701,38 +658,21 @@ export function SettingsPage() {
   const saveHubsoftCredentials = async () => {
     try {
       toast.info('Salvando credenciais HubSoft...');
-      const res = await fetch('/api/integrations/hubsoft', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...hubsoftCredentials, tenantId })
-      });
-      if (res.ok) {
-        toast.success('Credenciais HubSoft salvas com sucesso!');
-        fetchHubsoftCredentials();
-      } else {
-        toast.error('Falha ao salvar credenciais HubSoft.');
-      }
-    } catch (e) {
-      toast.error('Erro ao salvar credenciais HubSoft.');
+      await apiPost('/api/v2/erp/credentials', { provider: 'hubsoft', credentials: hubsoftCredentials, active: true });
+      toast.success('Credenciais HubSoft salvas com sucesso!');
+      fetchErpStatus();
+    } catch (e: any) {
+      toast.error(`Erro ao salvar credenciais HubSoft: ${e.message}`);
     }
   };
 
   const testHubsoftConnection = async () => {
     setIsTestingHubsoft(true);
     try {
-      const res = await fetch('/api/integrations/hubsoft/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...hubsoftCredentials, tenantId })
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast.success(`Conexão bem sucedida. Clientes listados ou autenticação validada.`);
-      } else {
-        toast.error(`Falha no teste: ${data.error}`);
-      }
-    } catch(e: any) {
-      toast.error(`Erro ao testar: ${e.message}`);
+      await apiPost('/api/v2/erp/credentials/hubsoft/test', {});
+      toast.success('Conexão HubSoft bem sucedida.');
+    } catch (e: any) {
+      toast.error(`Falha no teste: ${e.message}`);
     } finally {
       setIsTestingHubsoft(false);
     }
@@ -741,38 +681,21 @@ export function SettingsPage() {
   const saveSgpCredentials = async () => {
     try {
       toast.info('Salvando credenciais SGP...');
-      const res = await fetch('/api/integrations/sgp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...sgpCredentials, tenantId })
-      });
-      if (res.ok) {
-        toast.success('Credenciais SGP salvas com sucesso!');
-        fetchSgpCredentials();
-      } else {
-        toast.error('Falha ao salvar credenciais SGP.');
-      }
-    } catch (e) {
-      toast.error('Erro ao salvar credenciais SGP.');
+      await apiPost('/api/v2/erp/credentials', { provider: 'sgp', credentials: sgpCredentials, active: true });
+      toast.success('Credenciais SGP salvas com sucesso!');
+      fetchErpStatus();
+    } catch (e: any) {
+      toast.error(`Erro ao salvar credenciais SGP: ${e.message}`);
     }
   };
 
   const testSgpConnection = async () => {
     setIsTestingSgp(true);
     try {
-      const res = await fetch('/api/integrations/sgp/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...sgpCredentials, tenantId })
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast.success(`Conexão bem sucedida.`);
-      } else {
-        toast.error(`Falha no teste: ${data.error}`);
-      }
-    } catch(e: any) {
-      toast.error(`Erro ao testar: ${e.message}`);
+      await apiPost('/api/v2/erp/credentials/sgp/test', {});
+      toast.success('Conexão SGP bem sucedida.');
+    } catch (e: any) {
+      toast.error(`Falha no teste: ${e.message}`);
     } finally {
       setIsTestingSgp(false);
     }
@@ -781,38 +704,21 @@ export function SettingsPage() {
   const saveRbxCredentials = async () => {
     try {
       toast.info('Salvando credenciais RBX...');
-      const res = await fetch('/api/integrations/rbx', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...rbxCredentials, tenantId })
-      });
-      if (res.ok) {
-        toast.success('Credenciais RBX salvas com sucesso!');
-        fetchRbxCredentials();
-      } else {
-        toast.error('Falha ao salvar credenciais RBX.');
-      }
-    } catch (e) {
-      toast.error('Erro ao salvar credenciais RBX.');
+      await apiPost('/api/v2/erp/credentials', { provider: 'rbx', credentials: rbxCredentials, active: true });
+      toast.success('Credenciais RBX salvas com sucesso!');
+      fetchErpStatus();
+    } catch (e: any) {
+      toast.error(`Erro ao salvar credenciais RBX: ${e.message}`);
     }
   };
 
   const testRbxConnection = async () => {
     setIsTestingRbx(true);
     try {
-      const res = await fetch('/api/integrations/rbx/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...rbxCredentials, tenantId })
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast.success(`Conexão bem sucedida.`);
-      } else {
-        toast.error(`Falha no teste: ${data.error}`);
-      }
-    } catch(e: any) {
-      toast.error(`Erro ao testar: ${e.message}`);
+      await apiPost('/api/v2/erp/credentials/rbx/test', {});
+      toast.success('Conexão RBX bem sucedida.');
+    } catch (e: any) {
+      toast.error(`Falha no teste: ${e.message}`);
     } finally {
       setIsTestingRbx(false);
     }
@@ -821,38 +727,22 @@ export function SettingsPage() {
   const saveIXCCredentials = async () => {
     try {
       toast.info('Salvando credenciais IXC...');
-      const res = await fetch('/api/integrations/ixc', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...ixcCredentials, tenantId })
-      });
-      if (res.ok) {
-        toast.success('Credenciais IXC salvas com sucesso!');
-        fetchIXCCredentials(); // reload to get masked version
-      } else {
-        toast.error('Falha ao salvar credenciais IXC.');
-      }
-    } catch (e) {
-      toast.error('Erro ao salvar credenciais IXC.');
+      await apiPost('/api/v2/erp/credentials', { provider: 'ixc', credentials: ixcCredentials, active: true });
+      toast.success('Credenciais IXC salvas com sucesso!');
+      fetchErpStatus();
+    } catch (e: any) {
+      toast.error(`Erro ao salvar credenciais IXC: ${e.message}`);
     }
   };
 
   const testIXCConnection = async () => {
     setIsTestingIXC(true);
     try {
-      const res = await fetch('/api/integrations/ixc/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...ixcCredentials, tenantId })
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast.success(`Conexão IXC bem sucedida! Clientes encontados: ${data.count}`);
-      } else {
-        toast.error(`Falha: ${data.error}`);
-      }
-    } catch(e: any) {
-      toast.error(`Erro ao testar IXC: ${e.message}`);
+      const data = await apiPost<{ ok: boolean; sample?: unknown }>('/api/v2/erp/credentials/ixc/test', {});
+      toast.success('Conexão IXC bem sucedida!');
+      void data;
+    } catch (e: any) {
+      toast.error(`Falha ao testar IXC: ${e.message}`);
     } finally {
       setIsTestingIXC(false);
     }
@@ -975,26 +865,16 @@ export function SettingsPage() {
   const handleSaveDepartment = async () => {
     if (!deptForm.name) return toast.error("Nome do departamento é obrigatório");
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token ?? '';
+      // Fase 1: /api/departments (404) → /api/v2/departments (Fastify, tabela 097).
       if (editingDeptId && editingDeptId !== 'new') {
-        const res = await fetch(`/api/departments/${editingDeptId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify(deptForm)
-        });
-        if (!res.ok) throw new Error(await res.text());
+        await apiPut(`/api/v2/departments/${editingDeptId}`, deptForm);
         toast.success("Departamento atualizado");
       } else {
-        const res = await fetch(`/api/departments`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify(deptForm)
-        });
-        if (!res.ok) throw new Error(await res.text());
+        await apiPost(`/api/v2/departments`, deptForm);
         toast.success("Departamento criado");
       }
       setEditingDeptId(null);
+      fetchDepartments();
     } catch (e: any) {
       toast.error("Erro ao salvar departamento: " + e.message);
     }
@@ -1003,14 +883,9 @@ export function SettingsPage() {
   const handleDeleteDepartment = async (id: string) => {
     if (!confirm("Tem certeza que deseja excluir?")) return;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token ?? '';
-      const res = await fetch(`/api/departments/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error(await res.text());
+      await apiDelete(`/api/v2/departments/${id}`);
       toast.success("Departamento removido");
+      fetchDepartments();
     } catch (e: any) {
       toast.error("Erro ao remover departamento: " + e.message);
     }
@@ -1173,7 +1048,8 @@ export function SettingsPage() {
                           onChange={(e) => setIxcCredentials(prev => ({ ...prev, token: e.target.value }))}
                         />
                       </div>
-                      <div className="pt-4 flex gap-2">
+                      <div className="pt-4 flex gap-2 items-center">
+                        {configuredProviders.has('ixc') && <span className="text-xs text-emerald-500">✓ Configurado</span>}
                         <Button onClick={saveIXCCredentials}>Salvar</Button>
                         <Button variant="outline" onClick={testIXCConnection} disabled={isTestingIXC}>
                           {isTestingIXC ? 'Testando...' : 'Testar Conexão'}
@@ -1211,6 +1087,7 @@ export function SettingsPage() {
                         />
                       </div>
                       <div className="pt-4 flex gap-2">
+                        {configuredProviders.has('voalle') && <span className="text-xs text-emerald-500 mr-1">✓ Configurado</span>}
                         <Button onClick={saveVoalleCredentials}>Salvar</Button>
                         <Button variant="outline" onClick={testVoalleConnection} disabled={isTestingVoalle}>
                           {isTestingVoalle ? 'Testando...' : 'Testar Conexão'}
@@ -1239,6 +1116,7 @@ export function SettingsPage() {
                         />
                       </div>
                       <div className="pt-4 flex gap-2">
+                        {configuredProviders.has('hubsoft') && <span className="text-xs text-emerald-500 mr-1">✓ Configurado</span>}
                         <Button onClick={saveHubsoftCredentials}>Salvar</Button>
                         <Button variant="outline" onClick={testHubsoftConnection} disabled={isTestingHubsoft}>
                           {isTestingHubsoft ? 'Testando...' : 'Testar Conexão'}
@@ -1267,6 +1145,7 @@ export function SettingsPage() {
                         />
                       </div>
                       <div className="pt-4 flex gap-2">
+                        {configuredProviders.has('sgp') && <span className="text-xs text-emerald-500 mr-1">✓ Configurado</span>}
                         <Button onClick={saveSgpCredentials}>Salvar</Button>
                         <Button variant="outline" onClick={testSgpConnection} disabled={isTestingSgp}>
                           {isTestingSgp ? 'Testando...' : 'Testar Conexão'}
@@ -1295,6 +1174,7 @@ export function SettingsPage() {
                         />
                       </div>
                       <div className="pt-4 flex gap-2">
+                        {configuredProviders.has('rbx') && <span className="text-xs text-emerald-500 mr-1">✓ Configurado</span>}
                         <Button onClick={saveRbxCredentials}>Salvar</Button>
                         <Button variant="outline" onClick={testRbxConnection} disabled={isTestingRbx}>
                           {isTestingRbx ? 'Testando...' : 'Testar Conexão'}
