@@ -73,6 +73,10 @@ export async function buildServer() {
     if (u.role === 'subscriber' || u.aud === 'subscriber-portal') {
       return reply.code(403).send({ code: 'FORBIDDEN', message: 'Token de assinante não é válido para esta rota.' });
     }
+    // AUTH-05: exige binding de emissor/audiência do access token de operador.
+    if (u.iss !== 'astrum-api' || u.aud !== 'astrum-operator') {
+      return reply.code(401).send({ code: 'UNAUTHORIZED', message: 'Token com emissor/audiência inválidos.' });
+    }
   });
 
   const idempotencyPlugin = await import('./infrastructure/idempotency/idempotency.middleware');
@@ -246,6 +250,18 @@ export async function buildServer() {
   const { inboxRoutes } = await import('./domain/atendimento/inbox.routes');
   await app.register(inboxRoutes);
 
+  // Departamentos de atendimento (SLA + roteamento) — CRUD (migration 097).
+  const { departmentsRoutes } = await import('./domain/atendimento/departments.routes');
+  await app.register(departmentsRoutes);
+
+  // Métricas de atendimento (cards FCR + Time-Quality) — fonte daily_metrics (098).
+  const { metricsRoutes } = await import('./domain/atendimento/metrics.routes');
+  await app.register(metricsRoutes);
+
+  // Saúde da conexão WhatsApp (card WhatsAppPage) — sinais Redis + fila global.
+  const { whatsappHealthRoutes } = await import('./domain/atendimento/whatsapp-health.routes');
+  await app.register(whatsappHealthRoutes);
+
   // IA-09 — Coleta de métricas de rede (CTO failure prediction, fase 0)
   const { metricsIngestRoutes } = await import('./domain/rede/metrics-ingest.routes');
   await app.register(metricsIngestRoutes);
@@ -267,6 +283,10 @@ export async function buildServer() {
   // P5-03 — Kit de compliance (DPA/LGPD + due diligence)
   const { complianceRoutes } = await import('./domain/provedor/compliance.routes');
   await app.register(complianceRoutes);
+
+  // LGPD Art. 18 — expurgo (direito ao apagamento) por cliente. Admin-only, destrutivo.
+  const { lgpdRoutes } = await import('./domain/provedor/lgpd.routes');
+  await app.register(lgpdRoutes);
 
   // P5-05 — Trial sem fricção (signup self-service → insight em <30min)
   const { trialRoutes } = await import('./domain/provedor/trial.routes');
@@ -384,8 +404,9 @@ export async function buildServer() {
       status: 'ok',
       version: '2.0.0',
       timestamp: new Date().toISOString(),
+      // SEC-R4: endpoint anônimo — `worker.pid` (detalhe interno de processo) removido;
+      // uptime fica como sinal de liveness (baixa sensibilidade).
       worker: {
-        pid: process.pid,
         uptime: Math.floor(process.uptime()),
       },
       services: {
@@ -399,10 +420,10 @@ export async function buildServer() {
     };
   });
 
+  // SEC-R4: endpoint anônimo — `architecture`/`sprint` (detalhe interno) removidos.
   app.get('/api/v2/status', async () => ({
+    status: 'ok',
     version: '2.0.0',
-    architecture: 'fastify-ddd-hexagonal',
-    sprint: 0,
   }));
 
   // Error handler
