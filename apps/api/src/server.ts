@@ -279,6 +279,10 @@ export async function buildServer() {
   const { holidaysRoutes } = await import('./domain/atendimento/holidays.routes');
   await app.register(holidaysRoutes);
 
+  // Verificação de DNS de domínio customizado (SettingsPage → whitelabel).
+  const { domainVerifyRoutes } = await import('./domain/atendimento/domain-verify.routes');
+  await app.register(domainVerifyRoutes);
+
   // IA-09 — Coleta de métricas de rede (CTO failure prediction, fase 0)
   const { metricsIngestRoutes } = await import('./domain/rede/metrics-ingest.routes');
   await app.register(metricsIngestRoutes);
