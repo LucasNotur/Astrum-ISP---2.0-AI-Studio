@@ -20,6 +20,7 @@ import {
   Search,
 } from "lucide-react";
 import { supabase } from "@/src/lib/supabase";
+import { apiGet } from "@/src/lib/apiClient";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { TOOLTIP_STYLE, GRID_STYLE } from '@/src/lib/chart-theme';
 import { Button } from "@/src/components/ui/button";
@@ -60,13 +61,9 @@ export default function QualityMonitorPage() {
     if (!tenantId) return;
     const fetchStats = async () => {
       try {
-        const res = await fetch("/api/quality/live-stats", {
-          headers: { "x-tenant-id": tenantId }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setStats(data);
-        }
+        // Tenant vem do JWT no backend (dropado o x-tenant-id).
+        const data = await apiGet<typeof stats>("/api/v2/quality/live-stats");
+        setStats(data);
       } catch (e) {
         console.error(e);
       }
