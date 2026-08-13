@@ -1,0 +1,193 @@
+# PLANO — Unificar Backend (Express → Fastify) + Faxina de Código Morto
+
+> Criado 2026-08-12. Contexto: sistema em TESTES, nada em produção. Diagnóstico feito
+> lendo `server.ts` (raiz), `apps/api/src/server.ts` e os `fetch()` do frontend.
+> Respeita R4 (lógica nova em apps/api) e R5 (portar+validar antes de apagar).
+
+## 🔄 PONTO DE RETOMADA (nova sessão começa aqui) — 2026-08-12
+
+**Estado:** Fase 0 ✅ (cliente central `src/lib/apiClient.ts` + inventário — Apêndice A). Fase 1 em andamento (triagem T3 → construir/remover — Apêndice C).
+**Feito:** `webhooks` (T1 repoint) + BUILDs completos: **LGPD-expunge**, **integrations (ERP)**, **departments** (migration 097), **metrics** fcr+time+fcr-target (migration 098), **whatsapp/health-stats** (sem migration — Redis + fila). Migrations 097/098 aplicadas via MCP + registradas em `schema_migrations`.
+**Padrão a repetir p/ cada BUILD restante:** (1) migration da tabela se precisar → aplicar via MCP + registrar checksum em `schema_migrations`; (2) rota Fastify `/api/v2/...` em `apps/api/src/domain/...` + service PURO testável; (3) registrar em `apps/api/src/server.ts`; (4) repontar o front via `apiGet/apiPost/apiPut/apiDelete` de `@/src/lib/apiClient` (tenant vem do JWT, dropar `?tenantId`/`x-tenant-id`); (5) `npm run typecheck:legacy` + `cd apps/api && npx tsc --noEmit`.
+**Próximos BUILD (Apêndice C, 🟢):** `personas`/`keys`/`prompts`, `quality/live-stats`, `settings/holidays`, `domains/verify`. **REMOVER:** `/api/ai/ask`, `/api/knowledge/articles*`. **VERIFICAR (T2/T3):** ver Apêndice C.
+**Tasks em background (outras sessões, não mexer nesses arquivos):** LGPD Zep/Qdrant (`lgpd-*`), webhook `deliveries/retry`, VoalleAdapter, inbox `metadata`→`extra`.
+**⚠️ COMMITAR o acumulado antes de continuar** (muitas mudanças locais: Fase 0 + 4 features + migrations 097/098 + repoints). Ambiente já ativo: `TENANT_RLS_ROUTES_ENABLED=true` + pooler no `.env`.
+
+## 1. Diagnóstico — por que o backend "chama o errado"
+
+Hoje sobem **dois servidores no mesmo processo**:
+
+| | Express (raiz `server.ts`) | Fastify (`apps/api`) |
+|---|---|---|
+| Porta | **3000** (porta de entrada) | **3001** (motor novo) |
+| Papel | serve o SPA + rotas **`/api/*` legadas** + **PROXY `/api/v2/*` → Fastify** | atende **todo `/api/v2/*`** (~80 módulos) + roda os **workers** BullMQ |
+| Banco | Supabase via `db-compat` | Supabase via `supabaseAdmin` |
+| Quem sobe | é o processo principal | é iniciado **pelo Express** (`startFastifyServer()`, linha 30) |
+
+**A raiz do problema:** o frontend faz `fetch('/api/...')` **cru e hardcoded, SEM cliente central**, misturando dois prefixos:
+- `/api/...` → Express (legado)
+- `/api/v2/...` → Fastify (via proxy)
+
+Sem um ponto único que decida o prefixo, é trivial chamar o backend errado. **Evidências concretas de rotas quebradas (404) achadas no diagnóstico:**
+- `/api/personas` (AIConfigPage) → só existe `/api/v2/ia/wind-tunnel/personas` (outra coisa) → **404**
+- `/api/webchat/config` (WebchatPage) → `src/routes/webchat.ts` existe mas **não é montado** → **404**
+- `/api/hsm-templates` (WhatsAppPage/CustomersPage) → `src/routes/hsmTemplates.ts` existe, **não montado** → **404**
+- `/api/whatsapp/health-stats` (WhatsAppPage) → **não existe** em lugar nenhum → **404**
+
+→ A intuição do dono está correta: a topologia de 2 backends + falta de cliente central causou **misrouting sistêmico**.
+
+## 2. Alvo
+
+- **Fastify = único backend.** É superior ao Express aqui: validação por schema (Zod/JSON-schema), plugins de segurança já montados (helmet, jwt, hmac, rate-limit, idempotency), performance, e a arquitetura DDD já está lá. O Express legado é aposentado.
+- **Um cliente de API central no frontend** → fica impossível chamar o backend errado (o path certo é decidido num lugar só).
+
+## 3. Fases (incremental, seguro, sem big-bang)
+
+### Fase 0 — Cliente de API central + inventário  *(base de tudo, baixo risco)*
+1. Criar `src/lib/apiClient.ts`: função única `api(path, opts)` que (a) resolve a base URL, (b) injeta o `Authorization: Bearer` da sessão Supabase (`supabase.auth.getSession()`), (c) trata erro/JSON. **Toda** chamada do frontend passa a usar isso.
+2. Inventariar **todos** os `fetch('/api...')` do frontend → tabela: `caminho chamado → backend real (Express | Fastify | inexistente) → status`. (grep já mostrou dezenas; formalizar.)
+3. Ganho imediato: centraliza a decisão de rota e elimina a classe "chamou o errado".
+
+### Fase 1 — Corrigir os 404 de roteamento  *(bugs vivos)* — **EM ANDAMENTO (2026-08-12)**
+Para cada rota que o front chama e dá 404, decidir: (a) montar no Express se ainda é legado necessário, (b) repontar para a rota Fastify `/api/v2` correta, ou (c) portar pro Fastify.
+
+**Aprendizado da 1ª rodada — a Categoria C tem 3 sub-tipos, NÃO só "prefixo errado":**
+1. **Repoint limpo** — o handler existe no Fastify e o contrato bate. ✅ **FEITO: WebhooksPage** — `/api/webhooks/endpoints*` (404) → `/api/v2/webhooks/endpoints*`. **Bônus: era bug duplo** — além do 404, o body estava errado (`{tenantId, description, event_types}` snake_case; o backend quer `{url, eventTypes}` camelCase e deriva tenant do JWT) → a tela **nunca funcionou**. Agora list/add/delete funcionam. O `deliveries/:id/retry` é **gap de backend** (rota não existe) → task aberta.
+2. **Shape mismatch** — o handler existe mas com contrato diferente. Ex.: `ServiceOrdersPage` chama `/api/incidents/active` + `/:id/resolve`, mas o Fastify tem `/api/v2/rede/incidents` + `/scan|confirm|normalize|cancel|communicate` (a `IncidentsPage` usa o certo). A tela foi escrita contra uma API que nunca existiu nesse formato → precisa adaptar o front OU criar as rotas.
+3. **Feature gap** — não há handler em lugar NENHUM. Ex.: **`/api/integrations/*`** (Settings/ERP) — grep não achou handler; o modelo do Fastify é `/api/v2/erp/credentials` (diferente) e as ESCRITAS já vão direto ao Supabase (`saveIntegrationKeys`, SEC-R5). Decisão de design (construir a rota OU refatorar o front OU remover chamada morta).
+
+→ **Consequência:** a Fase 1 NÃO é mecânica. Cada endpoint da Categoria C precisa ser classificado (1/2/3) e tratado conforme. Os tipos 1 são wins rápidos; os tipos 2/3 precisam de decisão de produto.
+
+### Fase 2 — Portar rotas legadas Express → Fastify `/api/v2`  *(uma a uma, R5)*
+Rotas legadas montadas hoje no Express: `super-admin`, `cobrai`, `queues`, `dlq`, `os`, `evolution`, `jobs`, `webhook/facebook`, `webhook/evolution`, `webhook/asaas`.
+Para cada: criar equivalente fino em `apps/api` (sobre os services), repontar o `apiClient`, validar com teste, e **só então** remover do Express.
+⚠️ **Webhooks** exigem cuidado: verificação HMAC sobre **raw-body** + fail-closed. O Fastify já tem `webhook-hmac.plugin` — garantir paridade antes de mover (o Express hoje faz isso via `express.json({verify})` → `req.rawBody`, APPSEC-05).
+
+### Fase 3 — Servir o SPA fora do Express
+Hoje o Express serve o Vite (dev) / `dist/client` (build). Opções: (a) Fastify serve os estáticos (`@fastify/static`), ou (b) frontend 100% na Vercel/CDN e Fastify vira **só API**. Decisão de topologia do dono (cruza com INFRA-01: hoje o backend roda como `npm run dev` numa workstation — SPOF).
+
+### Fase 4 — Aposentar o Express
+Quando nada mais chama `/api/*` legado **e** o SPA é servido fora: remover `server.ts` raiz + `src/routes/*`, o proxy some, e o Fastify vira o processo principal. O próprio código já prevê isso: o comentário no `apps/api/src/server.ts` diz *"process.exit(1) volta na S82, quando o Fastify for o processo principal"*.
+
+## 4. Riscos / dependências
+- **Auth divergente:** Fastify usa JWT próprio (`iss:astrum-api`, `aud:astrum-operator`); o legado verifica JWT Supabase (`authVerify.ts`). Unificar auth é pré-requisito de parte das rotas (cruza com MT-02(a)/(b), decisão de arquitetura de auth ainda aberta).
+- **Cutover de atendimento (S74):** o worker v2 de mensagens já roda em *shadow* (`ATENDIMENTO_ENGINE=legacy`). A migração de backend **não** deve ligar o cutover por si só.
+- **RLS (MT-02c):** as 16 rotas já migradas para `withTenantRLS` estão no Fastify — a unificação **reforça** isso (mais tráfego passa pelo motor que tem a defesa em profundidade).
+
+## 5. Faxina — inventário (2026-08-12)
+- ✅ **REMOVIDO:** `firebase-applet-config.json` (config de projeto **AI Studio/Firebase** abandonado — `projectId: gen-lang-client-*`, `firestoreDatabaseId: ai-studio-*`; viola R2 "Firestore removido"). Nenhum código o importava.
+- 🟢 **VIVO (não é lixo):** `src/lib/gemini.ts` (front: App/AIConfig/Chat/CustomerDetails), `src/lib/gemini.server.ts` (back: messageWorker/toolRegistry/tenantGuard), `src/ai-provider/*` (multi-provider, usado pelo legado **e** referenciado por `apps/api` — sendo portado, R3). Só saem quando o legado sair (Fase 4).
+- 🐛 **BUG, não lixo:** `src/routes/hsmTemplates.ts` e `src/routes/webchat.ts` existem mas **não são montados** → Fase 1.
+
+## APÊNDICE A — Inventário dos `fetch('/api...')` do frontend (Fase 0, 2026-08-12)
+
+Levantados **~197 fetches** em `src/`. Cliente central criado: `src/lib/apiClient.ts` (`api/apiGet/apiPost/apiPut/apiPatch/apiDelete` — base URL + `Authorization: Bearer` + JSON + `ApiError` num só lugar; teste 7/7 em `src/__tests__/lib/apiClient.test.ts`). Categorização por destino:
+
+### A) `/api/v2/*` → Fastify — **OK** (prefixo certo)
+A maioria das telas `intelligence/*` (Churn, Cfo, Campaigns, Drift, Guardrails, Incidents, Labeling, Mcp, Models, NetworkHealth, NetworkTwin, PolicyLab, Reflections, Replay, ReviewQueue, Sandbox, Staffing, Synthetic, Tools, VoiceQa) + Valor, Genesis, SmartHome, Cobrança, Field (`fieldOps.ts`), KB drafts, Trial, Health. Estas só precisam **passar a usar o `apiClient`** (Fase 0), sem mudar rota.
+
+### B) `/api/*` legado **montado** no Express — **funciona**
+`/api/system/webhook-url`, `/api/evolution/proxy` + `/fetch-history`, `/api/dlq` + `/:id/retry`, `/api/queues/stats`, `/api/jobs/schedule-*`, `/api/super-admin/*`, `/api/health/whatsapp`.
+
+### C) `/api/*` legado **NÃO montado** no Express → **provável 404 / misrouting** (o alvo da Fase 1)
+Estas telas chamam prefixos que o `server.ts` raiz não monta. Precisam ser mapeadas: montar no Express (se legado vivo), **repontar para o Fastify `/api/v2`** (quando já existe lá), ou portar. Hipótese de alvo entre parênteses:
+
+| Endpoint chamado (tela) | Situação / alvo provável |
+|---|---|
+| `/api/integrations/*` (Settings, ERPIntegrations, AIConfig, KB) — ixc/voalle/hubsoft/sgp/rbx/ping/test, embeddings, vectorstore, redis | **maior bloco**; provável Fastify `erp-admin` (`/api/v2/erp/*`) — mapear |
+| `/api/knowledge/*` (KnowledgeBase) — articles, reindex, search-test | Fastify KB? (`/api/v2/kb/*`) — mapear |
+| `/api/rag/upload-pdf`, `/api/rag/scrape-url` | Fastify `documents/upload` + rag — repontar |
+| `/api/incidents/*` (ServiceOrders) | **existe** no Fastify: `/api/v2/rede/incidents` — repontar |
+| `/api/hsm-templates*` (WhatsApp, Customers) | `src/routes/hsmTemplates.ts` existe, **não montado** — montar ou portar |
+| `/api/webchat/*` (Webchat) | `src/routes/webchat.ts` existe, **não montado** — montar ou portar |
+| `/api/webhooks/*` (Webhooks) | Fastify tem `webhook-config` — conferir prefixo e repontar |
+| `/api/personas*` (AIConfig) | sem equivalente claro — investigar |
+| `/api/keys`, `/api/prompts/validate` (AIConfig) | investigar |
+| `/api/billing/*` (Billing) | `apps/frontend` billing? investigar |
+| `/api/tickets/human-response` (Chat) | Fastify `/api/v2/tickets` — repontar |
+| `/api/voip/initiate-call` (Chat) | Fastify voz — investigar |
+| `/api/metrics/fcr`, `/api/metrics/time-quality` (cards) | Fastify analytics — investigar |
+| `/api/settings/*` (holidays, fcr-target), `/api/departments/*`, `/api/domains/verify`, `/api/backup/trigger` | investigar (legado?) |
+| `/api/lgpd/expunge` (Security) | Fastify compliance — repontar |
+| `/api/quality/live-stats`, `/api/service-orders/sync`, `/api/whatsapp/health-stats`, `/api/unmask`, `/api/upsell/convert`, `/api/ai/ask` (gemini.ts) | investigar caso-a-caso |
+
+> ⚠️ "Provável 404" = inferido do que o `server.ts` monta; a Fase 1 confirma cada um com uma chamada real e decide montar/repontar/portar. **É exatamente aqui que mora o "sistema chama o backend errado".**
+
+## APÊNDICE B — Classificação completa da Categoria C (2026-08-12)
+
+Cruzei cada `/api/*` quebrado contra o mapa de **141 rotas `/api/v2` do Fastify** + os mounts do Express. Legenda: **T1** repoint limpo (existe + contrato bate) · **T2** shape mismatch (existe, contrato diferente) · **T3** feature gap (não há handler em lugar nenhum) · **ML** legado existe mas não montado (mount ou portar).
+
+| Chamada do frontend (tela) | Equivalente no backend | Tipo | Ação |
+|---|---|---|---|
+| `/api/webhooks/endpoints*` (Webhooks) | `/api/v2/webhooks/endpoints*` | **T1** | ✅ **FEITO** |
+| `/api/webhooks/deliveries/:id/retry` | — | T3 | task aberta |
+| `/api/webchat/*` (Webchat) | `src/routes/webchat.ts` (não montado) | **ML** | montar OU portar (fácil) |
+| `/api/hsm-templates*` (WhatsApp/Customers) | `src/routes/hsmTemplates.ts` (não montado) | **ML** | montar OU portar (fácil) |
+| `/api/incidents/active`, `/:id/resolve` (ServiceOrders) | `/api/v2/rede/incidents` (shape ≠) | T2 | adaptar front OU criar rotas |
+| `/api/rag/upload-pdf` (KB/AIConfig) | `/api/v2/documents/upload` | T2 | repontar + ajustar shape |
+| `/api/billing/subscription\|invoices` (Billing) | `/api/v2/billing/plan` (≠) | T2 | verificar/adaptar |
+| `/api/tickets/human-response` (Chat) | `/api/v2/tickets` (sem `human-response`) | T2/T3 | verificar |
+| `/api/integrations/*` (Settings/ERP/AIConfig/KB) | `/api/v2/erp/credentials` (modelo ≠; escrita já vai direto ao Supabase) | **T3** | **decisão de design** (maior bloco) |
+| `/api/knowledge/articles*\|reindex\|search-test` (KB) | — (`kb/drafts` é outra coisa) | T3 | construir OU remover |
+| `/api/rag/scrape-url` (KB) | — (só `rag/query`) | T3 | construir OU remover |
+| `/api/personas*` (AIConfig) | — (só wind-tunnel) | T3 | construir OU remover |
+| `/api/keys`, `/api/prompts/validate` (AIConfig) | — | T3 | construir OU remover |
+| `/api/voip/initiate-call` (Chat) | — | T3 | construir OU remover |
+| `/api/metrics/fcr\|time-quality` (cards) | — | T3 | construir OU remover |
+| `/api/settings/holidays\|fcr-target` | — | T3 | construir OU remover |
+| `/api/departments/*` (Settings) | — | T3 | construir OU remover |
+| `/api/domains/verify` (Settings) | — | T3 | construir OU remover |
+| `/api/backup/trigger` (Settings) | — | T3 | construir OU remover |
+| `/api/lgpd/expunge` (Security) | — (`compliance/*` é outra coisa) | T3 | construir OU remover |
+| `/api/quality/live-stats` (QualityMonitor) | — | T3 | construir OU remover |
+| `/api/unmask` (MaskedSensitiveData) | — | T3 | verificar |
+| `/api/upsell/convert` (App) | — | T3 | construir OU remover |
+| `/api/whatsapp/health-stats` (WhatsApp) | — | T3 | construir OU remover |
+| `/api/service-orders/sync` (TechnicianApp) | `/api/v2/portal/service-orders` (≠) | T3 | verificar |
+| `/api/ai/ask` (gemini.ts) | — | T3 | verificar |
+
+**Investigação de 2ª rodada (2026-08-12) — os "quase-wins" também não são mecânicos:**
+- **`webchat` (ML)** — o `POST /message` está ACOPLADO ao worker (enfileira em `messageQueue` + long-poll no Redis `webchat_response:${sessionId}` esperando o `messageWorker` legado responder). Portar a rota sem portar o lado do worker quebra a resposta; e cruza com o cutover S74 (`ATENDIMENTO_ENGINE`). → **Fase 2, não quick-win.**
+- **`hsm-templates` (ML)** — **NÃO existe tabela `hsm_templates` no Supabase** (verificado via MCP). A rota legada (mesmo montada) falharia/retornaria vazio → feature **incompleta** (rota sem tabela). → na prática **T3**.
+- **`/api/rag/upload-pdf` (T2)** — contrato incompatível: o legado **extrai texto síncrono** e devolve `{rawText}`; o `/api/v2/documents/upload` **indexa async** (outbox) e devolve `{id,status}`. Repontar quebra o passo de criar artigo. → **rework de front, não repoint.**
+
+**Veredito da classificação:** só **1 T1** (webhooks, feito). ~4 T2 (adaptáveis). **~18 T3 (feature gap)** — o backend dessas features **nunca foi construído**. Ou seja: o problema não é "roteamento errado" na maioria — é que **o frontend foi feito muito à frente do backend** (coerente com "tudo em testes"). A Fase 1 vira, na prática, uma **triagem de produto**: para cada T3, decidir *construir a rota no Fastify* ou *remover o botão/chamada morta*. Não dá pra automatizar sem essa decisão.
+
+## APÊNDICE C — Proposta de triagem dos T3 (2026-08-12) — AGUARDA CONFIRMAÇÃO DO DONO
+
+Recomendação por endpoint. `bknd` = tem lógica de backend hoje? (grep). Confiança: 🟢 alta / 🟡 média.
+
+### 🔨 CONSTRUIR (feature real de ISP/produto → criar rota Fastify + tabela + teste)
+| Endpoint | Por quê | bknd | Conf |
+|---|---|---|---|
+| `/api/integrations/*` (ERP: ixc/voalle/hubsoft/sgp/rbx + ping/test) | ✅ **FEITO (2026-08-12) — era T2 (backend existia).** SettingsPage migrada p/ `/api/v2/erp/credentials` via `apiClient`: 5 fetch de pré-preenchimento → 1 `fetchErpStatus` (status "configurado", **não devolve segredo** — fecha o vazamento de token pro browser); 5 save + 5 test repontados; selo "✓ Configurado" por provider. Backend: `rbx` adicionado a `ALLOWED_PROVIDERS` (tipo+factory já suportavam); validação relaxada p/ aceitar `clientSecret` (voalle OAuth). As credenciais ERP agora **salvam CIFRADAS** (`tenant_erp_credentials`) em vez do 404 anterior. Typecheck limpo. ⚠️ `voalle` OAuth: SAVE ok; test do VoalleAdapter → **task aberta**. **Nota de escopo:** isto NÃO é o SEC-R5 — o `saveIntegrationKeys` (texto puro em `tenants.integration_keys`, p/ `evolutionUrl` etc.) é outro caminho, não tocado. | **existe→feito** | 🟢 |
+| `/api/lgpd/expunge` | ✅ **CONSTRUÍDO (2026-08-12)** — `POST /api/v2/lgpd/expunge` (`lgpd.routes.ts` + `lgpd-expunge.service.ts`, teste 4/4). **Anonimiza, não deleta** (retenção fiscal de invoices/OS + FK; LGPD Art. 16 II): zera name/email/cpf/phone/address em `customers`, customer_name/address em `service_orders`, content em `messages`. Admin-only, tenant do JWT, via `withTenantRLS` (cross-tenant bloqueado pela RLS), audit em `audit_log` via service_role. Front (SecurityPage) repontado via `apiClient`. | não→feito | 🟢 |
+| `/api/whatsapp/health-stats` | ✅ **CONSTRUÍDO (2026-08-13)** — `GET /api/v2/whatsapp/health-stats?instanceId=` (`whatsapp-health.routes.ts` + `whatsapp-health.service.ts` puro, teste 7/7). Lê os sinais REAIS que o `rateLimiter` legado grava no Redis (`ban_signals:${inst}`, `pause_jobs:${inst}`, `daily_msg_count:${tenant}:${dia}`) + waiting da fila global `astrum-messages`. Antes o front batia em `/api/whatsapp/health-stats?tenantId=` (404 — nunca existiu) → card sempre zerado. Tenant do JWT (dropado o `?tenantId`); instância validada como do tenant via `tenant_evolution_instances` (impede sondar ban de outro tenant). Front (WhatsAppPage `fetchHealth`) repontado via `apiGet`. Typecheck limpo. | não→feito | 🟢 |
+| `/api/metrics/fcr` + `/api/metrics/time-quality` + `/api/settings/fcr-target` | ✅ **CONSTRUÍDO (2026-08-12).** Descoberta: o `fcr.worker` (S79) gravava em `daily_metrics` — **tabela que nunca existiu** → upsert falhava silencioso + cards liam fonte vazia + rotas 404. **Migration 098** cria `daily_metrics` (RLS) + `tenants.fcr_target` (isso **também conserta o worker**). Rotas Fastify `GET /api/v2/metrics/fcr`, `POST /api/v2/metrics/time-quality`, `POST /api/v2/settings/fcr-target` (`metrics.routes.ts` + `metrics.service.ts` puro, teste 5/5). Cards FCRMetricsCard + TimeMetricsCard repontados via `apiClient`. ⚠️ **Limitação:** `time-quality.ranking` (por operador) fica `[]` — `daily_metrics` só tem agregados por dia/tenant, não por-operador. | não→feito | 🟢 |
+| `/api/departments/*` | ✅ **CONSTRUÍDO (2026-08-12).** Feature estava 100% quebrada (lia de `tenants.departments` — coluna INEXISTENTE → vazio; escrevia em `/api/departments` → 404). Feito do zero: **migration 097** cria tabela relacional `departments` + RLS `tenant_own` (aplicada via MCP, isolamento provado, advisors limpos, registrada). Rota Fastify `GET/POST/PUT/DELETE /api/v2/departments` (`departments.routes.ts` + `departments.service.ts` com sanitização, teste 7/7). Front (SettingsPage) repontado via `apiClient` (read+save+delete + reload). Typecheck limpo. | não→feito | 🟢 |
+| `/api/personas*` + `/api/keys` + `/api/prompts/validate` | config da IA por tenant (AIConfigPage) | parcial | 🟡 |
+| `/api/quality/live-stats` | monitor de QA ao vivo | não | 🟡 |
+| `/api/settings/holidays/fetch-national` + `/api/settings/fcr-target` | configs pequenas (afetam SLA/horário) | não | 🟡 |
+| `/api/domains/verify` | domínio custom (whitelabel) — **só se whitelabel for plano ativo** | não | 🟡 |
+
+### 🗑️ REMOVER (chamada morta / superada → apagar o fetch do front)
+| Endpoint | Por quê | Conf |
+|---|---|---|
+| `/api/ai/ask` (`gemini.ts`) | chamada IA direta legada; **superada** pelo agente `/api/v2/ia/*` | 🟡 |
+| `/api/knowledge/articles*` + `/reindex` + `/search-test` | modelo de "artigos" manual **superado** pelo `/api/v2/kb/drafts` (curadoria IA) — confirmar se não há uso manual | 🟡 |
+
+### ❓ VERIFICAR (decisão sua / preciso de 1 olhada rápida)
+| Endpoint | Dúvida |
+|---|---|
+| `/api/upsell/convert` | há 4 arquivos com "upsell" — é monetização real ou demo? |
+| `/api/unmask` | operador precisa revelar PII mascarada? Se sim → construir COM auditoria; se é só display → remover |
+| `/api/voip/initiate-call` | click-to-call é feature? (há infra Twilio/voz no apps/api) |
+| `/api/service-orders/sync` (TechnicianApp) | sincronizar OS — mapeia p/ field-ops do apps/api? |
+| `/api/backup/trigger` | backup manual — real ou os backups já são automáticos? |
+| `/api/rag/scrape-url` | scrape de URL p/ RAG — há `site-scrape.worker`; construir wiring ou já coberto? |
+| `/api/incidents/*` (ServiceOrders, T2) | adaptar o front p/ `/api/v2/rede/incidents` OU criar `/active`+`/resolve`? |
+| `/api/tickets/human-response` (Chat, T2) | resposta humana ao ticket — criar rota no `/api/v2/tickets`? |
+| `/api/billing/*` (Billing, T2) | usa `apps/frontend` billing OU `/api/v2/billing`? |
+
+## 6. Ordem recomendada de execução
+Fase 0 (cliente central + inventário) → Fase 1 (matar os 404) → Fase 2 (portar rota a rota) → Fase 3 (SPA) → Fase 4 (aposentar Express). Fases 0 e 1 dão o maior alívio imediato com o menor risco.

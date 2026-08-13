@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { useAppStore } from '@/src/store/useAppStore';
 import { supabase } from '@/src/lib/supabase';
 import { saveIntegrationKeys } from '@/src/lib/db';
+import { apiGet } from '@/src/lib/apiClient';
 
 export function WhatsAppConnectionsPage() {
   const { user, companySettings, integrationKeys, setIntegrationKeys } = useAppStore();
@@ -33,10 +34,9 @@ export function WhatsAppConnectionsPage() {
 
   const fetchHealth = async (conn: any) => {
     try {
-      const tId = companySettings?.tenant_id || user?.tenantId;
-      if (!tId) return;
-      const res = await fetch(`/api/whatsapp/health-stats?tenantId=${tId}&instanceId=${conn.instanceName}`);
-      const data = await res.json();
+      if (!conn?.instanceName) return;
+      // Tenant vem do JWT no backend; só a instância vai no query.
+      const data = await apiGet<any>(`/api/v2/whatsapp/health-stats?instanceId=${encodeURIComponent(conn.instanceName)}`);
       setHealthStats(prev => ({ ...prev, [conn.id]: data }));
     } catch (e) {
       console.error("Error fetching health", e);
