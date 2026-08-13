@@ -262,6 +262,15 @@ export async function buildServer() {
   const { whatsappHealthRoutes } = await import('./domain/atendimento/whatsapp-health.routes');
   await app.register(whatsappHealthRoutes);
 
+  // Personas de IA por tenant (AIConfigPage) — portado do personaManager legado,
+  // mesma fonte (legacy_docs/ai_personas) que o messageWorker lê.
+  const { personasRoutes } = await import('./domain/atendimento/personas.routes');
+  await app.register(personasRoutes);
+
+  // Validação de system prompts (AIConfigPage → "Validar e salvar").
+  const { promptsRoutes } = await import('./domain/atendimento/prompts.routes');
+  await app.register(promptsRoutes);
+
   // IA-09 — Coleta de métricas de rede (CTO failure prediction, fase 0)
   const { metricsIngestRoutes } = await import('./domain/rede/metrics-ingest.routes');
   await app.register(metricsIngestRoutes);
