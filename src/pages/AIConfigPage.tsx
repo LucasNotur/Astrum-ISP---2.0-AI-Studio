@@ -13,7 +13,8 @@ import { Bot, Sparkles, Plus, Edit2, Trash2, Download, Database, Upload, Eye, Ey
 import { RingChart, RingLegend, ASTRUM_SEMANTIC } from '@/src/components/ui/ring-chart';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/src/components/ui/dialog';
 import { useAppStore } from '@/src/store/useAppStore';
-import { getSystemPrompts, saveSystemPrompts, seedKnowledgeBase, createKBArticle, updateKBArticle, deleteKBArticle } from '@/src/lib/db';
+import { getSystemPrompts, saveSystemPrompts, seedKnowledgeBase, createKBArticle, updateKBArticle, deleteKBArticle, saveIntegrationKeys as saveIntegrationKeysDb } from '@/src/lib/db';
+import { apiGet, apiPost, apiPut, apiDelete } from '@/src/lib/apiClient';
 import { getKnowledgeBase as sbGetKnowledgeBase } from '@/src/lib/supabaseDb';
 import { getAIResponse, generateKBArticleFromTickets, SYSTEM_PROMPTS } from '@/src/lib/gemini';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -137,8 +138,9 @@ export function AIConfigPage() {
   const fetchPersonas = async () => {
     setLoadingPersonas(true);
     try {
-      const res = await fetch(`/api/personas?tenantId=${tenantId}`);
-      if (res.ok) setPersonas(await res.json());
+      // Tenant vem do JWT no backend.
+      const data = await apiGet<any[]>('/api/v2/personas');
+      setPersonas(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -153,18 +155,10 @@ export function AIConfigPage() {
   const handleSavePersona = async () => {
     try {
       if (editingPersonaId) {
-        await fetch(`/api/personas/${editingPersonaId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
-          body: JSON.stringify(personaForm)
-        });
+        await apiPut(`/api/v2/personas/${editingPersonaId}`, personaForm);
         toast.success("Persona atualizada");
       } else {
-        await fetch(`/api/personas`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
-          body: JSON.stringify(personaForm)
-        });
+        await apiPost(`/api/v2/personas`, personaForm);
         toast.success("Persona criada");
       }
       setIsPersonaModalOpen(false);
@@ -177,10 +171,7 @@ export function AIConfigPage() {
   const handleDeletePersona = async (id: string) => {
     if (!confirm("Tem certeza que deseja remover esta persona?")) return;
     try {
-      await fetch(`/api/personas/${id}`, {
-        method: 'DELETE',
-        headers: { 'x-tenant-id': tenantId }
-      });
+      await apiDelete(`/api/v2/personas/${id}`);
       toast.success("Persona removida");
       fetchPersonas();
     } catch (e: any) {
@@ -362,16 +353,10 @@ export function AIConfigPage() {
 
   const saveIntegrationKeys = async () => {
     try {
-      const res = await fetch("/api/keys", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ integrationKeys, tenantId })
-      });
-      if (res.ok) {
-        toast.success("Configurações salvas!");
-      } else {
-        toast.error("Erro ao salvar configurações");
-      }
+      // Antes batia em /api/keys (404). Persiste em tenants.integration_keys pelo
+      // mesmo helper que Settings/WhatsApp usam (tenant vem da sessão, via RLS).
+      await saveIntegrationKeysDb(integrationKeys as Record<string, string>);
+      toast.success("Configurações salvas!");
     } catch (e: any) {
       toast.error("Erro ao salvar: " + e.message);
     }
@@ -388,20 +373,18 @@ export function AIConfigPage() {
       setValidationErrors(prev => ({ ...prev, [agent]: [] }));
       setTestResponses(prev => ({ ...prev, [agent]: '' }));
 
-      const res = await fetch('/api/prompts/validate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, agent })
-      });
-      const data = await res.json();
-      
+      const data = await apiPost<{ valid: boolean; errors?: string[]; test_response?: string }>(
+        '/api/v2/prompts/validate', { content, agent }
+      );
+
       if (!data.valid) {
-        setValidationErrors(prev => ({ ...prev, [agent]: data.errors }));
+        setValidationErrors(prev => ({ ...prev, [agent]: data.errors ?? [] }));
         return;
       }
       
-      if (data.test_response) {
-         setTestResponses(prev => ({ ...prev, [agent]: data.test_response }));
+      const testResponse = data.test_response;
+      if (testResponse) {
+         setTestResponses(prev => ({ ...prev, [agent]: testResponse }));
       }
       
       await handleSavePrompts();
