@@ -275,6 +275,10 @@ export async function buildServer() {
   const { qualityStatsRoutes } = await import('./domain/atendimento/quality-stats.routes');
   await app.register(qualityStatsRoutes);
 
+  // Feriados nacionais (SettingsPage) — carga determinística do ano corrente.
+  const { holidaysRoutes } = await import('./domain/atendimento/holidays.routes');
+  await app.register(holidaysRoutes);
+
   // IA-09 — Coleta de métricas de rede (CTO failure prediction, fase 0)
   const { metricsIngestRoutes } = await import('./domain/rede/metrics-ingest.routes');
   await app.register(metricsIngestRoutes);
