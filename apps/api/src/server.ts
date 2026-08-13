@@ -271,6 +271,10 @@ export async function buildServer() {
   const { promptsRoutes } = await import('./domain/atendimento/prompts.routes');
   await app.register(promptsRoutes);
 
+  // Monitor de qualidade ao vivo (QualityMonitorPage) — agregados de tickets.
+  const { qualityStatsRoutes } = await import('./domain/atendimento/quality-stats.routes');
+  await app.register(qualityStatsRoutes);
+
   // IA-09 — Coleta de métricas de rede (CTO failure prediction, fase 0)
   const { metricsIngestRoutes } = await import('./domain/rede/metrics-ingest.routes');
   await app.register(metricsIngestRoutes);
