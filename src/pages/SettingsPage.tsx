@@ -347,8 +347,9 @@ export function SettingsPage() {
   const verifyDomain = async () => {
     setIsVerifyingDomain(true);
     try {
-        const res = await fetch(`/api/domains/verify?domain=${customDomain}`);
-        const data = await res.json();
+        const data = await apiGet<{ status: string; error?: string }>(
+          `/api/v2/domains/verify?domain=${encodeURIComponent(customDomain)}`
+        );
         if (data.status === 'verified') {
            setDomainStatus('verified');
            toast.success("Domínio verificado com sucesso!");
@@ -358,7 +359,7 @@ export function SettingsPage() {
         }
     } catch(e: any) {
         setDomainStatus('error');
-        toast.error("Erro na verificação de DNS.");
+        toast.error(e?.message || "Erro na verificação de DNS.");
     } finally {
         setIsVerifyingDomain(false);
     }
