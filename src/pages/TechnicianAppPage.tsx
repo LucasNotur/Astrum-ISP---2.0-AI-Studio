@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import { openDB } from 'idb';
-import { toast } from 'sonner';
 import { useTechAppStore } from '../store/techAppStore';
 import { fetchAgenda } from '../lib/fieldOps';
 import { BottomNav } from '../components/tech-app/BottomNav';
@@ -18,7 +17,9 @@ import { tech } from '../components/tech-app/theme';
 const dbPromise = openDB('astrum-tech-db', 1, {
   upgrade(db) {
     if (!db.objectStoreNames.contains('oss')) db.createObjectStore('oss', { keyPath: 'id' });
-    if (!db.objectStoreNames.contains('sync-queue')) db.createObjectStore('sync-queue', { keyPath: 'id', autoIncrement: true });
+    // (removido) sync-queue: scaffolding de sync offline que nunca era populado —
+    // nenhum handler enfileirava mutações de OS, então a fila vivia vazia e o
+    // endpoint /api/service-orders/sync (404) jamais era chamado.
   },
 });
 
@@ -78,7 +79,7 @@ export default function TechnicianAppPage() {
 
   // Online/offline
   useEffect(() => {
-    const onOnline = () => { setIsOnline(true); syncPending(); };
+    const onOnline = () => setIsOnline(true);
     const onOffline = () => setIsOnline(false);
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
@@ -92,9 +93,6 @@ export default function TechnicianAppPage() {
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(() => {});
-      const handleMsg = (e: MessageEvent) => { if (e.data?.type === 'TRIGGER_SYNC') syncPending(); };
-      navigator.serviceWorker.addEventListener('message', handleMsg);
-      return () => navigator.serviceWorker.removeEventListener('message', handleMsg);
     }
   }, []);
 
@@ -104,27 +102,6 @@ export default function TechnicianAppPage() {
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
-
-  const syncPending = async () => {
-    if (!navigator.onLine) return;
-    const db = await dbPromise;
-    const queue = await db.getAll('sync-queue');
-    if (queue.length === 0) return;
-    toast.loading('Sincronizando...', { id: 'sync' });
-    try {
-      for (const item of queue) {
-        await fetch('/api/service-orders/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(item),
-        });
-        await db.delete('sync-queue', item.id);
-      }
-      toast.success('Sincronizado!', { id: 'sync' });
-    } catch {
-      toast.error('Erro na sincronização.', { id: 'sync' });
-    }
-  };
 
   if (introOpen) {
     return <TeachingScreen techName="Técnico" osCount={osList.length} onContinue={() => setIntroOpen(false)} />;
