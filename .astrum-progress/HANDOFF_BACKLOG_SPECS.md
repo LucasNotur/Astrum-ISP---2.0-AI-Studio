@@ -1,5 +1,45 @@
 # HANDOFF — Specs de execução do backlog 🟡 (para modelo de código)
 
+---
+
+## ⛔ CONTRATO DE EXECUÇÃO — LEIA E OBEDEÇA ANTES DE TUDO
+
+Você foi instruído a "executar este plano passo a passo". O escopo é **ESTRITO**. Cumpra à risca:
+
+1. **EXECUTE APENAS A `SPEC 1` (upsell/convert).** É a única liberada nesta rodada.
+2. **NÃO EXECUTE `SPEC 2` (billing) NEM `SPEC 3` (voip).** Ambas estão BLOQUEADAS por decisão de
+   produto do dono. Elas estão no documento só como contexto. Se você achar que "deveria" construí-las,
+   **PARE** e escreva a pergunta pendente no seu report final — **não escreva uma linha de código delas.**
+3. **NÃO altere nenhum arquivo que não esteja listado explicitamente na SPEC 1.** A lista de arquivos
+   que você pode criar/tocar é, EXAUSTIVAMENTE:
+   - CRIAR: `apps/api/src/domain/vendas/upsell.service.ts`
+   - CRIAR: `apps/api/src/domain/vendas/upsell.routes.ts`
+   - CRIAR: `apps/api/src/domain/vendas/upsell.service.test.ts`
+   - EDITAR: `apps/api/src/server.ts` (só adicionar o registro da rota)
+   - EDITAR: `src/App.tsx` (só o handler do botão de upsell)
+   - EDITAR: `src/pages/DashboardPage.tsx` (só a leitura de upsells)
+   - EDITAR: `.astrum-progress/HANDOFF_BACKLOG_SPECS.md` (só marcar a SPEC 1 como feita no fim)
+   Qualquer outro arquivo → **NÃO TOQUE.**
+4. **AÇÕES PROIBIDAS:** refatorar/"consertar"/reformatar código que não faz parte da SPEC 1; renomear
+   símbolos; mexer em migrations ou schema (o DB já está feito — a tabela `upsell_events` já existe);
+   `git add -A` ou `git add .` (só `git add <os arquivos exatos acima>`); tocar em qualquer coisa de
+   `billing`, `voip`, `unmask`, `incidents`, `tickets`, ou outros domínios; instalar dependências novas.
+5. **Se o código real divergir deste spec** (um shape diferente, um símbolo que não existe, a tabela com
+   colunas diferentes das transcritas): **PARE e reporte** — não adivinhe, não "conserte" por conta própria.
+6. **DEFINITION OF DONE:** typecheck limpo (raiz `npm run typecheck:legacy` **e** `cd apps/api && npx tsc
+   --noEmit`); teste novo verde (`npx vitest run apps/api/src/domain/vendas/upsell.service.test.ts` da raiz);
+   1 commit só, com os arquivos exatos.
+7. **REPORT FINAL OBRIGATÓRIO** (para a auditoria do Claude) — ao terminar, imprima:
+   - a lista EXATA de arquivos criados/editados;
+   - o hash do commit;
+   - a saída dos 2 typechecks e do teste (colada, não resumida);
+   - quaisquer desvios do spec e o motivo;
+   - as perguntas pendentes de billing/voip (que você NÃO construiu).
+
+Se qualquer passo acima conflitar com um impulso seu de "melhorar" algo, o contrato ganha. Fim do contrato.
+
+---
+
 > Escrito pelo Claude (Opus 4.8) em 2026-08-14. Divisão de trabalho combinada com o dono:
 > **(1) Banco/Supabase → já feito pelo Claude aqui** (migrations aplicadas na nuvem via MCP);
 > **(2) Código puro (rotas/services/frontend) → você executa** seguindo estes specs;
@@ -62,7 +102,7 @@ adicione a sua logo após uma rota de domínio parecida).
 
 ---
 
-## SPEC 1 — `upsell/convert` (🟢 pronto p/ executar; DB já feito)
+## SPEC 1 — `upsell/convert` — ✅ EXECUTE ESTA (a única desta rodada; DB já feito)
 
 **Estado do DB (feito pelo Claude, migration 100 aplicada + registrada):** existe a tabela
 `public.upsell_events` com RLS `tenant_own`. Colunas EXATAS:
@@ -121,7 +161,7 @@ errada). Unifique em `upsell_events`.
 
 ---
 
-## SPEC 2 — `billing` (⚠️ parcial honesto; NÃO há fonte real)
+## SPEC 2 — `billing` — 🚫 NÃO EXECUTAR (bloqueado; contexto só)
 
 **Verificado pelo Claude (não re-investigue, mas confirme se quiser):** os endpoints
 `/api/billing/subscription/:tenantId` e `/api/billing/invoices/:tenantId` (chamados por
@@ -153,7 +193,7 @@ Se for (A), o backend é trivial (não precisa de schema além de `tenants.plan`
 
 ---
 
-## SPEC 3 — `voip/initiate-call` (🚫 BLOQUEADO por design; não construa ainda)
+## SPEC 3 — `voip/initiate-call` — 🚫 NÃO EXECUTAR (bloqueado por design; contexto só)
 
 **Verificado pelo Claude:** a telefonia do `apps/api` é **só INBOUND**
 (`/telephony/voice/incoming` + stream de voz). **Não há** SDK `twilio` no `package.json`, **não há**
