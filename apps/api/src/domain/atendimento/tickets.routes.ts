@@ -66,4 +66,27 @@ export async function ticketRoutes(fastify: FastifyInstance) {
     if (error) throw error;
     return reply.send(data);
   });
+
+  // Marca o ticket como respondido por humano (a IA para de responder — o
+  // messageWorker tem o guard `if (human_responded) return`). Chamado quando o
+  // operador responde um ticket escalado. Coluna criada na migration 099.
+  fastify.post('/api/v2/tickets/:id/human-response', {
+    onRequest: [fastify.authenticate],
+    preHandler: [
+      requirePermission('tickets', 'write'),
+      validateParams(z.object({ id: uuidSchema as any }) as any),
+    ],
+  }, async (request, reply) => {
+    const { tenantId } = (request as any).user;
+    const { id } = (request as any).validatedParams;
+
+    const now = new Date().toISOString();
+    const { error } = await tenantQuery(tenantId)
+      .from('tickets')
+      .update({ human_responded: true, human_responded_at: now, updated_at: now })
+      .eq('id', id);
+
+    if (error) throw error;
+    return reply.send({ success: true });
+  });
 }

@@ -37,6 +37,7 @@ import { cn } from "@/src/lib/utils";
 import { useAppStore } from "@/src/store/useAppStore";
 import { updateTicketStatus, toggleTicketAI } from "@/src/lib/db";
 import { supabase } from "@/src/lib/supabase";
+import { apiPost } from "@/src/lib/apiClient";
 import { uploadAttachment as uploadToStorage } from "@/src/lib/storage";
 import { CustomerHistorySidebar } from "@/src/components/CustomerHistorySidebar";
 import { MaskedSensitiveData } from "@/src/components/MaskedSensitiveData";
@@ -373,11 +374,8 @@ export function ChatPage() {
       }).select().single();
 
       if (!selectedTicket.human_responded && (selectedTicket.status === "escalated" || selectedTicket.shouldEscalate)) {
-        fetch("/api/tickets/human-response", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ticketId: selectedTicket.id }),
-        }).catch(console.error);
+        // Tenant do JWT; ticketId vai no path. Marca human_responded (migration 099).
+        apiPost(`/api/v2/tickets/${selectedTicket.id}/human-response`, {}).catch(console.error);
       }
 
       if (isInternalNote) {

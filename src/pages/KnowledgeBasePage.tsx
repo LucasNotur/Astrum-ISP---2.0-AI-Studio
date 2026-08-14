@@ -9,6 +9,7 @@ import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import { supabase } from '@/src/lib/supabase';
 import { createKBArticle, updateKBArticle, deleteKBArticle } from '@/src/lib/db';
+import { apiPost } from '@/src/lib/apiClient';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/components/ui/select";
 import { Textarea } from "@/src/components/ui/textarea";
@@ -123,20 +124,19 @@ export function KnowledgeBasePage() {
   const [isScrapingUrl, setIsScrapingUrl] = useState(false);
 
   const handleScrapeUrl = async () => {
-    if (!currentTenant?.id || !urlToScrape) return;
+    // `currentTenant` é a string do tenant id; o guard `.id` antigo travava tudo.
+    if (!currentTenant || currentTenant === 'DEFAULT_TENANT' || !urlToScrape) return;
     setIsScrapingUrl(true);
     try {
-      const res = await fetch('/api/rag/scrape-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: urlToScrape, tenantId: currentTenant.id })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      fetchKBArticles(currentTenant.id);
+      // Tenant do JWT no backend; URL passa por guard anti-SSRF lá.
+      const data = await apiPost<{ id: string; title: string; chars: number }>(
+        '/api/v2/rag/scrape-url', { url: urlToScrape }
+      );
+      fetchKBArticles(currentTenant);
       setUrlToScrape('');
+      toast.success(`Página importada: "${data.title}" (${data.chars} caracteres)`);
     } catch(e: any) {
-      console.error(`Erro ao importar site: ${e.message}`);
+      toast.error('Erro ao importar site: ' + (e?.message || 'desconhecido'));
     } finally {
       setIsScrapingUrl(false);
     }
