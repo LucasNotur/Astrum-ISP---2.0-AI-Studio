@@ -24,6 +24,7 @@ Você foi instruído a "executar este plano passo a passo". O escopo é **ESTRIT
    símbolos; mexer em migrations ou schema (o DB já está feito — a tabela `upsell_events` já existe);
    `git add -A` ou `git add .` (só `git add <os arquivos exatos acima>`); tocar em qualquer coisa de
    `billing`, `voip`, `unmask`, `incidents`, `tickets`, ou outros domínios; instalar dependências novas.
+   **NÃO faça `git push`** — deixe o commit local. O Claude audita ANTES de subir pro main.
 5. **Se o código real divergir deste spec** (um shape diferente, um símbolo que não existe, a tabela com
    colunas diferentes das transcritas): **PARE e reporte** — não adivinhe, não "conserte" por conta própria.
 6. **DEFINITION OF DONE:** typecheck limpo (raiz `npm run typecheck:legacy` **e** `cd apps/api && npx tsc
