@@ -313,6 +313,10 @@ export async function buildServer() {
   const { lgpdRoutes } = await import('./domain/provedor/lgpd.routes');
   await app.register(lgpdRoutes);
 
+  // Reveal auditado de PII (MaskedSensitiveData) — grava audit_log, ecoa o valor.
+  const { unmaskRoutes } = await import('./domain/security/unmask.routes');
+  await app.register(unmaskRoutes);
+
   // P5-05 — Trial sem fricção (signup self-service → insight em <30min)
   const { trialRoutes } = await import('./domain/provedor/trial.routes');
   await app.register(trialRoutes);
