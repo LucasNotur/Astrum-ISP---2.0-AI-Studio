@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/src/components/ui/ta
 import { toast } from "sonner";
 import { useAppStore } from '@/src/store/useAppStore';
 import { updateServiceOrder, updateTechnician, createServiceOrder, updateCustomer } from '@/src/lib/db';
+import { apiGet, apiPatch } from '@/src/lib/apiClient';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/src/components/ui/dialog';
 import { Input } from '@/src/components/ui/input';
 import { Label } from '@/src/components/ui/label';
@@ -44,13 +45,20 @@ export function ServiceOrdersPage() {
 
   const fetchIncidents = async () => {
     try {
-      const res = await fetch('/api/incidents/active?tenantId=default');
-      if (!res.ok) {
-        setActiveIncidents([]);
-        return;
-      }
-      const data = await res.json();
-      setActiveIncidents(Array.isArray(data) ? data : []);
+      // Repontado p/ o motor novo: /api/v2/rede/incidents (tenant do JWT).
+      // "Ativos" = ainda não normalizados nem cancelados.
+      const data = await apiGet<{ incidents: any[] }>('/api/v2/rede/incidents');
+      const active = (data.incidents ?? [])
+        .filter((i: any) => i.status !== 'normalizada' && i.status !== 'cancelada')
+        .map((i: any) => ({
+          id: i.id,
+          ctoId: i.cto_id,
+          createdAt: i.detected_at,
+          affectedCustomers: i.affected_customers ?? 0,
+          status: i.status,
+          title: i.title,
+        }));
+      setActiveIncidents(active);
     } catch(e) {
       console.error(e);
       setActiveIncidents([]);
@@ -62,13 +70,15 @@ export function ServiceOrdersPage() {
   }, []);
 
   const handleResolveIncident = async (id: string) => {
+    const toastId = toast.loading("Resolvendo...");
     try {
-      const toastId = toast.loading("Resolvendo...");
-      await fetch(`/api/incidents/${id}/resolve`, { method: 'PUT' });
+      // "Resolver" = normalizar (incidente de volta ao normal). O backend só
+      // notifica os afetados se eles já haviam sido comunicados do incidente.
+      await apiPatch(`/api/v2/rede/incidents/${id}/normalize`, {});
       toast.success("Incidente resolvido", { id: toastId });
       fetchIncidents();
-    } catch(e) {
-      toast.error("Erro ao resolver");
+    } catch(e: any) {
+      toast.error(e?.message || "Erro ao resolver", { id: toastId });
     }
   };
 
@@ -1048,7 +1058,7 @@ export function ServiceOrdersPage() {
                              <CardContent className="p-4 pt-2">
                                 <div className="mb-4">
                                    <p className="text-sm font-medium">
-                                      <span className="font-mono">{incident.affectedClients?.length || 0}</span> clientes impactados.
+                                      <span className="font-mono">{incident.affectedCustomers || 0}</span> clientes impactados.
                                    </p>
                                 </div>
                                 <Button

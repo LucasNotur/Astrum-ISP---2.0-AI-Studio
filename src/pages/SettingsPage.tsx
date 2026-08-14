@@ -329,7 +329,6 @@ export function SettingsPage() {
     last_backup_size_mb: null as string | null,
     last_backup_error: null as string | null
   });
-  const [isTriggeringBackup, setIsTriggeringBackup] = useState(false);
 
   const [expandVectorStore, setExpandVectorStore] = useState(false);
   const [vectorTestResult, setVectorTestResult] = useState<{success: boolean, error?: string} | null>(null);
@@ -758,26 +757,8 @@ export function SettingsPage() {
     }
   };
 
-  const triggerBackup = async () => {
-    setIsTriggeringBackup(true);
-    try {
-      const res = await fetch('/api/backup/trigger', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        toast.success("Backup iniciado com sucesso!");
-      } else {
-        toast.error("Erro: " + data.error);
-      }
-    } catch(e) {
-      toast.error("Erro ao iniciar backup");
-    } finally {
-      setIsTriggeringBackup(false);
-    }
-  };
+  // Backup manual removido: /api/backup/trigger nunca teve backend e o backup do
+  // banco é automático (Supabase diário + PITR). A UI não expõe mais o botão.
 
   const fetchRedisStatus = async () => {
     try {
@@ -1757,14 +1738,10 @@ export function SettingsPage() {
                               {backupConfig.last_backup_size_mb && <span className="ml-2 text-xs">({backupConfig.last_backup_size_mb})</span>}
                             </div>
                           </div>
-                          <Button 
-                            variant="secondary" 
-                            disabled={isTriggeringBackup || !backupConfig.gcp_project_id || !backupConfig.backup_bucket_name} 
-                            onClick={triggerBackup}
-                            className="w-full md:w-auto"
-                          >
-                            {isTriggeringBackup ? "Iniciando..." : "Fazer backup agora"}
-                          </Button>
+                          <p className="text-xs text-muted-foreground max-w-xs">
+                            O banco (Supabase) já faz backup automático diário + Point-in-Time Recovery.
+                            O backup manual para bucket externo não está ativo.
+                          </p>
                         </div>
                       </CardContent>
                     </Card>
