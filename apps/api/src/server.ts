@@ -114,6 +114,10 @@ export async function buildServer() {
   const { ragRoutes } = await import('./domain/ia/rag.routes');
   await app.register(ragRoutes);
 
+  // Scrape ad-hoc de URL → artigo na KB (KnowledgeBasePage). SSRF-guarded.
+  const { scrapeUrlRoutes } = await import('./domain/ia/scrape-url.routes');
+  await app.register(scrapeUrlRoutes);
+
   const { visionRoutes } = await import('./domain/ia/vision.routes');
   await app.register(visionRoutes);
 
