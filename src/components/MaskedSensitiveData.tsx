@@ -3,7 +3,7 @@ import { Eye } from "lucide-react";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
 import { maskCPF, maskPhone, maskEmail } from "../lib/clientMasking";
-import { useAppStore } from "../store/useAppStore";
+import { apiPost } from "../lib/apiClient";
 import {
   Select,
   SelectContent,
@@ -32,9 +32,6 @@ export function MaskedSensitiveData({
   type: MaskType;
   className?: string;
 }) {
-  const companySettings = useAppStore((s) => s.companySettings);
-  const tenantId = companySettings?.tenant_id;
-
   const [isUnmasked, setIsUnmasked] = useState(false);
   const [unmaskedValue, setUnmaskedValue] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -71,16 +68,12 @@ export function MaskedSensitiveData({
 
     setIsLoading(true);
     try {
-      const res = await fetch("/api/unmask", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "x-tenant-id": tenantId || ""
-        },
-        body: JSON.stringify({ value, reason }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
+      // Tenant/operador vêm do JWT; o backend audita o reveal (audit_log) e ecoa
+      // o valor. `type` vai junto p/ a trilha de auditoria.
+      const data = await apiPost<{ success: boolean; value: string; error?: string }>(
+        "/api/v2/security/unmask", { value, type, reason }
+      );
+      if (data.success) {
         setUnmaskedValue(data.value);
         setIsUnmasked(true);
         setIsDialogOpen(false);
