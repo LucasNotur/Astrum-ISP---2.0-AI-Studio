@@ -131,27 +131,25 @@ errada). Unifique em `upsell_events`.
 - Não existe tabela de faturas-do-provedor. O único dado do plano do provedor é `tenants.plan`
   (text) + a tabela `billing_plans`.
 
-**Decisão de escopo (default seguro — o dono pode mudar):** montar a assinatura a partir do que
-existe e deixar as faturas do provedor num empty-state honesto (não inventar faturas).
+**⚠️ CORREÇÃO CRÍTICA (Claude verificou o schema — NÃO use `billing_plans` p/ o preço):**
+`billing_plans` e `plans` **têm `tenant_id`** → são o **catálogo de planos de internet que o ISP
+vende aos SEUS clientes** (`billing_plans`: id, tenant_id, name, price_cents, speed_mbps, description,
+active). **NÃO são** o preço da assinatura do ISP à Astrum. O único dado do plano-SaaS do provedor é
+`tenants.plan` (text, ex.: `'pro'`) — **sem preço, sem próxima cobrança, sem faturas** em lugar nenhum.
 
-**O que fazer:**
-- Backend novo `apps/api/src/domain/financeiro/provider-billing.routes.ts`:
-  - `GET /api/v2/billing/subscription` (tenant do JWT):
-    - lê `tenants` (`select plan`) + a linha de `billing_plans` correspondente (colunas de
-      `billing_plans` você NÃO tem aqui — **PARE e peça o schema ao Claude/dono antes de assumir
-      preço/campos**; provável `id/name/price_cents/...`).
-    - retorna `{ subscription: { plan, status: 'active', amount_cents, next_billing_date: null } }`
-      (o front lê `.plan`, `.status`, `.amount_cents`, `.next_billing_date`).
-  - `GET /api/v2/billing/invoices` (tenant do JWT):
-    - **sem fonte real → retorna `{ invoices: [] }`** (empty-state honesto).
-- Front `BillingPage.tsx`: repontar as 2 chamadas p/ `apiGet('/api/v2/billing/subscription')` e
-  `apiGet('/api/v2/billing/invoices')` (dropar `:tenantId` do path). Manter o render (já trata
-  lista vazia).
-- ⚠️ **BLOQUEIO:** você precisa do schema de `billing_plans` (não o tem). **NÃO adivinhe.**
-  Peça ao Claude na fase de auditoria, ou o dono decide se prefere esconder a seção de billing
-  do provedor até haver integração real de pagamento. Entregue o subscription só quando tiver o schema.
+Ou seja: a view de billing do provedor **não tem dado real de valor/fatura**. Cableá-la com
+`billing_plans` mostraria número ERRADO (o preço que o ISP cobra dos clientes dele).
 
-**Commit:** `feat(migração): BUILD billing do provedor (subscription de tenants.plan; invoices empty)`.
+**Recomendação (decisão do dono — default seguro):** NÃO construir números falsos. Duas saídas:
+- (A) **Mínimo honesto:** `GET /api/v2/billing/subscription` retorna só `{ subscription: { plan:
+  tenants.plan, status: 'active', amount_cents: null, next_billing_date: null } }`; o front mostra
+  "Plano: PRO" e esconde valor/próxima-cobrança quando `null`. `GET /api/v2/billing/invoices` →
+  `{ invoices: [] }` (empty-state). Repontar `BillingPage.tsx` p/ os 2 `apiGet` (dropar `:tenantId`).
+- (B) **Esconder a seção** de billing-do-provedor no `BillingPage` até existir integração real de
+  pagamento SaaS (Stripe/Asaas) — provavelmente o mais honesto.
+
+**NÃO decida sozinho entre A e B** — é decisão de produto do dono. Entregue como pergunta.
+Se for (A), o backend é trivial (não precisa de schema além de `tenants.plan`, que você já tem).
 
 ---
 
