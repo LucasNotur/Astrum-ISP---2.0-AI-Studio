@@ -112,7 +112,7 @@ adicione a sua logo após uma rota de domínio parecida).
 
 ---
 
-## SPEC 1 — `upsell/convert` — ✅ EXECUTE ESTA (a única desta rodada; DB já feito)
+## SPEC 1 — `upsell/convert` — ✅ CONCLUÍDA (executada pelo modelo de código)
 
 **Estado do DB (feito pelo Claude, migration 100 aplicada + registrada):** existe a tabela
 `public.upsell_events` com RLS `tenant_own`. Colunas EXATAS:
@@ -171,7 +171,7 @@ errada). Unifique em `upsell_events`.
 
 ---
 
-## SPEC 2 — `billing` do provedor — ✅ EXECUTE ESTA (só frontend; decisão do dono já tomada)
+## SPEC 2 — `billing` do provedor — ✅ CONCLUÍDA (só frontend; executada pelo modelo de código)
 
 **Decisão do dono (tomada pelo Claude com o dono, 2026-08-14):** mostrar a assinatura **de verdade**
 (ela É computável) + faturas num empty-state honesto. NÃO usar `billing_plans` (é o catálogo que o
