@@ -6,24 +6,33 @@
 
 Você foi instruído a "executar este plano passo a passo". O escopo é **ESTRITO**. Cumpra à risca:
 
-1. **EXECUTE APENAS A `SPEC A` (queues/stats).** É a única liberada nesta rodada.
+1. **EXECUTE APENAS A `SPEC C` (jobs/schedule-*).** É a única liberada nesta rodada. (A `SPEC A`
+   queues/stats já foi feita e auditada; não a refaça.)
 2. **NÃO EXECUTE A `SPEC B` (dlq).** Está **BLOQUEADA** — depende de o Claude verificar a tabela
-   `dead_letter_queue` no Supabase e transcrever o schema real aqui. Está no doc só como contexto.
-   Se achar que "deveria" construí-la, **PARE** e escreva no report — **não escreva uma linha dela.**
-3. **NÃO altere nenhum arquivo fora da lista da SPEC A.** Lista EXAUSTIVA de arquivos permitidos:
-   - (SPEC A) CRIAR: `apps/api/src/domain/ops/queues.service.ts`
-   - (SPEC A) CRIAR: `apps/api/src/domain/ops/queues.routes.ts`
-   - (SPEC A) CRIAR: `apps/api/src/domain/ops/queues.service.test.ts`
-   - (SPEC A) EDITAR: `apps/api/src/server.ts` (só adicionar o registro da rota)
-   - (SPEC A) EDITAR: `src/pages/MonitoringPage.tsx` (só o fetch de `/api/queues/stats`)
-   - EDITAR: `.astrum-progress/HANDOFF_FASE2_SPECS.md` (só marcar a SPEC A como feita no fim)
-   Qualquer outro arquivo → **NÃO TOQUE.** Em especial: **NÃO** remova nada do Express
-   (`server.ts` raiz, `src/routes/*`) — a remoção do legado é do Claude (R5, após auditoria).
-4. **AÇÕES PROIBIDAS:** refatorar/"consertar"/reformatar código fora do escopo da SPEC A; renomear
-   símbolos; mexer em migrations/schema; tocar em webhooks, cobrai, super-admin, evolution, jobs,
-   `os`, ou qualquer `src/routes/*`; instalar dependências novas; `git add -A`/`git add .` (só
+   `dead_letter_queue` no Supabase e transcrever o schema real aqui. Se achar que "deveria"
+   construí-la, **PARE** e escreva no report — **não escreva uma linha dela.**
+3. **NÃO altere nenhum arquivo fora da lista da SPEC C.** Lista EXAUSTIVA de arquivos permitidos:
+   - (SPEC C) EDITAR: `src/workers/messageWorker.ts` (SÓ o bloco CSAT ~linha 869)
+   - (SPEC C) EDITAR: `src/lib/gemini.server.ts` (SÓ o bloco SLA ~linha 4254)
+   - (SPEC C) CRIAR: `apps/api/src/domain/ops/jobs.service.ts`
+   - (SPEC C) CRIAR: `apps/api/src/domain/ops/jobs.routes.ts`
+   - (SPEC C) CRIAR: `apps/api/src/domain/ops/jobs.service.test.ts`
+   - (SPEC C) EDITAR: `apps/api/src/server.ts` (SÓ registrar `jobsRoutes`)
+   - (SPEC C) EDITAR: `src/lib/db.ts` (SÓ o bloco CSAT ~linha 177)
+   - (SPEC C) REMOVER: `src/routes/jobs.ts`
+   - (SPEC C) EDITAR: `server.ts` (raiz) — SÓ remover o import `jobsRouter` + o mount `/api/jobs`
+   - EDITAR: `.astrum-progress/HANDOFF_FASE2_SPECS.md` (só marcar a SPEC C como feita no fim)
+   Qualquer outro arquivo → **NÃO TOQUE.**
+   ⚠️ **Exceção autorizada à regra geral:** NESTA spec você PODE remover a rota Express `jobs`
+   (`src/routes/jobs.ts` + mount no `server.ts` raiz) — porque os callers dela estão sendo migrados
+   no mesmo commit. NÃO toque em NENHUMA outra rota Express (`superAdmin`, `cobrai`, `dlq`, `evolution`,
+   webhooks continuam intactas).
+4. **AÇÕES PROIBIDAS:** refatorar/"consertar"/reformatar código fora do escopo da SPEC C; renomear
+   símbolos; mexer em migrations/schema; tocar em webhooks, cobrai, super-admin, evolution, ou qualquer
+   `src/routes/*` que NÃO seja `jobs.ts`; instalar dependências novas; `git add -A`/`git add .` (só
    `git add <os arquivos exatos da lista>`). **NÃO faça `git push`** — deixe o commit local. O Claude
-   audita ANTES de subir pro main.
+   audita ANTES de subir pro main. ⚠️ `messageWorker.ts` e `gemini.server.ts` são arquivos GRANDES e
+   SENSÍVEIS (motor de atendimento): mexa **só no bloco exato** transcrito, nada mais.
 5. **Se o código real divergir deste spec** (um símbolo que não existe, um shape diferente, um import
    que não resolve): **PARE e reporte** — não adivinhe, não "conserte" por conta própria.
 6. **DEFINITION OF DONE (há um BASELINE pré-existente — leia com atenção):**
@@ -123,6 +132,168 @@ O shape de resposta é idêntico (`{waiting,active,completed,failed,delayed}`) �
 
 **Verificação:** os 2 typechecks (regra do DoD) + `npx vitest run apps/api/src/domain/ops/queues.service.test.ts`.
 **Commit:** `feat(migração): BUILD queues/stats v2 (Fase 2, port do Express)`.
+
+---
+
+## SPEC C — `jobs/schedule-*` — ✅ LIBERADA (execute)
+
+**Objetivo:** aposentar a rota Express `/api/jobs/*`. Ela existe só pra agendar jobs atrasados
+(`send_csat`, `sla_warning`). Verificado pelo Claude: a fila `messages-${tenantId}` é a MESMA no
+legado (`src/lib/queue.ts`) e no Fastify (`bullmq.client`) → um job enfileirado por qualquer lado é
+consumido pelo worker legado. `schedule-pos-install` **não tem caller** → morre com a rota.
+
+**Regra de ouro (o motivo do desenho):** código **server-side** (worker/gemini.server) chama
+`enqueueMessage` **direto** (elimina o hop HTTP). Código **browser** (`db.ts`, roda no navegador,
+NÃO alcança Redis) chama uma **rota v2 nova**. Não misture.
+
+`enqueueMessage` (assinatura idêntica nos dois lados):
+`enqueueMessage(tenantId: string, payload: any, opts?: {delay?: number}, jobName?: string)`.
+
+### Passo 1 — `src/workers/messageWorker.ts` (SERVER, ~linha 869) — enqueue direto
+Troque EXATAMENTE este bloco:
+```ts
+            fetch("http://localhost:3000/api/jobs/schedule-csat", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                ticketId: docSnap.id,
+                tenantId: tDocData.tenantId,
+                customerId,
+                category: tDocData.session_state?.agent || 'SAC_GERAL',
+                resolved_by: tDocData.human_responded ? 'human' : 'bot'
+              })
+            }).catch((e: any) => logger.error("csat_schedule_failed", { ...logCtx, error: e.message }));
+```
+por:
+```ts
+            try {
+              const { enqueueMessage } = await import("../lib/queue");
+              await enqueueMessage(
+                tDocData.tenantId || "default",
+                {
+                  ticketId: docSnap.id,
+                  tenantId: tDocData.tenantId || "default",
+                  customerId,
+                  category: tDocData.session_state?.agent || 'SAC_GERAL',
+                  resolved_by: tDocData.human_responded ? 'human' : 'bot',
+                },
+                { delay: 60 * 1000 },
+                "send_csat",
+              );
+            } catch (e: any) { logger.error("csat_schedule_failed", { ...logCtx, error: e.message }); }
+```
+(o `import` dinâmico de `../lib/queue` é o padrão JÁ usado nesse arquivo — ex.: linhas 315, 381, 613.)
+
+### Passo 2 — `src/lib/gemini.server.ts` (SERVER, ~linha 4254) — 2 enqueues diretos
+Troque EXATAMENTE este bloco:
+```ts
+      fetch("/api/jobs/schedule-sla", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticketId, tenantId, customerId }),
+      }).catch((e: any) =>
+        logger.error("error_call_sla_api", { error: e?.message || String(e) }),
+      );
+```
+por (o legado agendava DOIS avisos: nível 1 em 10min, nível 2 em 15min):
+```ts
+      try {
+        const { enqueueMessage } = await import("./queue");
+        const t = tenantId || "default";
+        await enqueueMessage(t, { ticketId, tenantId: t, customerId, level: 1 }, { delay: 10 * 60 * 1000 }, "sla_warning");
+        await enqueueMessage(t, { ticketId, tenantId: t, customerId, level: 2 }, { delay: 15 * 60 * 1000 }, "sla_warning");
+      } catch (e: any) {
+        logger.error("error_call_sla_api", { error: e?.message || String(e) });
+      }
+```
+
+### Passo 3 — Rota v2 nova (para o caller BROWSER)
+- CRIAR `apps/api/src/domain/ops/jobs.service.ts` (função PURA):
+  ```ts
+  export interface CsatJob { tenantId: string; payload: Record<string, unknown>; delayMs: number; jobName: 'send_csat'; }
+  export class JobValidationError extends Error {}
+  export function buildCsatJob(body: any, tenantId: string): CsatJob {
+    if (!tenantId) throw new JobValidationError('tenant ausente');
+    if (!body?.ticketId) throw new JobValidationError('ticketId obrigatório');
+    return {
+      tenantId,
+      payload: {
+        ticketId: String(body.ticketId),
+        tenantId,
+        customerId: body.customerId ?? null,
+        category: body.category ?? 'SAC_GERAL',
+        resolved_by: body.resolved_by === 'human' ? 'human' : 'bot',
+      },
+      delayMs: 60 * 1000,
+      jobName: 'send_csat',
+    };
+  }
+  ```
+- CRIAR `apps/api/src/domain/ops/jobs.service.test.ts` — mínimo 4 casos de `buildCsatJob`: (a) ok
+  monta payload com tenant do arg; (b) sem `ticketId` → lança `JobValidationError`; (c) sem tenant →
+  lança; (d) `resolved_by` diferente de 'human' vira 'bot'.
+- CRIAR `apps/api/src/domain/ops/jobs.routes.ts`:
+  ```ts
+  import type { FastifyInstance } from 'fastify';
+  import { enqueueMessage } from '../../infrastructure/queue/bullmq.client';
+  import { buildCsatJob, JobValidationError } from './jobs.service';
+
+  function tenantOf(req: any): string | undefined { return req.user?.tenantId ?? req.user?.tenant_id; }
+
+  export async function jobsRoutes(app: FastifyInstance) {
+    const auth = [async (req: any, reply: any) => { await (app as any).authenticate(req, reply); }];
+    // Gate: SÓ authenticate (nível operador). Resolver ticket é ação de operador, não super_admin.
+    app.post('/api/v2/jobs/schedule-csat', { onRequest: auth }, async (req, reply) => {
+      const tenantId = tenantOf(req);
+      if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+      try {
+        const job = buildCsatJob(req.body, tenantId);
+        await enqueueMessage(job.tenantId, job.payload, { delay: job.delayMs }, job.jobName);
+        return reply.send({ success: true });
+      } catch (e) {
+        if (e instanceof JobValidationError) return reply.code(400).send({ code: 'BAD_REQUEST', message: e.message });
+        return reply.code(500).send({ code: 'INTERNAL' });
+      }
+    });
+  }
+  ```
+- EDITAR `apps/api/src/server.ts`: registrar `jobsRoutes` (mesmo padrão de import dinâmico da SPEC A:
+  `const { jobsRoutes } = await import('./domain/ops/jobs.routes'); await app.register(jobsRoutes);`).
+
+### Passo 4 — `src/lib/db.ts` (BROWSER, ~linha 177) — repoint p/ a rota v2
+Troque EXATAMENTE este bloco:
+```ts
+        fetch("/api/jobs/schedule-csat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ticketId,
+            tenantId: tData.tenant_id || "default",
+            customerId: tData.customer_id,
+            category: tData.session_state?.agent || "SAC_GERAL",
+            resolved_by: tData.human_responded ? "human" : "bot",
+          }),
+        }).catch(e => console.error("Falha ao agendar CSAT:", e));
+```
+por (dropa o `tenantId` — vem do JWT):
+```ts
+        apiPost("/api/v2/jobs/schedule-csat", {
+          ticketId,
+          customerId: tData.customer_id,
+          category: tData.session_state?.agent || "SAC_GERAL",
+          resolved_by: tData.human_responded ? "human" : "bot",
+        }).catch(e => console.error("Falha ao agendar CSAT:", e));
+```
+Importe `apiPost` de `@/src/lib/apiClient` no topo do `db.ts` se ainda não estiver importado.
+
+### Passo 5 — Remover a rota Express `jobs`
+- REMOVER o arquivo `src/routes/jobs.ts`.
+- EDITAR `server.ts` (raiz): remover a linha `import { jobsRouter } from "./src/routes/jobs.ts";`
+  e a linha `app.use("/api/jobs", verifySuperAdmin, jobsRouter);`. **NÃO** remova nenhuma outra linha.
+
+**Verificação:** `npm run typecheck:legacy` (0 erros) + `cd apps/api && npx tsc --noEmit` (baseline ~56,
+não aumentar; `grep domain/ops` = 0 erros novos) + `npx vitest run apps/api/src/domain/ops/jobs.service.test.ts`.
+**Commit:** `feat(migração): FASE 2-A.3 jobs/schedule-* (drop hop HTTP + rota csat v2)`.
 
 ---
 
