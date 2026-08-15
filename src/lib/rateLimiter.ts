@@ -1,6 +1,4 @@
 import redis from './redis.ts';
-import { getTenantPlanId } from './featureFlags.ts';
-import { PLANS } from './plans.ts';
 import { adminDb as db } from './firebaseAdmin.ts';
 import admin from './firebaseAdmin.ts';
 import { logger } from './logger.ts';
@@ -10,13 +8,13 @@ export const acquireSendSlot = async (tenantId: string, instanceId: string, limi
     return { allowed: true };
   }
 
-  let finalLimit = limitPerSecond;
+  let finalLimit: number = limitPerSecond ?? 0;
   if (!finalLimit) {
     // try to get from tenant custom rate limit if not provided
     const tenantSnap = await db.collection('tenants').doc(tenantId).get();
     if (tenantSnap.exists) {
       const tData = tenantSnap.data() as any;
-      finalLimit = tData.rate_limit || 30;
+      finalLimit = Number(tData.rate_limit) || 30;
     } else {
       finalLimit = 30;
     }
@@ -102,16 +100,25 @@ export const checkDailyLimit = async (tenantId: string): Promise<{ allowed: bool
   if (!redis) {
      return { allowed: true, remaining: 999999 };
   }
-  
-  const planId = await getTenantPlanId(tenantId);
-  const plan = PLANS[planId] || PLANS['FREE'];
-  
-  if (plan.limits.monthly_messages === -1) {
-    return { allowed: true, remaining: -1 }; // unlimited
+
+  // Escada Astrum (2026-07-13): NÃO há teto de mensagens por plano — o preço é
+  // R$2,50/assinante e a operação inteira é ilimitada (ver src/lib/plans.ts).
+  // O antigo cap por-plano vinha de `PLANS[planId].limits.monthly_messages`, mas
+  // `PLANS` deixou de existir na Escada — o import morto crashava este check em
+  // produção (chamado por cobraiWorker.ts:135). Mantém-se só uma válvula OPCIONAL:
+  // se o tenant tiver `daily_message_limit` (número > 0) setado, respeita; senão,
+  // ilimitado. A proteção anti-ban do WhatsApp continua no acquireSendSlot (por-seg).
+  let dailyLimit = -1;
+  const tenantSnap = await db.collection('tenants').doc(tenantId).get();
+  if (tenantSnap.exists) {
+    const raw = (tenantSnap.data() as any)?.daily_message_limit;
+    if (typeof raw === 'number' && raw > 0) dailyLimit = raw;
   }
-  
-  const dailyLimit = Math.ceil(plan.limits.monthly_messages / 30);
-  
+
+  if (dailyLimit === -1) {
+    return { allowed: true, remaining: -1 }; // ilimitado (Escada)
+  }
+
   const d = new Date();
   const yyyyMmDd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const key = `daily_msg_count:${tenantId}:${yyyyMmDd}`;

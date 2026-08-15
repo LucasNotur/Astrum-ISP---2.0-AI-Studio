@@ -2,6 +2,9 @@
 
 @plugin "tailwindcss-animate";
 
+/* Spinner do StatusBadge "In progress" (tech-app) */
+@keyframes astrum-spin { to { transform: rotate(360deg); } }
+
 @custom-variant dark (&:is(.dark *));
 
 @theme {

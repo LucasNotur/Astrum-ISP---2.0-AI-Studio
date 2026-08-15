@@ -52,6 +52,18 @@ describe('verifySupabaseToken', () => {
     expect(decoded.role).toBe('super_admin');
   });
 
+  it('AUTH-07: claims top-level (role_astrum/tenant_id) NÃO escalam — banco é autoritativo', async () => {
+    // Simula token com claims forjáveis via user_metadata: role super_admin + outro tenant.
+    state.user = { role: 'admin', tenant_id: TENANT }; // banco diz admin/TENANT
+    const OTHER = '550e8400-e29b-41d4-a716-4466554400ff';
+    const decoded = await verifySupabaseToken(
+      makeToken({ role_astrum: 'super_admin', tenant_id: OTHER }),
+    );
+    // Deve IGNORAR os claims top-level e usar o banco.
+    expect(decoded.role).toBe('admin');
+    expect(decoded.tenantId).toBe(TENANT);
+  });
+
   it('assinatura inválida → TOKEN_INVALID', async () => {
     const bad = jwt.sign({ sub: 'user-1' }, 'outra-chave', { algorithm: 'HS256' });
     await expect(verifySupabaseToken(bad)).rejects.toMatchObject({ code: 'TOKEN_INVALID' });

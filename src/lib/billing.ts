@@ -1,5 +1,15 @@
 import { adminDb as db } from './firebaseAdmin.ts';
 import { FieldValue } from './db-compat/index.ts';
+import redis from './redis.ts';
+import crypto from 'node:crypto';
+
+/** Comparação de strings em tempo constante (timing-safe). Tamanhos diferentes → false. */
+function timingSafeEqualStr(a: string, b: string): boolean {
+  const ab = Buffer.from(a, 'utf8');
+  const bb = Buffer.from(b, 'utf8');
+  if (ab.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ab, bb);
+}
 
 export interface Subscription {
   tenant_id: string;
@@ -198,7 +208,12 @@ export const asaasWebhookHandler = async (req: any, res: any) => {
 };
 
 export const handleAsaasWebhook = async (token: string, payload: any) => {
-  if (token !== (process.env.ASAAS_WEBHOOK_TOKEN || process.env.ASAAS_API_KEY)) {
+  // BILL-02 (auditoria 2026-08-10): FAIL-CLOSED. Antes, se o secret não estivesse
+  // configurado, `token !== undefined` era false quando o request também não mandava
+  // header → qualquer um disparava o webhook (suspender/reativar tenants). Agora exige
+  // secret configurado E token presente E igual (comparação timing-safe).
+  const expected = process.env.ASAAS_WEBHOOK_TOKEN || process.env.ASAAS_API_KEY;
+  if (!expected || !token || !timingSafeEqualStr(token, expected)) {
     const error = new Error('Unauthorized');
     (error as any).status = 401;
     throw error;
@@ -209,6 +224,14 @@ export const handleAsaasWebhook = async (token: string, payload: any) => {
 
   const tenantId = payment.externalReference || payload.customer;
   if (!tenantId) return;
+
+  // BILL-04 (auditoria 2026-08-10): idempotência. O Asaas reenvia webhooks (retry) →
+  // sem dedup, um PAYMENT_OVERDUE repetido enfileira `lockout_tenant` VÁRIAS vezes.
+  // Chave por evento+cobrança; marca-se DEPOIS de processar (falha permite retry real).
+  const dedupKey = payment.id ? `asaas_evt:${event}:${payment.id}` : null;
+  if (dedupKey && redis && (await redis.get(dedupKey))) {
+    return; // já processado — idempotente
+  }
 
   if (event === 'PAYMENT_RECEIVED') {
      await db.collection('tenants').doc(tenantId).update({
@@ -221,5 +244,10 @@ export const handleAsaasWebhook = async (token: string, payload: any) => {
      await systemQueue.add('lockout_tenant', { tenantId }, { delay: 3 * 24 * 60 * 60 * 1000 });
   } else if (event === 'PAYMENT_DELETED') {
      await cancelSubscription(tenantId);
+  }
+
+  // Marca o evento como processado (TTL 7d cobre a janela de retry do Asaas).
+  if (dedupKey && redis) {
+    await redis.set(dedupKey, '1', 'EX', 7 * 24 * 60 * 60);
   }
 };

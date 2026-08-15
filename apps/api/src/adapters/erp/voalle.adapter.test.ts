@@ -94,4 +94,78 @@ describe('VoalleAdapter', () => {
     const init = (http as any).mock.calls[0][1];
     expect(init.headers['Authorization']).toBe('Bearer bearer-tok');
   });
+
+  // ── OAuth client_credentials (fluxo do wizard/SettingsPage) ─────────────────
+  const oauthCreds = { url: 'https://api.voalle.test', clientId: 'cid-x', clientSecret: 'secret-y' };
+
+  it('aceita credenciais OAuth (clientId + clientSecret) sem token', () => {
+    expect(() => new VoalleAdapter(oauthCreds)).not.toThrow();
+  });
+
+  it('lança se não há token nem par clientId/clientSecret', () => {
+    expect(() => new VoalleAdapter({ url: 'https://x', clientId: 'só-id' } as any)).toThrow(
+      'Voalle: credenciais ausentes',
+    );
+  });
+
+  it('OAuth — faz token-exchange e usa o access_token nas chamadas', async () => {
+    const http = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true, status: 200, statusText: 'OK',
+        json: async () => ({ access_token: 'oauth-tok-123', expires_in: 3600 }),
+      })
+      .mockResolvedValueOnce({
+        ok: true, status: 200, statusText: 'OK',
+        json: async () => [{ id: 1 }],
+      }) as unknown as HttpClient;
+
+    const adapter = new VoalleAdapter(oauthCreds, http);
+    const result = await adapter.findCustomerByCpf('12345678900');
+
+    // 1ª chamada: token-exchange em /oauth/token com grant client_credentials.
+    expect((http as any).mock.calls[0][0]).toBe('https://api.voalle.test/oauth/token');
+    const tokenInit = (http as any).mock.calls[0][1];
+    expect(tokenInit.method).toBe('POST');
+    expect(JSON.parse(tokenInit.body)).toEqual({
+      grant_type: 'client_credentials',
+      client_id: 'cid-x',
+      client_secret: 'secret-y',
+    });
+
+    // 2ª chamada: request de negócio com o Bearer obtido.
+    expect((http as any).mock.calls[1][0]).toBe('https://api.voalle.test/v1/clientes?cpf=12345678900&limit=5');
+    expect((http as any).mock.calls[1][1].headers['Authorization']).toBe('Bearer oauth-tok-123');
+    expect(result).toEqual([{ id: 1 }]);
+  });
+
+  it('OAuth — cacheia o token entre chamadas (um único token-exchange)', async () => {
+    const http = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true, status: 200, statusText: 'OK',
+        json: async () => ({ access_token: 'oauth-tok-123', expires_in: 3600 }),
+      })
+      .mockResolvedValue({
+        ok: true, status: 200, statusText: 'OK',
+        json: async () => [],
+      }) as unknown as HttpClient;
+
+    const adapter = new VoalleAdapter(oauthCreds, http);
+    await adapter.findCustomerByCpf('11111111111');
+    await adapter.getBillingStatus('cid-1');
+
+    const oauthCalls = (http as any).mock.calls.filter((c: any[]) => c[0].endsWith('/oauth/token'));
+    expect(oauthCalls).toHaveLength(1);
+  });
+
+  it('OAuth — lança se o token-exchange falha', async () => {
+    const http = makeHttp({ error: 'invalid_client' }, false);
+    const adapter = new VoalleAdapter(oauthCreds, http);
+    await expect(adapter.findCustomerByCpf('00000000000')).rejects.toThrow('Voalle OAuth Error: 422');
+  });
+
+  it('OAuth — lança se a resposta não traz access_token', async () => {
+    const http = makeHttp({ foo: 'bar' });
+    const adapter = new VoalleAdapter(oauthCreds, http);
+    await expect(adapter.findCustomerByCpf('00000000000')).rejects.toThrow('resposta sem access_token');
+  });
 });

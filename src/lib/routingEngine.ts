@@ -64,7 +64,7 @@ export async function findBestOperator(ticket: Ticket, tenantId: string): Promis
       
       const candidates: Operator[] = [];
       let totalOnline = 0;
-      snapshot.forEach(doc => {
+      snapshot.forEach((doc: any) => {
         const op = { id: doc.id, ...doc.data() } as Operator;
         totalOnline++;
         if (op.current_chat_count < op.max_concurrent_chats) {

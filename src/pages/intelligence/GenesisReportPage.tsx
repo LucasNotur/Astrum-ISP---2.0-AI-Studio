@@ -165,12 +165,10 @@ export default function GenesisReportPage() {
             <StatCard
               label="Contatos analisados"
               value={report.contactsAnalyzed}
-              icon={<Users size={16} />}
             />
             <StatCard
               label="Perfis gravados"
               value={report.profilesWritten}
-              icon={<DollarSign size={16} />}
             />
           </div>
 

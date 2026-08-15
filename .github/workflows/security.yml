@@ -36,6 +36,8 @@ jobs:
         run: npx npm-check-updates --target minor || echo "Atualizações pendentes informadas com sucesso."
         continue-on-error: true
 
+      # OBS-04: secret-scan de segredos VERIFICADOS (live) é BLOQUEANTE — um segredo
+      # real vazado sempre deve quebrar o CI. `--only-verified` mantém falso-positivo baixo.
       - name: Verificar secrets vazados no código
         uses: trufflesecurity/trufflehog@main
         with:
@@ -43,4 +45,3 @@ jobs:
           base: ""
           head: ${{ github.ref }}
           extra_args: --only-verified
-        continue-on-error: true

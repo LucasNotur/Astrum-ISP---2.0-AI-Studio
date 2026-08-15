@@ -43,8 +43,13 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
-      - name: Verificar tipos TypeScript
+      - name: Verificar tipos TypeScript (apps/api)
         run: npm run typecheck --workspace=apps/api
+
+      # OBS-01: o backend/frontend legado (/src) também é typechecado no CI — antes
+      # ficava de fora e deixou regressões de tipo passarem. Zerado em 2026-08-11.
+      - name: Verificar tipos TypeScript (/src legado)
+        run: npm run typecheck:legacy
 
       - name: Lint
         run: npm run lint --workspace=apps/api --if-present

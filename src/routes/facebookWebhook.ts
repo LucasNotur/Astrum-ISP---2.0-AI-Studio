@@ -26,15 +26,21 @@ facebookWebhookRouter.post('/', async (req: Request, res: Response) => {
     try {
         const { validateWebhookSignature } = await import('../../apps/api/src/infrastructure/security/hmac.service.ts');
         const signature = req.headers['x-hub-signature-256'] as string ?? '';
-        const rawBody = JSON.stringify(req.body);
-        const isValid = validateWebhookSignature(rawBody, signature, 'facebook');
+        // APPSEC-05: HMAC sobre os BYTES CRUS (req.rawBody), não o body re-serializado.
+        const rawBody: Buffer = (req as any).rawBody instanceof Buffer
+            ? (req as any).rawBody
+            : Buffer.from(JSON.stringify(req.body));
 
-        if (!isValid) {
+        if (!validateWebhookSignature(rawBody, signature, 'facebook')) {
             res.status(401).json({ error: 'Assinatura inválida' });
             return;
         }
     } catch (e) {
-        console.error('HMAC loading error', e);
+        // Fail-CLOSED: erro ao verificar a assinatura NÃO pode deixar o webhook seguir
+        // sem autenticação (antes: logava e CONTINUAVA processando = fail-open).
+        console.error('Erro na verificação de assinatura do webhook Facebook', e);
+        res.status(401).json({ error: 'Falha na verificação de assinatura' });
+        return;
     }
     const body = req.body;
 

@@ -5,6 +5,8 @@ import type { FieldOs } from '../../lib/fieldOps';
 
 const mockOs: FieldOs = {
   id: 'os-1',
+  title: 'Instalação — Rua A',
+  checklist: [],
   client: 'João Silva',
   address: 'Rua A, 100',
   type: 'Instalação',

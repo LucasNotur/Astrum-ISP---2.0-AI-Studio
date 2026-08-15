@@ -128,13 +128,13 @@ const createRedisClient = () => {
   const client = new Redis(redisUrl, {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
-    retryStrategy(times) {
+    retryStrategy(times: number) {
       if (times > 3) return null;
       return Math.min(times * 50, 2000);
     }
   });
 
-  client.on('error', (err) => {
+  client.on('error', (err: any) => {
     console.error('Redis connection error:', err.message);
   });
 

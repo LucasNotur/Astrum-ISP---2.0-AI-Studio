@@ -3,6 +3,7 @@ import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
 import { resolvePrompt } from '../ai/prompt-registry';
 import { infraLogger } from '../logging/logger';
+import { recordLlmUsage } from '../ai/llm-budget.service';
 
 /**
  * IA-21 — Constitutional classifier (nó de veto dedicado).
@@ -56,7 +57,7 @@ export async function classifyResponseSafety(
 
   const prompt = resolvePrompt('safety_veto');
   try {
-    const { object } = await generateObject({
+    const { object, usage } = await generateObject({
       model: openai('gpt-4o-mini') as any,
       schema: SafetyVerdictSchema,
       system: prompt.text,
@@ -72,6 +73,8 @@ export async function classifyResponseSafety(
         'Helicone-Property-PromptVersion': prompt.version,
       },
     });
+    // COST-01: contabiliza os tokens do classificador (não bloqueia — é fail-open safety).
+    await recordLlmUsage(tenantId, Number((usage as any)?.totalTokens ?? (usage as any)?.total_tokens ?? 0) || 0);
     infraLogger.info(
       { safe: object.safe, categories: object.categories, tenantId },
       'Safety classifier: verdict',

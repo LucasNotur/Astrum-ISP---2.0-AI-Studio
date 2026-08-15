@@ -3,6 +3,7 @@ import { r2Adapter } from '../../adapters/storage/r2.adapter';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { requirePlanCapacity } from '../onboarding/plan-limits.service';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
+import { readTenantScoped, writeTenantScoped } from '../../infrastructure/database/tenant-rls';
 import { iaLogger } from '../../infrastructure/logging/logger';
 import { outboxService } from '../../infrastructure/queue/outbox.service';
 
@@ -56,22 +57,37 @@ export async function documentRoutes(fastify: FastifyInstance) {
     );
 
     // Registrar no banco (status: processing — RAG indexará via Outbox Pattern)
-    const { data: doc, error } = await supabaseAdmin
-      .from('knowledge_documents')
-      .insert({
-        tenant_id: tenantId,
-        filename: data.filename,
-        file_type: fileType,
-        file_size_bytes: uploaded.size,
-        status: 'processing',
-        r2_key: uploaded.key,
-        qdrant_collection: `tenant_${tenantId}`,
-        uploaded_by: userId,
-      })
-      .select('id, filename, status')
-      .single();
-
-    if (error) throw error;
+    // MT-02(c): escrita RLS por-tenant quando a flag está ligada (pós-096); senão service_role.
+    const doc = await writeTenantScoped<{ id: string; filename: string; status: string }>(tenantId, {
+      rls: async (db) => {
+        const { rows } = await db.query(
+          `INSERT INTO knowledge_documents
+             (tenant_id, filename, file_type, file_size_bytes, status, r2_key, qdrant_collection, uploaded_by)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             RETURNING id, filename, status`,
+          [tenantId, data.filename, fileType, uploaded.size, 'processing', uploaded.key, `tenant_${tenantId}`, userId],
+        );
+        return rows[0];
+      },
+      fallback: async () => {
+        const { data: doc, error } = await supabaseAdmin
+          .from('knowledge_documents')
+          .insert({
+            tenant_id: tenantId,
+            filename: data.filename,
+            file_type: fileType,
+            file_size_bytes: uploaded.size,
+            status: 'processing',
+            r2_key: uploaded.key,
+            qdrant_collection: `tenant_${tenantId}`,
+            uploaded_by: userId,
+          })
+          .select('id, filename, status')
+          .single();
+        if (error) throw error;
+        return doc;
+      },
+    });
 
     iaLogger.info({ tenantId, documentId: doc.id, filename: data.filename }, 'Documento enviado, registrando outbox');
     
@@ -100,13 +116,28 @@ export async function documentRoutes(fastify: FastifyInstance) {
   }, async (request) => {
     const { tenantId } = (request as any).user;
 
-    const { data } = await supabaseAdmin
-      .from('knowledge_documents')
-      .select('id, filename, file_type, status, chunks_count, created_at')
-      .eq('tenant_id', tenantId)
-      .order('created_at', { ascending: false });
+    // MT-02(c): RLS por-tenant quando a flag está ligada (pós-096); senão service_role.
+    const documents = await readTenantScoped(tenantId, {
+      rls: async (db) => {
+        const { rows } = await db.query(
+          `SELECT id, filename, file_type, status, chunks_count, created_at
+             FROM knowledge_documents
+             WHERE tenant_id = $1 ORDER BY created_at DESC`,
+          [tenantId],
+        );
+        return rows;
+      },
+      fallback: async () => {
+        const { data } = await supabaseAdmin
+          .from('knowledge_documents')
+          .select('id, filename, file_type, status, chunks_count, created_at')
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: false });
+        return data ?? [];
+      },
+    });
 
-    return { documents: data ?? [] };
+    return { documents };
   });
 
   // Gerar URL de download para um documento
@@ -117,12 +148,26 @@ export async function documentRoutes(fastify: FastifyInstance) {
     const { tenantId } = (request as any).user;
     const { id } = request.params as { id: string };
 
-    const { data: doc } = await supabaseAdmin
-      .from('knowledge_documents')
-      .select('r2_key, filename')
-      .eq('id', id)
-      .eq('tenant_id', tenantId) // garantia extra de isolamento
-      .single();
+    // MT-02(c): RLS por-tenant quando a flag está ligada (pós-096); senão service_role.
+    const doc = await readTenantScoped<{ r2_key: string; filename: string } | null>(tenantId, {
+      rls: async (db) => {
+        const { rows } = await db.query(
+          `SELECT r2_key, filename FROM knowledge_documents
+             WHERE id = $1 AND tenant_id = $2 LIMIT 1`,
+          [id, tenantId],
+        );
+        return rows[0] ?? null;
+      },
+      fallback: async () => {
+        const { data } = await supabaseAdmin
+          .from('knowledge_documents')
+          .select('r2_key, filename')
+          .eq('id', id)
+          .eq('tenant_id', tenantId) // garantia extra de isolamento
+          .single();
+        return data ?? null;
+      },
+    });
 
     if (!doc) {
       return reply.status(404).send({ code: 'NOT_FOUND', message: 'Documento não encontrado.' });

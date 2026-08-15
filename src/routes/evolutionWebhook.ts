@@ -1,6 +1,7 @@
 import express from "express";
 import { enqueueMessage } from "../lib/queue.ts";
 import { adminDb as db } from "../lib/firebaseAdmin.ts";
+import { handleConnectionUpdate } from "./evolutionConnection.ts";
 
 export const evolutionWebhookRouter = express.Router();
 
@@ -8,7 +9,10 @@ evolutionWebhookRouter.post("/", async (req, res) => {
   try {
     const { validateWebhookSignature } = await import('../../apps/api/src/infrastructure/security/hmac.service.ts');
     const signature = (req.headers['x-hub-signature-256'] || req.headers['x-evolution-signature']) as string ?? '';
-    const rawBody = JSON.stringify(req.body);
+    // APPSEC-05: HMAC sobre os BYTES CRUS (req.rawBody), não o body re-serializado.
+    const rawBody: Buffer = (req as any).rawBody instanceof Buffer
+      ? (req as any).rawBody
+      : Buffer.from(JSON.stringify(req.body));
     const isValid = validateWebhookSignature(rawBody, signature, 'evolution');
 
     if (!isValid) {
@@ -113,24 +117,34 @@ evolutionWebhookRouter.post("/", async (req, res) => {
           fetch(shadowUrl, {
             method: 'POST',
             headers: { 'content-type': 'application/json', 'x-shadow': 'true', 'x-hub-signature-256': shadowSig },
-            body: rawBody,
+            body: rawBody.toString('utf8'),
           }).catch((err: unknown) => console.warn('[shadow] falha ao espelhar para v2:', (err as Error).message));
         }
       }
     } else if (payload.event === "connection.update") {
       const state = payload.data?.state || payload.data?.status;
       if (tenantId !== "local_tenant") {
-        await db.collection("tenants").doc(tenantId).collection("integration_keys").doc("default").set({
-          whatsappStatus: state
-        }, { merge: true });
-        
-        await db.collection("logs").add({
-          type: "whatsapp_connection",
-          tenant_id: tenantId,
-          timestamp: new Date().toISOString(),
-          status: state,
-          instance: instanceName
-        });
+        // OBS-11: só persiste quando o estado MUDA (Evolution reenvia o mesmo 'open').
+        const keyRef = db.collection("tenants").doc(tenantId).collection("integration_keys").doc("default");
+        await handleConnectionUpdate(
+          {
+            getPrevStatus: async () => {
+              const snap = await keyRef.get();
+              return snap.exists ? (snap.data() as any)?.whatsappStatus : undefined;
+            },
+            setStatus: async (s) => { await keyRef.set({ whatsappStatus: s }, { merge: true }); },
+            appendLog: async (s) => {
+              await db.collection("logs").add({
+                type: "whatsapp_connection",
+                tenant_id: tenantId,
+                timestamp: new Date().toISOString(),
+                status: s,
+                instance: instanceName,
+              });
+            },
+          },
+          state,
+        );
       }
     }
 

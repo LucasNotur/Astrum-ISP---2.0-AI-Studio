@@ -1,6 +1,6 @@
 import { adminDb as db } from "./firebaseAdmin.ts";
 import { supabaseAdmin } from "./supabaseAdmin.ts";
-import archiver from "archiver";
+import * as archiver from "archiver";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -8,9 +8,13 @@ import crypto from "crypto";
 import redisClient from "./redis.ts";
 import { sendEmail } from "./email.ts";
 import { logger } from "./logger.ts";
+import { purgeExpiredExports } from "./exportRetention.ts";
 
 export async function processDataExport(tenantId: string, requestedBy: string) {
   const redisKey = `export_status:${tenantId}`;
+  // LGPD-01: limpa ZIPs de export vencidos deste tenant antes de gerar um novo
+  // (PII não pode acumular indefinidamente no bucket). Best-effort, não bloqueia.
+  await purgeExpiredExports(tenantId);
   
   const updateProgress = async (status: string, progress: number, link?: string) => {
     if (redisClient) {
@@ -51,9 +55,9 @@ export async function processDataExport(tenantId: string, requestedBy: string) {
     
     await new Promise<void>((resolve, reject) => {
       const output = fs.createWriteStream(zipPath);
-      const archive = archiver('zip', { zlib: { level: 9 } });
+      const archive = (archiver as any)('zip', { zlib: { level: 9 } });
       output.on('close', () => resolve());
-      archive.on('error', (err) => reject(err));
+      archive.on('error', (err: any) => reject(err));
       archive.pipe(output);
       archive.file(path.join(tempDir, "customers.json"), { name: 'customers.json' });
       archive.file(path.join(tempDir, "tickets.json"), { name: 'tickets.json' });

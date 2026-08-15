@@ -53,7 +53,7 @@ export const SuperAdminPage = () => {
   const [engineUpdating, setEngineUpdating] = useState<string | null>(null);
 
   useEffect(() => {
-    if (currentUserRole !== 'super_admin') return;
+    if ((currentUserRole as string) !== 'super_admin') return;
     fetchData();
   }, [currentUserRole]);
 
@@ -158,7 +158,7 @@ export const SuperAdminPage = () => {
 
   const CORE_FLAGS = ['cobrai_v2', 'atendimento_v2', 'ai_budget_hard_stop', 'rag_enabled', 'webhook_svix'];
 
-  if (currentUserRole !== 'super_admin') {
+  if ((currentUserRole as string) !== 'super_admin') {
     return (
       <div className="flex items-center justify-center h-64 text-muted-foreground">
         <ShieldCheck className="mr-2 h-5 w-5" />

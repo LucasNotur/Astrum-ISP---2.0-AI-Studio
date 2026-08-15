@@ -1,44 +1,31 @@
-import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
+import { isProductionLikeEnv } from './env.validator';
 
-describe('validateEnv — fail-fast em produção', () => {
-  const ORIGINAL_ENV = process.env;
-
-  beforeEach(() => {
-    vi.resetModules();
-    process.env = { ...ORIGINAL_ENV };
+// INFRA-04: fail-closed por padrão. Só ambiente EXPLICITAMENTE local degrada aberto.
+describe('isProductionLikeEnv (INFRA-04)', () => {
+  it('ambiente local explícito → NÃO é produção (degrada aberto)', () => {
+    expect(isProductionLikeEnv({ NODE_ENV: 'development' } as any)).toBe(false);
+    expect(isProductionLikeEnv({ NODE_ENV: 'test' } as any)).toBe(false);
+    expect(isProductionLikeEnv({} as any)).toBe(false); // NODE_ENV ausente = local
+    expect(isProductionLikeEnv({ NODE_ENV: '' } as any)).toBe(false);
   });
 
-  afterEach(() => {
-    process.env = ORIGINAL_ENV;
-    vi.restoreAllMocks();
+  it('production explícito → é produção (fail-closed)', () => {
+    expect(isProductionLikeEnv({ NODE_ENV: 'production' } as any)).toBe(true);
   });
 
-  it('em produção com env inválido chama process.exit(1)', async () => {
-    process.env.NODE_ENV = 'production';
-    delete process.env.SUPABASE_URL;
-    delete process.env.JWT_SECRET;
-
-    const exitSpy = vi
-      .spyOn(process, 'exit')
-      .mockImplementation((() => { throw new Error('__exit__'); }) as any);
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-    const { validateEnv } = await import('./env.validator');
-    expect(() => validateEnv()).toThrow('__exit__');
-    expect(exitSpy).toHaveBeenCalledWith(1);
+  it('valores não-locais (staging/prod/typo) → fail-closed', () => {
+    expect(isProductionLikeEnv({ NODE_ENV: 'staging' } as any)).toBe(true);
+    expect(isProductionLikeEnv({ NODE_ENV: 'prod' } as any)).toBe(true);
+    expect(isProductionLikeEnv({ NODE_ENV: 'produção' } as any)).toBe(true);
   });
 
-  it('em desenvolvimento com env inválido NÃO derruba o processo', async () => {
-    process.env.NODE_ENV = 'development';
-    delete process.env.SUPABASE_URL;
+  it('VERCEL_ENV=production força fail-closed mesmo sem NODE_ENV', () => {
+    expect(isProductionLikeEnv({ VERCEL_ENV: 'production' } as any)).toBe(true);
+    expect(isProductionLikeEnv({ NODE_ENV: 'development', VERCEL_ENV: 'production' } as any)).toBe(true);
+  });
 
-    const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as any);
-    vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-    const { validateEnv } = await import('./env.validator');
-    expect(() => validateEnv()).not.toThrow();
-    expect(exitSpy).not.toHaveBeenCalled();
+  it('VERCEL_ENV=preview com NODE_ENV local segue local', () => {
+    expect(isProductionLikeEnv({ NODE_ENV: 'development', VERCEL_ENV: 'preview' } as any)).toBe(false);
   });
 });

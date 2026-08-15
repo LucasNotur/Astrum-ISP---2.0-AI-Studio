@@ -14,6 +14,14 @@ export interface TokenPayload {
   role: 'super_admin' | 'admin' | 'operator' | 'viewer';
 }
 
+// AUTH-05 (auditoria 2026-08-10): binding de emissor/audiência no access token de
+// OPERADOR. Antes o JWT não tinha `iss`/`aud` → um token de outro serviço/uso que
+// compartilhe o segredo poderia ser aceito. O `authenticate` (server.ts) passa a exigir
+// exatamente estes valores; tokens de assinante (`aud:subscriber-portal`) e de trial
+// têm verify paths próprios e não são afetados.
+export const OPERATOR_TOKEN_ISSUER = 'astrum-api';
+export const OPERATOR_TOKEN_AUDIENCE = 'astrum-operator';
+
 /**
  * Gera um par de tokens: access (15min) + refresh (7 dias).
  * O access token é um JWT assinado pelo Fastify.
@@ -24,8 +32,11 @@ export async function generateTokenPair(
   payload: TokenPayload,
   meta: { userAgent?: string; ipAddress?: string } = {}
 ): Promise<TokenPair> {
-  // Access token: JWT com expiração curta
-  const accessToken = fastify.jwt.sign(payload, { expiresIn: '15m' });
+  // Access token: JWT com expiração curta + iss/aud (AUTH-05).
+  const accessToken = fastify.jwt.sign(
+    { ...payload, iss: OPERATOR_TOKEN_ISSUER, aud: OPERATOR_TOKEN_AUDIENCE },
+    { expiresIn: '15m' },
+  );
 
   // Refresh token: token opaco aleatório (não é JWT)
   const refreshToken = crypto.randomBytes(64).toString('hex');

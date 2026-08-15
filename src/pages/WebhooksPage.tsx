@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/src/lib/supabase';
+import { apiGet, apiPost, apiDelete } from '@/src/lib/apiClient';
 import { useAppStore } from '../store/useAppStore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
 import { Badge } from "@/src/components/ui/badge";
@@ -84,11 +85,9 @@ export function WebhooksPage() {
     // Load endpoints from Svix API
     if (tenantRes.data?.svix_app_id) {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const res = await fetch(`/api/webhooks/endpoints?tenantId=${tenantId}`, {
-          headers: { Authorization: `Bearer ${session?.access_token}` },
-        });
-        if (res.ok) setEndpoints(await res.json());
+        // Fase 1: /api/webhooks/endpoints (404 — não montado) → /api/v2/webhooks/endpoints
+        // (Fastify). Tenant vem do JWT (apiClient injeta o Bearer); dropado o ?tenantId.
+        setEndpoints(await apiGet('/api/v2/webhooks/endpoints'));
       } catch {}
     }
     setLoading(false);
@@ -98,13 +97,11 @@ export function WebhooksPage() {
     if (!newUrl) { toast.error('URL é obrigatória'); return; }
     setAddingEndpoint(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch('/api/webhooks/endpoints', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ tenantId, url: newUrl, description: newDesc, event_types: selectedEvents }),
-      });
-      if (!res.ok) throw new Error(await res.text());
+      // Fase 1: /api/webhooks → /api/v2/webhooks (Fastify). Contrato correto é
+      // { url, eventTypes } (camelCase) — antes mandava { tenantId, description, event_types },
+      // shape que o backend não aceita (por isso nunca funcionou). Tenant vem do JWT; a URL
+      // passa por guard anti-SSRF no servidor. (description não é suportado pelo backend.)
+      await apiPost('/api/v2/webhooks/endpoints', { url: newUrl, eventTypes: selectedEvents });
       toast.success('Endpoint adicionado');
       setNewUrl(''); setNewDesc(''); setSelectedEvents([]); setShowAddForm(false);
       load();
@@ -118,11 +115,8 @@ export function WebhooksPage() {
   async function deleteEndpoint(id: string) {
     if (!confirm('Remover este endpoint?')) return;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      await fetch(`/api/webhooks/endpoints/${id}?tenantId=${tenantId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${session?.access_token}` },
-      });
+      // Fase 1: /api/webhooks → /api/v2/webhooks (Fastify). Tenant do JWT.
+      await apiDelete(`/api/v2/webhooks/endpoints/${id}`);
       toast.success('Endpoint removido');
       setEndpoints(prev => prev.filter(e => e.id !== id));
     } catch (e: any) {
@@ -132,12 +126,11 @@ export function WebhooksPage() {
 
   async function retryDelivery(deliveryId: string) {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch(`/api/webhooks/deliveries/${deliveryId}/retry`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session?.access_token}` },
-      });
-      if (!res.ok) throw new Error(await res.text());
+      // Fase 1: repontado para /api/v2. ⚠️ GAP CONHECIDO: o Fastify ainda NÃO tem
+      // POST /api/v2/webhooks/deliveries/:id/retry (só existem endpoints + portal).
+      // Task aberta para criá-lo; até lá esta ação retorna 404 (comportamento honesto:
+      // já falhava antes, pois /api/webhooks/deliveries também não existia).
+      await apiPost(`/api/v2/webhooks/deliveries/${deliveryId}/retry`);
       toast.success('Reenvio agendado');
       load();
     } catch (e: any) {

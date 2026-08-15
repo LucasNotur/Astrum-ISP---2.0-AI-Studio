@@ -1,7 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { AlertTriangle } from 'lucide-react';
-import { tech } from './theme';
+// Overlay sobre o mapa (sempre escuro) — token DARK fixo.
+import { DARK as tech } from './theme';
 
 /**
  * Aviso de recalcular rota por trânsito — inspirado no prompt "Change the route?"

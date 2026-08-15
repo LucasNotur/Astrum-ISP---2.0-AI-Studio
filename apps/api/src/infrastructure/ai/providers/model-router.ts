@@ -24,6 +24,13 @@ import { google } from '@ai-sdk/google';
 import { openai } from '@ai-sdk/openai';
 import { redis } from '../../cache/redis.client';
 import { iaLogger } from '../../logging/logger';
+import { assertLlmBudget, recordLlmUsage } from '../llm-budget.service';
+
+/** Extrai o total de tokens de um resultado do AI SDK (v6 ou legado), 0 se ausente. */
+function tokensOf(result: unknown): number {
+  const u = (result as any)?.usage;
+  return Number(u?.totalTokens ?? u?.total_tokens ?? 0) || 0;
+}
 
 export type Tier = 'mini' | 'full';
 export type ProviderName = 'openai' | 'anthropic' | 'google';
@@ -195,9 +202,15 @@ export async function withFailover<T>(
   fn: (model: LanguageModel) => Promise<T>,
   tenantId: string = 'unknown',
 ): Promise<T> {
+  // COST-01: teto de orçamento LLM por tenant (no-op se desabilitado). Bloqueia
+  // ANTES de qualquer provider. Central: cobre classifyIntent/diagnostic/report/etc.
+  await assertLlmBudget(tenantId);
+
   if (!isFailoverEnabled()) {
     // Comportamento atual: openai fixo, sem custo de checagem de circuito.
-    return fn(getModel(tier));
+    const result = await fn(getModel(tier));
+    await recordLlmUsage(tenantId, tokensOf(result));
+    return result;
   }
 
   const order = resolveProviderOrder();
@@ -218,6 +231,7 @@ export async function withFailover<T>(
     try {
       const result = await fn(model);
       await recordCircuitSuccess(provider);
+      await recordLlmUsage(tenantId, tokensOf(result));
       return result;
     } catch (err) {
       lastError = err;

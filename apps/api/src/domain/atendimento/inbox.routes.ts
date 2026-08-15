@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
+import { readTenantScoped } from '../../infrastructure/database/tenant-rls';
 
 /**
  * P2-04 — Inbox unificada do operador.
@@ -47,11 +48,15 @@ export async function inboxRoutes(app: FastifyInstance): Promise<void> {
 
       const statusList = status.split(',').map((s) => s.trim());
 
+      // MT-02(c): NÃO migrada para withTenantRLS de propósito — usa embed aninhado
+      // PostgREST `messages(...)`. O campo livre da mensagem é `extra` (jsonb, migration
+      // 033); a tabela NÃO tem coluna `metadata`. Migrar para withTenantRLS exigiria
+      // reescrever o join em SQL (json_agg) e casar a shape — service_role por ora.
       let query = supabaseAdmin
         .from('conversations')
         .select(
           `id, channel, status, customer_identifier, last_message_at,
-           messages(content, role, metadata, created_at)`,
+           messages(content, role, extra, created_at)`,
         )
         .eq('tenant_id', tenantId)
         .in('status', statusList)
@@ -76,7 +81,7 @@ export async function inboxRoutes(app: FastifyInstance): Promise<void> {
         const assistantMsgs = messages.filter((m: any) => m.role === 'assistant');
         const lastAssistant = assistantMsgs.at(-1);
         const handoverSummary =
-          lastAssistant?.metadata?.handoverSummary ?? undefined;
+          lastAssistant?.extra?.handoverSummary ?? undefined;
 
         return {
           id: conv.id,
@@ -85,7 +90,7 @@ export async function inboxRoutes(app: FastifyInstance): Promise<void> {
           customerIdentifier: conv.customer_identifier ?? '',
           lastMessageAt: conv.last_message_at ?? '',
           lastMessagePreview: (lastMsg?.content as string)?.slice(0, 120) ?? '',
-          requiresHuman: lastAssistant?.metadata?.requiresHuman === true,
+          requiresHuman: lastAssistant?.extra?.requiresHuman === true,
           ...(handoverSummary ? { handoverSummary } : {}),
         };
       });
@@ -103,17 +108,31 @@ export async function inboxRoutes(app: FastifyInstance): Promise<void> {
       const tenantId = user?.tenantId;
       if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
 
-      const { data, error } = await supabaseAdmin
-        .from('conversations')
-        .select('channel, status')
-        .eq('tenant_id', tenantId)
-        .in('status', ['open', 'escalated', 'waiting']);
-
-      if (error) {
-        return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
+      // MT-02(c): RLS por-tenant quando a flag está ligada (pós-096); senão service_role.
+      let rows: Array<{ channel: string; status: string }>;
+      try {
+        rows = await readTenantScoped(tenantId, {
+          rls: async (db) => {
+            const { rows } = await db.query(
+              `SELECT channel, status FROM conversations
+                 WHERE tenant_id = $1 AND status = ANY($2)`,
+              [tenantId, ['open', 'escalated', 'waiting']],
+            );
+            return rows;
+          },
+          fallback: async () => {
+            const { data, error } = await supabaseAdmin
+              .from('conversations')
+              .select('channel, status')
+              .eq('tenant_id', tenantId)
+              .in('status', ['open', 'escalated', 'waiting']);
+            if (error) throw new Error(error.message);
+            return data ?? [];
+          },
+        });
+      } catch (err) {
+        return reply.code(500).send({ code: 'DB_ERROR', message: err instanceof Error ? err.message : 'db error' });
       }
-
-      const rows = data ?? [];
       const byChannel: Record<string, number> = {};
       const byStatus: Record<string, number> = {};
       let escalated = 0;

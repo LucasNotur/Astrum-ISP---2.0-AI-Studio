@@ -177,6 +177,38 @@ export async function deleteDocumentPoints(
 }
 
 /**
+ * LGPD Art. 18 (direito ao apagamento) — remove todos os pontos vetoriais
+ * derivados de um cliente específico da coleção do tenant.
+ *
+ * ESCOPO: filtra por `customer_id` no payload e opera SOMENTE na coleção
+ * `tenant_{tenantId}` (isolamento por tenant garantido pela nomenclatura).
+ * A base de conhecimento do provedor (chunks de documento/artigo, sem
+ * `customer_id`) NÃO é tocada — apenas vetores atrelados ao cliente expurgado.
+ *
+ * IDEMPOTENTE: deletar por filtro que não casa nada (ou coleção inexistente)
+ * é no-op. Hoje o schema RAG não indexa conteúdo por cliente, então isto é
+ * um no-op de fato; fica cablado para quando embeddings derivados de conversa
+ * do cliente passarem a carregar `customer_id` — cumprindo o compromisso do
+ * DPA (compliance.routes.ts S5) sem reescrever o fluxo de expurgo.
+ */
+export async function deleteCustomerPoints(
+  tenantId: string,
+  customerId: string
+): Promise<void> {
+  const qdrant = getQdrantClient();
+  const collectionName = getTenantCollection(tenantId);
+
+  await qdrant.delete(collectionName, {
+    wait: true,
+    filter: {
+      must: [{ key: 'customer_id', match: { value: customerId } }],
+    },
+  });
+
+  infraLogger.info({ tenantId, customerId }, 'Vetores do cliente removidos do Qdrant (LGPD)');
+}
+
+/**
  * Retorna estatísticas da coleção de um tenant.
  */
 export async function getCollectionStats(tenantId: string) {

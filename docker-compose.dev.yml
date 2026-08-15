@@ -23,6 +23,14 @@ services:
     networks:
       - internal_dev
 
+  # Em dev: Zep com acesso ao Supabase cloud
+  # Requer: ZEP_POSTGRES_DSN no .env (ver infra/sql/create-zep-user.sql)
+  zep:
+    ports:
+      - "127.0.0.1:8000:8000"
+    networks:
+      - internal_dev
+
   # Em dev: API com hot-reload
   api:
     build:
@@ -53,9 +61,48 @@ services:
     networks:
       - external_dev
 
+  # ─── Evolution API ────────────────────────────────────────
+  # WhatsApp Business — API de mensagens
+  # Porta: 8080 | Dashboard: http://localhost:8080
+  # API Key gerada automaticamente no primeiro start, ou via EVOLUTION_LOCAL_API_KEY
+  evolution-api:
+    image: evoapicloud/evolution-api:v2.2.3
+    container_name: astrum-evolution
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - evolution_data:/evolution/store
+      - evolution_instances:/evolution/instances
+    environment:
+      # URL pública usada para webhooks — em dev usa o tunnel (atualizar após start)
+      SERVER_URL: ${EVOLUTION_SERVER_URL:-http://localhost:8080}
+      # Chave de autenticação da API — configure no .env como EVOLUTION_LOCAL_API_KEY
+      AUTHENTICATION_TYPE: apikey
+      AUTHENTICATION_API_KEY: ${EVOLUTION_LOCAL_API_KEY:-astrum-evolution-dev-key}
+      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: "true"
+      # Banco local SQLite — não precisa de Postgres externo em dev
+      DATABASE_PROVIDER: sqlite
+      DATABASE_CONNECTION_URI: file:./evolution.db
+      # Cache em memória em dev (sem Redis externo para Evolution)
+      CACHE_REDIS_ENABLED: "false"
+      CACHE_LOCAL_ENABLED: "true"
+      # Logs
+      LOG_LEVEL: ERROR
+      LOG_COLOR: "true"
+      # Webhook global (opcional — Evolution manda eventos para cá)
+      WEBHOOK_GLOBAL_URL: ""
+      WEBHOOK_GLOBAL_ENABLED: "false"
+    networks:
+      - external_dev
+
 networks:
   internal_dev:
     driver: bridge
     # sem 'internal: true' em dev — containers precisam de internet para npm, etc.
   external_dev:
     driver: bridge
+
+volumes:
+  evolution_data:
+  evolution_instances:

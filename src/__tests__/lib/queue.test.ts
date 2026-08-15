@@ -80,9 +80,7 @@ vi.mock('../../lib/queue.ts', async (importOriginal) => {
 });
 
 vi.mock('../../lib/featureFlags.ts', () => ({
-  getTenantPlanId: vi.fn(() => 'PRO'),
-  checkFeatureAccess: vi.fn(() => true),
-  checkLimit: vi.fn(() => 9999)
+  getTenantPlanId: vi.fn(() => 'PRO')
 }));
 
 vi.mock('../../workers/cobraiWorker.ts', () => ({

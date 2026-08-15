@@ -1,5 +1,6 @@
 import React from 'react';
 import { Check } from 'lucide-react';
+import { tech } from './theme';
 
 const PHASES = [
   { key: 'aceita', label: 'Aceita' },
@@ -34,24 +35,24 @@ export function StatusTimeline({ status, className = '' }: StatusTimelineProps) 
             {idx > 0 && (
               <div
                 className="flex-1 h-0.5"
-                style={{ background: isDone ? '#3D5AFE' : '#222' }}
+                style={{ background: isDone ? tech.accent : tech.border }}
               />
             )}
             <div className="flex flex-col items-center">
               <div
                 className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all"
                 style={{
-                  background: isDone ? '#3D5AFE' : '#1a1a1a',
-                  color: isDone ? '#ffffff' : '#555',
-                  border: isDone ? 'none' : '1px solid #333',
-                  boxShadow: isCurrent ? '0 0 0 3px rgba(61,90,254,0.3)' : 'none',
+                  background: isDone ? tech.accent : tech.elevated,
+                  color: isDone ? tech.onAccent : tech.textMuted,
+                  border: isDone ? 'none' : `1px solid ${tech.border}`,
+                  boxShadow: isCurrent ? `0 0 0 3px ${tech.accentBorder}` : 'none',
                 }}
               >
                 {isDone && idx < currentIdx ? <Check size={12} strokeWidth={3} /> : idx + 1}
               </div>
               <span
                 className="text-[9px] mt-1.5 whitespace-nowrap font-medium"
-                style={{ color: isDone ? '#3D5AFE' : '#555' }}
+                style={{ color: isDone ? tech.accent : tech.textMuted }}
               >
                 {phase.label}
               </span>

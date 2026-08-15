@@ -4,7 +4,9 @@ import { encryptCredentials, decryptCredentials } from '../../adapters/erp/crede
 import { createErpProvider, isErpImplemented } from '../../adapters/erp/erp.factory';
 import type { ERPProviderName, ERPCredentials } from '../../adapters/erp/erp.types';
 
-const ALLOWED_PROVIDERS: ERPProviderName[] = ['ixc', 'mkauth', 'voalle', 'sgp', 'hubsoft'];
+// rbx tem tipo + adapter (RBXAdapter) no factory, mas estava fora desta lista → o
+// wizard rejeitava um provider IMPLEMENTADO (o frontend usa rbx). Alinhado ao factory.
+const ALLOWED_PROVIDERS: ERPProviderName[] = ['ixc', 'mkauth', 'voalle', 'sgp', 'hubsoft', 'rbx'];
 
 /**
  * P0-01 — Wizard de credenciais ERP (15 minutos).
@@ -48,8 +50,10 @@ export async function erpAdminRoutes(app: FastifyInstance) {
       if (!provider || !ALLOWED_PROVIDERS.includes(provider)) {
         return reply.code(400).send({ error: `provider inválido. Aceitos: ${ALLOWED_PROVIDERS.join(', ')}` });
       }
-      if (!credentials?.url || !credentials?.token) {
-        return reply.code(400).send({ error: 'credentials.url e credentials.token são obrigatórios' });
+      // Aceita provedores token-based (ixc/hubsoft/sgp/rbx: url+token) E OAuth
+      // (voalle: url+clientSecret). Exige a URL + ao menos um segredo.
+      if (!credentials?.url || (!credentials?.token && !credentials?.clientSecret && !credentials?.password)) {
+        return reply.code(400).send({ error: 'credentials.url e um segredo (token ou clientSecret) são obrigatórios' });
       }
 
       let encrypted: string;

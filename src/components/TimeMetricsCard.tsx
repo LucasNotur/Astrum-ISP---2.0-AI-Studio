@@ -41,6 +41,7 @@ import {
   TableRow,
 } from "./ui/table";
 import { supabase } from "@/src/lib/supabase";
+import { apiGet, apiPost } from "@/src/lib/apiClient";
 import { useAppStore } from "../store/useAppStore";
 
 const formatDuration = (ms: number) => {
@@ -67,10 +68,9 @@ export const TimeMetricsCard = () => {
   const fetchDepartments = async () => {
     if (!tenantId) return;
     try {
-      // FZ-4: departamentos vivem em tenants.departments (JSONB array)
-      const { data } = await supabase
-        .from("tenants").select("departments").eq("id", tenantId).maybeSingle();
-      setDepartments(Array.isArray(data?.departments) ? data!.departments : []);
+      // Fase 1: departamentos agora vivem na tabela `departments` (migration 097).
+      const data = await apiGet<{ departments: any[] }>("/api/v2/departments");
+      setDepartments(Array.isArray(data?.departments) ? data.departments : []);
     } catch (e) {
       console.error("Failed to fetch departments", e);
     }
@@ -80,19 +80,8 @@ export const TimeMetricsCard = () => {
     if (!tenantId) return;
     setLoading(true);
     try {
-      const res = await fetch("/api/metrics/time-quality", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "x-tenant-id": tenantId
-        },
-        body: JSON.stringify({ period, department }),
-      });
-      if (!res.ok) {
-         const text = await res.text();
-         throw new Error(`API Error: ${text}`);
-      }
-      const json = await res.json();
+      // Fase 1: /api/metrics/time-quality (404) → /api/v2/metrics/time-quality (Fastify).
+      const json = await apiPost<any>("/api/v2/metrics/time-quality", { period, department });
       if (json.success) {
         setData(json);
       }
@@ -300,7 +289,7 @@ export const TimeMetricsCard = () => {
                         />
                         <RechartsTooltip
                           cursor={{ fill: "#f4f4f5" }}
-                          formatter={(value: any, name: string) => [
+                          formatter={(value: any, name: any): any => [
                             formatDuration(Number(value)),
                             name === "tma_ai" ? "IA" : "Humano",
                           ]}

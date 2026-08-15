@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  Wifi, WifiOff, Play, Square, Smartphone, GraduationCap, Headset, LogOut, ChevronRight, Sun, Moon,
+  Wifi, WifiOff, Play, Square, Smartphone, GraduationCap, Headset, LogOut, ChevronRight, Sun, Moon, Monitor,
 } from 'lucide-react';
 import { useTechAppStore } from '../../store/techAppStore';
 import { tech } from './theme';
@@ -19,6 +19,8 @@ export function ProfileView() {
   const setIntroOpen = useTechAppStore((s) => s.setIntroOpen);
   const themeMode = useTechAppStore((s) => s.themeMode);
   const toggleTheme = useTechAppStore((s) => s.toggleTheme);
+  const viewMode = useTechAppStore((s) => s.viewMode);
+  const setViewMode = useTechAppStore((s) => s.setViewMode);
 
   const toggleShift = () => {
     if (shift) { setShift(null); toast.success('Turno encerrado!'); }
@@ -82,6 +84,49 @@ export function ProfileView() {
               {themeMode === 'dark' ? <Moon size={11} style={{ color: '#333' }} /> : <Sun size={11} style={{ color: tech.accent }} />}
             </span>
           </button>
+        </div>
+      </div>
+
+      {/* Modo de exibição: Desktop x Mobile */}
+      <div className="px-4 mb-2">
+        <div className="p-4" style={{ background: tech.card, borderRadius: 14, border: `1px solid ${tech.borderSubtle}` }}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center justify-center rounded-xl" style={{ width: 36, height: 36, background: tech.elevated }}>
+              {viewMode === 'mobile'
+                ? <Smartphone size={18} style={{ color: tech.accentLight }} />
+                : <Monitor size={18} style={{ color: tech.accentLight }} />}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold" style={{ color: tech.text }}>Modo de exibição</p>
+              <p className="text-xs" style={{ color: tech.textMuted }}>Como o app é apresentado nesta tela</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setViewMode('desktop')}
+              className="flex items-center justify-center gap-2 py-2.5 text-sm font-bold active:scale-95 transition-transform"
+              style={{
+                borderRadius: 12,
+                background: viewMode === 'desktop' ? tech.accent : tech.elevated,
+                color: viewMode === 'desktop' ? tech.onAccent : tech.textSecondary,
+                border: `1px solid ${viewMode === 'desktop' ? tech.accent : tech.border}`,
+              }}
+            >
+              <Monitor size={15} /> Desktop
+            </button>
+            <button
+              onClick={() => setViewMode('mobile')}
+              className="flex items-center justify-center gap-2 py-2.5 text-sm font-bold active:scale-95 transition-transform"
+              style={{
+                borderRadius: 12,
+                background: viewMode === 'mobile' ? tech.accent : tech.elevated,
+                color: viewMode === 'mobile' ? tech.onAccent : tech.textSecondary,
+                border: `1px solid ${viewMode === 'mobile' ? tech.accent : tech.border}`,
+              }}
+            >
+              <Smartphone size={15} /> Mobile
+            </button>
+          </div>
         </div>
       </div>
 

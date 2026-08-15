@@ -5,8 +5,17 @@ import {
   WifiOff, Wifi, TrendingUp, Bell, Navigation, MapPin, ChevronRight, BarChart3,
 } from 'lucide-react';
 import { useTechAppStore } from '../../store/techAppStore';
+import { supabase } from '../../lib/supabase';
 import { tech } from './theme';
+import { StatusCard, type CardStatus } from './StatusCard';
 import { toast } from 'sonner';
+
+/** OS.status ('pending'|'in_progress'|'completed') → status do StatusCard. */
+function toCardStatus(s: string): CardStatus {
+  if (s === 'completed') return 'completed';
+  if (s === 'in_progress') return 'in_progress';
+  return 'scheduled';
+}
 
 export function MyDayView() {
   const osList = useTechAppStore((s) => s.osList);
@@ -28,7 +37,8 @@ export function MyDayView() {
   const handleStartShift = async () => {
     const odometer = odometerInput ? parseInt(odometerInput) : undefined;
     try {
-      const token = localStorage.getItem('sb-access-token') ?? '';
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? '';
       const baseUrl = (import.meta as any).env?.VITE_API_URL || '';
       const res = await fetch(`${baseUrl}/api/v2/field/shift/start`, {
         method: 'POST',
@@ -50,7 +60,8 @@ export function MyDayView() {
   const handleEndShift = async () => {
     const odometer = odometerInput ? parseInt(odometerInput) : undefined;
     try {
-      const token = localStorage.getItem('sb-access-token') ?? '';
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? '';
       const baseUrl = (import.meta as any).env?.VITE_API_URL || '';
       await fetch(`${baseUrl}/api/v2/field/shift/end`, {
         method: 'POST',
@@ -143,23 +154,23 @@ export function MyDayView() {
         {/* KPI Cards */}
         <div className="grid grid-cols-2 gap-3">
           <KpiCard
-            icon={<CheckCircle2 size={20} style={{ color: '#3D5AFE' }} />}
+            icon={<CheckCircle2 size={20} style={{ color: tech.accent }} />}
             label="Concluídas"
             value={`${completed}/${total}`}
           />
           <KpiCard
-            icon={<TrendingUp size={20} style={{ color: '#3D5AFE' }} />}
+            icon={<TrendingUp size={20} style={{ color: tech.accent }} />}
             label="Progresso"
             value={`${completionPct}%`}
             highlight
           />
           <KpiCard
-            icon={<Route size={20} style={{ color: '#888' }} />}
+            icon={<Route size={20} style={{ color: tech.textMuted }} />}
             label="Km total"
             value={osrmRoute ? `${(osrmRoute.distance / 1000).toFixed(1)}` : '—'}
           />
           <KpiCard
-            icon={<Clock size={20} style={{ color: '#F5A524' }} />}
+            icon={<Clock size={20} style={{ color: tech.pending }} />}
             label="Pendentes"
             value={`${pending}`}
           />
@@ -168,13 +179,13 @@ export function MyDayView() {
         {/* Progress bar */}
         <div>
           <div className="flex justify-between text-xs mb-2">
-            <span style={{ color: '#666' }}>Progresso do dia</span>
-            <span className="font-bold" style={{ color: '#3D5AFE' }}>{completionPct}%</span>
+            <span style={{ color: tech.textMuted }}>Progresso do dia</span>
+            <span className="font-bold" style={{ color: tech.accent }}>{completionPct}%</span>
           </div>
-          <div className="w-full h-2.5 overflow-hidden" style={{ background: '#1a1a1a', borderRadius: '8px' }}>
+          <div className="w-full h-2.5 overflow-hidden" style={{ background: tech.elevated, borderRadius: '8px' }}>
             <motion.div
               className="h-full"
-              style={{ background: '#3D5AFE', borderRadius: '8px' }}
+              style={{ background: tech.accent, borderRadius: '8px' }}
               initial={{ width: 0 }}
               animate={{ width: `${completionPct}%` }}
               transition={{ duration: 0.5 }}
@@ -183,28 +194,29 @@ export function MyDayView() {
         </div>
 
         {/* Shift control */}
-        <div style={{ background: '#151517', borderRadius: '16px', border: '1px solid #1a1a1a' }} className="p-4">
-          <p className="text-xs font-bold mb-3" style={{ color: '#666' }}>Controle de Turno</p>
+        <div style={{ background: tech.card, borderRadius: '16px', border: `1px solid ${tech.borderSubtle}` }} className="p-4">
+          <p className="text-xs font-bold mb-3" style={{ color: tech.textMuted }}>Controle de Turno</p>
           {shift ? (
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ background: '#3D5AFE' }} />
-                <span className="text-xs font-medium" style={{ color: '#3D5AFE' }}>
+                <div className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ background: tech.accent }} />
+                <span className="text-xs font-medium" style={{ color: tech.accent }}>
                   Turno ativo desde {new Date(shift.startedAt!).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
               {shift.odometerStart && (
-                <p className="text-xs" style={{ color: '#555' }}>Odômetro início: {shift.odometerStart} km</p>
+                <p className="text-xs" style={{ color: tech.textMuted }}>Odômetro início: {shift.odometerStart} km</p>
               )}
               <input
                 type="number"
                 placeholder="Odômetro final (km)"
                 value={odometerInput}
                 onChange={(e) => setOdometerInput(e.target.value)}
-                className="w-full px-4 py-3 text-white text-sm"
+                className="w-full px-4 py-3 text-sm"
                 style={{
-                  background: '#1a1a1a',
-                  border: '1px solid #222',
+                  background: tech.elevated,
+                  color: tech.text,
+                  border: `1px solid ${tech.border}`,
                   borderRadius: '12px',
                   outline: 'none',
                 }}
@@ -213,7 +225,7 @@ export function MyDayView() {
                 onClick={handleEndShift}
                 className="w-full flex items-center justify-center gap-2 py-3 text-sm font-bold active:scale-[0.98] transition-transform"
                 style={{
-                  background: '#E5484D',
+                  background: tech.danger,
                   color: '#fff',
                   borderRadius: '14px',
                 }}
@@ -228,10 +240,11 @@ export function MyDayView() {
                 placeholder="Odômetro inicial (km, opcional)"
                 value={odometerInput}
                 onChange={(e) => setOdometerInput(e.target.value)}
-                className="w-full px-4 py-3 text-white text-sm"
+                className="w-full px-4 py-3 text-sm"
                 style={{
-                  background: '#1a1a1a',
-                  border: '1px solid #222',
+                  background: tech.elevated,
+                  color: tech.text,
+                  border: `1px solid ${tech.border}`,
                   borderRadius: '12px',
                   outline: 'none',
                 }}
@@ -240,8 +253,8 @@ export function MyDayView() {
                 onClick={handleStartShift}
                 className="w-full flex items-center justify-center gap-2 py-3 text-sm font-bold active:scale-[0.98] transition-transform"
                 style={{
-                  background: '#3D5AFE',
-                  color: '#ffffff',
+                  background: tech.accent,
+                  color: tech.onAccent,
                   borderRadius: '14px',
                 }}
               >
@@ -251,29 +264,20 @@ export function MyDayView() {
           )}
         </div>
 
-        {/* OS timeline */}
-        <div style={{ background: '#151517', borderRadius: '16px', border: '1px solid #1a1a1a' }} className="p-4">
-          <p className="text-xs font-bold mb-3" style={{ color: '#666' }}>Timeline do Dia</p>
-          <div className="space-y-1">
+        {/* Timeline do Dia — cards de status (StatusCard) por OS */}
+        <div>
+          <p className="text-xs font-bold mb-3" style={{ color: tech.textMuted }}>Timeline do Dia</p>
+          <div className="space-y-3">
             {osList.map((os) => (
-              <div key={os.id} className="flex items-center gap-3 py-1.5">
-                <span
-                  className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                  style={{
-                    background: os.status === 'completed' ? '#00C2A8' : os.status === 'in_progress' ? '#3D5AFE' : '#333',
-                  }}
-                />
-                <span className="text-xs w-12 flex-shrink-0" style={{ color: '#555' }}>{os.scheduledTime}</span>
-                <span
-                  className="text-xs truncate flex-1"
-                  style={{
-                    color: os.status === 'completed' ? '#555' : '#ccc',
-                    textDecoration: os.status === 'completed' ? 'line-through' : 'none',
-                  }}
-                >
-                  {os.client}
-                </span>
-              </div>
+              <StatusCard
+                key={os.id}
+                icon={<MapPin size={22} strokeWidth={2.2} />}
+                iconColor={os.status === 'completed' ? tech.done : tech.accentLight}
+                title={os.client}
+                subtitle={`${os.scheduledTime} · ${os.type}`}
+                status={toCardStatus(os.status)}
+                onClick={() => { setActiveOs(os); setView('active-os'); }}
+              />
             ))}
           </div>
         </div>
@@ -303,9 +307,9 @@ export function MyDayView() {
             className="w-full flex items-center justify-center gap-2 py-3 text-sm font-semibold active:scale-[0.98] transition-transform"
             style={{
               background: 'transparent',
-              color: '#3D5AFE',
+              color: tech.accent,
               borderRadius: '14px',
-              border: '1px solid #3D5AFE',
+              border: `1px solid ${tech.accent}`,
             }}
           >
             <Smartphone size={14} /> Instalar App no Celular
@@ -321,15 +325,15 @@ function KpiCard({ icon, label, value, highlight }: { icon: React.ReactNode; lab
     <div
       className="p-4 flex items-center gap-3"
       style={{
-        background: '#151517',
+        background: tech.card,
         borderRadius: '16px',
-        border: highlight ? '1px solid rgba(61,90,254,0.2)' : '1px solid #1a1a1a',
+        border: `1px solid ${highlight ? tech.accentBorder : tech.borderSubtle}`,
       }}
     >
       {icon}
       <div>
-        <p className="text-white font-bold text-xl leading-none">{value}</p>
-        <p className="text-xs mt-1" style={{ color: '#555' }}>{label}</p>
+        <p className="font-bold text-xl leading-none" style={{ color: tech.text }}>{value}</p>
+        <p className="text-xs mt-1" style={{ color: tech.textMuted }}>{label}</p>
       </div>
     </div>
   );

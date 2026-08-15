@@ -6,6 +6,7 @@ import { Badge } from '@/src/components/ui/badge';
 import { Skeleton } from '@/src/components/Skeleton';
 import { RiskBadge, type RiskLevel } from '@/src/components/intelligence/RiskBadge';
 import { cn } from '@/src/lib/utils';
+import { supabase } from '@/src/lib/supabase';
 
 const API_BASE_URL =
   (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) ||
@@ -60,9 +61,10 @@ export function ProviderFallbackOrderCard() {
 
   React.useEffect(() => {
     let mounted = true;
-    // token via localStorage do supabase (padrão da página)
-    const t = (typeof window !== 'undefined' && (window as any).localStorage?.getItem('sb-access-token')) || null;
-    if (mounted) setToken(t);
+    // token da sessão Supabase ativa (em memória; persistSession:false).
+    supabase.auth.getSession().then(({ data }) => {
+      if (mounted) setToken(data.session?.access_token ?? null);
+    });
     return () => { mounted = false; };
   }, []);
 
@@ -74,7 +76,9 @@ export function ProviderFallbackOrderCard() {
     staleTime: 25_000,
   });
 
-  if (isLoading) {
+  // token === null → sessão ainda sendo resolvida (getSession é async); trata como loading
+  // para não piscar o estado de erro antes do primeiro fetch.
+  if (token === null || isLoading) {
     return (
       <div className="space-y-2">
         <Skeleton className="h-12 w-full" />

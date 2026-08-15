@@ -25,8 +25,11 @@ vi.mock('../../lib/queue', () => ({
   }
 }));
 
-vi.mock('../../../../apps/api/src/infrastructure/security/hmac.service', () => ({
-  validateWebhookSignature: vi.fn().mockReturnValue(true)
+// vi.hoisted: ref compartilhada entre a factory do mock e os testes (evita import frágil
+// por path relativo). Path com 3× '../' + '.ts' = o MESMO módulo que a rota importa.
+const hmac = vi.hoisted(() => ({ validate: vi.fn().mockReturnValue(true) }));
+vi.mock('../../../apps/api/src/infrastructure/security/hmac.service.ts', () => ({
+  validateWebhookSignature: hmac.validate,
 }));
 
 // vi.mock('../../lib/facebookClient'); // Do not mock entirely to test it in test 7
@@ -184,5 +187,41 @@ describe('Facebook Webhook', () => {
         expect(caughtError).toContain('***');
 
         fetchSpy.mockRestore();
+    });
+
+    // APPSEC-05: HMAC deve ser verificado sobre os BYTES CRUS recebidos, não sobre
+    // JSON.stringify(req.body) (que muda ordem/espaços e quebra/burla a assinatura).
+    it('8. APPSEC-05: valida a assinatura sobre os bytes crus (req.rawBody), não o body re-serializado', async () => {
+        // App que captura rawBody como o server.ts de produção.
+        const appRaw = express();
+        appRaw.use(express.json({ verify: (req: any, _res, buf) => { req.rawBody = buf; } }));
+        appRaw.use('/api/webhook/facebook', facebookWebhookRouter);
+
+        (adminDb.collection as any).mockImplementation(() => ({ where: () => ({ limit: () => ({ get: vi.fn().mockResolvedValue({ empty: true }) }) }) }));
+
+        // JSON com espaços extras — difere do que JSON.stringify(req.body) produziria.
+        const rawJson = '{ "object" : "page" , "entry" : [] }';
+        await request(appRaw).post('/api/webhook/facebook')
+            .set('content-type', 'application/json')
+            .set('x-hub-signature-256', 'sha256=irrelevante')
+            .send(rawJson);
+
+        const passed = hmac.validate.mock.calls[0]?.[0];
+        expect(Buffer.isBuffer(passed)).toBe(true);
+        // Bytes cros preservados (com espaços) — NÃO o re-serializado compacto.
+        expect((passed as Buffer).toString('utf8')).toBe(rawJson);
+    });
+
+    // Fail-closed: um erro na verificação de assinatura NÃO pode deixar o webhook seguir.
+    it('9. APPSEC-05: erro na verificação de assinatura → 401 (fail-closed), não processa', async () => {
+        const { messageQueue } = await import('../../lib/queue');
+        hmac.validate.mockImplementationOnce(() => { throw new Error('boom'); });
+
+        const res = await request(app).post('/api/webhook/facebook')
+            .set('x-hub-signature-256', 'sha256=x')
+            .send({ object: 'page', entry: [{ id: 'page_1', messaging: [{ sender: { id: 's' }, recipient: { id: 'page_1' }, message: { text: 'oi' } }] }] });
+
+        expect(res.status).toBe(401);
+        expect(messageQueue.add).not.toHaveBeenCalled();
     });
 });

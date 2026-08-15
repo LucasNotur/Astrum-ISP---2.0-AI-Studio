@@ -3,6 +3,7 @@ build/
 coverage/
 .DS_Store
 *.log
+logs/
 
 # Build outputs / artefatos
 dist/

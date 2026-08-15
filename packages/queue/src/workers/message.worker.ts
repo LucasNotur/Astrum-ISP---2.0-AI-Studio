@@ -159,7 +159,11 @@ async function processMessage(job: Job<MessageJobData>): Promise<void> {
     tenant_id: tenantId,
     content: result.response,
     role: 'assistant',
-    metadata: {
+    from_ai: true,
+    // A tabela `messages` NÃO tem coluna `metadata` — o campo livre é `extra` (jsonb,
+    // migration 033). Como aqui usamos `supabaseAdmin` cru (não db-compat), gravar em
+    // `metadata` dava PGRST204 e o insert falhava silenciosamente (erro ignorado abaixo).
+    extra: {
       steps: result.steps,
       toolsExecuted: result.toolsExecuted,
       requiresHuman: result.requiresHuman,

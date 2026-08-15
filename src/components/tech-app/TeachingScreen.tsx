@@ -84,7 +84,7 @@ export function TeachingScreen({ techName = 'Técnico', osCount = 0, onContinue 
 
         <button onClick={onContinue}
           className="w-full py-4 font-bold text-[15px] active:scale-[0.98] transition-transform"
-          style={{ background: '#fff', color: '#0a0a0b', borderRadius: 999 }}>
+          style={{ background: tech.text, color: tech.bg, borderRadius: 999 }}>
           Continuar
         </button>
       </div>

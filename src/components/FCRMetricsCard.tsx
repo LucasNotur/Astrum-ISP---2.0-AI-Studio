@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useAppStore } from "@/src/store/useAppStore";
+import { apiGet, apiPost } from "@/src/lib/apiClient";
 import {
   Card,
   CardContent,
@@ -43,14 +44,8 @@ export const FCRMetricsCard = () => {
     if (!tenantId) return;
     try {
       setLoading(true);
-      const res = await fetch("/api/metrics/fcr", {
-        headers: { "x-tenant-id": tenantId }
-      });
-      if (!res.ok) {
-         const text = await res.text();
-         throw new Error(`API Error: ${text}`);
-      }
-      const json = await res.json();
+      // Fase 1: /api/metrics/fcr (404) → /api/v2/metrics/fcr (Fastify; tenant do JWT).
+      const json = await apiGet<any>("/api/v2/metrics/fcr");
       if (json.success) {
         setData(json.history);
         setFcrTarget(json.fcr_target);
@@ -79,15 +74,8 @@ export const FCRMetricsCard = () => {
         return;
       }
       setIsEditingTarget(false);
-      const res = await fetch("/api/settings/fcr-target", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "x-tenant-id": tenantId || ""
-        },
-        body: JSON.stringify({ fcr_target: val }),
-      });
-      if (!res.ok) throw new Error("Erro ao salvar");
+      // Fase 1: /api/settings/fcr-target (404) → /api/v2/settings/fcr-target (Fastify).
+      await apiPost("/api/v2/settings/fcr-target", { fcr_target: val });
       setFcrTarget(val);
       toast.success("Meta atualizada com sucesso");
     } catch (e) {
@@ -226,7 +214,7 @@ export const FCRMetricsCard = () => {
                       tickFormatter={(val) => `${val}%`}
                     />
                     <RechartsTooltip
-                      formatter={(value: any, name: string) => [
+                      formatter={(value: any, name: any): any => [
                         `${Number(value).toFixed(1)}%`,
                         name === "fcr_rate"
                           ? "FCR Geral"

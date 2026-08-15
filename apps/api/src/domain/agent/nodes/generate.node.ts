@@ -5,6 +5,7 @@ import { findCachedResponse, storeCachedResponse, isEligibleForCache } from '../
 import { getEnabledTools } from '../../../infrastructure/ai/tool-registry';
 import { isLiveTranslationEnabled, LANGUAGE_NAMES, type SupportedLanguage } from '../../../infrastructure/ai/language-detector';
 import { compressContext, DEFAULT_BUDGETS, isPromptCompressionEnabled } from '../../../infrastructure/rag/context-compressor';
+import { wrapUntrustedContext } from '../../../infrastructure/guardrails/context-isolation';
 
 export function makeNodeGenerate(deps: {
   ai: Pick<IAIPort, 'streamWithTools'>;
@@ -68,7 +69,11 @@ export function makeNodeGenerate(deps: {
       ].filter(Boolean).join('\n\n---\n\n');
     }
 
-    const systemContext = baseContext + languageSuffix;
+    // LLM-01: isola o contexto recuperado (RAG + DB + histórico) num bloco de
+    // "referência não-confiável" para que instruções plantadas num documento da
+    // base não sejam obedecidas como comando (prompt injection indireta). O
+    // languageSuffix é instrução LEGÍTIMA do sistema → fica FORA do bloco.
+    const systemContext = wrapUntrustedContext(baseContext) + languageSuffix;
 
     const toolsExecuted: AgentState['toolsExecuted'] = [];
     const tools = deps.createTools(tenantId);

@@ -171,14 +171,14 @@ export function ModelsPage() {
               key: 'rating',
               header: 'Rating',
               className: 'text-right',
-              accessor: (r, i) => (
+              accessor: ((r: any, i: any) => (
                 <span className="font-mono tabular-nums text-card-foreground">
                   {Math.round(r.rating)}
                   {i === 0 && ranking.length > 1 && (
                     <span className="ml-1 text-xs text-amber-500">👑</span>
                   )}
                 </span>
-              ),
+              )) as any,
             },
             {
               key: 'games',

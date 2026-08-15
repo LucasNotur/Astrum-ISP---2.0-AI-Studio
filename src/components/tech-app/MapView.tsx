@@ -8,17 +8,26 @@ import { OsBottomSheet } from './OsBottomSheet';
 import { EtaChip } from './EtaChip';
 import type { FieldOs } from '../../lib/fieldOps';
 
-const OSM_STYLE: maplibregl.StyleSpecification = {
+// Basemap ESCURO estilo Mapbox (imgs 3/4/5) — tiles CARTO dark, sem API key.
+const DARK_STYLE: maplibregl.StyleSpecification = {
   version: 8,
   sources: {
-    osm: {
+    carto: {
       type: 'raster',
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      tiles: [
+        'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+        'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+        'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+        'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+      ],
       tileSize: 256,
-      attribution: '© OpenStreetMap contributors',
+      attribution: '© OpenStreetMap © CARTO',
     },
   },
-  layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
+  layers: [
+    { id: 'bg', type: 'background', paint: { 'background-color': '#0a0a0b' } },
+    { id: 'carto', type: 'raster', source: 'carto' },
+  ],
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -45,7 +54,7 @@ export function MapView() {
     if (!containerRef.current || mapRef.current) return;
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: OSM_STYLE,
+      style: DARK_STYLE,
       center: [-46.6333, -23.5505],
       zoom: 12,
       attributionControl: false,
@@ -149,6 +158,7 @@ export function MapView() {
 
       map.addSource('route', {
         type: 'geojson',
+        lineMetrics: true, // necessário para o gradiente de trânsito
         data: {
           type: 'Feature',
           properties: {},
@@ -164,9 +174,9 @@ export function MapView() {
         type: 'line',
         source: 'route',
         paint: {
-          'line-color': '#0a0a0b',
-          'line-width': 7,
-          'line-opacity': 0.5,
+          'line-color': '#05070d',
+          'line-width': 9,
+          'line-opacity': 0.6,
         },
         layout: { 'line-cap': 'round', 'line-join': 'round' },
       });
@@ -176,9 +186,15 @@ export function MapView() {
         type: 'line',
         source: 'route',
         paint: {
-          'line-color': '#3D5AFE',
-          'line-width': 4,
-          'line-opacity': 0.9,
+          'line-width': 5,
+          // Gradiente de trânsito (imgs 3/5): azul → ciano → laranja → vermelho
+          'line-gradient': [
+            'interpolate', ['linear'], ['line-progress'],
+            0, '#2E7DFF',
+            0.4, '#22D3EE',
+            0.7, '#F59E0B',
+            1, '#EF4444',
+          ],
         },
         layout: { 'line-cap': 'round', 'line-join': 'round' },
       });

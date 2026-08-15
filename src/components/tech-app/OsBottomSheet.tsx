@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronUp, ChevronDown, MapPin, Clock, Phone, User, Wrench } from 'lucide-react';
 import { useTechAppStore } from '../../store/techAppStore';
 import { formatDuration } from '../../lib/osrm';
+import { tech } from './theme';
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Pendente',
@@ -10,11 +11,10 @@ const STATUS_LABELS: Record<string, string> = {
   completed: 'Concluída',
 };
 
-const STATUS_DOT: Record<string, string> = {
-  pending: '#F5A524',
-  in_progress: '#3D5AFE',
-  completed: '#00C2A8',
-};
+/** Cor do ponto de status via tokens (theme-aware). */
+function dotColor(s: string): string {
+  return s === 'completed' ? tech.done : s === 'in_progress' ? tech.active : tech.pending;
+}
 
 export function OsBottomSheet() {
   const [expanded, setExpanded] = useState(false);
@@ -32,13 +32,13 @@ export function OsBottomSheet() {
       <div
         className="absolute bottom-20 left-3 right-3 z-10 p-5 text-center"
         style={{
-          background: 'rgba(17,17,17,0.95)',
+          background: `${tech.card}f2`,
           borderRadius: '20px',
-          border: '1px solid #222',
+          border: `1px solid ${tech.border}`,
           backdropFilter: 'blur(20px)',
         }}
       >
-        <p style={{ color: '#555' }} className="text-sm">Nenhuma OS pendente para hoje</p>
+        <p style={{ color: tech.textMuted }} className="text-sm">Nenhuma OS pendente para hoje</p>
       </div>
     );
   }
@@ -52,9 +52,9 @@ export function OsBottomSheet() {
       <div
         className="mx-3 shadow-2xl overflow-hidden"
         style={{
-          background: 'rgba(17,17,17,0.97)',
+          background: `${tech.card}f7`,
           borderRadius: '20px',
-          border: '1px solid #222',
+          border: `1px solid ${tech.border}`,
           backdropFilter: 'blur(20px)',
         }}
       >
@@ -63,7 +63,7 @@ export function OsBottomSheet() {
           onClick={() => setExpanded(!expanded)}
           className="w-full flex items-center justify-center py-2"
         >
-          <div className="w-10 h-1 rounded-full" style={{ background: '#333' }} />
+          <div className="w-10 h-1 rounded-full" style={{ background: tech.border }} />
         </button>
 
         {/* Current OS Card */}
@@ -74,30 +74,30 @@ export function OsBottomSheet() {
                 <div className="flex items-center gap-2 mb-1.5">
                   <span
                     className="w-2 h-2 rounded-full"
-                    style={{ background: STATUS_DOT[currentOs.status] || '#555' }}
+                    style={{ background: dotColor(currentOs.status) }}
                   />
-                  <span className="text-xs font-medium" style={{ color: '#888' }}>
+                  <span className="text-xs font-medium" style={{ color: tech.textSecondary }}>
                     {STATUS_LABELS[currentOs.status] || currentOs.status}
                   </span>
                   {osrmRoute && (
-                    <span className="text-xs font-semibold ml-auto" style={{ color: '#3D5AFE' }}>
+                    <span className="text-xs font-semibold ml-auto" style={{ color: tech.accent }}>
                       ETA {formatDuration(osrmRoute.duration)}
                     </span>
                   )}
                 </div>
-                <h3 className="text-white font-bold text-[15px] truncate">{currentOs.client}</h3>
+                <h3 className="font-bold text-[15px] truncate" style={{ color: tech.text }}>{currentOs.client}</h3>
                 <div className="flex items-center gap-1.5 mt-1">
-                  <MapPin size={12} style={{ color: '#555' }} className="flex-shrink-0" />
-                  <span className="text-xs truncate" style={{ color: '#888' }}>{currentOs.address}</span>
+                  <MapPin size={12} style={{ color: tech.textMuted }} className="flex-shrink-0" />
+                  <span className="text-xs truncate" style={{ color: tech.textSecondary }}>{currentOs.address}</span>
                 </div>
                 <div className="flex items-center gap-4 mt-2">
                   <div className="flex items-center gap-1.5">
-                    <Wrench size={12} style={{ color: '#555' }} />
-                    <span className="text-xs" style={{ color: '#888' }}>{currentOs.type}</span>
+                    <Wrench size={12} style={{ color: tech.textMuted }} />
+                    <span className="text-xs" style={{ color: tech.textSecondary }}>{currentOs.type}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <Clock size={12} style={{ color: '#555' }} />
-                    <span className="text-xs" style={{ color: '#888' }}>{currentOs.scheduledTime}</span>
+                    <Clock size={12} style={{ color: tech.textMuted }} />
+                    <span className="text-xs" style={{ color: tech.textSecondary }}>{currentOs.scheduledTime}</span>
                   </div>
                 </div>
               </div>
@@ -108,8 +108,8 @@ export function OsBottomSheet() {
                 }}
                 className="ml-3 px-5 py-2 text-xs font-bold active:scale-95 transition-transform flex-shrink-0"
                 style={{
-                  background: '#3D5AFE',
-                  color: '#ffffff',
+                  background: tech.accent,
+                  color: tech.onAccent,
                   borderRadius: '14px',
                 }}
               >
@@ -129,8 +129,8 @@ export function OsBottomSheet() {
               transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >
-              <div className="px-4 py-2" style={{ borderTop: '1px solid #222' }}>
-                <p className="text-xs mb-2" style={{ color: '#555' }}>{pendingOs.length} OS restantes</p>
+              <div className="px-4 py-2" style={{ borderTop: `1px solid ${tech.border}` }}>
+                <p className="text-xs mb-2" style={{ color: tech.textMuted }}>{pendingOs.length} OS restantes</p>
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {pendingOs.map((os) => (
                     <button
@@ -142,19 +142,19 @@ export function OsBottomSheet() {
                       className="w-full text-left p-3 transition-colors active:opacity-80"
                       style={{
                         borderRadius: '14px',
-                        background: os.id === currentOs?.id ? 'rgba(61,90,254,0.08)' : '#1a1a1a',
-                        border: os.id === currentOs?.id ? '1px solid rgba(61,90,254,0.2)' : '1px solid #222',
+                        background: os.id === currentOs?.id ? tech.accentDim : tech.elevated,
+                        border: os.id === currentOs?.id ? `1px solid ${tech.accentBorder}` : `1px solid ${tech.border}`,
                       }}
                     >
                       <div className="flex items-center gap-2">
                         <span
                           className="w-2 h-2 rounded-full"
-                          style={{ background: STATUS_DOT[os.status] || '#555' }}
+                          style={{ background: dotColor(os.status) }}
                         />
-                        <span className="text-white text-xs font-semibold truncate flex-1">{os.client}</span>
-                        <span className="text-xs" style={{ color: '#555' }}>{os.scheduledTime}</span>
+                        <span className="text-xs font-semibold truncate flex-1" style={{ color: tech.text }}>{os.client}</span>
+                        <span className="text-xs" style={{ color: tech.textMuted }}>{os.scheduledTime}</span>
                       </div>
-                      <p className="text-xs mt-1 truncate pl-4" style={{ color: '#555' }}>{os.address}</p>
+                      <p className="text-xs mt-1 truncate pl-4" style={{ color: tech.textMuted }}>{os.address}</p>
                     </button>
                   ))}
                 </div>
@@ -168,7 +168,7 @@ export function OsBottomSheet() {
           <button
             onClick={() => setExpanded(!expanded)}
             className="w-full flex items-center justify-center py-2"
-            style={{ color: '#555' }}
+            style={{ color: tech.textMuted }}
           >
             {expanded ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
           </button>

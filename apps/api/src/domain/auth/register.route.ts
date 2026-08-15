@@ -18,10 +18,25 @@ export async function registerRoute(fastify: FastifyInstance) {
     ],
   }, async (request, reply) => {
     const { name, email, password, tenantId, role } = (request as any).validatedBody;
+    const requester = (request as any).user ?? {};
+    const isSuper = requester.role === 'super_admin';
+
+    // AUTH-09 (auditoria 2026-08-10): o `tenant_id` vinha do BODY sem vínculo com o
+    // solicitante → um `admin` do tenant A criava conta no tenant B (cross-tenant).
+    // Agora: admin só cria no PRÓPRIO tenant; apenas super_admin pode especificar outro.
+    if (!isSuper && tenantId !== requester.tenantId) {
+      securityLogger.warn(
+        { requesterId: requester.userId, requesterTenant: requester.tenantId, targetTenant: tenantId },
+        'AUTH-09: admin tentou criar usuário em outro tenant — bloqueado',
+      );
+      return reply.status(403).send({ code: 'FORBIDDEN', message: 'Você só pode criar usuários no seu próprio tenant.' });
+    }
+    const effectiveTenantId = isSuper ? tenantId : requester.tenantId;
+
     const passwordHash = await hashPassword(password);
 
     const { data: user, error } = await supabaseAdmin.from('users').insert({
-      name, email: email.toLowerCase(), password_hash: passwordHash, tenant_id: tenantId, role,
+      name, email: email.toLowerCase(), password_hash: passwordHash, tenant_id: effectiveTenantId, role,
     }).select('id, email, role').single();
 
     if (error) {

@@ -9,31 +9,72 @@ import { parseAmountToCents } from './erp.types';
  * Quando a Voalle publicar SDKs/webhooks oficiais, substituir os POLLINGs
  * por event-driven. HTTP injetável para teste.
  *
- * Autenticação: Bearer token gerado via POST /oauth/token (client_credentials).
- * O token é armazenado no campo `token` das credenciais (ISP já gera externamente
- * no wizard ou o adapter pode fazer a troca — por ora, token pré-gerado).
+ * Autenticação (dois modos, ambos aceitos pelo wizard):
+ *  1. OAuth client_credentials — credenciais trazem `clientId` + `clientSecret`;
+ *     o adapter faz a troca em POST /oauth/token e cacheia o access_token
+ *     respeitando `expires_in`. É o fluxo que o form da SettingsPage envia.
+ *  2. Token pré-gerado — credenciais trazem `token` (Bearer) já pronto; usado
+ *     direto, sem token-exchange (compat com integrações antigas).
  */
 export class VoalleAdapter implements ERPProvider {
   readonly name = 'voalle' as const;
+
+  private accessToken?: string;
+  private tokenExpiresAt = 0;
 
   constructor(
     private readonly creds: ERPCredentials,
     private readonly http: HttpClient = fetch as unknown as HttpClient,
   ) {
-    if (!creds?.url || !creds?.token) throw new Error('Voalle: credenciais ausentes (url + token)');
+    const hasToken = !!creds?.token;
+    const hasOAuth = !!(creds?.clientId && creds?.clientSecret);
+    if (!creds?.url || (!hasToken && !hasOAuth)) {
+      throw new Error('Voalle: credenciais ausentes (url + token OU clientId/clientSecret)');
+    }
   }
 
-  private headers() {
+  /**
+   * Retorna um Bearer válido. Com `token` pré-gerado, devolve direto. Com
+   * clientId/clientSecret, faz o grant client_credentials e cacheia o
+   * access_token, renovando 60s antes do `expires_in` informado pelo ERP.
+   */
+  private async getAccessToken(): Promise<string> {
+    // Modo token pré-gerado: estático, nunca expira aqui.
+    if (this.creds.token && !this.creds.clientId) return String(this.creds.token);
+
+    // Cache OAuth ainda válido.
+    if (this.accessToken && Date.now() < this.tokenExpiresAt) return this.accessToken;
+
+    const res = await this.http(`${this.creds.url}/oauth/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        grant_type: 'client_credentials',
+        client_id: this.creds.clientId,
+        client_secret: this.creds.clientSecret,
+      }),
+    });
+    if (!res.ok) throw new Error(`Voalle OAuth Error: ${res.status} ${res.statusText}`);
+    const data = await res.json();
+    const token = data?.access_token ?? data?.token;
+    if (!token) throw new Error('Voalle OAuth: resposta sem access_token');
+    this.accessToken = String(token);
+    const ttlSec = Number(data?.expires_in ?? 3600);
+    this.tokenExpiresAt = Date.now() + Math.max(0, ttlSec - 60) * 1000;
+    return this.accessToken;
+  }
+
+  private async headers() {
     return {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${this.creds.token}`,
+      Authorization: `Bearer ${await this.getAccessToken()}`,
     };
   }
 
   private async get(path: string) {
     const res = await this.http(`${this.creds.url}${path}`, {
       method: 'GET',
-      headers: this.headers(),
+      headers: await this.headers(),
     });
     if (!res.ok) throw new Error(`Voalle API Error: ${res.status} ${res.statusText}`);
     return res.json();
@@ -42,7 +83,7 @@ export class VoalleAdapter implements ERPProvider {
   private async post(path: string, body: unknown) {
     const res = await this.http(`${this.creds.url}${path}`, {
       method: 'POST',
-      headers: this.headers(),
+      headers: await this.headers(),
       body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`Voalle API Error: ${res.status} ${res.statusText}`);

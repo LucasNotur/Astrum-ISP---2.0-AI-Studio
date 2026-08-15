@@ -170,19 +170,29 @@ export class ZepMemoryService {
     return parts.join('\n\n');
   }
 
+  /** Zep está configurado? (LGPD: distingue "purga pulada" de "purga falhou".) */
+  isEnabled(): boolean {
+    return this.enabled;
+  }
+
   /**
    * Limpa a sessão de memória de um cliente (ex: LGPD - direito ao esquecimento).
+   * Best-effort: engole o erro (logando), mas RETORNA o resultado para que o
+   * orquestrador do expurgo saiba se a memória foi de fato apagada.
+   * @returns true se a sessão foi deletada; false se Zep desabilitado ou falhou.
    */
-  async deleteCustomerMemory(customerId: string, tenantId: string): Promise<void> {
-    if (!this.client) return;
+  async deleteCustomerMemory(customerId: string, tenantId: string): Promise<boolean> {
+    if (!this.client) return false;
 
     const sessionId = this._buildSessionId(customerId, tenantId);
 
     try {
       await this.client.memory.delete(sessionId);
       infraLogger.info({ customerId, tenantId }, 'Customer memory deleted (LGPD)');
+      return true;
     } catch (err) {
       infraLogger.error({ err, customerId }, 'Failed to delete customer memory');
+      return false;
     }
   }
 

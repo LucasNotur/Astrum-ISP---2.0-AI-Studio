@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/src/lib/supabase';
+import { apiPost } from '@/src/lib/apiClient';
 import { useAppStore } from '../store/useAppStore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
 import { Badge } from "@/src/components/ui/badge";
@@ -92,13 +93,9 @@ export function SecurityPage() {
 
     setExpunging(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch('/api/lgpd/expunge', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
-        body: JSON.stringify({ tenantId, email: expungeEmail }),
-      });
-      if (!res.ok) throw new Error(await res.text());
+      // Fase 1: /api/lgpd/expunge (nunca existiu → 404) → /api/v2/lgpd/expunge (Fastify).
+      // Tenant vem do JWT (dropado do body); o servidor anonimiza (não deleta) + audita.
+      await apiPost('/api/v2/lgpd/expunge', { email: expungeEmail });
       toast.success(`Dados de "${expungeEmail}" removidos conforme LGPD.`);
       setExpungeEmail('');
       loadAuditLogs();

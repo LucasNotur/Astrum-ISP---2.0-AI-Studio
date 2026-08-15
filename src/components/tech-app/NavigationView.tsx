@@ -7,19 +7,29 @@ import { useTechAppStore } from '../../store/techAppStore';
 import { findNearestStep, formatDistance, formatDuration, maneuverIcon, maneuverText } from '../../lib/osrm';
 import { SpeedIndicator } from './SpeedIndicator';
 import { RerouteBanner } from './RerouteBanner';
-import { tech } from './theme';
+// Overlays de navegação são SEMPRE escuros (o mapa é sempre dark) — token DARK fixo.
+import { DARK as tech } from './theme';
 
+// Basemap ESCURO estilo Mapbox (imgs 3/4/5) — tiles CARTO dark, sem API key.
 const NAV_STYLE: maplibregl.StyleSpecification = {
   version: 8,
   sources: {
-    osm: {
+    carto: {
       type: 'raster',
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      tiles: [
+        'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+        'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+        'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+        'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+      ],
       tileSize: 256,
-      attribution: '© OpenStreetMap contributors',
+      attribution: '© OpenStreetMap © CARTO',
     },
   },
-  layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
+  layers: [
+    { id: 'bg', type: 'background', paint: { 'background-color': '#0a0a0b' } },
+    { id: 'carto', type: 'raster', source: 'carto' },
+  ],
 };
 
 export function NavigationView() {

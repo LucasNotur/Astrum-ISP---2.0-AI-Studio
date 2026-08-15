@@ -1,13 +1,11 @@
 /**
  * Cliente da API pública de feature flags.
  *
- * Segue o mesmo padrão de base URL do apps/web (que será canibalizado na S78):
- * VITE_API_URL ?? http://localhost:3001.
+ * Fase 0 (unificação de backend): passou a usar o `apiClient` central. Isso REMOVEU
+ * o `API_BASE_URL` hardcoded `http://localhost:3001` (que quebraria em produção — bate
+ * direto no Fastify em vez de respeitar a mesma origem/proxy). Agora vai por mesma origem.
  */
-
-const API_BASE_URL =
-  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) ||
-  'http://localhost:3001';
+import { apiGet } from './apiClient';
 
 export interface PublicFlagsResponse {
   flags: Record<string, boolean>;
@@ -19,9 +17,7 @@ export interface PublicFlagsResponse {
  */
 export async function fetchPublicFlags(): Promise<Record<string, boolean>> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/v2/flags/public`);
-    if (!res.ok) return {};
-    const data = (await res.json()) as PublicFlagsResponse;
+    const data = await apiGet<PublicFlagsResponse>('/api/v2/flags/public', { auth: false });
     return data.flags ?? {};
   } catch {
     return {};

@@ -35,11 +35,14 @@ describe('Servidor Fastify v2', () => {
     expect(JSON.parse(res.body).code).toBe('NOT_FOUND');
   });
 
-  it('GET /api/v2/status retorna versão da arquitetura', async () => {
+  it('GET /api/v2/status retorna status e versão (SEC-R4: sem detalhe interno)', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/v2/status' });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
+    expect(body.status).toBe('ok');
     expect(body.version).toBe('2.0.0');
-    expect(body.architecture).toBe('fastify-ddd-hexagonal');
+    // SEC-R4: não deve vazar arquitetura/sprint interno em endpoint anônimo.
+    expect(body.architecture).toBeUndefined();
+    expect(body.sprint).toBeUndefined();
   });
 });

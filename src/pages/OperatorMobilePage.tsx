@@ -43,7 +43,7 @@ export default function OperatorMobilePage() {
     );
 
   const selectedTicket = tickets.find((t) => t.id === selectedTicketId);
-  const currentChatMsgs = selectedTicketId ? messages[selectedTicketId] || [] : [];
+  const currentChatMsgs = selectedTicketId ? (messages as any)[selectedTicketId] || [] : [];
   const customer = selectedTicket
     ? customers.find((c) => c.id === selectedTicket.customer_id)
     : null;
@@ -237,7 +237,7 @@ export default function OperatorMobilePage() {
             }}
           >
             <div className="flex flex-col gap-3 pb-4">
-              {currentChatMsgs.map((msg, i) => (
+              {currentChatMsgs.map((msg: any, i: number) => (
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}

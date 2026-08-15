@@ -5,9 +5,10 @@ const getEnv = () => {
   let key = 'placeholder';
 
   // Tentamos pegar do Vite se estiver no contexto do browser
-  if (typeof import.meta !== 'undefined' && import.meta.env) {
-     url = import.meta.env.VITE_SUPABASE_URL || url;
-     key = import.meta.env.VITE_SUPABASE_ANON_KEY || key;
+  const meta = import.meta as any;
+  if (typeof import.meta !== 'undefined' && meta.env) {
+     url = meta.env.VITE_SUPABASE_URL || url;
+     key = meta.env.VITE_SUPABASE_ANON_KEY || key;
   }
 
   // Tentamos pegar do process.env se dispnível (Node backend)

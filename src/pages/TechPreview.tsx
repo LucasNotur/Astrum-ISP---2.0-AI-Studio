@@ -75,6 +75,7 @@ const MOCK_OS = [
 export default function TechPreview() {
   const currentView = useTechAppStore((s) => s.currentView);
   const themeMode = useTechAppStore((s) => s.themeMode);
+  const viewMode = useTechAppStore((s) => s.viewMode);
   const introOpen = useTechAppStore((s) => s.introOpen);
   const setIntroOpen = useTechAppStore((s) => s.setIntroOpen);
   const setOsList = useTechAppStore((s) => s.setOsList);
@@ -96,12 +97,10 @@ export default function TechPreview() {
     });
   }, []);
 
-  if (introOpen) {
-    return <TeachingScreen techName="Técnico Astrum" osCount={MOCK_OS.length} onContinue={() => setIntroOpen(false)} />;
-  }
-
-  return (
-    <div key={themeMode} className="h-screen w-screen flex flex-col overflow-hidden" style={{ background: tech.bg, color: tech.text }}>
+  const content = introOpen ? (
+    <TeachingScreen techName="Técnico Astrum" osCount={MOCK_OS.length} onContinue={() => setIntroOpen(false)} />
+  ) : (
+    <div key={themeMode} className="flex flex-col overflow-hidden" style={{ height: '100%', width: '100%', background: tech.bg, color: tech.text }}>
       <div className="flex-1 relative overflow-hidden">
         {currentView === 'map' && <MapView />}
         {currentView === 'navigation' && <NavigationView />}
@@ -115,4 +114,33 @@ export default function TechPreview() {
       <BottomNav />
     </div>
   );
+
+  // Modo Mobile: moldura de celular centralizada (100% alinhada) sobre backdrop escuro.
+  if (viewMode === 'mobile') {
+    return (
+      <div
+        className="w-full flex items-center justify-center"
+        style={{ minHeight: '100vh', background: '#050506', padding: 16 }}
+      >
+        <div
+          style={{
+            position: 'relative',
+            width: '100%',
+            maxWidth: 402,
+            height: 'min(864px, 94vh)',
+            borderRadius: 46,
+            overflow: 'hidden',
+            background: tech.bg,
+            border: '10px solid #0c0c0f',
+            boxShadow: '0 40px 120px -30px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.05)',
+          }}
+        >
+          {content}
+        </div>
+      </div>
+    );
+  }
+
+  // Modo Desktop: tela cheia.
+  return <div className="h-screen w-screen overflow-hidden">{content}</div>;
 }

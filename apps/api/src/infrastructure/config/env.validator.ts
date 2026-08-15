@@ -139,6 +139,21 @@ export type Env = z.infer<typeof envSchema>;
 
 let _env: Env | null = null;
 
+/**
+ * INFRA-04 (auditoria 2026-08-10): decide se o ambiente é "produção-like" para o
+ * fail-fast de env inválida. Antes o degrade-open só era evitado quando
+ * `NODE_ENV === 'production'` EXATO — um deploy com `NODE_ENV=staging`/`prod`/typo,
+ * ou `VERCEL_ENV=production` sem `NODE_ENV`, subia degradado (undefined.x no meio de
+ * transação). Agora é FAIL-CLOSED POR PADRÃO: só degrada em ambiente EXPLICITAMENTE
+ * local (NODE_ENV ausente/dev/test) e nunca sob sinal de produção da Vercel.
+ */
+export function isProductionLikeEnv(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (env.VERCEL_ENV === 'production') return true;
+  const nodeEnv = env.NODE_ENV;
+  const isExplicitLocal = !nodeEnv || nodeEnv === 'development' || nodeEnv === 'test';
+  return !isExplicitLocal;
+}
+
 export function validateEnv(): Env {
   if (_env) return _env;
 
@@ -169,8 +184,9 @@ export function validateEnv(): Env {
     // Em produção NUNCA subimos com env inválido: cobrança bancária + LGPD exigem
     // fail-fast. Degradar silenciosamente transforma "falta SUPABASE_URL" em
     // "undefined.something" no meio de uma transação — muito pior de diagnosticar.
-    if (process.env.NODE_ENV === 'production') {
-      console.error('❌ Boot abortado: variáveis de ambiente inválidas em produção.');
+    // INFRA-04: fail-closed por padrão (qualquer env não-explicitamente-local).
+    if (isProductionLikeEnv()) {
+      console.error('❌ Boot abortado: variáveis de ambiente inválidas em ambiente de produção.');
       process.exit(1);
     }
 

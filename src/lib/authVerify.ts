@@ -99,9 +99,14 @@ export async function verifySupabaseToken(rawToken: string): Promise<SupabaseDec
     throw new TokenVerifyError('TOKEN_INVALID', 'Token sem subject');
   }
 
-  // Claims podem vir no próprio token (app_metadata via Auth Hook) — usa se presentes
-  const tokenRole = payload.app_metadata?.role ?? payload.role_astrum;
-  const tokenTenant = payload.app_metadata?.tenant_id ?? payload.tenant_id;
+  // AUTH-07 (auditoria 2026-08-10): SÓ claims de `app_metadata` têm precedência —
+  // esse namespace é setado pelo SERVICE (Auth Hook/service_role) e NÃO é editável
+  // pelo usuário. Os antigos fallbacks top-level `payload.role_astrum`/`payload.tenant_id`
+  // foram REMOVIDOS: podiam vir de `user_metadata` (que o próprio usuário edita via
+  // client Supabase) → auto-elevação de role / troca de tenant sem passar pelo banco.
+  // Sem app_metadata confiável, o banco (`users`) é a fonte autoritativa (loadUserClaims).
+  const tokenRole = payload.app_metadata?.role;
+  const tokenTenant = payload.app_metadata?.tenant_id;
 
   let role: string;
   let tenantId: string;

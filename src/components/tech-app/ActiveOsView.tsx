@@ -77,17 +77,17 @@ export function ActiveOsView() {
 
   if (!activeOs) {
     return (
-      <div className="flex flex-col items-center justify-center h-full px-6 text-center" style={{ background: '#0a0a0b' }}>
+      <div className="flex flex-col items-center justify-center h-full px-6 text-center" style={{ background: tech.bg }}>
         <ClipboardEmpty />
-        <p className="text-sm mt-4" style={{ color: '#555' }}>Nenhuma OS selecionada</p>
+        <p className="text-sm mt-4" style={{ color: tech.textMuted }}>Nenhuma OS selecionada</p>
         <button
           onClick={() => setView('agenda')}
           className="mt-4 px-6 py-2.5 text-sm font-bold active:scale-95 transition-transform"
           style={{
             background: 'transparent',
-            color: '#3D5AFE',
+            color: tech.accent,
             borderRadius: '14px',
-            border: '1px solid rgba(61,90,254,0.3)',
+            border: `1px solid ${tech.accentBorder}`,
           }}
         >
           Ver agenda
@@ -282,26 +282,26 @@ export function ActiveOsView() {
   };
 
   return (
-    <div className="h-full overflow-y-auto pb-20" style={{ background: '#0a0a0b' }}>
+    <div className="h-full overflow-y-auto pb-20" style={{ background: tech.bg }}>
       {/* Header */}
       <div
         className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3"
         style={{
-          background: 'rgba(10,10,10,0.95)',
+          background: `${tech.bg}f2`,
           backdropFilter: 'blur(20px)',
-          borderBottom: '1px solid #1a1a1a',
+          borderBottom: `1px solid ${tech.border}`,
         }}
       >
         <button
           onClick={() => { setActiveOs(null); setView('map'); }}
           className="p-1.5 active:scale-90 transition-transform"
-          style={{ color: '#888' }}
+          style={{ color: tech.textSecondary }}
         >
           <ArrowLeft size={20} />
         </button>
         <div className="flex-1 min-w-0">
-          <h2 className="text-white font-bold text-[15px] truncate">OS — {activeOs.client}</h2>
-          <p className="text-xs truncate" style={{ color: '#555' }}>{activeOs.type}</p>
+          <h2 className="font-bold text-[15px] truncate" style={{ color: tech.text }}>OS — {activeOs.client}</h2>
+          <p className="text-xs truncate" style={{ color: tech.textMuted }}>{activeOs.type}</p>
         </div>
       </div>
 
@@ -313,15 +313,15 @@ export function ActiveOsView() {
         <ClientDossier osId={activeOs.id} clientName={activeOs.client} address={activeOs.address} type={activeOs.type} />
 
         {/* Action buttons by phase */}
-        <div style={{ background: '#151517', borderRadius: '16px', border: '1px solid #1a1a1a' }} className="p-4 space-y-3">
+        <div style={{ background: tech.card, borderRadius: '16px', border: `1px solid ${tech.borderSubtle}` }} className="p-4 space-y-3">
           {activeOs.status === 'pending' && (
             <div className="space-y-3">
               <button
                 onClick={handleNavigate}
                 className="w-full flex items-center justify-center gap-2 py-3.5 text-sm font-bold active:scale-[0.98] transition-transform"
                 style={{
-                  background: '#3D5AFE',
-                  color: '#ffffff',
+                  background: tech.accent,
+                  color: tech.onAccent,
                   borderRadius: '14px',
                 }}
               >
@@ -340,7 +340,7 @@ export function ActiveOsView() {
             <div className="space-y-4">
               {/* Checklist */}
               <div>
-                <p className="text-xs font-bold mb-2" style={{ color: '#666' }}>
+                <p className="text-xs font-bold mb-2" style={{ color: tech.textMuted }}>
                   Checklist ({checklist.filter((i) => i.done).length}/{checklist.length})
                 </p>
                 <div className="space-y-1.5">
@@ -351,19 +351,19 @@ export function ActiveOsView() {
                       className="w-full flex items-center gap-3 p-3 text-left transition-all active:opacity-80"
                       style={{
                         borderRadius: '12px',
-                        background: item.done ? 'rgba(61,90,254,0.06)' : '#1a1a1a',
-                        border: item.done ? '1px solid rgba(61,90,254,0.15)' : '1px solid #222',
+                        background: item.done ? tech.accentDim : tech.elevated,
+                        border: item.done ? `1px solid ${tech.accentBorder}` : `1px solid ${tech.border}`,
                       }}
                     >
                       {item.done ? (
-                        <CheckCircle2 size={18} style={{ color: '#3D5AFE' }} />
+                        <CheckCircle2 size={18} style={{ color: tech.accent }} />
                       ) : (
-                        <div className="w-[18px] h-[18px] rounded-full" style={{ border: '2px solid #333' }} />
+                        <div className="w-[18px] h-[18px] rounded-full" style={{ border: `2px solid ${tech.textDim}` }} />
                       )}
                       <span
                         className="text-xs flex-1"
                         style={{
-                          color: item.done ? '#666' : '#ccc',
+                          color: item.done ? tech.textMuted : tech.textSecondary,
                           textDecoration: item.done ? 'line-through' : 'none',
                         }}
                       >
@@ -386,10 +386,10 @@ export function ActiveOsView() {
                     onClick={action}
                     className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold active:scale-95 transition-transform"
                     style={{
-                      background: '#1a1a1a',
-                      border: '1px solid #222',
+                      background: tech.elevated,
+                      border: `1px solid ${tech.border}`,
                       borderRadius: '12px',
-                      color: '#888',
+                      color: tech.textSecondary,
                     }}
                   >
                     <Icon size={14} /> {label}
@@ -400,13 +400,13 @@ export function ActiveOsView() {
               {/* Materials scanned */}
               {materials.length > 0 && (
                 <div>
-                  <p className="text-xs font-bold mb-1.5" style={{ color: '#666' }}>Materiais ({materials.length})</p>
+                  <p className="text-xs font-bold mb-1.5" style={{ color: tech.textMuted }}>Materiais ({materials.length})</p>
                   <div className="flex flex-wrap gap-1.5">
                     {materials.map((m, i) => (
                       <span
                         key={i}
                         className="text-xs px-2.5 py-1"
-                        style={{ background: '#1a1a1a', color: '#ccc', borderRadius: '8px' }}
+                        style={{ background: tech.elevated, color: tech.textSecondary, borderRadius: '8px' }}
                       >
                         {m}
                       </span>
@@ -420,13 +420,13 @@ export function ActiveOsView() {
                 <div
                   className="flex items-center gap-2 p-3"
                   style={{
-                    background: 'rgba(61,90,254,0.06)',
+                    background: tech.accentDim,
                     borderRadius: '12px',
-                    border: '1px solid rgba(61,90,254,0.15)',
+                    border: `1px solid ${tech.accentBorder}`,
                   }}
                 >
-                  <CircleCheck size={14} style={{ color: '#3D5AFE' }} />
-                  <span className="text-xs font-medium" style={{ color: '#3D5AFE' }}>Assinatura capturada</span>
+                  <CircleCheck size={14} style={{ color: tech.accent }} />
+                  <span className="text-xs font-medium" style={{ color: tech.accent }}>Assinatura capturada</span>
                 </div>
               )}
 
@@ -439,7 +439,7 @@ export function ActiveOsView() {
                 onConfirm={handleCheckout}
               />
               {(!allChecklistDone || !signatureData) && (
-                <p className="text-xs text-center" style={{ color: '#444' }}>
+                <p className="text-xs text-center" style={{ color: tech.textDim }}>
                   {!allChecklistDone && 'Complete o checklist. '}
                   {!signatureData && 'Obtenha a assinatura.'}
                 </p>
@@ -572,7 +572,7 @@ export function ActiveOsView() {
 
 function ClipboardEmpty() {
   return (
-    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: '#333' }}>
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: tech.textDim }}>
       <rect x="8" y="2" width="8" height="4" rx="1" />
       <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2" />
       <path d="M12 11v6M9 14h6" />

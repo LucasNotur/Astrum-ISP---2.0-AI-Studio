@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
+import { readTenantScoped, writeTenantScoped } from '../../infrastructure/database/tenant-rls';
 
 export async function browseAdminRoutes(app: FastifyInstance) {
   app.addHook('onRequest', async (req, reply) => {
@@ -10,13 +11,28 @@ export async function browseAdminRoutes(app: FastifyInstance) {
     const tenantId = (req as any).user?.tenant_id;
     if (!tenantId) return { domains: [] };
 
-    const { data } = await supabaseAdmin
-      .from('browse_allowlist')
-      .select('domain, added_by, created_at')
-      .eq('tenant_id', tenantId)
-      .order('created_at', { ascending: false });
+    // MT-02(c): leitura via RLS por-tenant quando a flag está ligada (pós-096);
+    // senão, caminho service_role atual. Mesmo shape de retorno nos dois.
+    const domains = await readTenantScoped(tenantId, {
+      rls: async (db) => {
+        const { rows } = await db.query(
+          `SELECT domain, added_by, created_at FROM browse_allowlist
+             WHERE tenant_id = $1 ORDER BY created_at DESC`,
+          [tenantId],
+        );
+        return rows;
+      },
+      fallback: async () => {
+        const { data } = await supabaseAdmin
+          .from('browse_allowlist')
+          .select('domain, added_by, created_at')
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: false });
+        return data ?? [];
+      },
+    });
 
-    return { domains: data ?? [] };
+    return { domains };
   });
 
   app.post<{ Body: { domain: string } }>('/api/v2/ia/browse/allowlist', async (req, reply) => {
@@ -30,15 +46,31 @@ export async function browseAdminRoutes(app: FastifyInstance) {
 
     const userId = (req as any).user?.sub ?? (req as any).user?.id ?? 'unknown';
 
-    const { error } = await supabaseAdmin
-      .from('browse_allowlist')
-      .upsert({
-        tenant_id: tenantId,
-        domain: domain.toLowerCase(),
-        added_by: userId,
-      }, { onConflict: 'tenant_id,domain' });
-
-    if (error) return reply.code(500).send({ error: error.message });
+    // MT-02(c): escrita RLS por-tenant quando a flag está ligada (pós-096); senão service_role.
+    try {
+      await writeTenantScoped(tenantId, {
+        rls: async (db) => {
+          await db.query(
+            `INSERT INTO browse_allowlist (tenant_id, domain, added_by)
+               VALUES ($1, $2, $3)
+               ON CONFLICT (tenant_id, domain) DO UPDATE SET added_by = EXCLUDED.added_by`,
+            [tenantId, domain.toLowerCase(), userId],
+          );
+        },
+        fallback: async () => {
+          const { error } = await supabaseAdmin
+            .from('browse_allowlist')
+            .upsert({
+              tenant_id: tenantId,
+              domain: domain.toLowerCase(),
+              added_by: userId,
+            }, { onConflict: 'tenant_id,domain' });
+          if (error) throw new Error(error.message);
+        },
+      });
+    } catch (err) {
+      return reply.code(500).send({ error: err instanceof Error ? err.message : 'db error' });
+    }
     return reply.code(201).send({ ok: true });
   });
 
@@ -48,13 +80,27 @@ export async function browseAdminRoutes(app: FastifyInstance) {
       const tenantId = (req as any).user?.tenant_id;
       if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });
 
-      const { error } = await supabaseAdmin
-        .from('browse_allowlist')
-        .delete()
-        .eq('tenant_id', tenantId)
-        .eq('domain', req.params.domain.toLowerCase());
-
-      if (error) return reply.code(500).send({ error: error.message });
+      // MT-02(c): escrita RLS por-tenant quando a flag está ligada (pós-096); senão service_role.
+      try {
+        await writeTenantScoped(tenantId, {
+          rls: async (db) => {
+            await db.query(
+              `DELETE FROM browse_allowlist WHERE tenant_id = $1 AND domain = $2`,
+              [tenantId, req.params.domain.toLowerCase()],
+            );
+          },
+          fallback: async () => {
+            const { error } = await supabaseAdmin
+              .from('browse_allowlist')
+              .delete()
+              .eq('tenant_id', tenantId)
+              .eq('domain', req.params.domain.toLowerCase());
+            if (error) throw new Error(error.message);
+          },
+        });
+      } catch (err) {
+        return reply.code(500).send({ error: err instanceof Error ? err.message : 'db error' });
+      }
       return { ok: true };
     },
   );

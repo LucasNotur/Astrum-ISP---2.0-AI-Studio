@@ -249,6 +249,7 @@ import WebchatPage from "./pages/WebchatPage";
 import OperatorMobilePage from "./pages/OperatorMobilePage";
 import PortalPage from "./pages/PortalPage";
 import TechPreview from "./pages/TechPreview";
+import CardPreview from "./pages/CardPreview";
 
 const queryClient = new QueryClient();
 
@@ -259,6 +260,14 @@ export default function App() {
       return (
           <Routes>
               <Route path="/tech-preview" element={<TechPreview />} />
+          </Routes>
+      );
+  }
+
+  if (routerLocation.pathname === '/card-preview') {
+      return (
+          <Routes>
+              <Route path="/card-preview" element={<CardPreview />} />
           </Routes>
       );
   }
@@ -1140,7 +1149,7 @@ export default function App() {
         toast.success(
           "Novo artigo gerado pela IA e adicionado à Base de Conhecimento!",
           {
-            description: article.title,
+            description: (article as any).title,
           },
         );
       } else {
@@ -1294,7 +1303,7 @@ export default function App() {
       "Nov",
       "Dez",
     ];
-    const last12Months = [];
+    const last12Months: { name: string; monthIndex: number; year: number; value: number }[] = [];
     for (let i = 11; i >= 0; i--) {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
@@ -2162,7 +2171,7 @@ export default function App() {
               options: { delay: 1200, presence: "composing" },
               mediaMessage: {
                 mediatype: attachmentData.type.startsWith("image/") ? "image" : "document",
-                fileName: attachmentData.name || "anexo",
+                fileName: (attachmentData as any).name || "anexo",
                 media: attachmentData.url,
               },
             };

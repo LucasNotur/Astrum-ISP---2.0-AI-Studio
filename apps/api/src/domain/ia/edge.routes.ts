@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
+import { readTenantScoped } from '../../infrastructure/database/tenant-rls';
 
 export async function edgeRoutes(app: FastifyInstance) {
   app.addHook('onRequest', async (req, reply) => {
@@ -10,12 +11,27 @@ export async function edgeRoutes(app: FastifyInstance) {
     const tenantId = (req as any).user?.tenant_id;
     if (!tenantId) return { agreement: null };
 
-    const { data } = await supabaseAdmin
-      .from('edge_shadow_results')
-      .select('agree, edge_ms, central_intent, edge_intent')
-      .eq('tenant_id', tenantId)
-      .order('created_at', { ascending: false })
-      .limit(1000);
+    // MT-02(c): RLS por-tenant quando a flag está ligada (pós-096); senão service_role.
+    const data = await readTenantScoped<any[]>(tenantId, {
+      rls: async (db) => {
+        const { rows } = await db.query(
+          `SELECT agree, edge_ms, central_intent, edge_intent
+             FROM edge_shadow_results
+             WHERE tenant_id = $1 ORDER BY created_at DESC LIMIT 1000`,
+          [tenantId],
+        );
+        return rows;
+      },
+      fallback: async () => {
+        const { data } = await supabaseAdmin
+          .from('edge_shadow_results')
+          .select('agree, edge_ms, central_intent, edge_intent')
+          .eq('tenant_id', tenantId)
+          .order('created_at', { ascending: false })
+          .limit(1000);
+        return data ?? [];
+      },
+    });
 
     if (!data?.length) return { total: 0, agreementRate: null, avgEdgeMs: null, byIntent: {} };
 

@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
+import { readTenantScoped } from '../../infrastructure/database/tenant-rls';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { psi, psiSeverity, type PsiSeverity } from '../ml/psi';
 
@@ -145,18 +146,36 @@ export async function driftRoutes(fastify: FastifyInstance) {
       const since = new Date();
       since.setUTCDate(since.getUTCDate() - days);
 
-      const { data, error } = await supabaseAdmin
-        .from('drift_reports')
-        .select('id, metric, psi, severity, details, created_at')
-        .eq('tenant_id', tenantId)
-        .gte('created_at', since.toISOString())
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
+      // MT-02(c): RLS por-tenant quando a flag está ligada (pós-096); senão service_role.
+      try {
+        return await readTenantScoped(tenantId, {
+          rls: async (db) => {
+            const { rows } = await db.query(
+              `SELECT id, metric, psi, severity, details, created_at
+                 FROM drift_reports
+                 WHERE tenant_id = $1 AND created_at >= $2
+                 ORDER BY created_at ASC`,
+              [tenantId, since.toISOString()],
+            );
+            return rows;
+          },
+          fallback: async () => {
+            const { data, error } = await supabaseAdmin
+              .from('drift_reports')
+              .select('id, metric, psi, severity, details, created_at')
+              .eq('tenant_id', tenantId)
+              .gte('created_at', since.toISOString())
+              .order('created_at', { ascending: true });
+            if (error) throw new Error(error.message);
+            return data ?? [];
+          },
+        });
+      } catch (err) {
+        return reply.code(500).send({
+          code: 'DB_ERROR',
+          message: err instanceof Error ? err.message : 'db error',
+        });
       }
-
-      return data ?? [];
     },
   );
 

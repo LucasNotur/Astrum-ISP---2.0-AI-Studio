@@ -295,7 +295,7 @@ export function CampaignsPage() {
                       borderRadius: 8,
                       fontSize: 12,
                     }}
-                    formatter={(v: number) => [`${v.toFixed(1)}%`, 'Conversão']}
+                    formatter={(v: any): any => [`${v.toFixed(1)}%`, 'Conversão']}
                   />
                   <Bar dataKey="conversion" radius={[4, 4, 0, 0]}>
                     {chartData.map((d) => (

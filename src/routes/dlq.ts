@@ -3,6 +3,7 @@ import { sendServerError } from "../lib/httpErrors.ts";
 import { adminDb as db } from "../lib/firebaseAdmin.ts";
 import { getTenantQueue, messageQueue } from "../lib/queue.ts";
 import { cobraiQueue } from "../workers/cobraiWorker.ts";
+import { decodeDlqPayload } from "../lib/dlqPayload.ts";
 
 export const dlqRouter = express.Router();
 
@@ -47,7 +48,7 @@ dlqRouter.post("/:id/retry", async (req, res) => {
       return res.status(500).json({ error: "Job data is empty" });
     }
 
-    const payload = data.payload || {};
+    const payload = decodeDlqPayload(data.payload);
     const type = data.type || "test";
     const tenantId = data.tenant_id || payload.tenantId || req.query.tenantId;
 

@@ -104,7 +104,8 @@ AUTH-07 (claims de topo sem revalidar), AUTH-08 (tenantRateLimiter morto), BILL-
 ## 5. O QUE TALVEZ REMOVER (respeitando R5 — portar, não apagar)
 **Remoções seguras (código morto/inseguro):** fallback all-zeros + duplicação da cripto CPF (`db.ts`/`dbAdmin.ts`); `/api/test` e `fastify_boot_error` público (`server.ts:65,84`); fallback `x-user-id`/`body.userId` (`permissionMiddleware.ts:11-20`); `tenantRateLimiter.ts` (não montado, inseguro); `firebase-admin` de devDeps (viola R2); placeholder `@seu-usuario` no CODEOWNERS; passo Railway/apps/web do `deploy.yml`.
 
-**Remover só APÓS portar:** `handleAsaasWebhook` legado (portar c/ HMAC+anti-replay antes de expor); `src/lib/vectorStore.ts` (consolidar no per-tenant de apps/api); `src/routes/api-v1.ts` (X-API-Key via `collectionGroup` inexistente → 500); `permissionsManager.ts`/`checkPermissionAdmin` (unificar taxonomia); fallback in-memory do Redis (mascara indisponibilidade).
+**Remover só APÓS portar:** `handleAsaasWebhook` legado (portar c/ HMAC+anti-replay antes de expor); `src/lib/vectorStore.ts` (consolidar no per-tenant de apps/api); `permissionsManager.ts`/`checkPermissionAdmin` (unificar taxonomia); fallback in-memory do Redis (mascara indisponibilidade).
+> **AUTH-06 RESOLVIDO (2026-08-11):** `src/routes/api-v1.ts` **removido** (não era "portar-antes-de-apagar": rota morta, `collectionGroup` inexistente → 500 sempre, tráfego zero, sem consumidor; design inseguro — API key em texto puro). Se uma API pública for necessária, nasce no `apps/api` com key hasheada + timing-safe. Ver `SEGURANCA_PENDENTE.md`.
 
 ---
 

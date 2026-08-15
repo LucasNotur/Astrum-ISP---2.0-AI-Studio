@@ -84,6 +84,11 @@ interface TechAppState {
   themeMode: 'light' | 'dark';
   setThemeMode: (m: 'light' | 'dark') => void;
   toggleTheme: () => void;
+
+  // Modo de exibição: Desktop (tela cheia) x Mobile (moldura de celular centralizada)
+  viewMode: 'desktop' | 'mobile';
+  setViewMode: (m: 'desktop' | 'mobile') => void;
+  toggleViewMode: () => void;
 }
 
 const introInit = (() => {
@@ -92,6 +97,15 @@ const introInit = (() => {
 
 const themeInit: 'light' | 'dark' = (() => {
   try { return localStorage.getItem('astrum-tech-theme') === 'light' ? 'light' : 'dark'; } catch { return 'dark'; }
+})();
+
+const viewInit: 'desktop' | 'mobile' = (() => {
+  try {
+    const saved = localStorage.getItem('astrum-tech-viewmode');
+    if (saved === 'mobile' || saved === 'desktop') return saved;
+  } catch {}
+  // sem preferência salva: detecta pelo viewport (< 640px = celular real)
+  try { return window.innerWidth < 640 ? 'mobile' : 'desktop'; } catch { return 'desktop'; }
 })();
 
 export const useTechAppStore = create<TechAppState>((set) => ({
@@ -168,5 +182,16 @@ export const useTechAppStore = create<TechAppState>((set) => ({
     const next = s.themeMode === 'dark' ? 'light' : 'dark';
     try { localStorage.setItem('astrum-tech-theme', next); } catch {}
     return { themeMode: next };
+  }),
+
+  viewMode: viewInit,
+  setViewMode: (viewMode) => {
+    try { localStorage.setItem('astrum-tech-viewmode', viewMode); } catch {}
+    set({ viewMode });
+  },
+  toggleViewMode: () => set((s) => {
+    const next = s.viewMode === 'desktop' ? 'mobile' : 'desktop';
+    try { localStorage.setItem('astrum-tech-viewmode', next); } catch {}
+    return { viewMode: next };
   }),
 }));

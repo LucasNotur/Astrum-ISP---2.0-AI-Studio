@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
+import { writeTenantScoped } from '../../infrastructure/database/tenant-rls';
 import { validateBody } from '../../infrastructure/validation/zod-validator';
 import { infraLogger } from '../../infrastructure/logging/logger';
 
@@ -38,9 +39,25 @@ export async function metricsIngestRoutes(fastify: FastifyInstance) {
       collected_at: p.collected_at ?? new Date().toISOString(),
     }));
 
-    const { error } = await supabaseAdmin.from('network_metrics').insert(rows);
-
-    if (error) {
+    // MT-02(c): escrita RLS por-tenant quando a flag está ligada (pós-096); senão service_role.
+    // Batch: no caminho RLS, insere via json_to_recordset (uma query parametrizada p/ N pontos).
+    try {
+      await writeTenantScoped(tenantId, {
+        rls: async (db) => {
+          await db.query(
+            `INSERT INTO network_metrics (tenant_id, cto_id, metric, value, collected_at)
+               SELECT $1, x.cto_id, x.metric, x.value, x.collected_at
+               FROM json_to_recordset($2::json)
+                 AS x(cto_id uuid, metric text, value numeric, collected_at timestamptz)`,
+            [tenantId, JSON.stringify(rows.map(({ tenant_id: _t, ...rest }) => rest))],
+          );
+        },
+        fallback: async () => {
+          const { error } = await supabaseAdmin.from('network_metrics').insert(rows);
+          if (error) throw new Error(error.message);
+        },
+      });
+    } catch (error) {
       infraLogger.error({ error, tenantId, count: rows.length }, 'Metrics ingest failed');
       return reply.code(500).send({ error: 'Failed to ingest metrics' });
     }

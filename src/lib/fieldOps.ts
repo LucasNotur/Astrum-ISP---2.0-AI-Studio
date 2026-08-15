@@ -5,8 +5,12 @@
  *   POST /api/v2/field/os/:id/transition
  *   POST /api/v2/field/route/optimize
  *
- * Mantém o padrão de auth já usado na página (bearer token no localStorage).
+ * Auth: o Bearer token vem da sessão Supabase ativa (em memória — o client usa
+ * `persistSession:false`), NÃO de `localStorage['sb-access-token']` (chave que
+ * ninguém grava; ler dela mandava `Authorization: Bearer ` vazio e quebrava a auth).
  */
+
+import { supabase } from './supabase';
 
 export type FieldOsStatus = 'pending' | 'in_progress' | 'completed';
 
@@ -39,8 +43,13 @@ export interface TransitionResult {
   missing?: string[];
 }
 
-function authHeaders(): Record<string, string> {
-  const token = localStorage.getItem('sb-access-token') ?? '';
+async function getAccessToken(): Promise<string> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token ?? '';
+}
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await getAccessToken();
   return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
 }
 
@@ -83,7 +92,7 @@ function normalizeOrder(o: any): FieldOs {
 /** Carrega a agenda do técnico logado. Lança em erro de rede/HTTP. */
 export async function fetchAgenda(date?: string): Promise<FieldOs[]> {
   const qs = date ? `?date=${encodeURIComponent(date)}` : '';
-  const res = await fetch(`/api/v2/field/agenda${qs}`, { headers: authHeaders() });
+  const res = await fetch(`/api/v2/field/agenda${qs}`, { headers: await authHeaders() });
   if (!res.ok) throw new Error(`Agenda HTTP ${res.status}`);
   const data = await res.json();
   return (data.orders ?? []).map(normalizeOrder);
@@ -97,7 +106,7 @@ export async function transitionOs(
 ): Promise<TransitionResult> {
   const res = await fetch(`/api/v2/field/os/${osId}/transition`, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: JSON.stringify({ event, lat: opts.lat, lng: opts.lng, metadata: opts.metadata, completion: opts.completion }),
   });
   const body = await res.json().catch(() => ({}));
@@ -144,7 +153,7 @@ export interface LiveTechnician {
 }
 
 export async function fetchLive(): Promise<LiveTechnician[]> {
-  const res = await fetch('/api/v2/field/live', { headers: authHeaders() });
+  const res = await fetch('/api/v2/field/live', { headers: await authHeaders() });
   if (!res.ok) throw new Error(`Live HTTP ${res.status}`);
   const data = await res.json();
   return data.technicians ?? [];
@@ -157,7 +166,7 @@ export async function fetchKmReport(from?: string, to?: string): Promise<KmRepor
   if (from) params.set('from', from);
   if (to) params.set('to', to);
   const qs = params.toString() ? `?${params.toString()}` : '';
-  const res = await fetch(`/api/v2/field/reports/km${qs}`, { headers: authHeaders() });
+  const res = await fetch(`/api/v2/field/reports/km${qs}`, { headers: await authHeaders() });
   if (!res.ok) throw new Error(`Report km HTTP ${res.status}`);
   return res.json();
 }
@@ -165,13 +174,13 @@ export async function fetchKmReport(from?: string, to?: string): Promise<KmRepor
 export interface TempoReport { by_type: { type: string; avgMin: number; count: number }[]; sample: number }
 
 export async function fetchTempoReport(): Promise<TempoReport> {
-  const res = await fetch('/api/v2/field/reports/tempo', { headers: authHeaders() });
+  const res = await fetch('/api/v2/field/reports/tempo', { headers: await authHeaders() });
   if (!res.ok) throw new Error(`Report tempo HTTP ${res.status}`);
   return res.json();
 }
 
 export async function fetchDossie(osId: string): Promise<any> {
-  const res = await fetch(`/api/v2/field/os/${osId}/dossie`, { headers: authHeaders() });
+  const res = await fetch(`/api/v2/field/os/${osId}/dossie`, { headers: await authHeaders() });
   if (!res.ok) throw new Error(`Dossiê HTTP ${res.status}`);
   return res.json();
 }
@@ -196,7 +205,7 @@ export interface DispatchBoardItem {
 }
 
 export async function fetchDispatchBoard(): Promise<DispatchBoardItem[]> {
-  const res = await fetch('/api/v2/field/dispatch/board', { headers: authHeaders() });
+  const res = await fetch('/api/v2/field/dispatch/board', { headers: await authHeaders() });
   if (!res.ok) throw new Error(`Dispatch HTTP ${res.status}`);
   const data = await res.json();
   return data.board ?? [];
@@ -205,7 +214,7 @@ export async function fetchDispatchBoard(): Promise<DispatchBoardItem[]> {
 export async function assignOs(osId: string, technicianId: string): Promise<boolean> {
   const res = await fetch(`/api/v2/field/os/${osId}/assign`, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: JSON.stringify({ technicianId }),
   });
   return res.ok;
@@ -223,7 +232,7 @@ export interface PhotoValidationResult {
 export async function validatePhoto(osId: string, imageUrl: string, register = true): Promise<PhotoValidationResult> {
   const res = await fetch(`/api/v2/field/os/${osId}/validate-photo`, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: JSON.stringify({ image_url: imageUrl, register }),
   });
   if (!res.ok) throw new Error(`Validate photo HTTP ${res.status}`);
@@ -232,7 +241,7 @@ export async function validatePhoto(osId: string, imageUrl: string, register = t
 
 /** Gera (e persiste) o resumo automático da OS. */
 export async function generateSummary(osId: string): Promise<{ summary: string; source: 'llm' | 'fallback' }> {
-  const res = await fetch(`/api/v2/field/os/${osId}/summary`, { method: 'POST', headers: authHeaders() });
+  const res = await fetch(`/api/v2/field/os/${osId}/summary`, { method: 'POST', headers: await authHeaders() });
   if (!res.ok) throw new Error(`Summary HTTP ${res.status}`);
   return res.json();
 }
@@ -246,7 +255,7 @@ export interface FieldChecklistItemFull extends FieldChecklistItem {
 }
 
 export async function fetchChecklist(osId: string): Promise<FieldChecklistItemFull[]> {
-  const res = await fetch(`/api/v2/field/os/${osId}/checklist`, { headers: authHeaders() });
+  const res = await fetch(`/api/v2/field/os/${osId}/checklist`, { headers: await authHeaders() });
   if (!res.ok) throw new Error(`Checklist HTTP ${res.status}`);
   const data = await res.json();
   return (data.items ?? []).map((i: any) => ({
@@ -262,7 +271,7 @@ export async function fetchChecklist(osId: string): Promise<FieldChecklistItemFu
 export async function markChecklistItem(osId: string, itemId: string, done: boolean): Promise<boolean> {
   const res = await fetch(`/api/v2/field/os/${osId}/checklist/${itemId}`, {
     method: 'PATCH',
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: JSON.stringify({ done }),
   });
   return res.ok;
@@ -276,7 +285,7 @@ export async function registerMedia(
 ): Promise<string | null> {
   const res = await fetch(`/api/v2/field/os/${osId}/media`, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: JSON.stringify({
       kind: opts.kind, url: opts.url,
       lat: opts.lat, lng: opts.lng,
@@ -294,7 +303,7 @@ export interface SignUploadResult { signedUrl: string; path: string; token: stri
 export async function signUploadMedia(osId: string, kind: string, filename: string): Promise<SignUploadResult> {
   const res = await fetch(`/api/v2/field/os/${osId}/media/sign-upload`, {
     method: 'POST',
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: JSON.stringify({ kind, filename }),
   });
   if (!res.ok) throw new Error(`Sign upload HTTP ${res.status}`);
@@ -310,7 +319,7 @@ export async function sendLocationBatch(
   if (points.length === 0) return;
   const res = await fetch('/api/v2/field/location', {
     method: 'POST',
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: JSON.stringify({ shiftId, points }),
   });
   if (!res.ok) throw new Error(`Location batch HTTP ${res.status}`);
@@ -320,7 +329,7 @@ export async function sendLocationBatch(
 export async function optimizeRoute(date?: string): Promise<OptimizedRouteResult> {
   const res = await fetch('/api/v2/field/route/optimize', {
     method: 'POST',
-    headers: authHeaders(),
+    headers: await authHeaders(),
     body: JSON.stringify({ date }),
   });
   if (!res.ok) throw new Error(`Otimização HTTP ${res.status}`);

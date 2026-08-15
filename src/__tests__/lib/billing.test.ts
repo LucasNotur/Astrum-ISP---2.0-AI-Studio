@@ -151,6 +151,27 @@ describe('Billing Logic & Webhooks', () => {
     expect(res.status).toBe(401);
   });
 
+  it('6b. BILL-02 fail-closed: sem secret configurado e sem header -> 401 (antes passava livre)', async () => {
+    delete process.env.ASAAS_WEBHOOK_TOKEN;
+    delete process.env.ASAAS_API_KEY;
+    const res = await request(app)
+      .post('/webhook/asaas')
+      .send({ event: 'PAYMENT_RECEIVED', payment: { externalReference: 'tenant-1' } });
+    expect(res.status).toBe(401);
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it('6c. BILL-04 idempotência: PAYMENT_OVERDUE reenviado (mesmo payment.id) -> enfileira lockout só 1×', async () => {
+    const payload = { event: 'PAYMENT_OVERDUE', payment: { id: 'pay_dedup_1', externalReference: 'tenant-1' } };
+    const send = () => request(app).post('/webhook/asaas').set('asaas-access-token', 'mock-webhook-token').send(payload);
+
+    const r1 = await send();
+    const r2 = await send(); // retry do Asaas
+    expect(r1.status).toBe(200);
+    expect(r2.status).toBe(200);
+    expect(mockQueueAdd).toHaveBeenCalledTimes(1); // dedup: só o 1º processou
+  });
+
   it('7. createSubscription com tenant já com subscription ativa -> não duplica', async () => {
     mockGet.mockResolvedValueOnce({
        exists: true,

@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
+import { readTenantScoped, writeTenantScoped } from '../../infrastructure/database/tenant-rls';
 import { infraLogger } from '../../infrastructure/logging/logger';
 
 export async function ocrReviewRoutes(app: FastifyInstance) {
@@ -11,19 +12,36 @@ export async function ocrReviewRoutes(app: FastifyInstance) {
     const tenantId = (req as any).user?.tenant_id;
     if (!tenantId) return { queue: [] };
 
-    const { data, error } = await supabaseAdmin
-      .from('ocr_extractions')
-      .select('id, doc_type, media_url, extraction, confidence, review_status, created_at')
-      .eq('tenant_id', tenantId)
-      .eq('review_status', 'pending')
-      .order('created_at', { ascending: true })
-      .limit(50);
-
-    if (error) {
-      infraLogger.warn({ err: error.message }, '[ocr-review] queue fetch failed');
+    // MT-02(c): RLS por-tenant quando a flag está ligada (pós-096); senão service_role.
+    try {
+      const queue = await readTenantScoped(tenantId, {
+        rls: async (db) => {
+          const { rows } = await db.query(
+            `SELECT id, doc_type, media_url, extraction, confidence, review_status, created_at
+               FROM ocr_extractions
+               WHERE tenant_id = $1 AND review_status = 'pending'
+               ORDER BY created_at ASC LIMIT 50`,
+            [tenantId],
+          );
+          return rows;
+        },
+        fallback: async () => {
+          const { data, error } = await supabaseAdmin
+            .from('ocr_extractions')
+            .select('id, doc_type, media_url, extraction, confidence, review_status, created_at')
+            .eq('tenant_id', tenantId)
+            .eq('review_status', 'pending')
+            .order('created_at', { ascending: true })
+            .limit(50);
+          if (error) throw new Error(error.message);
+          return data ?? [];
+        },
+      });
+      return { queue };
+    } catch (err) {
+      infraLogger.warn({ err: err instanceof Error ? err.message : String(err) }, '[ocr-review] queue fetch failed');
       return { queue: [] };
     }
-    return { queue: data ?? [] };
   });
 
   app.patch<{
@@ -50,13 +68,34 @@ export async function ocrReviewRoutes(app: FastifyInstance) {
       update.corrected = corrected;
     }
 
-    const { error } = await supabaseAdmin
-      .from('ocr_extractions')
-      .update(update)
-      .eq('id', req.params.id)
-      .eq('tenant_id', tenantId);
-
-    if (error) {
+    // MT-02(c): escrita RLS por-tenant quando a flag está ligada (pós-096); senão service_role.
+    try {
+      await writeTenantScoped(tenantId, {
+        rls: async (db) => {
+          if (action === 'correct') {
+            await db.query(
+              `UPDATE ocr_extractions SET review_status = $1, reviewed_by = $2, corrected = $3
+                 WHERE id = $4 AND tenant_id = $5`,
+              [update.review_status, userId, corrected, req.params.id, tenantId],
+            );
+          } else {
+            await db.query(
+              `UPDATE ocr_extractions SET review_status = $1, reviewed_by = $2
+                 WHERE id = $3 AND tenant_id = $4`,
+              [update.review_status, userId, req.params.id, tenantId],
+            );
+          }
+        },
+        fallback: async () => {
+          const { error } = await supabaseAdmin
+            .from('ocr_extractions')
+            .update(update)
+            .eq('id', req.params.id)
+            .eq('tenant_id', tenantId);
+          if (error) throw new Error(error.message);
+        },
+      });
+    } catch {
       return reply.code(500).send({ error: 'Falha ao atualizar' });
     }
 

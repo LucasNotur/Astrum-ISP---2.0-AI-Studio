@@ -1,9 +1,21 @@
-import { Request, Response, NextFunction } from 'express';
 import { adminDb as db } from './firebaseAdmin.ts';
-import { verifySupabaseToken } from './authVerify.ts';
 import redis from './redis.ts';
-import { PLANS, PlanFeatures, PlanFeatureLimits } from './plans.ts';
 
+/**
+ * Plano/degrau do tenant (cacheado 10 min no Redis).
+ *
+ * ⚠️ HISTÓRICO: este módulo hospedava o gating do modelo ANTIGO de 4 planos
+ * (FREE/PRO/BUSINESS/ENTERPRISE) via `checkFeatureAccess`/`checkLimit`/`requireFeature`,
+ * que liam `PLANS`/`PlanFeatures`/`PlanFeatureLimits` de `plans.ts`. A ESCADA ASTRUM
+ * (2026-07-13) reescreveu `plans.ts` — removeu `PLANS` e passou a gatilhar acesso
+ * por MÓDULO (`ASTRUM_LADDER`/`modulesForTier` + `enabled_modules`/`useEnabledModules`).
+ * Aquelas 3 funções ficaram importando exports inexistentes (crashavam ao rodar) e
+ * modelavam um esquema já substituído; foram REMOVIDAS. O gating vivo hoje é por módulo.
+ *
+ * Sobra `getTenantPlanId` — utilitário de leitura+cache do `plan_id` do tenant.
+ * Sem consumidor de produção hoje (o `tenantRateLimiter` que o usava foi removido —
+ * AUTH-08); mantido como bloco reutilizável para lógica futura ciente de plano.
+ */
 export const getTenantPlanId = async (tenantId: string): Promise<string> => {
   const cacheKey = `tenant_plan:${tenantId}`;
   let planId = await redis.get(cacheKey);
@@ -21,58 +33,3 @@ export const getTenantPlanId = async (tenantId: string): Promise<string> => {
 
   return planId;
 }
-
-export const checkFeatureAccess = async (tenantId: string, feature: keyof PlanFeatures): Promise<boolean> => {
-  const planId = await getTenantPlanId(tenantId);
-  const plan = PLANS[planId] || PLANS['FREE'];
-  
-  return !!plan.features[feature];
-};
-
-export const checkLimit = async (tenantId: string, limitType: keyof PlanFeatureLimits): Promise<number> => {
-  const planId = await getTenantPlanId(tenantId);
-  const plan = PLANS[planId] || PLANS['FREE'];
-  
-  return plan.limits[limitType];
-};
-
-export const requireFeature = (feature: keyof PlanFeatures) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      let tenantId = req.query.tenantId as string || req.body?.tenantId as string || req.headers['x-tenant-id'] as string;
-      
-      if (!tenantId) {
-        const authHeader = req.headers.authorization;
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-          const token = authHeader.split('Bearer ')[1];
-          try {
-            const decoded = await verifySupabaseToken(token);
-            tenantId = decoded.tenantId;
-          } catch (e) {
-            // Ignore parse errors here
-          }
-        }
-      }
-
-      if (!tenantId || tenantId === 'undefined') {
-        tenantId = 'default';
-      }
-
-      const hasAccess = await checkFeatureAccess(tenantId, feature);
-      
-      if (!hasAccess) {
-        return res.status(403).json({
-          error: 'FEATURE_NOT_AVAILABLE',
-          reason: feature,
-          upgrade_url: '/billing'
-        });
-      }
-      
-      next();
-    } catch (err) {
-      console.error('Error in requireFeature middleware:', err);
-      // Fallback
-      next();
-    }
-  };
-};

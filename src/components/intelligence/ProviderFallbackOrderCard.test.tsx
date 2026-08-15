@@ -3,6 +3,15 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ProviderFallbackOrderCard } from './ProviderFallbackOrderCard';
 
+// O card lê o token da sessão Supabase (em memória), não do localStorage.
+vi.mock('@/src/lib/supabase', () => ({
+  supabase: {
+    auth: {
+      getSession: vi.fn().mockResolvedValue({ data: { session: { access_token: 'fake-token' } } }),
+    },
+  },
+}));
+
 function wrapper({ children }: { children: React.ReactNode }) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
@@ -42,12 +51,10 @@ describe('ProviderFallbackOrderCard (IA-43)', () => {
 
   beforeEach(() => {
     globalThis.fetch = vi.fn();
-    window.localStorage.setItem('sb-access-token', 'fake-token');
   });
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
-    window.localStorage.clear();
   });
 
   it('exibe estado de loading (skeleton) antes da resposta', () => {

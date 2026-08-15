@@ -1,4 +1,5 @@
 import { callOpenAI, getOpenAICircuitStatus } from '../openai/openai.adapter';
+import { assertLlmBudget, recordLlmUsage } from '../../infrastructure/ai/llm-budget.service';
 
 export type MessageRole = 'system' | 'user' | 'assistant';
 
@@ -54,6 +55,10 @@ export function classifyMessageComplexity(
 
 export async function callLLM(request: LLMRequest): Promise<LLMResponse> {
   const startTime = Date.now();
+
+  // COST-01: bloqueia se o tenant já estourou o teto mensal (no-op se desabilitado).
+  await assertLlmBudget(request.tenantId);
+
   const model = request.forceModel ?? classifyMessageComplexity(request.messages, request.context);
 
   const messages: LLMMessage[] = request.systemPrompt
@@ -68,6 +73,9 @@ export async function callLLM(request: LLMRequest): Promise<LLMResponse> {
     tenantId: request.tenantId,
     userId: request.userId,
   });
+
+  // COST-01: contabiliza o uso real retornado pelo provider.
+  await recordLlmUsage(request.tenantId, response.usage.total_tokens);
 
   return {
     content: response.content,

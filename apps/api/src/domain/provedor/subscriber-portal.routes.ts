@@ -24,6 +24,7 @@ import {
 } from './subscriber-portal';
 import { runPortalDiagnostic } from './diagnostic-portal.service';
 import { infraLogger } from '../../infrastructure/logging/logger';
+import { isPortalLockedOut, recordPortalFailure, clearPortalFailures } from './portal-lockout';
 
 export interface PortalRoutesDeps {
   db?: PortalDb;
@@ -72,13 +73,23 @@ export async function subscriberPortalRoutes(
     const tenantId = getTenantId(request);
     if (!tenantId) return reply.code(400).send({ error: 'X-Tenant-Id obrigatório' });
 
+    // AUTH-02: lockout contra brute-force/credential-stuffing (CPF+contrato são adivinháveis).
+    const clientIp = (request.ip as string) ?? 'unknown';
+    if (await isPortalLockedOut(tenantId, body.data.cpf, clientIp)) {
+      infraLogger.warn({ tenantId, ip: clientIp }, 'Portal auth bloqueada por lockout');
+      return reply.code(429).send({ error: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' });
+    }
+
     const record = await lookupSubscriberByCpf(db, tenantId, body.data.cpf);
     const authResult = authenticateSubscriber(body.data, record);
 
     if (!authResult.ok) {
+      await recordPortalFailure(tenantId, body.data.cpf, clientIp);
       infraLogger.info({ tenantId, reason: authResult.reason }, 'Portal auth falhou');
       return reply.code(401).send({ error: 'CPF ou contrato inválidos' });
     }
+
+    await clearPortalFailures(tenantId, body.data.cpf, clientIp);
 
     // AUTH-01: aud dedicado — defesa em profundidade contra reuso do token em rotas de operador.
     const token = (app as any).jwt.sign(

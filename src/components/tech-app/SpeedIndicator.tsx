@@ -1,5 +1,6 @@
 import React from 'react';
-import { tech } from './theme';
+// Overlay sobre o mapa (sempre escuro) — token DARK fixo.
+import { DARK as tech } from './theme';
 
 /**
  * Indicador de velocidade atual + limite da via — inspirado no nav (Mapbox/Yango):

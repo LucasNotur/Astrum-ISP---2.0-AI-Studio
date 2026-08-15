@@ -1,6 +1,7 @@
 import { Queue } from "bullmq";
 import redis from "./redis";
 import EventEmitter from "events";
+import { encodeDlqPayload } from "./dlqPayload.ts";
 
 const isMockRedis = !((redis as any).options);
 export const mockQueueEmitter = new EventEmitter();
@@ -27,6 +28,33 @@ export const deadLetterQueue = isMockRedis ? {
   connection: redis as any,
 });
 
+/**
+ * OBS-07 (auditoria 2026-08-10): o `payload` da DLQ guardava `job.data` CRU —
+ * telefone, conteúdo de mensagem, base64 de mídia = PII em repouso (risco LGPD).
+ * Agora o payload é CIFRADO (AES-256-GCM via fieldCipher) antes de persistir, e
+ * decifrado só no retry (routes/dlq.ts). Metadados de triagem (job_name, error,
+ * retry_count, tenant_id) seguem em claro — não carregam corpo de mensagem.
+ *
+ * Degradação graciosa: se `CPF_ENCRYPTION_KEY` não estiver setada (dev/seed), o
+ * encrypt lança e caímos para texto puro — a DLQ é uma REDE DE SEGURANÇA de
+ * diagnóstico; perder o registro seria pior que guardá-lo em claro num ambiente
+ * sem chave. Em produção (chave setada, gate de go-live) o payload fica cifrado.
+ * Formato cifrado: `{ __enc: "iv:tag:ct", v: 1 }` (JSONB válido). Codec em dlqPayload.ts.
+ */
+
+/** Purga best-effort de retenção da DLQ (defesa em profundidade p/ LGPD). */
+async function purgeOldDlqEntries(supabaseAdmin: any): Promise<void> {
+  try {
+    const cutoffResolved = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const cutoffAll = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    // Resolvidos > 30 dias, e qualquer linha > 90 dias.
+    await supabaseAdmin.from('dead_letter_queue').delete().eq('resolved', true).lt('failed_at', cutoffResolved);
+    await supabaseAdmin.from('dead_letter_queue').delete().lt('failed_at', cutoffAll);
+  } catch (e: any) {
+    console.error('[DLQ] purga de retenção falhou (não-fatal):', e?.message);
+  }
+}
+
 export function setupDLQ(worker: any) {
   worker.on('failed', async (job: any, err: any) => {
     if (!job) return;
@@ -39,7 +67,7 @@ export function setupDLQ(worker: any) {
           job_id: job.id,
           job_name: job.name,
           queue_name: job.queueName ?? 'unknown',
-          payload: job.data,
+          payload: encodeDlqPayload(job.data),
           error_message: err.message,
           retry_count: attempts,
           tenant_id: job.data?.tenantId ?? null,
@@ -49,6 +77,7 @@ export function setupDLQ(worker: any) {
           console.error('[DLQ] Erro ao salvar no Supabase:', error.message);
         } else {
           console.error(`[DLQ] Job ${job.name} movido para DLQ após ${attempts} tentativas.`);
+          await purgeOldDlqEntries(supabaseAdmin);
         }
       } catch (e: any) {
         console.error("Erro ao inserir no DLQ do firestore:", e.message);

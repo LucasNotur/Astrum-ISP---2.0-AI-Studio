@@ -125,7 +125,7 @@ export const fcrWorker = isMockRedis ? null : new Worker('fcr-calculator', async
           const startOfYesterdayObj = customAdmin.firestore.Timestamp.fromDate(yesterday);
           const endOfYesterdayObj = customAdmin.firestore.Timestamp.fromDate(endOfYesterday);
           
-          const msgsSnap = await db.collectionGroup("messages")
+          const msgsSnap = await (db as any).collectionGroup("messages")
             .where("tenantId", "==", tenantId)
             .where("createdAt", ">=", startOfYesterdayObj)
             .where("createdAt", "<=", endOfYesterdayObj)
@@ -137,7 +137,7 @@ export const fcrWorker = isMockRedis ? null : new Worker('fcr-calculator', async
           let angry = 0;
           let urgent = 0;
           
-          msgsSnap.docs.forEach(doc => {
+          msgsSnap.docs.forEach((doc: any) => {
             const data = doc.data();
             const s = data.sentiment;
             if (s === "POSITIVE") positive++;

@@ -1,11 +1,15 @@
 import redis from '../cache/redis.client';
 import { infraLogger } from '../logging/logger';
 
+// INFRA-02 (auditoria 2026-08-10): `failClosed` = quando o Redis falha, BLOQUEAR em vez
+// de deixar passar. Ligado nos grupos onde "passar livre" custa dinheiro (`ai` = fatura de
+// LLM, `billing` = cobrança) → evita DoS financeiro numa queda/derrubada do Redis.
+// `webhooks`/`default` seguem fail-open (disponibilidade: não perder webhooks/tráfego geral).
 export const RATE_LIMIT_CONFIGS = {
-  ai: { capacity: 10, refillRate: 10 / 60, tokensPerRequest: 1 },
-  billing: { capacity: 5, refillRate: 5 / 60, tokensPerRequest: 1 },
-  webhooks: { capacity: 100, refillRate: 100 / 60, tokensPerRequest: 1 },
-  default: { capacity: 60, refillRate: 1, tokensPerRequest: 1 },
+  ai: { capacity: 10, refillRate: 10 / 60, tokensPerRequest: 1, failClosed: true },
+  billing: { capacity: 5, refillRate: 5 / 60, tokensPerRequest: 1, failClosed: true },
+  webhooks: { capacity: 100, refillRate: 100 / 60, tokensPerRequest: 1, failClosed: false },
+  default: { capacity: 60, refillRate: 1, tokensPerRequest: 1, failClosed: false },
 } as const;
 
 export type RouteGroup = keyof typeof RATE_LIMIT_CONFIGS;
@@ -64,12 +68,19 @@ export async function checkRateLimit(tenantId: string, routeGroup: string): Prom
       limit: capacity,
     };
   } catch (error: any) {
-    infraLogger.error({ err: error }, 'Erro ao checar limite de rate limit');
-    // Se o Redis falhar, deixamos passar (fail open)
+    // INFRA-02: grupos críticos (ai/billing) falham FECHADO — Redis fora não pode virar
+    // barra-livre de custo. Grupos não-críticos seguem fail-open (disponibilidade).
+    const failClosed = (config as { failClosed?: boolean }).failClosed === true;
+    infraLogger.error(
+      { err: error, routeGroup: groupName, failClosed },
+      failClosed
+        ? 'Redis fora no rate limit — BLOQUEANDO grupo crítico (fail-closed)'
+        : 'Redis fora no rate limit — deixando passar (fail-open)',
+    );
     return {
-      allowed: true,
-      remainingTokens: capacity,
-      resetInSeconds: 0,
+      allowed: !failClosed,
+      remainingTokens: 0,
+      resetInSeconds: failClosed ? 60 : 0,
       limit: capacity,
     };
   }

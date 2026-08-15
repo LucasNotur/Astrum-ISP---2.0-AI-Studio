@@ -415,7 +415,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     customerItems.length + ticketItems.length + invoiceItems.length + osItems.length > 0;
 
   const hasResults =
-    hasDataResults + navItems.length + actionItems.length + recentItems.length > 0;
+    hasDataResults || navItems.length + actionItems.length + recentItems.length > 0;
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange} title="Busca global">

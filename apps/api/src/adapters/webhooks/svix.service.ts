@@ -50,6 +50,22 @@ interface SvixEventPayload {
   data: Record<string, unknown>;
 }
 
+// ─── Erros tipados ───────────────────────────────────────────────────────────
+
+/**
+ * Erro de reentrega com um `code` estável que a rota mapeia para o HTTP correto
+ * (NOT_FOUND → 404, NOT_RESENDABLE → 409). Evita vazar detalhe cru (APPSEC-04).
+ */
+export class SvixRetryError extends Error {
+  constructor(
+    public readonly code: 'DELIVERY_NOT_FOUND' | 'DELIVERY_NOT_RESENDABLE',
+    message: string,
+  ) {
+    super(message);
+    this.name = 'SvixRetryError';
+  }
+}
+
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 export class SvixService {
@@ -74,21 +90,23 @@ export class SvixService {
     };
 
     try {
-      await svix.message.create(appId, {
+      const msg = await svix.message.create(appId, {
         eventType,
         payload,
         // Svix assina automaticamente com HMAC
       });
 
-      infraLogger.info({ tenantId, eventType, appId }, 'Svix webhook sent');
+      infraLogger.info({ tenantId, eventType, appId, msgId: msg.id }, 'Svix webhook sent');
 
-      // Registrar no audit log
+      // Registrar no audit log — guarda o id da mensagem Svix para permitir reentrega
+      // manual depois (resendDelivery). Sem ele, uma entrega falha não tem como ser reenviada.
       await supabase.from('webhook_deliveries').insert({
         tenant_id: tenantId,
         event_type: eventType,
         payload,
         status: 'sent',
         sent_at: new Date().toISOString(),
+        svix_message_id: msg.id,
       });
 
     } catch (err) {
@@ -174,6 +192,64 @@ export class SvixService {
   async listEndpoints(tenantId: string) {
     const appId = await this._getOrCreateApp(tenantId);
     return svix.endpoint.list(appId);
+  }
+
+  /**
+   * Reenviar uma entrega falha ao(s) endpoint(s) do tenant.
+   *
+   * A tela de Webhooks passa o id da linha de `webhook_deliveries` (nosso audit log),
+   * não o id da mensagem no Svix. Aqui fazemos a ponte:
+   *   1. carregamos a entrega ESCOPADA por tenant_id (MT-02: este service usa o client
+   *      anon, então o isolamento é explícito — nunca confiar só na RLS);
+   *   2. pegamos o `svix_message_id` gravado no envio original;
+   *   3. pedimos ao Svix para reentregar essa mensagem a cada endpoint configurado.
+   *
+   * O Svix mantém o MESMO `svix-id` no reenvio, então receptores idempotentes deduplicam.
+   * Entrega antiga sem `svix_message_id` (anterior à migration 097) → não é reenviável.
+   *
+   * @returns quantidade de endpoints para os quais o reenvio foi solicitado.
+   */
+  async resendDelivery(tenantId: string, deliveryId: string): Promise<{ resent: number }> {
+    const { data: delivery, error } = await supabase
+      .from('webhook_deliveries')
+      .select('id, tenant_id, svix_message_id')
+      .eq('id', deliveryId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle();
+
+    if (error) {
+      infraLogger.error({ err: error, tenantId, deliveryId }, 'Svix retry: falha ao buscar entrega');
+      throw new SvixRetryError('DELIVERY_NOT_FOUND', 'Não foi possível localizar a entrega.');
+    }
+    if (!delivery) {
+      throw new SvixRetryError('DELIVERY_NOT_FOUND', 'Entrega não encontrada para este tenant.');
+    }
+    if (!delivery.svix_message_id) {
+      throw new SvixRetryError(
+        'DELIVERY_NOT_RESENDABLE',
+        'Entrega sem referência Svix (anterior ao registro de message id); não é possível reenviar.',
+      );
+    }
+
+    const appId = await this._getOrCreateApp(tenantId);
+    const { data: endpoints } = await svix.endpoint.list(appId);
+
+    let resent = 0;
+    for (const ep of endpoints) {
+      try {
+        await svix.messageAttempt.resend(appId, delivery.svix_message_id, ep.id);
+        resent++;
+      } catch (err) {
+        // Falha em um endpoint não deve abortar os demais.
+        infraLogger.error(
+          { err, tenantId, deliveryId, endpointId: ep.id },
+          'Svix retry: reenvio para endpoint falhou',
+        );
+      }
+    }
+
+    infraLogger.info({ tenantId, deliveryId, resent }, 'Svix delivery reenviada');
+    return { resent };
   }
 }
 

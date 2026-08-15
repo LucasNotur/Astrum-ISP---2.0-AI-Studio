@@ -4,8 +4,10 @@ import { infraLogger } from '../logging/logger';
 import { resolvePrompt, type PromptVersion } from './prompt-registry';
 import { isModelCascadeEnabled } from '../cache/semantic-cache.service';
 import { getModel, withFailover } from './providers/model-router';
+import { assertLlmBudget, recordLlmUsage } from './llm-budget.service';
 import { withSpan } from '../observability/otel-span.helper';
 import { isOtelEnabled } from '../observability/otel';
+import { wrapUntrustedContext } from '../guardrails/context-isolation';
 
 /**
  * IA-37 — Tool batching (paralelismo intra-step).
@@ -197,7 +199,9 @@ export class VercelAIService {
           messages: [
             {
               role: 'user',
-              content: `Histórico:\n${conversationHistory}\n\nMensagem atual: "${message}"`,
+              // LLM-01: o histórico contém mensagens do cliente (não-confiável) —
+              // isola como referência para não ser obedecido como instrução.
+              content: `Histórico:\n${wrapUntrustedContext(conversationHistory)}\n\nMensagem atual: "${message}"`,
             },
           ],
           headers: {
@@ -237,7 +241,9 @@ export class VercelAIService {
           messages: [
             {
               role: 'user',
-              content: `Contexto técnico dos manuais:\n${ragContext}\n\nQueixa do cliente: "${customerMessage}"`,
+              // LLM-01: os manuais vêm da base de conhecimento (RAG, não-confiável) —
+              // um doc plantado não pode virar instrução. Isola como referência.
+              content: `Contexto técnico dos manuais:\n${wrapUntrustedContext(ragContext)}\n\nQueixa do cliente: "${customerMessage}"`,
             },
           ],
           headers: {
@@ -274,7 +280,9 @@ export class VercelAIService {
           messages: [
             {
               role: 'user',
-              content: `Resumo da conversa:\n${conversationSummary}\n\nResolução:\n${resolution}`,
+              // LLM-01: o resumo deriva das mensagens do cliente (não-confiável) —
+              // isola como referência para não injetar instrução no relatório.
+              content: `Resumo da conversa:\n${wrapUntrustedContext(conversationSummary)}\n\nResolução:\n${resolution}`,
             },
           ],
           headers: {
@@ -308,6 +316,8 @@ export class VercelAIService {
     opts?: { tier?: 'mini' | 'full'; tools?: typeof agentTools },
   ) {
     const prompt = this._resolvePrompt('chat');
+    // COST-01: bloqueia o stream se o tenant já estourou o teto (no-op se desabilitado).
+    await assertLlmBudget(tenantId);
     // IA-43: failover pré-stream via getModel. Stream iniciado é commitment —
     // se o modelo cair no meio do stream, o cliente recebe o erro honesto
     // (regra de UX: nunca trocar de modelo depois do 1º token).
@@ -370,6 +380,10 @@ export class VercelAIService {
 
           await onToolCall(toolCall.toolName, toolCall.input);
         }
+      },
+      // COST-01: contabiliza os tokens quando o stream termina.
+      onFinish: async ({ usage }: any) => {
+        await recordLlmUsage(tenantId, Number(usage?.totalTokens ?? usage?.total_tokens ?? 0) || 0);
       },
       headers: {
         'Helicone-Property-TenantId': tenantId,
