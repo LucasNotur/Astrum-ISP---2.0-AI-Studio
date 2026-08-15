@@ -114,7 +114,7 @@ export function DashboardPage() {
 
         // S99 — Upsells e CSAT via Supabase
         const [{ data: upsells }, { data: csats }] = await Promise.all([
-          supabase.from('cobrai_jobs').select('*').eq('tenant_id', tenantId).eq('status', 'completed'),
+          supabase.from('upsell_events').select('*').eq('tenant_id', tenantId),
           supabase.from('tickets').select('csat_score,created_at').eq('tenant_id', tenantId).not('csat_score', 'is', null),
         ]);
         setUpsellEvents(upsells ?? []);

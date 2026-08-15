@@ -333,6 +333,10 @@ export async function buildServer() {
   const { vendasDashboardRoutes } = await import('./domain/vendas/vendas-dashboard.routes');
   await app.register(vendasDashboardRoutes);
 
+  // SPEC 1 — Upsell/convert: registra evento de upsell do operador (upsell_events, migration 100).
+  const { upsellRoutes } = await import('./domain/vendas/upsell.routes');
+  await app.register(upsellRoutes);
+
   // D-05 — Memória institucional viva: curadoria de rascunhos KB gerados por IA
   const { kbDraftRoutes } = await import('./domain/conhecimento/kb-draft.routes');
   await app.register(kbDraftRoutes);

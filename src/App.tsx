@@ -134,6 +134,7 @@ import { cn } from "./lib/utils";
 import { OnboardingTour } from "./components/OnboardingTour";
 // FZ-4: autenticação e dados 100% Supabase (Firestore removido).
 import { supabase } from "./lib/supabase";
+import { apiPost } from "./lib/apiClient";
 import {
   Dialog,
   DialogContent,
@@ -3215,23 +3216,16 @@ export default function App() {
                         className="w-full justify-start gap-2 text-amber-600 border-amber-200 hover:bg-amber-50 hover:border-amber-300 dark:border-amber-900/30 dark:hover:bg-amber-900/20"
                         onClick={async () => {
                           try {
-                            const res = await fetch("/api/upsell/convert", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({
-                                tenantId:
-                                  companySettings?.tenant_id || "default",
-                                customerId: selectedTicket.customerId,
-                                currentPlan:
-                                  customers.find(
-                                    (c) => c.id === selectedTicket.customerId,
-                                  )?.plan || "Unknown",
-                                suggestedPlan:
-                                  "Plano Superior (Aceito via Operador)",
-                                outcome: "converted",
-                              }),
+                            await apiPost("/api/v2/upsell/convert", {
+                              customerId: selectedTicket.customerId,
+                              currentPlan:
+                                customers.find(
+                                  (c) => c.id === selectedTicket.customerId,
+                                )?.plan || "Unknown",
+                              suggestedPlan:
+                                "Plano Superior (Aceito via Operador)",
+                              outcome: "converted",
                             });
-                            if (!res.ok) throw new Error("Falha ao registrar");
                             toast.success(
                               "Upsell convertido com sucesso! Dashboard atualizado.",
                             );
