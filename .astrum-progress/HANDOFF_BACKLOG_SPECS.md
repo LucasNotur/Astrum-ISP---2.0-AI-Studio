@@ -6,30 +6,30 @@
 
 Você foi instruído a "executar este plano passo a passo". O escopo é **ESTRITO**. Cumpra à risca:
 
-1. **EXECUTE APENAS A `SPEC 1` (upsell/convert).** É a única liberada nesta rodada.
-2. **NÃO EXECUTE `SPEC 2` (billing) NEM `SPEC 3` (voip).** Ambas estão BLOQUEADAS por decisão de
-   produto do dono. Elas estão no documento só como contexto. Se você achar que "deveria" construí-las,
-   **PARE** e escreva a pergunta pendente no seu report final — **não escreva uma linha de código delas.**
-3. **NÃO altere nenhum arquivo que não esteja listado explicitamente na SPEC 1.** A lista de arquivos
-   que você pode criar/tocar é, EXAUSTIVAMENTE:
-   - CRIAR: `apps/api/src/domain/vendas/upsell.service.ts`
-   - CRIAR: `apps/api/src/domain/vendas/upsell.routes.ts`
-   - CRIAR: `apps/api/src/domain/vendas/upsell.service.test.ts`
-   - EDITAR: `apps/api/src/server.ts` (só adicionar o registro da rota)
-   - EDITAR: `src/App.tsx` (só o handler do botão de upsell)
-   - EDITAR: `src/pages/DashboardPage.tsx` (só a leitura de upsells)
-   - EDITAR: `.astrum-progress/HANDOFF_BACKLOG_SPECS.md` (só marcar a SPEC 1 como feita no fim)
+1. **EXECUTE A `SPEC 1` (upsell) E A `SPEC 2` (billing).** São as duas liberadas nesta rodada.
+2. **NÃO EXECUTE A `SPEC 3` (voip).** Está BLOQUEADA por dependência externa (conta Twilio) + design
+   do dono. Está no documento só como contexto. Se achar que "deveria" construí-la, **PARE** e escreva
+   a pergunta no report — **não escreva uma linha de código dela.**
+3. **NÃO altere nenhum arquivo fora das listas das SPEC 1 e 2.** Lista EXAUSTIVA de arquivos permitidos:
+   - (SPEC 1) CRIAR: `apps/api/src/domain/vendas/upsell.service.ts`
+   - (SPEC 1) CRIAR: `apps/api/src/domain/vendas/upsell.routes.ts`
+   - (SPEC 1) CRIAR: `apps/api/src/domain/vendas/upsell.service.test.ts`
+   - (SPEC 1) EDITAR: `apps/api/src/server.ts` (só adicionar o registro da rota)
+   - (SPEC 1) EDITAR: `src/App.tsx` (só o handler do botão de upsell)
+   - (SPEC 1) EDITAR: `src/pages/DashboardPage.tsx` (só a leitura de upsells)
+   - (SPEC 2) EDITAR: `src/pages/BillingPage.tsx` (só a view de billing do provedor)
+   - EDITAR: `.astrum-progress/HANDOFF_BACKLOG_SPECS.md` (só marcar SPEC 1 e 2 como feitas no fim)
    Qualquer outro arquivo → **NÃO TOQUE.**
-4. **AÇÕES PROIBIDAS:** refatorar/"consertar"/reformatar código que não faz parte da SPEC 1; renomear
-   símbolos; mexer em migrations ou schema (o DB já está feito — a tabela `upsell_events` já existe);
-   `git add -A` ou `git add .` (só `git add <os arquivos exatos acima>`); tocar em qualquer coisa de
-   `billing`, `voip`, `unmask`, `incidents`, `tickets`, ou outros domínios; instalar dependências novas.
-   **NÃO faça `git push`** — deixe o commit local. O Claude audita ANTES de subir pro main.
+4. **AÇÕES PROIBIDAS:** refatorar/"consertar"/reformatar código fora do escopo das SPEC 1/2; renomear
+   símbolos; mexer em migrations ou schema (o DB já está feito — `upsell_events` já existe); `git add -A`
+   ou `git add .` (só `git add <os arquivos exatos das listas>`); tocar em `voip`, `unmask`, `incidents`,
+   `tickets` ou outros domínios; instalar dependências novas. **NÃO faça `git push`** — deixe os commits
+   locais. O Claude audita ANTES de subir pro main.
 5. **Se o código real divergir deste spec** (um shape diferente, um símbolo que não existe, a tabela com
    colunas diferentes das transcritas): **PARE e reporte** — não adivinhe, não "conserte" por conta própria.
 6. **DEFINITION OF DONE:** typecheck limpo (raiz `npm run typecheck:legacy` **e** `cd apps/api && npx tsc
-   --noEmit`); teste novo verde (`npx vitest run apps/api/src/domain/vendas/upsell.service.test.ts` da raiz);
-   1 commit só, com os arquivos exatos.
+   --noEmit`); teste novo da SPEC 1 verde (`npx vitest run apps/api/src/domain/vendas/upsell.service.test.ts`
+   da raiz); **2 commits** (um por SPEC), cada um só com os arquivos daquela SPEC.
 7. **REPORT FINAL OBRIGATÓRIO** (para a auditoria do Claude) — ao terminar, imprima:
    - a lista EXATA de arquivos criados/editados;
    - o hash do commit;
@@ -162,55 +162,70 @@ errada). Unifique em `upsell_events`.
 
 ---
 
-## SPEC 2 — `billing` — 🚫 NÃO EXECUTAR (bloqueado; contexto só)
+## SPEC 2 — `billing` do provedor — ✅ EXECUTE ESTA (só frontend; decisão do dono já tomada)
 
-**Verificado pelo Claude (não re-investigue, mas confirme se quiser):** os endpoints
-`/api/billing/subscription/:tenantId` e `/api/billing/invoices/:tenantId` (chamados por
-`src/pages/BillingPage.tsx` ~linha 63-64) **não têm backend em lugar nenhum** (nem legado nem
-`apps/api`). Eles representam a **assinatura DO PROVEDOR à Astrum** (SaaS), não faturas de clientes.
-- A tabela `invoices` (Supabase) tem `customer_id` → é ISP→assinante, **não serve** p/ faturas do provedor.
-- Não existe tabela de faturas-do-provedor. O único dado do plano do provedor é `tenants.plan`
-  (text) + a tabela `billing_plans`.
+**Decisão do dono (tomada pelo Claude com o dono, 2026-08-14):** mostrar a assinatura **de verdade**
+(ela É computável) + faturas num empty-state honesto. NÃO usar `billing_plans` (é o catálogo que o
+ISP vende aos clientes dele, não a assinatura à Astrum).
 
-**⚠️ CORREÇÃO CRÍTICA (Claude verificou o schema — NÃO use `billing_plans` p/ o preço):**
-`billing_plans` e `plans` **têm `tenant_id`** → são o **catálogo de planos de internet que o ISP
-vende aos SEUS clientes** (`billing_plans`: id, tenant_id, name, price_cents, speed_mbps, description,
-active). **NÃO são** o preço da assinatura do ISP à Astrum. O único dado do plano-SaaS do provedor é
-`tenants.plan` (text, ex.: `'pro'`) — **sem preço, sem próxima cobrança, sem faturas** em lugar nenhum.
+**Por que é computável (verificado pelo Claude):** a precificação é a "Escada Astrum" — **preço único
+= R$ 2,50 × assinantes** (`src/lib/plans.ts`: `PRICE_PER_SUBSCRIBER_CENTS = 250` + função
+`monthlyPriceCents(tier, subscribers)`). E a tabela `tenants` tem os campos reais:
+`plan` (text: `'astrum'` pago | `'radar_trial'`/trial grátis | `'autonomia'` legado), `active` (bool),
+`trial_ends_at` (timestamptz|null), `subscriber_count` (int). Logo dá pra montar tudo **no front**,
+sem backend novo, usando a fonte de verdade de preço que já existe (`plans.ts`).
 
-Ou seja: a view de billing do provedor **não tem dado real de valor/fatura**. Cableá-la com
-`billing_plans` mostraria número ERRADO (o preço que o ISP cobra dos clientes dele).
+**O que fazer — SÓ `src/pages/BillingPage.tsx`:**
+1. **Remover** as 2 chamadas 404 (`fetch('/api/billing/subscription/...')` e `.../invoices/...`, ~linha 62-65)
+   e o estado que dependia delas (mantenha `ispSubscription`/`ispInvoices` como derivados locais).
+2. **Ler o tenant** (o arquivo já usa o client `supabase` e tem `tenantId`):
+   `supabase.from('tenants').select('plan,active,trial_ends_at,subscriber_count').eq('id', tenantId).maybeSingle()`.
+3. **Computar a assinatura** (client-side), importando de `@/src/lib/plans`:
+   ```ts
+   import { monthlyPriceCents, ASTRUM_LADDER } from '@/src/lib/plans';
+   const tier = t.plan === 'radar_trial' ? 'radar_trial' : 'astrum'; // 'autonomia'/desconhecido → tratado como pago (regra única da casa: R$2,50 × assinantes)
+   const amount_cents = monthlyPriceCents(tier, t.subscriber_count ?? 0);
+   const inTrial = t.trial_ends_at && new Date(t.trial_ends_at) > new Date();
+   setIspSubscription({
+     plan: t.plan,
+     status: t.active ? 'active' : 'inactive',
+     amount_cents,                                   // subscriber_count × 250 — número REAL
+     next_billing_date: inTrial ? t.trial_ends_at : null,
+   });
+   ```
+   Se `monthlyPriceCents`/`ASTRUM_LADDER` tiverem assinatura diferente da que você espera, **abra
+   `src/lib/plans.ts` e use o que existe de verdade** (não invente). O render de subscription
+   (`ispSubscription.plan/.status/.amount_cents/.next_billing_date`) já existe — não mude os campos.
+4. **Faturas:** `setIspInvoices([])` — não há geração de faturas SaaS do provedor (não existe em lugar
+   nenhum). O render já trata lista vazia com empty-state; **não invente faturas**. (Opcional, se quiser
+   deixar mais claro: trocar o texto do empty-state p/ algo como "As faturas da sua assinatura Astrum
+   aparecerão aqui quando a cobrança automática estiver ativa." — só o texto, sem lógica nova.)
+5. Em trial: como `next_billing_date = trial_ends_at`, o card já mostra "Próxima cobrança: {data}".
+   O valor mostrado é o que ele pagará (subscriber_count × R$2,50) quando o trial acabar — verdade.
 
-**Recomendação (decisão do dono — default seguro):** NÃO construir números falsos. Duas saídas:
-- (A) **Mínimo honesto:** `GET /api/v2/billing/subscription` retorna só `{ subscription: { plan:
-  tenants.plan, status: 'active', amount_cents: null, next_billing_date: null } }`; o front mostra
-  "Plano: PRO" e esconde valor/próxima-cobrança quando `null`. `GET /api/v2/billing/invoices` →
-  `{ invoices: [] }` (empty-state). Repontar `BillingPage.tsx` p/ os 2 `apiGet` (dropar `:tenantId`).
-- (B) **Esconder a seção** de billing-do-provedor no `BillingPage` até existir integração real de
-  pagamento SaaS (Stripe/Asaas) — provavelmente o mais honesto.
+**Verificação:** `npm run typecheck:legacy` limpo. (Sem teste novo: é leitura+cálculo com fonte já
+testada `plans.ts`.)
 
-**NÃO decida sozinho entre A e B** — é decisão de produto do dono. Entregue como pergunta.
-Se for (A), o backend é trivial (não precisa de schema além de `tenants.plan`, que você já tem).
+**Commit:** `feat(migração): BUILD billing do provedor (assinatura real via plans.ts; faturas empty)`.
 
 ---
 
-## SPEC 3 — `voip/initiate-call` — 🚫 NÃO EXECUTAR (bloqueado por design; contexto só)
+## SPEC 3 — `voip/initiate-call` — 🚫 NÃO EXECUTAR (design definido; bloqueado por conta Twilio + DB)
 
-**Verificado pelo Claude:** a telefonia do `apps/api` é **só INBOUND**
-(`/telephony/voice/incoming` + stream de voz). **Não há** SDK `twilio` no `package.json`, **não há**
-`calls.create`, e as env `TWILIO_ACCOUNT_SID/AUTH_TOKEN/PHONE_NUMBER` são opcionais (podem estar vazias).
-Pior: o payload do front (`src/pages/ChatPage.tsx` ~linha 496, `handleInitiateCall`) manda
-`{ tenantId, ticketId, toNumber, operatorId, operatorName }` — tem o número do CLIENTE (`toNumber`)
-mas **NÃO o telefone do operador** → é impossível montar o bridge click-to-call (Twilio precisa ligar
-p/ alguém e conectar ao outro).
+**Arquitetura escolhida pelo Claude:** **PSTN bridge** (Twilio liga pro operador e conecta ao cliente).
+Simples e robusto p/ MVP; funciona com o telefone que o operador já tem. WebRTC (softphone no browser)
+fica p/ uma v2. O fluxo completo está explicado no chat com o dono.
 
-**NÃO construa** até o dono decidir:
-1. Qual o fluxo? (a) Twilio liga p/ o operador e conecta ao cliente — precisa do telefone do operador
-   (adicionar ao payload/perfil); ou (b) WebRTC no browser do operador (outra arquitetura).
-2. As credenciais Twilio de produção existem e há saldo/upgrade p/ outbound?
-3. Adicionar a dependência `twilio` ou fazer POST HTTPS cru na API de Calls?
+**Por que continua BLOQUEADO (não é código puro — depende do Claude + do dono):**
+1. **Conta Twilio real:** precisa de conta com **outbound habilitado** + um **número Twilio** (caller ID).
+   Isso é fato de ops que só o dono confirma. (Env `TWILIO_ACCOUNT_SID/AUTH_TOKEN/PHONE_NUMBER` existem
+   mas opcionais/vazias; sem SDK `twilio` nem `calls.create` no código.)
+2. **Telefone do operador:** `team_members` **não tem coluna de telefone** (só `extra` jsonb). Precisa
+   ser adicionado (Claude faz a migration) + UI p/ preencher.
+3. **CDR:** registrar as chamadas (tabela `voip_calls`) — Claude faz o DB.
 
-Entregue isto como **pergunta ao dono**, não como código.
+→ Quando o dono confirmar a conta Twilio, o **Claude faz as partes de DB** (coluna telefone do operador +
+tabela `voip_calls`) e escreve um spec executável separado. Até lá, **NÃO escreva código de voip.**
 
 ---
 
