@@ -388,6 +388,10 @@ export async function buildServer() {
   const { queueMonitorRoutes } = await import('./domain/cobranca/queue-monitor.routes');
   await app.register(queueMonitorRoutes);
 
+  // Fase 2 — disparo manual da régua CobrAI (send-now) + gestão da fila (DELETE). Engine-aware (R6).
+  const { cobraiDispatchRoutes } = await import('./domain/cobranca/cobrai-dispatch.routes');
+  await app.register(cobraiDispatchRoutes);
+
   // F6-02 — Sync gateway Asaas → invoices (cobranças aparecem no CobrAI)
   const { gatewaySyncRoutes } = await import('./domain/cobranca/gateway-sync.routes');
   await app.register(gatewaySyncRoutes);

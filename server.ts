@@ -4,7 +4,6 @@ import path from "path";
 import fs from "fs";
 import http from "http";
 
-import { cobraiRouter } from "./src/routes/cobrai.ts";
 import { queuesRouter } from "./src/routes/queues.ts";
 import { dlqRouter } from "./src/routes/dlq.ts";
 import { evolutionRouter } from "./src/routes/evolution.ts";
@@ -128,7 +127,7 @@ async function startServer() {
   // sem consumidor). Design também inseguro (API key em texto puro, sem hash/timing-safe).
   // R4 proíbe feature nova em /src; se uma API pública for necessária, nasce no apps/api
   // com key hasheada + comparação timing-safe. /api/v1/* agora cai no catch-all /api/* (404).
-  app.use("/api/cobrai", verifySuperAdmin, cobraiRouter);
+  // FASE 2-A.4: mount /api/cobrai REMOVIDO (portado p/ /api/v2/cobranca/*: monitor + send-now + DELETE).
   app.use("/api/queues", verifySuperAdmin, queuesRouter);
   app.use("/api/dlq", verifySuperAdmin, dlqRouter);
   app.use("/api/evolution", evolutionRouter);

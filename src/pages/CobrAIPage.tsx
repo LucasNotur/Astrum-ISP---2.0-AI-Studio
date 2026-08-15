@@ -21,7 +21,7 @@ import {
 } from "@/src/components/ui/table";
 import { toast } from 'sonner';
 import { supabase } from '@/src/lib/supabase';
-import { apiGet } from '@/src/lib/apiClient';
+import { apiGet, apiPost, apiDelete } from '@/src/lib/apiClient';
 import { useAppStore } from '@/src/store/useAppStore';
 import {
   Bot, Pause, Play, Send, Trash2, CheckCircle2, AlertCircle,
@@ -173,12 +173,7 @@ export function CobrAIPage() {
   const sendNow = async (customerId?: string, stage?: string) => {
     if (!customerId || !stage) return;
     try {
-      const res = await fetch('/api/v2/cobranca/send-now', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerId, stage, tenantId }),
-      });
-      if (!res.ok) throw new Error('Falha no disparo');
+      await apiPost('/api/v2/cobranca/send-now', { customerId, stage });
       toast.success('Disparo forçado enviado!');
       setTimeout(handleRefresh, 2000);
     } catch (e: any) {
@@ -188,8 +183,7 @@ export function CobrAIPage() {
 
   const removeJob = async (jobId: string) => {
     try {
-      const res = await fetch(`/api/v2/cobranca/queue/${jobId}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Falha ao remover job');
+      await apiDelete(`/api/v2/cobranca/queue/${jobId}`);
       toast.success('Job removido da fila');
       fetchQueue();
     } catch (e: any) {
