@@ -27,9 +27,18 @@ Você foi instruído a "executar este plano passo a passo". O escopo é **ESTRIT
    locais. O Claude audita ANTES de subir pro main.
 5. **Se o código real divergir deste spec** (um shape diferente, um símbolo que não existe, a tabela com
    colunas diferentes das transcritas): **PARE e reporte** — não adivinhe, não "conserte" por conta própria.
-6. **DEFINITION OF DONE:** typecheck limpo (raiz `npm run typecheck:legacy` **e** `cd apps/api && npx tsc
-   --noEmit`); teste novo da SPEC 1 verde (`npx vitest run apps/api/src/domain/vendas/upsell.service.test.ts`
-   da raiz); **2 commits** (um por SPEC), cada um só com os arquivos daquela SPEC.
+6. **DEFINITION OF DONE (leia com atenção — há um BASELINE pré-existente):**
+   - **Frontend (SPEC 1 App/Dashboard + SPEC 2 BillingPage):** `npm run typecheck:legacy` na raiz tem de
+     ficar **100% limpo (0 erros)** — esse é o teu alvo real p/ tudo que é `src/`.
+   - **Backend (SPEC 1 apps/api):** ⚠️ `cd apps/api && npx tsc --noEmit` **JÁ tem ~56 erros PRÉ-EXISTENTES**
+     em 22 arquivos SEM relação com upsell (workers, `url-guard.ts`, `geo-location.service.ts`,
+     `ip-whitelist.service.ts`, vários `domain/*/*.service.ts`, etc.). Isso é dívida técnica de outras
+     sessões. **NÃO é seu trabalho consertar — NÃO TOQUE nesses arquivos.** Seu critério: os SEUS arquivos
+     novos (`domain/vendas/upsell.*`) precisam ter **0 erros** — confira com
+     `cd apps/api && npx tsc --noEmit 2>&1 | grep vendas/upsell` (tem que sair **vazio**) e o total de
+     `error TS` **não pode aumentar** além do baseline (~56).
+   - Teste da SPEC 1 verde: `npx vitest run apps/api/src/domain/vendas/upsell.service.test.ts` (da raiz).
+   - **2 commits** (um por SPEC), cada um só com os arquivos daquela SPEC.
 7. **REPORT FINAL OBRIGATÓRIO** (para a auditoria do Claude) — ao terminar, imprima:
    - a lista EXATA de arquivos criados/editados;
    - o hash do commit;
