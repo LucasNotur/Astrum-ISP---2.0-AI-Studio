@@ -6,26 +6,25 @@
 
 Você foi instruído a "executar este plano passo a passo". O escopo é **ESTRITO**. Cumpra à risca:
 
-1. **EXECUTE APENAS A `SPEC D` (cobrança: monitor read-only da fila cobrai).** É a única liberada
-   nesta rodada. (SPEC A queues/stats e SPEC C jobs já foram feitas e auditadas; não as refaça.)
-2. **NÃO EXECUTE A `SPEC B` (dlq) NEM O `send-now`/`DELETE` da cobrança.** A SPEC B está BLOQUEADA
-   (Claude precisa verificar `dead_letter_queue`). O `send-now` (dispara cobrança real) e o
-   `DELETE queue/:id` (mutação + ownership) são **sensíveis (R6/PII) e ficam com o Claude** — você faz
-   **só os 2 GET read-only**. Se achar que "deveria" fazer o send-now/DELETE/dlq, **PARE e reporte**.
-3. **NÃO altere nenhum arquivo fora da lista da SPEC D.** Lista EXAUSTIVA de arquivos permitidos:
-   - (SPEC D) CRIAR: `apps/api/src/domain/cobranca/queue-monitor.service.ts`
-   - (SPEC D) CRIAR: `apps/api/src/domain/cobranca/queue-monitor.routes.ts`
-   - (SPEC D) CRIAR: `apps/api/src/domain/cobranca/queue-monitor.service.test.ts`
-   - (SPEC D) EDITAR: `apps/api/src/server.ts` (SÓ registrar `queueMonitorRoutes`)
-   - (SPEC D) EDITAR: `src/pages/CobrAIPage.tsx` (SÓ os 2 fetch de `queue-stats` e `queue`)
-   - EDITAR: `.astrum-progress/HANDOFF_FASE2_SPECS.md` (só marcar a SPEC D como feita no fim)
-   Qualquer outro arquivo → **NÃO TOQUE.** Em especial: **NÃO** remova nada do Express
-   (`src/routes/cobrai.ts` continua — o Claude remove depois de portar o send-now).
-4. **AÇÕES PROIBIDAS:** refatorar/"consertar"/reformatar código fora do escopo da SPEC D; renomear
-   símbolos; mexer em migrations/schema; tocar em webhooks, super-admin, evolution, jobs, ou qualquer
-   `src/routes/*`; instalar dependências novas; `git add -A`/`git add .` (só
-   `git add <os arquivos exatos da lista>`). **NÃO faça `git push`** — deixe o commit local. O Claude
-   audita ANTES de subir pro main.
+1. **EXECUTE APENAS A `SPEC E` (repoint do proxy Evolution nas 5 páginas).** É a única liberada
+   nesta rodada. (SPEC A/C/D já foram feitas e auditadas; não as refaça.)
+2. **NÃO EXECUTE A `SPEC B` (dlq).** BLOQUEADA (Claude precisa verificar `dead_letter_queue`).
+   Se achar que "deveria" fazê-la, **PARE e reporte**.
+3. **NÃO altere nenhum arquivo fora da lista da SPEC E.** Lista EXAUSTIVA de arquivos permitidos
+   (SÓ frontend — o backend v2 já existe e está no ar):
+   - (SPEC E) EDITAR: `src/App.tsx`
+   - (SPEC E) EDITAR: `src/pages/ChatPage.tsx`
+   - (SPEC E) EDITAR: `src/pages/CustomersPage.tsx`
+   - (SPEC E) EDITAR: `src/pages/WhatsAppPage.tsx`
+   - (SPEC E) EDITAR: `src/pages/ServiceOrdersPage.tsx`
+   - EDITAR: `.astrum-progress/HANDOFF_FASE2_SPECS.md` (só marcar a SPEC E como feita no fim)
+   Em cada página, mexa **SÓ** nas chamadas a `/api/evolution/proxy` e `/api/evolution/fetch-history`.
+   **NÃO** remova nada do Express (`src/routes/evolution.ts` + mount continuam — o Claude remove por R5
+   depois de auditar). **NÃO** toque no backend `apps/api` (o proxy v2 já está pronto).
+4. **AÇÕES PROIBIDAS:** refatorar/"consertar"/reformatar fora do escopo da SPEC E; renomear símbolos;
+   tocar em migrations/schema/backend/webhooks/cobrança/super-admin; instalar deps; `git add -A`/`git add .`
+   (só `git add <os 5 arquivos + o doc>`). **NÃO faça `git push`** — commit local. O Claude audita antes.
+   ⚠️ `App.tsx` é ENORME e central: mexa **só** nos blocos de `fetch('/api/evolution/proxy'…)`, nada mais.
 5. **Se o código real divergir deste spec** (um símbolo que não existe, um shape diferente, um import
    que não resolve): **PARE e reporte** — não adivinhe, não "conserte" por conta própria.
 6. **DEFINITION OF DONE (há um BASELINE pré-existente — leia com atenção):**
@@ -397,6 +396,73 @@ export async function queueMonitorRoutes(app: FastifyInstance) {
 **Verificação:** `npm run typecheck:legacy` (0) + `cd apps/api && npx tsc --noEmit` (baseline ~56, sem
 aumento; `grep domain/cobranca/queue-monitor` = 0 erros novos) + `npx vitest run apps/api/src/domain/cobranca/queue-monitor.service.test.ts`.
 **Commit:** `feat(migração): FASE 2-A.4 cobrança monitor read-only (queue-stats + queue v2)`.
+
+---
+
+## SPEC E — repoint do proxy Evolution (5 páginas) — ✅ LIBERADA (execute)
+
+**Contexto (backend já pronto pelo Claude, commit `d678088`):** o proxy v2 seguro já existe:
+- `POST /api/v2/evolution/proxy` — body **só** `{ path, method?, body? }`. As credenciais
+  (`evolutionUrl`/`evolutionApiKey`) são resolvidas **server-side** (o cliente NÃO manda mais isso —
+  esse é o ganho de segurança: hoje o browser expõe o apiKey no body).
+- `GET /api/v2/evolution/fetch-history` → `{ messages: [] }`.
+
+**Sua tarefa:** repontar TODAS as chamadas de `/api/evolution/proxy` e `/api/evolution/fetch-history`
+nas 5 páginas para o v2 via `apiClient`, **removendo `evolutionUrl` e `evolutionApiKey` do body**.
+
+**Como achar todos os call sites (não confie em números de linha):**
+```
+grep -rn "/api/evolution/proxy\|/api/evolution/fetch-history" src/App.tsx src/pages/ChatPage.tsx src/pages/CustomersPage.tsx src/pages/WhatsAppPage.tsx src/pages/ServiceOrdersPage.tsx
+```
+(Estimativa: App.tsx ~5, WhatsAppPage ~4, ChatPage ~2, CustomersPage ~1, ServiceOrdersPage ~1 — mas
+CONFIRME com o grep e reporte a contagem exata por arquivo.)
+
+**Transformação uniforme (aplique em cada site):**
+
+ANTES (padrão típico — pode variar levemente no shape do `body`/response):
+```ts
+const res = await fetch("/api/evolution/proxy", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    path: `/message/sendText/${evolutionInstance}`,
+    method: "POST",
+    evolutionUrl,          // ← REMOVER
+    evolutionApiKey,       // ← REMOVER
+    body: payload,
+  }),
+});
+if (!res.ok) throw new Error(...);      // ← remover: apiPost já lança em erro
+const data = await res.json();          // ← apiPost já devolve o JSON parseado
+```
+DEPOIS:
+```ts
+const data = await apiPost("/api/v2/evolution/proxy", {
+  path: `/message/sendText/${evolutionInstance}`,
+  method: "POST",
+  body: payload,
+});
+```
+Para `fetch-history`: `const data = await apiGet("/api/v2/evolution/fetch-history");`.
+
+**Regras (importante):**
+1. **Remova `evolutionUrl` e `evolutionApiKey`** do objeto enviado — em TODO site. (É o ponto da SPEC.)
+2. `apiPost`/`apiGet` (de `@/src/lib/apiClient`) **devolvem o corpo já parseado e lançam em erro** →
+   remova os checks `res.ok`/`res.status`/`content-type`/`res.json()`; deixe o `try/catch` existente
+   pegar o erro (mantenha o `toast`/tratamento que já existe no `catch`).
+3. **Não remova** as variáveis `evolutionUrl`/`evolutionApiKey` das páginas (podem ser usadas em outro
+   lugar, ex.: exibição/estado) — só pare de mandá-las no body. Se `npm run typecheck:legacy` acusar
+   variável não usada em algum arquivo, **reporte** (não apague por conta própria).
+4. Importe `apiPost`/`apiGet` de `@/src/lib/apiClient` no topo de cada página que precisar (se ainda
+   não estiver importado). Preserve o `path`/`method`/`body` EXATOS de cada site (não invente rotas).
+5. Se algum site tiver um shape diferente do template (ex.: monta o `body` condicionalmente), **preserve
+   a lógica** — só troque o transporte (fetch→apiPost) e tire as 2 credenciais. Se ficar em dúvida num
+   site específico, **PARE e reporte** esse site em vez de adivinhar.
+
+**Verificação:** `npm run typecheck:legacy` = **0 erros** (é tudo frontend; não precisa rodar apps/api).
+Sem teste novo (é repoint de transporte). **Commit:** `feat(migração): FASE 2-A.5 repoint proxy Evolution v2 (creds fora do browser)`.
+
+**REPORT:** liste a contagem EXATA de sites alterados por arquivo + o diff resumido, pra auditoria.
 
 ---
 
