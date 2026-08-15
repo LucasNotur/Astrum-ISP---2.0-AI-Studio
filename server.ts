@@ -10,7 +10,6 @@ import { dlqRouter } from "./src/routes/dlq.ts";
 import { evolutionRouter } from "./src/routes/evolution.ts";
 import { facebookWebhookRouter } from "./src/routes/facebookWebhook.ts";
 import { evolutionWebhookRouter } from "./src/routes/evolutionWebhook.ts";
-import { jobsRouter } from "./src/routes/jobs.ts";
 import { verifySuperAdmin } from "./src/routes/superAdmin.ts";
 import { asaasWebhookHandler } from "./src/lib/billing.ts";
 
@@ -133,7 +132,6 @@ async function startServer() {
   app.use("/api/queues", verifySuperAdmin, queuesRouter);
   app.use("/api/dlq", verifySuperAdmin, dlqRouter);
   app.use("/api/evolution", evolutionRouter);
-  app.use("/api/jobs", verifySuperAdmin, jobsRouter);
   app.use("/api/webhook/facebook", facebookWebhookRouter);
   app.use("/api/webhook/evolution", evolutionWebhookRouter);
   // BILL-02/BILL-03: webhook de pagamento Asaas — antes o handler existia mas NÃO era

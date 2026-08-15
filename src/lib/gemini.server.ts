@@ -4251,13 +4251,14 @@ Use o 'ID do Banco' sempre que uma ferramenta lhe pedir o 'customerId'. Use outr
 
       await db.collection("tickets").doc(ticketId).update(escalationData);
 
-      fetch("/api/jobs/schedule-sla", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticketId, tenantId, customerId }),
-      }).catch((e: any) =>
-        logger.error("error_call_sla_api", { error: e?.message || String(e) }),
-      );
+      try {
+        const { enqueueMessage } = await import("./queue");
+        const t = tenantId || "default";
+        await enqueueMessage(t, { ticketId, tenantId: t, customerId, level: 1 }, { delay: 10 * 60 * 1000 }, "sla_warning");
+        await enqueueMessage(t, { ticketId, tenantId: t, customerId, level: 2 }, { delay: 15 * 60 * 1000 }, "sla_warning");
+      } catch (e: any) {
+        logger.error("error_call_sla_api", { error: e?.message || String(e) });
+      }
     } catch (err) {
       logger.error("error_schedule_escalation_sla", {
         error: err?.message || String(err),

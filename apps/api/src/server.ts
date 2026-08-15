@@ -270,6 +270,10 @@ export async function buildServer() {
   const { queuesRoutes } = await import('./domain/ops/queues.routes');
   await app.register(queuesRoutes);
 
+  // Fase 2 — agendamento de jobs (port do Express /api/jobs/schedule-csat → v2).
+  const { jobsRoutes } = await import('./domain/ops/jobs.routes');
+  await app.register(jobsRoutes);
+
   // Personas de IA por tenant (AIConfigPage) — portado do personaManager legado,
   // mesma fonte (legacy_docs/ai_personas) que o messageWorker lê.
   const { personasRoutes } = await import('./domain/atendimento/personas.routes');

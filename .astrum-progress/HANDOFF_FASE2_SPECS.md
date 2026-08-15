@@ -135,7 +135,7 @@ O shape de resposta é idêntico (`{waiting,active,completed,failed,delayed}`) �
 
 ---
 
-## SPEC C — `jobs/schedule-*` — ✅ LIBERADA (execute)
+## SPEC C — `jobs/schedule-*` — ✅ CONCLUÍDA (2026-08-15)
 
 **Objetivo:** aposentar a rota Express `/api/jobs/*`. Ela existe só pra agendar jobs atrasados
 (`send_csat`, `sla_warning`). Verificado pelo Claude: a fila `messages-${tenantId}` é a MESMA no

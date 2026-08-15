@@ -866,17 +866,21 @@ export const processMessageJob = async (job: any) => {
             });
 
             // Schedule CSAT since ticket was auto-resolved
-            fetch("http://localhost:3000/api/jobs/schedule-csat", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                ticketId: docSnap.id,
-                tenantId: tDocData.tenantId,
-                customerId,
-                category: tDocData.session_state?.agent || 'SAC_GERAL',
-                resolved_by: tDocData.human_responded ? 'human' : 'bot'
-              })
-            }).catch((e: any) => logger.error("csat_schedule_failed", { ...logCtx, error: e.message }));
+            try {
+              const { enqueueMessage } = await import("../lib/queue");
+              await enqueueMessage(
+                tDocData.tenantId || "default",
+                {
+                  ticketId: docSnap.id,
+                  tenantId: tDocData.tenantId || "default",
+                  customerId,
+                  category: tDocData.session_state?.agent || 'SAC_GERAL',
+                  resolved_by: tDocData.human_responded ? 'human' : 'bot',
+                },
+                { delay: 60 * 1000 },
+                "send_csat",
+              );
+            } catch (e: any) { logger.error("csat_schedule_failed", { ...logCtx, error: e.message }); }
           } else {
             validOpenDocs.push(docSnap);
           }

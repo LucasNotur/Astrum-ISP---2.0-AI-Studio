@@ -6,6 +6,7 @@
  * Plano: .astrum-progress/PLANO_FIRESTORE_ZERO__CONCLUIDO.md (FZ-4).
  */
 import { supabase } from "./supabase.ts";
+import { apiPost } from "@/src/lib/apiClient";
 import {
   getCustomers,
   updateCustomer,
@@ -174,16 +175,11 @@ export const updateTicketStatus = async (ticketId: string, status: string) => {
     if (status === "resolved") {
       updateData.resolved_at = new Date().toISOString();
       if (tData?.customer_id) {
-        fetch("/api/jobs/schedule-csat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ticketId,
-            tenantId: tData.tenant_id || "default",
-            customerId: tData.customer_id,
-            category: tData.session_state?.agent || "SAC_GERAL",
-            resolved_by: tData.human_responded ? "human" : "bot",
-          }),
+        apiPost("/api/v2/jobs/schedule-csat", {
+          ticketId,
+          customerId: tData.customer_id,
+          category: tData.session_state?.agent || "SAC_GERAL",
+          resolved_by: tData.human_responded ? "human" : "bot",
         }).catch(e => console.error("Falha ao agendar CSAT:", e));
       }
     }
