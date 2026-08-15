@@ -4,7 +4,6 @@ import path from "path";
 import fs from "fs";
 import http from "http";
 
-import superAdminRouter from "./src/routes/superAdmin.ts";
 import { cobraiRouter } from "./src/routes/cobrai.ts";
 import { queuesRouter } from "./src/routes/queues.ts";
 import { dlqRouter } from "./src/routes/dlq.ts";
@@ -123,7 +122,7 @@ async function startServer() {
     res.json({ webhookUrl: `${req.protocol}://${req.get("host")}/api/webhook/evolution` });
   });
 
-  app.use("/api/super-admin", superAdminRouter);
+  // FASE 2-A.2: mount /api/super-admin REMOVIDO (handlers portados p/ front/v2; ver superAdmin.ts).
   // AUTH-06 (2026-08-11): rota /api/v1 (X-API-Key) REMOVIDA. Era morta e insegura:
   // requireApiKey usava db.collectionGroup("api_keys"), inexistente no db-compat →
   // 500 em toda request (auth nunca sucedia, endpoints inalcançáveis, tráfego zero,

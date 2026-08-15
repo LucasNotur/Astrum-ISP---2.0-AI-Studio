@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
+import { apiGet } from '@/src/lib/apiClient';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
 import { Badge } from "@/src/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
@@ -118,19 +119,16 @@ export const AIObservabilityPage = () => {
   useEffect(() => {
     const fetchCircuitInfo = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-        const token = session.access_token;
-        const res = await fetch('/api/super-admin/ai-circuit', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const contentType = res.headers.get("content-type");
-        if (res.ok && contentType && contentType.includes("application/json")) {
-          const data = await res.json();
-          setCircuitData(data);
-        } else if (res.ok) {
-          console.warn("AI Circuit returned non-JSON. Possible platform interstitial.");
+        // Repontado do /api/super-admin/ai-circuit (Express legado) para o v2 já existente.
+        // Adapta o shape novo (providers[].circuit: 'closed'|'open'|'half-open') para o
+        // circuitStatus legado ('CLOSED'|'OPEN'|'HALF_OPEN'). fallbacks fica [] — a fonte
+        // legada era a coleção audit_logs (LLM_FALLBACK), que NÃO existe no Supabase.
+        const data = await apiGet<{ providers?: { name: string; circuit: string }[] }>('/api/v2/ia/providers/status');
+        const circuitStatus: Record<string, string> = {};
+        for (const p of data.providers ?? []) {
+          circuitStatus[p.name] = String(p.circuit).toUpperCase().replace('-', '_');
         }
+        setCircuitData({ circuitStatus, fallbacks: [] });
       } catch (err) {
         console.error("Failed to fetch circuit info:", err);
       }
