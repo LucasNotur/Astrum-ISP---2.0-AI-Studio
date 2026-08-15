@@ -6,25 +6,24 @@
 
 Você foi instruído a "executar este plano passo a passo". O escopo é **ESTRITO**. Cumpra à risca:
 
-1. **EXECUTE APENAS A `SPEC E` (repoint do proxy Evolution nas 5 páginas).** É a única liberada
-   nesta rodada. (SPEC A/C/D já foram feitas e auditadas; não as refaça.)
-2. **NÃO EXECUTE A `SPEC B` (dlq).** BLOQUEADA (Claude precisa verificar `dead_letter_queue`).
-   Se achar que "deveria" fazê-la, **PARE e reporte**.
-3. **NÃO altere nenhum arquivo fora da lista da SPEC E.** Lista EXAUSTIVA de arquivos permitidos
-   (SÓ frontend — o backend v2 já existe e está no ar):
-   - (SPEC E) EDITAR: `src/App.tsx`
-   - (SPEC E) EDITAR: `src/pages/ChatPage.tsx`
-   - (SPEC E) EDITAR: `src/pages/CustomersPage.tsx`
-   - (SPEC E) EDITAR: `src/pages/WhatsAppPage.tsx`
-   - (SPEC E) EDITAR: `src/pages/ServiceOrdersPage.tsx`
-   - EDITAR: `.astrum-progress/HANDOFF_FASE2_SPECS.md` (só marcar a SPEC E como feita no fim)
-   Em cada página, mexa **SÓ** nas chamadas a `/api/evolution/proxy` e `/api/evolution/fetch-history`.
-   **NÃO** remova nada do Express (`src/routes/evolution.ts` + mount continuam — o Claude remove por R5
-   depois de auditar). **NÃO** toque no backend `apps/api` (o proxy v2 já está pronto).
-4. **AÇÕES PROIBIDAS:** refatorar/"consertar"/reformatar fora do escopo da SPEC E; renomear símbolos;
-   tocar em migrations/schema/backend/webhooks/cobrança/super-admin; instalar deps; `git add -A`/`git add .`
-   (só `git add <os 5 arquivos + o doc>`). **NÃO faça `git push`** — commit local. O Claude audita antes.
-   ⚠️ `App.tsx` é ENORME e central: mexa **só** nos blocos de `fetch('/api/evolution/proxy'…)`, nada mais.
+1. **EXECUTE APENAS A `SPEC B` (dlq — dead letter queue).** É a única liberada nesta rodada.
+   (SPEC A/C/D/E já foram feitas e auditadas; não as refaça.) A SPEC B ficou BLOQUEADA até agora
+   porque o Claude precisava verificar a tabela — **já verificou; o schema real está transcrito abaixo.**
+2. **NÃO altere nenhum arquivo fora da lista da SPEC B.** Lista EXAUSTIVA de arquivos permitidos:
+   - (SPEC B) CRIAR: `apps/api/src/domain/ops/dlq.service.ts`
+   - (SPEC B) CRIAR: `apps/api/src/domain/ops/dlq.routes.ts`
+   - (SPEC B) CRIAR: `apps/api/src/domain/ops/dlq.service.test.ts`
+   - (SPEC B) EDITAR: `apps/api/src/server.ts` (SÓ registrar `dlqRoutes`)
+   - (SPEC B) EDITAR: os arquivos de front que chamam `/api/dlq` (ache com grep — ver a SPEC)
+   - EDITAR: `.astrum-progress/HANDOFF_FASE2_SPECS.md` (só marcar a SPEC B como feita no fim)
+   **NÃO** remova nada do Express (`src/routes/dlq.ts` + mount continuam — o Claude remove por R5
+   depois de auditar, pra pegar caller esquecido como no proxy Evolution).
+3. **Segurança:** tenant vem do JWT (drop `?tenantId`); gate = super_admin (o legado montava dlq atrás
+   de `verifySuperAdmin`); toda query filtra `tenant_id` explícito. Detalhes na SPEC.
+4. **AÇÕES PROIBIDAS:** refatorar/"consertar"/reformatar fora do escopo da SPEC B; renomear símbolos;
+   mexer em migrations/schema; tocar em webhooks/cobrança/super-admin/evolution; instalar deps;
+   `git add -A`/`git add .` (só `git add <os arquivos exatos>`). **NÃO faça `git push`** — commit local.
+   O Claude audita antes.
 5. **Se o código real divergir deste spec** (um símbolo que não existe, um shape diferente, um import
    que não resolve): **PARE e reporte** — não adivinhe, não "conserte" por conta própria.
 6. **DEFINITION OF DONE (há um BASELINE pré-existente — leia com atenção):**
@@ -466,18 +465,116 @@ Sem teste novo (é repoint de transporte). **Commit:** `feat(migração): FASE 2
 
 ---
 
-## SPEC B — `dlq` — 🚫 NÃO EXECUTAR (bloqueada; o Claude preenche o schema)
+## SPEC B — `dlq` (dead letter queue) — ✅ LIBERADA (execute)
 
-**Por que está bloqueada:** a rota lê a tabela Supabase `dead_letter_queue` e **reenfileira** o job
-na fila certa (`cobrai` vs fila do tenant). Você não tem acesso ao Supabase pra confirmar as colunas
-reais, nem ao mapa de filas do motor novo. Construir no escuro = código fraco/quebrado.
+**Contexto (verificado pelo Claude via MCP):** a tabela `public.dead_letter_queue` EXISTE. O legado
+`src/routes/dlq.ts` usava colunas que NÃO existem (`type`, `retried_at`, `action`) — IGNORE o legado
+e use SÓ o schema real abaixo. `payload` é `jsonb` (já é objeto — **sem decode**, diferente do legado
+que fazia `decodeDlqPayload`). Front: `MonitoringPage` lista + faz retry (e o `Sidebar` também referencia
+`/api/dlq` — ache TODOS com grep, lição do proxy Evolution).
 
-**O que falta (tarefa do Claude, antes de liberar):** verificar via MCP a existência e o schema da
-tabela `dead_letter_queue`, transcrever aqui as colunas literais (`tenant_id`, `resolved`, `payload`,
-`type`, `queue_name`, ...), e o mapa de reenfileiramento literal (`priority-queues.ts` fila `cobrai`
-vs `getTenantQueue(tenantId)` de `bullmq.client.ts`). Só então esta SPEC vira "LIBERADA".
+**Schema REAL literal:**
+```
+dead_letter_queue:
+  id uuid PK · job_id text · job_name text · queue_name text · payload jsonb ·
+  error_message text · retry_count int · tenant_id uuid · failed_at timestamptz ·
+  resolved bool · resolved_at timestamptz · resolved_by uuid · notes text · extra jsonb
+```
 
-→ **NÃO escreva código de dlq.** Está aqui só como registro do próximo passo.
+**Mapa de reenfileiramento (literal):** um job morto volta pra fila certa —
+- fila **cobrai**: `import { queues } from '../../infrastructure/queue/priority-queues'` → `queues.cobrai.add(jobName, payload)`.
+- fila do **tenant** (default): `import { enqueueMessage } from '../../infrastructure/queue/bullmq.client'` → `enqueueMessage(tenantId, payload, {}, jobName)`.
+
+### Passo 1 — Service PURO (`apps/api/src/domain/ops/dlq.service.ts`)
+```ts
+export interface DlqRow { queue_name?: string | null; job_name?: string | null; payload?: unknown; tenant_id?: string | null; }
+export interface RetryTarget { queue: 'cobrai' | 'tenant'; jobName: string; payload: any; tenantId: string | null; }
+
+/** Decide p/ qual fila o job morto volta. Função pura. */
+export function resolveRetryTarget(row: DlqRow): RetryTarget {
+  const isCobrai = row.queue_name === 'cobrai' || (row.job_name ?? '').toLowerCase().includes('cobrai');
+  return {
+    queue: isCobrai ? 'cobrai' : 'tenant',
+    jobName: row.job_name || 'process-message',
+    payload: (row.payload ?? {}) as any,
+    tenantId: row.tenant_id ?? null,
+  };
+}
+```
+
+### Passo 2 — Teste (`dlq.service.test.ts`) — mínimo 4 casos
+(a) `queue_name==='cobrai'` → queue 'cobrai'; (b) `job_name` contém "cobrai" → 'cobrai';
+(c) senão → 'tenant'; (d) defaults: sem job_name → 'process-message', sem payload → `{}`.
+
+### Passo 3 — Rotas (`dlq.routes.ts`)
+```ts
+import type { FastifyInstance } from 'fastify';
+import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
+import { queues } from '../../infrastructure/queue/priority-queues';
+import { enqueueMessage } from '../../infrastructure/queue/bullmq.client';
+import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
+import { resolveRetryTarget } from './dlq.service';
+
+function tenantOf(req: any): string | undefined { return req.user?.tenantId ?? req.user?.tenant_id; }
+
+export async function dlqRoutes(app: FastifyInstance) {
+  const auth = [async (req: any, reply: any) => { await (app as any).authenticate(req, reply); }];
+  // super_admin-only (paridade com o verifySuperAdmin do legado). reports:admin só o super_admin tem.
+  const admin = [requirePermission('reports', 'admin')];
+
+  // GET /api/v2/dlq → jobs mortos não resolvidos do tenant.
+  app.get('/api/v2/dlq', { onRequest: auth, preHandler: admin }, async (req, reply) => {
+    const tenantId = tenantOf(req);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+    const { data, error } = await supabaseAdmin
+      .from('dead_letter_queue')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('resolved', false)
+      .order('failed_at', { ascending: false });
+    if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
+    return reply.send(data ?? []);
+  });
+
+  // POST /api/v2/dlq/:id/retry → reenfileira + marca resolvido.
+  app.post('/api/v2/dlq/:id/retry', { onRequest: auth, preHandler: admin }, async (req, reply) => {
+    const tenantId = tenantOf(req);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+    const { id } = req.params as { id: string };
+
+    const { data: row } = await supabaseAdmin
+      .from('dead_letter_queue').select('*')
+      .eq('id', id).eq('tenant_id', tenantId).maybeSingle();
+    if (!row) return reply.code(404).send({ code: 'NOT_FOUND' });
+
+    const t = resolveRetryTarget(row);
+    if (t.queue === 'cobrai') await (queues.cobrai as any).add(t.jobName, t.payload);
+    else await enqueueMessage(t.tenantId ?? tenantId, t.payload, {}, t.jobName);
+
+    const userId = (req as any).user?.userId ?? (req as any).user?.sub ?? null;
+    await supabaseAdmin.from('dead_letter_queue')
+      .update({ resolved: true, resolved_at: new Date().toISOString(), resolved_by: userId })
+      .eq('id', id).eq('tenant_id', tenantId);
+
+    return reply.send({ ok: true });
+  });
+}
+```
+Registre `dlqRoutes` em `apps/api/src/server.ts` (import dinâmico + `app.register`, padrão das outras).
+
+### Passo 4 — Front: repoint de TODOS os callers de `/api/dlq`
+```
+grep -rn "/api/dlq" src --include=*.ts --include=*.tsx
+```
+Para cada: `fetch('/api/dlq?tenantId=…')` → `apiGet('/api/v2/dlq')` (drop tenantId);
+`fetch('/api/dlq/'+id+'/retry',{method:'POST'})` → `apiPost('/api/v2/dlq/'+id+'/retry', {})`.
+Remova checks `res.ok`/`content-type`/`res.json()` (apiGet/apiPost devolvem parseado e lançam em erro;
+deixe o `catch`/`toast` existente tratar). Importe `apiGet`/`apiPost` de `@/src/lib/apiClient`.
+**Reporte a lista EXATA de arquivos/sites de front que você alterou.**
+
+**Verificação:** `npm run typecheck:legacy` (0) + `cd apps/api && npx tsc --noEmit` (baseline ~56,
+`grep domain/ops/dlq` = 0 novos) + `npx vitest run apps/api/src/domain/ops/dlq.service.test.ts`.
+**Commit:** `feat(migração): FASE 2-A(dlq) port dead-letter-queue v2 (retry engine-aware)`.
 
 ---
 
