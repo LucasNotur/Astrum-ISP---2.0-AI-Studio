@@ -9,7 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/src/components/ui/ta
 import { toast } from "sonner";
 import { useAppStore } from '@/src/store/useAppStore';
 import { updateServiceOrder, updateTechnician, createServiceOrder, updateCustomer } from '@/src/lib/db';
-import { apiGet, apiPatch } from '@/src/lib/apiClient';
+import { apiGet, apiPatch, apiPost } from '@/src/lib/apiClient';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/src/components/ui/dialog';
 import { Input } from '@/src/components/ui/input';
 import { Label } from '@/src/components/ui/label';
@@ -362,26 +362,15 @@ export function ServiceOrdersPage() {
     const msg = `Olá, *${os.customerName}*! 🔔\n\nSua ordem de serviço de *${os.type}* está com status: *${os.status.replace('_', ' ')}*.\nO técnico responsável é: *${os.assignedTo || 'A Definir'}*.\n\nQualquer dúvida, estamos à disposição!`;
     const loadingToast = toast.loading("Enviando notificação via Evolution API...");
     try {
-      const res = await fetch(`/api/evolution/proxy`, {
+      await apiPost(`/api/v2/evolution/proxy`, {
+        path: `/message/sendText/${integrationKeys.evolutionInstance}`,
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          path: `/message/sendText/${integrationKeys.evolutionInstance}`,
-          method: 'POST',
-          evolutionUrl: integrationKeys.evolutionUrl,
-          evolutionApiKey: integrationKeys.evolutionApiKey,
-          body: { number: customerPhone, options: { delay: 1200, presence: "composing" }, textMessage: { text: msg } }
-        })
+        body: { number: customerPhone, options: { delay: 1200, presence: "composing" }, textMessage: { text: msg } }
       });
       toast.dismiss(loadingToast);
-      if (res.ok) {
-        toast.success("Notificação enviada ao cliente via WhatsApp (Evolution API)!");
-        addWhatsAppSimulation('Você para Cliente', msg);
-        setIsWhatsappDialogOpen(true);
-      } else {
-        const data = await res.json();
-        toast.error(`Falha Evolution API: ${data?.message || 'Erro desconhecido'}`);
-      }
+      toast.success("Notificação enviada ao cliente via WhatsApp (Evolution API)!");
+      addWhatsAppSimulation('Você para Cliente', msg);
+      setIsWhatsappDialogOpen(true);
     } catch {
       toast.dismiss(loadingToast);
       toast.error("Erro ao conectar com Evolution API.");

@@ -20,6 +20,7 @@ import { createCustomer, updateCustomer as updateCustomerDb } from '@/src/lib/db
 import { cn } from "@/src/lib/utils";
 import { GlowButton } from "@/src/components/ui/glow-button";
 import { CustomerDetailSheet } from '@/src/components/CustomerDetailSheet';
+import { apiPost } from '@/src/lib/apiClient';
 
 export function CustomersPage() {
   const { customers, setCustomers, tickets, invoices, auditLogs, currentUserRole, setSelectedCustomerDetails, setIsDetailsDialogOpen, setConfirmDialog, integrationKeys, companySettings, user } = useAppStore();
@@ -126,22 +127,16 @@ export function CustomersPage() {
       }
 
       try {
-        const res = await fetch('/api/evolution/proxy', {
+        await apiPost('/api/v2/evolution/proxy', {
+           path: `/message/sendText/${selectedConn}`,
            method: 'POST',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({
-             path: `/message/sendText/${selectedConn}`,
-             method: 'POST',
-             evolutionUrl: integrationKeys.evolutionUrl,
-             evolutionApiKey: integrationKeys.evolutionApiKey,
-             proxyBody: {
-               number: cust.phone.replace(/\\D/g, ''),
-               options: { delay: 1200 },
-               textMessage: { text: message }
-             }
-           })
+           proxyBody: {
+             number: cust.phone.replace(/\\D/g, ''),
+             options: { delay: 1200 },
+             textMessage: { text: message }
+           }
         });
-        if (res.ok) successCount++;
+        successCount++;
       } catch (e) {}
     }
     

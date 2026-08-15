@@ -37,7 +37,7 @@ import { cn } from "@/src/lib/utils";
 import { useAppStore } from "@/src/store/useAppStore";
 import { updateTicketStatus, toggleTicketAI } from "@/src/lib/db";
 import { supabase } from "@/src/lib/supabase";
-import { apiPost } from "@/src/lib/apiClient";
+import { apiGet, apiPost } from "@/src/lib/apiClient";
 import { uploadAttachment as uploadToStorage } from "@/src/lib/storage";
 import { CustomerHistorySidebar } from "@/src/components/CustomerHistorySidebar";
 import { MaskedSensitiveData } from "@/src/components/MaskedSensitiveData";
@@ -406,25 +406,14 @@ export function ChatPage() {
               textMessage: { text },
             };
 
-        const res = await fetch("/api/evolution/proxy", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            path:           attachment ? `/message/sendMedia/${evolutionInstance}` : `/message/sendText/${evolutionInstance}`,
-            method:         "POST",
-            evolutionUrl,
-            evolutionApiKey,
-            body:           payload,
-          }),
+        const resData = await apiPost<any>("/api/v2/evolution/proxy", {
+          path:           attachment ? `/message/sendMedia/${evolutionInstance}` : `/message/sendText/${evolutionInstance}`,
+          method:         "POST",
+          body:           payload,
         });
-        const resData = await res.json();
-        if (!res.ok) {
-          toast.error("Erro ao enviar pelo WhatsApp.");
-        } else {
-          const evoId = resData?.key?.id ?? resData?.message?.key?.id;
-          if (evoId && msgRef?.id) {
-            await supabase.from("messages").update({ evo_msg_ids: [evoId] }).eq("id", msgRef.id);
-          }
+        const evoId = resData?.key?.id ?? resData?.message?.key?.id;
+        if (evoId && msgRef?.id) {
+          await supabase.from("messages").update({ evo_msg_ids: [evoId] }).eq("id", msgRef.id);
         }
       }
     } catch {
@@ -554,12 +543,7 @@ export function ChatPage() {
     setIsSyncing(true);
     const tid = toast.loading("Puxando histórico...");
     try {
-      const res  = await fetch("/api/evolution/fetch-history", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ ticketId: selectedTicket.id, customerId: selectedTicket.customerId }),
-      });
-      const data = await res.json();
+      const data = await apiGet<any>("/api/v2/evolution/fetch-history");
       data.success
         ? toast.success(`${data.imported} mensagens importadas.`, { id: tid })
         : toast.error(`Erro: ${data.error}`, { id: tid });

@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { useAppStore } from '@/src/store/useAppStore';
 import { supabase } from '@/src/lib/supabase';
 import { saveIntegrationKeys } from '@/src/lib/db';
-import { apiGet } from '@/src/lib/apiClient';
+import { apiGet, apiPost } from '@/src/lib/apiClient';
 
 export function WhatsAppConnectionsPage() {
   const { user, companySettings, integrationKeys, setIntegrationKeys } = useAppStore();
@@ -139,17 +139,10 @@ export function WhatsAppConnectionsPage() {
     updateConnState(conn.id, { isFetching: true });
     try {
       // 1. Check connection state
-      const stateRes = await fetch(`/api/evolution/proxy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          path: `/instance/connectionState/${conn.instanceName}`,
-          method: 'GET',
-          evolutionUrl: integrationKeys.evolutionUrl,
-          evolutionApiKey: integrationKeys.evolutionApiKey
-        })
+      const stateData = await apiPost<any>(`/api/v2/evolution/proxy`, {
+        path: `/instance/connectionState/${conn.instanceName}`,
+        method: 'GET'
       });
-      const stateData = await stateRes.json();
       
       if (stateData?.instance?.state === 'open') {
         updateConnState(conn.id, { status: 'connected', qrCode: null });
@@ -157,17 +150,10 @@ export function WhatsAppConnectionsPage() {
       } else {
         updateConnState(conn.id, { status: 'disconnected' });
         // 2. Fetch QR Code
-        const qrRes = await fetch(`/api/evolution/proxy`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            path: `/instance/connect/${conn.instanceName}`,
-            method: 'GET',
-            evolutionUrl: integrationKeys.evolutionUrl,
-            evolutionApiKey: integrationKeys.evolutionApiKey
-          })
+        const qrData = await apiPost<any>(`/api/v2/evolution/proxy`, {
+          path: `/instance/connect/${conn.instanceName}`,
+          method: 'GET'
         });
-        const qrData = await qrRes.json();
         if (qrData?.base64) {
           updateConnState(conn.id, { qrCode: qrData.base64 });
           toast.info(`Escaneie o QR Code para ${conn.alias}.`);
@@ -189,15 +175,9 @@ export function WhatsAppConnectionsPage() {
     
     updateConnState(conn.id, { isFetching: true });
     try {
-      await fetch(`/api/evolution/proxy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          path: `/instance/logout/${conn.instanceName}`,
-          method: 'DELETE',
-          evolutionUrl: integrationKeys.evolutionUrl,
-          evolutionApiKey: integrationKeys.evolutionApiKey
-        })
+      await apiPost(`/api/v2/evolution/proxy`, {
+        path: `/instance/logout/${conn.instanceName}`,
+        method: 'DELETE'
       });
       updateConnState(conn.id, { status: 'disconnected', qrCode: null });
       toast.success("Instância desconectada com sucesso.");
@@ -546,28 +526,18 @@ function WhatsAppTemplatesTab({ tenantId, connections, integrationKeys }: any) {
          message = `${message}\n\n_${selectedTemplate.footer}_`;
       }
       
-      const res = await fetch(`/api/evolution/proxy`, {
+      await apiPost(`/api/v2/evolution/proxy`, {
+        path: `/message/sendText/${testData.instanceName}`,
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          path: `/message/sendText/${testData.instanceName}`,
-          method: 'POST',
-          evolutionUrl: integrationKeys.evolutionUrl,
-          evolutionApiKey: integrationKeys.evolutionApiKey,
-          proxyBody: {
-            number: testData.phone,
-            options: { delay: 1200 },
-            textMessage: { text: message }
-          }
-        })
+        proxyBody: {
+          number: testData.phone,
+          options: { delay: 1200 },
+          textMessage: { text: message }
+        }
       });
 
-      if (res.ok) {
-         toast.success("Mensagem de teste enviada com sucesso!");
-         setIsTestOpen(false);
-      } else {
-         toast.error("Falha ao enviar mensagem de teste");
-      }
+      toast.success("Mensagem de teste enviada com sucesso!");
+      setIsTestOpen(false);
     } catch (e) {
       toast.error("Erro ao enviar teste");
     } finally {

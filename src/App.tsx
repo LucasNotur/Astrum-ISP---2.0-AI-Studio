@@ -493,28 +493,19 @@ export default function App() {
         let success = false;
         for (const pd of payloads) {
           try {
-            const res = await fetch("/api/evolution/proxy", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                path: pd.path,
-                method: pd.body ? "POST" : "GET",
-                body: pd.body,
-                evolutionUrl: integrationKeys.evolutionUrl,
-                evolutionApiKey: integrationKeys.evolutionApiKey,
-              }),
+            const data = await apiPost<any>("/api/v2/evolution/proxy", {
+              path: pd.path,
+              method: pd.body ? "POST" : "GET",
+              body: pd.body,
             });
-            if (res.ok) {
-              const data = await res.json();
-              if (
-                data?.webhook?.url === webhookUrl ||
-                data?.url === webhookUrl ||
-                data?.webhook === webhookUrl ||
-                data?.id
-              ) {
-                success = true;
-                break;
-              }
+            if (
+              data?.webhook?.url === webhookUrl ||
+              data?.url === webhookUrl ||
+              data?.webhook === webhookUrl ||
+              data?.id
+            ) {
+              success = true;
+              break;
             }
           } catch (e) {
             console.error("Evolution Proxy Error", e);
@@ -546,15 +537,9 @@ export default function App() {
       )
         return;
       setIsFetchingQr(true);
-      await fetch(`/api/evolution/proxy`, {
+      await apiPost("/api/v2/evolution/proxy", {
+        path: `/instance/logout/${integrationKeys.evolutionInstance}`,
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          path: `/instance/logout/${integrationKeys.evolutionInstance}`,
-          method: "DELETE",
-          evolutionUrl: integrationKeys.evolutionUrl,
-          evolutionApiKey: integrationKeys.evolutionApiKey,
-        }),
       });
       setEvoStatus("disconnected");
       setEvoQrCode(null);
@@ -578,17 +563,10 @@ export default function App() {
     setIsFetchingQr(true);
     try {
       // 1. Check connection state
-      const stateRes = await fetch(`/api/evolution/proxy`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          path: `/instance/connectionState/${integrationKeys.evolutionInstance}`,
-          method: "GET",
-          evolutionUrl: integrationKeys.evolutionUrl,
-          evolutionApiKey: integrationKeys.evolutionApiKey,
-        }),
+      const stateData = await apiPost<any>(`/api/v2/evolution/proxy`, {
+        path: `/instance/connectionState/${integrationKeys.evolutionInstance}`,
+        method: "GET",
       });
-      const stateData = await stateRes.json();
 
       if (stateData?.instance?.state === "open") {
         setEvoStatus("connected");
@@ -597,17 +575,10 @@ export default function App() {
       } else {
         setEvoStatus("disconnected");
         // 2. Fetch QR Code
-        const qrRes = await fetch(`/api/evolution/proxy`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            path: `/instance/connect/${integrationKeys.evolutionInstance}`,
-            method: "GET",
-            evolutionUrl: integrationKeys.evolutionUrl,
-            evolutionApiKey: integrationKeys.evolutionApiKey,
-          }),
+        const qrData = await apiPost<any>(`/api/v2/evolution/proxy`, {
+          path: `/instance/connect/${integrationKeys.evolutionInstance}`,
+          method: "GET",
         });
-        const qrData = await qrRes.json();
         if (qrData?.base64) {
           setEvoQrCode(qrData.base64);
           toast.info("Escaneie o QR Code com seu WhatsApp.");
@@ -2185,24 +2156,14 @@ export default function App() {
             };
         }
 
-        const evoResponse = await fetch(`/api/evolution/proxy`, {
+        const resData = await apiPost<any>(`/api/v2/evolution/proxy`, {
+            path: attachmentData
+              ? `/message/sendMedia/${integrationKeys.evolutionInstance}`
+              : `/message/sendText/${integrationKeys.evolutionInstance}`,
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              path: attachmentData
-                ? `/message/sendMedia/${integrationKeys.evolutionInstance}`
-                : `/message/sendText/${integrationKeys.evolutionInstance}`,
-              method: "POST",
-              evolutionUrl: integrationKeys.evolutionUrl,
-              evolutionApiKey: integrationKeys.evolutionApiKey,
-              body: payload,
-            }),
+            body: payload,
         });
-        const resData = await evoResponse.json();
-        if (!evoResponse.ok) {
-           console.error("Erro Evolution envio:", resData);
-           toast.error("Erro ao enviar mensagem pelo WhatsApp.");
-        } else if (msgRefId && (resData?.key?.id || resData?.message?.key?.id)) {
+        if (msgRefId && (resData?.key?.id || resData?.message?.key?.id)) {
            const evoId = resData?.key?.id || resData?.message?.key?.id;
            await supabase.from("messages").update({ evo_msg_ids: [evoId] }).eq("id", (msgRefId as any).id ?? msgRefId);
         }

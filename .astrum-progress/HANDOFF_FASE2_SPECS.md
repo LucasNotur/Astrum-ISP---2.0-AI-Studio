@@ -399,7 +399,7 @@ aumento; `grep domain/cobranca/queue-monitor` = 0 erros novos) + `npx vitest run
 
 ---
 
-## SPEC E — repoint do proxy Evolution (5 páginas) — ✅ LIBERADA (execute)
+## SPEC E — repoint do proxy Evolution (5 páginas) — ✅ CONCLUÍDA (2026-08-15)
 
 **Contexto (backend já pronto pelo Claude, commit `d678088`):** o proxy v2 seguro já existe:
 - `POST /api/v2/evolution/proxy` — body **só** `{ path, method?, body? }`. As credenciais
