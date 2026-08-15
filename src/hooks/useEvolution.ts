@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAppStore } from '@/src/store/useAppStore';
 import { toast } from 'sonner';
+import { apiPost } from '@/src/lib/apiClient';
 
 export function useEvolution() {
   const { integrationKeys } = useAppStore();
@@ -65,12 +66,8 @@ export function useEvolution() {
 
         for (const pd of payloads) {
           try {
-            const res = await fetch('/api/evolution/proxy', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ path: pd.path, method: (pd as any).body ? 'POST' : 'GET', body: (pd as any).body, evolutionUrl: integrationKeys.evolutionUrl, evolutionApiKey: integrationKeys.evolutionApiKey }),
-            });
-            if (res.ok) break;
+            await apiPost('/api/v2/evolution/proxy', { path: pd.path, method: (pd as any).body ? 'POST' : 'GET', body: (pd as any).body });
+            break;
           } catch (e) {
             console.error('Evolution Proxy Error', e);
           }
@@ -89,11 +86,7 @@ export function useEvolution() {
     if (!window.confirm('Deseja realmente desconectar o WhatsApp desta instância?')) return;
     try {
       setIsFetchingQr(true);
-      await fetch('/api/evolution/proxy', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: `/instance/logout/${integrationKeys.evolutionInstance}`, method: 'DELETE', evolutionUrl: integrationKeys.evolutionUrl, evolutionApiKey: integrationKeys.evolutionApiKey }),
-      });
+      await apiPost('/api/v2/evolution/proxy', { path: `/instance/logout/${integrationKeys.evolutionInstance}`, method: 'DELETE' });
       setEvoStatus('disconnected');
       setEvoQrCode(null);
       toast.success('Instância desconectada com sucesso.');
@@ -111,24 +104,14 @@ export function useEvolution() {
     }
     setIsFetchingQr(true);
     try {
-      const stateRes = await fetch('/api/evolution/proxy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: `/instance/connectionState/${integrationKeys.evolutionInstance}`, method: 'GET', evolutionUrl: integrationKeys.evolutionUrl, evolutionApiKey: integrationKeys.evolutionApiKey }),
-      });
-      const stateData = await stateRes.json();
+      const stateData: any = await apiPost('/api/v2/evolution/proxy', { path: `/instance/connectionState/${integrationKeys.evolutionInstance}`, method: 'GET' });
       if (stateData?.instance?.state === 'open') {
         setEvoStatus('connected');
         setEvoQrCode(null);
         toast.success('Instância já está conectada!');
       } else {
         setEvoStatus('disconnected');
-        const qrRes = await fetch('/api/evolution/proxy', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: `/instance/connect/${integrationKeys.evolutionInstance}`, method: 'GET', evolutionUrl: integrationKeys.evolutionUrl, evolutionApiKey: integrationKeys.evolutionApiKey }),
-        });
-        const qrData = await qrRes.json();
+        const qrData: any = await apiPost('/api/v2/evolution/proxy', { path: `/instance/connect/${integrationKeys.evolutionInstance}`, method: 'GET' });
         if (qrData?.base64) {
           setEvoQrCode(qrData.base64);
           toast.info('Escaneie o QR Code com seu WhatsApp.');

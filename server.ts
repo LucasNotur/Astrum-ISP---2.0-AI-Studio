@@ -6,7 +6,6 @@ import http from "http";
 
 import { queuesRouter } from "./src/routes/queues.ts";
 import { dlqRouter } from "./src/routes/dlq.ts";
-import { evolutionRouter } from "./src/routes/evolution.ts";
 import { facebookWebhookRouter } from "./src/routes/facebookWebhook.ts";
 import { evolutionWebhookRouter } from "./src/routes/evolutionWebhook.ts";
 import { verifySuperAdmin } from "./src/routes/superAdmin.ts";
@@ -130,7 +129,7 @@ async function startServer() {
   // FASE 2-A.4: mount /api/cobrai REMOVIDO (portado p/ /api/v2/cobranca/*: monitor + send-now + DELETE).
   app.use("/api/queues", verifySuperAdmin, queuesRouter);
   app.use("/api/dlq", verifySuperAdmin, dlqRouter);
-  app.use("/api/evolution", evolutionRouter);
+  // FASE 2-A.5: mount /api/evolution REMOVIDO (portado p/ /api/v2/evolution/proxy: creds server-side + SSRF).
   app.use("/api/webhook/facebook", facebookWebhookRouter);
   app.use("/api/webhook/evolution", evolutionWebhookRouter);
   // BILL-02/BILL-03: webhook de pagamento Asaas — antes o handler existia mas NÃO era
