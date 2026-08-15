@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Activity, RefreshCw, Smartphone, Server, AlertTriangle, AlertCircle, CheckCircle } from 'lucide-react';
 import { supabase } from '@/src/lib/supabase';
 import { useAppStore } from '@/src/store/useAppStore';
+import { apiGet } from '@/src/lib/apiClient';
 
 export function MonitoringPage() {
   const { user } = useAppStore();
@@ -60,16 +61,8 @@ export function MonitoringPage() {
   const fetchQueueStats = async () => {
     setIsFetchingStats(true);
     try {
-      const res = await fetch('/api/queues/stats');
-      const contentType = res.headers.get("content-type");
-      if (res.ok && contentType && contentType.includes("application/json")) {
-        const data = await res.json();
-        setQueueStats(data);
-      } else if (res.ok) {
-        console.warn("Queue stats returned non-JSON. Possible platform interstitial.");
-      } else {
-        console.error("Queue stats non-ok response");
-      }
+      const data = await apiGet('/api/v2/queues/stats');
+      setQueueStats(data);
     } catch (e) {
       toast.error('Erro ao buscar filas');
     } finally {

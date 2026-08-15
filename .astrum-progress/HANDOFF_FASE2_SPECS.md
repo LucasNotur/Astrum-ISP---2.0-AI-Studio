@@ -81,7 +81,7 @@ logo após uma rota de domínio parecida, no mesmo estilo `const { X } = await i
 
 ---
 
-## SPEC A — `queues/stats` — ✅ LIBERADA (execute)
+## SPEC A — `queues/stats` — ✅ CONCLUÍDA (2026-08-15)
 
 **Problema que você resolve:** `src/pages/MonitoringPage.tsx` (~linha 63) chama `fetch('/api/queues/stats')`
 (rota Express legada, gated por super-admin). Vamos expor o equivalente no Fastify e repontar o front.

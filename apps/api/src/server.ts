@@ -266,6 +266,10 @@ export async function buildServer() {
   const { whatsappHealthRoutes } = await import('./domain/atendimento/whatsapp-health.routes');
   await app.register(whatsappHealthRoutes);
 
+  // Fase 2 — stats das filas BullMQ (port do Express /api/queues/stats → v2).
+  const { queuesRoutes } = await import('./domain/ops/queues.routes');
+  await app.register(queuesRoutes);
+
   // Personas de IA por tenant (AIConfigPage) — portado do personaManager legado,
   // mesma fonte (legacy_docs/ai_personas) que o messageWorker lê.
   const { personasRoutes } = await import('./domain/atendimento/personas.routes');
