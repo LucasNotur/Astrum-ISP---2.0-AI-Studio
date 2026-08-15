@@ -8,7 +8,6 @@ import superAdminRouter from "./src/routes/superAdmin.ts";
 import { cobraiRouter } from "./src/routes/cobrai.ts";
 import { queuesRouter } from "./src/routes/queues.ts";
 import { dlqRouter } from "./src/routes/dlq.ts";
-import { osRoutingRouter } from "./src/routes/osRouting.ts";
 import { evolutionRouter } from "./src/routes/evolution.ts";
 import { facebookWebhookRouter } from "./src/routes/facebookWebhook.ts";
 import { evolutionWebhookRouter } from "./src/routes/evolutionWebhook.ts";
@@ -134,7 +133,6 @@ async function startServer() {
   app.use("/api/cobrai", verifySuperAdmin, cobraiRouter);
   app.use("/api/queues", verifySuperAdmin, queuesRouter);
   app.use("/api/dlq", verifySuperAdmin, dlqRouter);
-  app.use("/api/os", verifySuperAdmin, osRoutingRouter);
   app.use("/api/evolution", evolutionRouter);
   app.use("/api/jobs", verifySuperAdmin, jobsRouter);
   app.use("/api/webhook/facebook", facebookWebhookRouter);
