@@ -290,7 +290,7 @@ não aumentar; `grep domain/ops` = 0 erros novos) + `npx vitest run apps/api/src
 
 ---
 
-## SPEC D — cobrança: monitor read-only da fila `cobrai` — ✅ LIBERADA (execute)
+## SPEC D — cobrança: monitor read-only da fila `cobrai` — ✅ CONCLUÍDA (2026-08-15)
 
 **Contexto (verificado pelo Claude):** `src/pages/CobrAIPage.tsx` já chama `GET /api/v2/cobranca/queue-stats`
 e `GET /api/v2/cobranca/queue`, mas essas rotas **NÃO existem** no Fastify → hoje dá 404 (o front foi

@@ -384,6 +384,10 @@ export async function buildServer() {
   const { negotiationRoutes } = await import('./domain/cobranca/negotiation.routes');
   await app.register(negotiationRoutes);
 
+  // Fase 2 — monitor read-only da fila cobrai (queue-stats + queue v2).
+  const { queueMonitorRoutes } = await import('./domain/cobranca/queue-monitor.routes');
+  await app.register(queueMonitorRoutes);
+
   // F6-02 — Sync gateway Asaas → invoices (cobranças aparecem no CobrAI)
   const { gatewaySyncRoutes } = await import('./domain/cobranca/gateway-sync.routes');
   await app.register(gatewaySyncRoutes);

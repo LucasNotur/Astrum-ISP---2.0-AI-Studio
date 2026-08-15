@@ -21,6 +21,7 @@ import {
 } from "@/src/components/ui/table";
 import { toast } from 'sonner';
 import { supabase } from '@/src/lib/supabase';
+import { apiGet } from '@/src/lib/apiClient';
 import { useAppStore } from '@/src/store/useAppStore';
 import {
   Bot, Pause, Play, Send, Trash2, CheckCircle2, AlertCircle,
@@ -103,10 +104,8 @@ export function CobrAIPage() {
       const delivered = jobs.filter((j: any) => j.status === 'completed').length;
       setTaxaEntrega(jobs.length > 0 ? `${Math.round((delivered / jobs.length) * 100)}%` : '0%');
 
-      const resStats = await fetch('/api/v2/cobranca/queue-stats');
-      if (resStats.ok && resStats.headers.get('content-type')?.includes('application/json')) {
-        setQueueStats(await resStats.json());
-      }
+      const stats = await apiGet<QueueStats>('/api/v2/cobranca/queue-stats');
+      setQueueStats(stats);
     } catch (e: any) {
       setMetricsErr(e.message ?? 'Erro ao carregar métricas');
     }
@@ -115,11 +114,8 @@ export function CobrAIPage() {
   const fetchQueue = async () => {
     setQueueErr(null);
     try {
-      const res = await fetch('/api/v2/cobranca/queue');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      if (!res.headers.get('content-type')?.includes('application/json'))
-        throw new Error('Resposta não é JSON');
-      setQueueJobs(await res.json());
+      const jobs = await apiGet<QueueJob[]>('/api/v2/cobranca/queue');
+      setQueueJobs(jobs);
     } catch (e: any) {
       setQueueErr(e.message ?? 'Erro ao carregar fila');
     }
