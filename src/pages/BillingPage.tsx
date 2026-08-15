@@ -34,6 +34,7 @@ import {
 import { cn } from '@/src/lib/utils';
 import { useAppStore } from '../store/useAppStore';
 import { supabase } from '@/src/lib/supabase';
+import { monthlyPriceCents } from '@/src/lib/plans';
 import { toast } from 'sonner';
 
 import { RequireProvedorAdmin } from '../components/RequireProvedorAdmin';
@@ -59,14 +60,25 @@ export function BillingPage() {
     const fetchIspBilling = async () => {
       try {
         setIspLoading(true);
-        const [subRes, invRes] = await Promise.all([
-           fetch(`/api/billing/subscription/${tenantId}`),
-           fetch(`/api/billing/invoices/${tenantId}`)
-        ]);
-        const subData = await subRes.json();
-        const invData = await invRes.json();
-        setIspSubscription(subData.subscription);
-        setIspInvoices(invData.invoices || []);
+        const { data: t } = await supabase
+          .from('tenants')
+          .select('plan,active,trial_ends_at,subscriber_count')
+          .eq('id', tenantId)
+          .maybeSingle();
+
+        if (t) {
+          // Escada Astrum: regra única R$2,50 × assinantes (plans.ts é a fonte).
+          const tier = t.plan === 'radar_trial' ? 'radar_trial' : 'astrum';
+          const amount_cents = monthlyPriceCents(tier, t.subscriber_count ?? 0);
+          const inTrial = t.trial_ends_at && new Date(t.trial_ends_at) > new Date();
+          setIspSubscription({
+            plan: t.plan,
+            status: t.active ? 'active' : 'inactive',
+            amount_cents,
+            next_billing_date: inTrial ? t.trial_ends_at : null,
+          });
+        }
+        setIspInvoices([]);
       } catch (error) {
         console.error("Erro ao buscar dados de faturamento do ISP:", error);
       } finally {
@@ -352,7 +364,7 @@ export function BillingPage() {
                          <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
                            <div className="flex flex-col items-center gap-3">
                              <Receipt size={20} strokeWidth={1.5} className="opacity-50" />
-                             <span className="text-sm">Nenhuma fatura encontrada.</span>
+                             <span className="text-sm">As faturas da sua assinatura Astrum aparecerão aqui quando a cobrança automática estiver ativa.</span>
                            </div>
                          </TableCell>
                        </TableRow>
