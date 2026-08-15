@@ -266,6 +266,10 @@ export async function buildServer() {
   const { whatsappHealthRoutes } = await import('./domain/atendimento/whatsapp-health.routes');
   await app.register(whatsappHealthRoutes);
 
+  // Fase 2 — proxy Evolution API (port do Express /api/evolution/proxy). Creds server-side + guard SSRF.
+  const { evolutionProxyRoutes } = await import('./domain/atendimento/evolution-proxy.routes');
+  await app.register(evolutionProxyRoutes);
+
   // Fase 2 — stats das filas BullMQ (port do Express /api/queues/stats → v2).
   const { queuesRoutes } = await import('./domain/ops/queues.routes');
   await app.register(queuesRoutes);
