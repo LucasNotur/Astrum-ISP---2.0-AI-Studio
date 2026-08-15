@@ -210,22 +210,33 @@ testada `plans.ts`.)
 
 ---
 
-## SPEC 3 — `voip/initiate-call` — 🚫 NÃO EXECUTAR (design definido; bloqueado por conta Twilio + DB)
+## SPEC 3 — `voip/initiate-call` — 🚫 NÃO EXECUTAR (o Claude faz; aguardando trunk SIP)
 
-**Arquitetura escolhida pelo Claude:** **PSTN bridge** (Twilio liga pro operador e conecta ao cliente).
-Simples e robusto p/ MVP; funciona com o telefone que o operador já tem. WebRTC (softphone no browser)
-fica p/ uma v2. O fluxo completo está explicado no chat com o dono.
+**Arquitetura DECIDIDA (dono, 2026-08-14): WebRTC softphone via `SIP.js` + trunk SIP de operadora
+brasileira** (número +55 local é crítico p/ taxa de atendimento no Brasil; custo BR celular menor que
+vendors gringos). O operador fala pelo navegador (mic/headset); só o cliente entra pela PSTN.
 
-**Por que continua BLOQUEADO (não é código puro — depende do Claude + do dono):**
-1. **Conta Twilio real:** precisa de conta com **outbound habilitado** + um **número Twilio** (caller ID).
-   Isso é fato de ops que só o dono confirma. (Env `TWILIO_ACCOUNT_SID/AUTH_TOKEN/PHONE_NUMBER` existem
-   mas opcionais/vazias; sem SDK `twilio` nem `calls.create` no código.)
-2. **Telefone do operador:** `team_members` **não tem coluna de telefone** (só `extra` jsonb). Precisa
-   ser adicionado (Claude faz a migration) + UI p/ preencher.
-3. **CDR:** registrar as chamadas (tabela `voip_calls`) — Claude faz o DB.
+**DB já pronto (Claude, migration 101):** tabela `public.voip_calls` (CDR) existe, RLS tenant_own.
+Colunas: id, tenant_id, ticket_id, operator_id, direction, from_number, to_number, provider,
+provider_call_id, status, duration_seconds, started_at, ended_at, extra.
 
-→ Quando o dono confirmar a conta Twilio, o **Claude faz as partes de DB** (coluna telefone do operador +
-tabela `voip_calls`) e escreve um spec executável separado. Até lá, **NÃO escreva código de voip.**
+**Por que NÃO é tarefa do outro modelo (e continua bloqueado):**
+1. **Sem trunk SIP real** — precisa de credenciais de uma operadora BR (domínio/servidor SIP, wss URL,
+   usuário, senha, DID +55). Sem isso não dá pra construir NEM testar (código no escuro).
+2. **Sensível (segurança):** senha SIP **não pode** ir pro browser em texto. O padrão é o backend emitir
+   credenciais efêmeras / registrar via um gateway — decisão que depende da operadora. → o **Claude** faz
+   essa parte aqui quando o trunk existir.
+3. Depende de escolha da operadora BR + contratação (fato de ops do dono).
+
+**Plano p/ quando houver trunk (Claude executa aqui, não o outro modelo):**
+- DB: `voip_calls` (feito). Talvez colunas de config SIP em `tenants` (Claude decide na hora).
+- Backend (apps/api): endpoint que devolve credenciais SIP efêmeras/config ao browser (seguro), +
+  webhook de status da chamada → grava/atualiza `voip_calls`.
+- Frontend (ChatPage): dep `sip.js`; `handleInitiateCall` cria a sessão SIP (INVITE p/ o DID do cliente
+  via o trunk), UI de chamada (mudo/desligar/timer), permissão de microfone.
+- Caller ID = número +55 do trunk (o cliente vê o número da empresa).
+
+→ **NÃO escreva código de voip.** Está aqui só como registro da decisão + prep de DB.
 
 ---
 
