@@ -6,33 +6,26 @@
 
 Você foi instruído a "executar este plano passo a passo". O escopo é **ESTRITO**. Cumpra à risca:
 
-1. **EXECUTE APENAS A `SPEC C` (jobs/schedule-*).** É a única liberada nesta rodada. (A `SPEC A`
-   queues/stats já foi feita e auditada; não a refaça.)
-2. **NÃO EXECUTE A `SPEC B` (dlq).** Está **BLOQUEADA** — depende de o Claude verificar a tabela
-   `dead_letter_queue` no Supabase e transcrever o schema real aqui. Se achar que "deveria"
-   construí-la, **PARE** e escreva no report — **não escreva uma linha dela.**
-3. **NÃO altere nenhum arquivo fora da lista da SPEC C.** Lista EXAUSTIVA de arquivos permitidos:
-   - (SPEC C) EDITAR: `src/workers/messageWorker.ts` (SÓ o bloco CSAT ~linha 869)
-   - (SPEC C) EDITAR: `src/lib/gemini.server.ts` (SÓ o bloco SLA ~linha 4254)
-   - (SPEC C) CRIAR: `apps/api/src/domain/ops/jobs.service.ts`
-   - (SPEC C) CRIAR: `apps/api/src/domain/ops/jobs.routes.ts`
-   - (SPEC C) CRIAR: `apps/api/src/domain/ops/jobs.service.test.ts`
-   - (SPEC C) EDITAR: `apps/api/src/server.ts` (SÓ registrar `jobsRoutes`)
-   - (SPEC C) EDITAR: `src/lib/db.ts` (SÓ o bloco CSAT ~linha 177)
-   - (SPEC C) REMOVER: `src/routes/jobs.ts`
-   - (SPEC C) EDITAR: `server.ts` (raiz) — SÓ remover o import `jobsRouter` + o mount `/api/jobs`
-   - EDITAR: `.astrum-progress/HANDOFF_FASE2_SPECS.md` (só marcar a SPEC C como feita no fim)
-   Qualquer outro arquivo → **NÃO TOQUE.**
-   ⚠️ **Exceção autorizada à regra geral:** NESTA spec você PODE remover a rota Express `jobs`
-   (`src/routes/jobs.ts` + mount no `server.ts` raiz) — porque os callers dela estão sendo migrados
-   no mesmo commit. NÃO toque em NENHUMA outra rota Express (`superAdmin`, `cobrai`, `dlq`, `evolution`,
-   webhooks continuam intactas).
-4. **AÇÕES PROIBIDAS:** refatorar/"consertar"/reformatar código fora do escopo da SPEC C; renomear
-   símbolos; mexer em migrations/schema; tocar em webhooks, cobrai, super-admin, evolution, ou qualquer
-   `src/routes/*` que NÃO seja `jobs.ts`; instalar dependências novas; `git add -A`/`git add .` (só
+1. **EXECUTE APENAS A `SPEC D` (cobrança: monitor read-only da fila cobrai).** É a única liberada
+   nesta rodada. (SPEC A queues/stats e SPEC C jobs já foram feitas e auditadas; não as refaça.)
+2. **NÃO EXECUTE A `SPEC B` (dlq) NEM O `send-now`/`DELETE` da cobrança.** A SPEC B está BLOQUEADA
+   (Claude precisa verificar `dead_letter_queue`). O `send-now` (dispara cobrança real) e o
+   `DELETE queue/:id` (mutação + ownership) são **sensíveis (R6/PII) e ficam com o Claude** — você faz
+   **só os 2 GET read-only**. Se achar que "deveria" fazer o send-now/DELETE/dlq, **PARE e reporte**.
+3. **NÃO altere nenhum arquivo fora da lista da SPEC D.** Lista EXAUSTIVA de arquivos permitidos:
+   - (SPEC D) CRIAR: `apps/api/src/domain/cobranca/queue-monitor.service.ts`
+   - (SPEC D) CRIAR: `apps/api/src/domain/cobranca/queue-monitor.routes.ts`
+   - (SPEC D) CRIAR: `apps/api/src/domain/cobranca/queue-monitor.service.test.ts`
+   - (SPEC D) EDITAR: `apps/api/src/server.ts` (SÓ registrar `queueMonitorRoutes`)
+   - (SPEC D) EDITAR: `src/pages/CobrAIPage.tsx` (SÓ os 2 fetch de `queue-stats` e `queue`)
+   - EDITAR: `.astrum-progress/HANDOFF_FASE2_SPECS.md` (só marcar a SPEC D como feita no fim)
+   Qualquer outro arquivo → **NÃO TOQUE.** Em especial: **NÃO** remova nada do Express
+   (`src/routes/cobrai.ts` continua — o Claude remove depois de portar o send-now).
+4. **AÇÕES PROIBIDAS:** refatorar/"consertar"/reformatar código fora do escopo da SPEC D; renomear
+   símbolos; mexer em migrations/schema; tocar em webhooks, super-admin, evolution, jobs, ou qualquer
+   `src/routes/*`; instalar dependências novas; `git add -A`/`git add .` (só
    `git add <os arquivos exatos da lista>`). **NÃO faça `git push`** — deixe o commit local. O Claude
-   audita ANTES de subir pro main. ⚠️ `messageWorker.ts` e `gemini.server.ts` são arquivos GRANDES e
-   SENSÍVEIS (motor de atendimento): mexa **só no bloco exato** transcrito, nada mais.
+   audita ANTES de subir pro main.
 5. **Se o código real divergir deste spec** (um símbolo que não existe, um shape diferente, um import
    que não resolve): **PARE e reporte** — não adivinhe, não "conserte" por conta própria.
 6. **DEFINITION OF DONE (há um BASELINE pré-existente — leia com atenção):**
@@ -294,6 +287,116 @@ Importe `apiPost` de `@/src/lib/apiClient` no topo do `db.ts` se ainda não esti
 **Verificação:** `npm run typecheck:legacy` (0 erros) + `cd apps/api && npx tsc --noEmit` (baseline ~56,
 não aumentar; `grep domain/ops` = 0 erros novos) + `npx vitest run apps/api/src/domain/ops/jobs.service.test.ts`.
 **Commit:** `feat(migração): FASE 2-A.3 jobs/schedule-* (drop hop HTTP + rota csat v2)`.
+
+---
+
+## SPEC D — cobrança: monitor read-only da fila `cobrai` — ✅ LIBERADA (execute)
+
+**Contexto (verificado pelo Claude):** `src/pages/CobrAIPage.tsx` já chama `GET /api/v2/cobranca/queue-stats`
+e `GET /api/v2/cobranca/queue`, mas essas rotas **NÃO existem** no Fastify → hoje dá 404 (o front foi
+migrado à frente do backend). Você vai **construí-las**. A fila BullMQ `cobrai` já existe:
+```ts
+// apps/api/src/infrastructure/queue/priority-queues.ts
+export const queues = { cobrai: new Queue('cobrai', ...), /* ... */ };
+```
+Import a partir de `apps/api/src/domain/cobranca/queue-monitor.routes.ts`:
+`import { queues } from '../../infrastructure/queue/priority-queues';` → use `queues.cobrai`.
+
+⚠️ **Você faz SÓ os 2 GET read-only.** `POST send-now` e `DELETE queue/:id` são do Claude (não os crie).
+
+**Segurança (obrigatório):** tenant vem do JWT (`req.user?.tenantId ?? req.user?.tenant_id`), NUNCA de
+query/body. A lista de jobs é **filtrada pelo tenant** (um ISP não pode ver job de cobrança de outro).
+
+### Passo 1 — Service PURO (`apps/api/src/domain/cobranca/queue-monitor.service.ts`)
+```ts
+export interface CobraiJobView { id: string; name: string; data: any; status: string; }
+
+/** Mantém só os jobs do tenant e os mapeia para a view enxuta. Função pura. */
+export function filterTenantCobraiJobs(
+  rawJobs: Array<{ id?: string; name?: string; data?: any }>,
+  tenantId: string,
+  stateOf: (job: any) => string,
+): CobraiJobView[] {
+  return (rawJobs ?? [])
+    .filter(j => j?.data?.tenantId === tenantId)
+    .map(j => ({ id: String(j.id ?? ''), name: j.name ?? '', data: j.data, status: stateOf(j) }));
+}
+
+/** Conta os jobs (já filtrados) por status. Função pura. */
+export function countCobraiByStatus(jobs: CobraiJobView[]): Record<string, number> {
+  const out: Record<string, number> = { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 };
+  for (const j of jobs) if (j.status in out) out[j.status] += 1;
+  return out;
+}
+```
+- `stateOf` é injetado (a rota passa a função que sabe ler o estado real do job) → o service fica PURO/testável.
+
+### Passo 2 — Teste (`queue-monitor.service.test.ts`) — mínimo 5 casos
+- `filterTenantCobraiJobs`: (a) mantém só os do tenant certo; (b) job sem `data.tenantId` é descartado;
+  (c) mapeia id/name/status via `stateOf` (passe um stub `() => 'waiting'`).
+- `countCobraiByStatus`: (d) conta certo por status; (e) status desconhecido não quebra (ignora).
+
+### Passo 3 — Rotas (`queue-monitor.routes.ts`)
+```ts
+import type { FastifyInstance } from 'fastify';
+import { queues } from '../../infrastructure/queue/priority-queues';
+import { filterTenantCobraiJobs, countCobraiByStatus } from './queue-monitor.service';
+
+function tenantOf(req: any): string | undefined { return req.user?.tenantId ?? req.user?.tenant_id; }
+
+const STATES = ['waiting', 'active', 'delayed', 'paused', 'completed', 'failed'] as const;
+
+export async function queueMonitorRoutes(app: FastifyInstance) {
+  const auth = [async (req: any, reply: any) => { await (app as any).authenticate(req, reply); }];
+
+  // Helper local (I/O): busca os jobs do tenant já com o estado real de cada um.
+  async function tenantJobs(tenantId: string) {
+    let raw: any[] = [];
+    try { raw = await (queues.cobrai as any).getJobs([...STATES]); } catch { raw = []; }
+    const stateOf = (j: any) => (typeof j?.getState === 'function' ? undefined : (j?.status ?? 'waiting'));
+    // getState é async; resolvemos abaixo, então NÃO use stateOf p/ isso — ver nota.
+    const withState = await Promise.all(
+      (raw ?? []).map(async (j: any) => ({ ...j, __state: await safeState(j) })),
+    );
+    return filterTenantCobraiJobs(withState, tenantId, (j: any) => j.__state);
+  }
+  async function safeState(j: any): Promise<string> {
+    try { return typeof j?.getState === 'function' ? await j.getState() : (j?.status ?? 'waiting'); }
+    catch { return 'waiting'; }
+  }
+
+  app.get('/api/v2/cobranca/queue-stats', { onRequest: auth }, async (req, reply) => {
+    const tenantId = tenantOf(req);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+    const jobs = await tenantJobs(tenantId);
+    return reply.send(countCobraiByStatus(jobs));
+  });
+
+  app.get('/api/v2/cobranca/queue', { onRequest: auth }, async (req, reply) => {
+    const tenantId = tenantOf(req);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+    return reply.send(await tenantJobs(tenantId));
+  });
+}
+```
+> Nota: BullMQ expõe o estado via `await job.getState()` (não uma prop síncrona). O helper `safeState`
+> trata os dois casos e nunca lança. Se ao abrir o `priority-queues.ts`/tipos do BullMQ algo divergir
+> disso (ex.: método diferente), **PARE e reporte** — não invente API.
+
+- Registre `queueMonitorRoutes` em `apps/api/src/server.ts` (import dinâmico + `app.register`, padrão da SPEC A/C).
+- **Gate:** só `authenticate` (nível operador — é o dashboard de cobrança do próprio ISP, não super_admin).
+
+### Passo 4 — Front (`src/pages/CobrAIPage.tsx`) — repoint dos 2 GET
+- Linha ~106: `const resStats = await fetch('/api/v2/cobranca/queue-stats'); ... setQueueStats(await resStats.json())`
+  → `const stats = await apiGet('/api/v2/cobranca/queue-stats'); setQueueStats(stats);` (remova o check de `resStats.ok`/content-type).
+- Linha ~118: `const res = await fetch('/api/v2/cobranca/queue'); ... setQueueJobs(await res.json())`
+  → `const jobs = await apiGet('/api/v2/cobranca/queue'); setQueueJobs(jobs);`.
+- Importe `apiGet` de `@/src/lib/apiClient` se ainda não estiver importado. **NÃO** toque nos outros
+  fetch da página (`send-now`, `DELETE queue/:id` — são do Claude) nem nas leituras Supabase.
+
+**Verificação:** `npm run typecheck:legacy` (0) + `cd apps/api && npx tsc --noEmit` (baseline ~56, sem
+aumento; `grep domain/cobranca/queue-monitor` = 0 erros novos) + `npx vitest run apps/api/src/domain/cobranca/queue-monitor.service.test.ts`.
+**Commit:** `feat(migração): FASE 2-A.4 cobrança monitor read-only (queue-stats + queue v2)`.
 
 ---
 
