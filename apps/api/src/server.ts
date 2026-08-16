@@ -404,6 +404,10 @@ export async function buildServer() {
   const { gatewaySyncRoutes } = await import('./domain/cobranca/gateway-sync.routes');
   await app.register(gatewaySyncRoutes);
 
+  // Fase 2 — TAREFA 1: webhook de entrada do Asaas (push; complementa o pull do F6-02).
+  const { asaasWebhookRoutes } = await import('./domain/cobranca/asaas-webhook.routes');
+  await app.register(asaasWebhookRoutes);
+
   const { sheetImportRoutes } = await import('./domain/onboarding/sheet-import.routes');
   await app.register(sheetImportRoutes);
 
@@ -574,6 +578,13 @@ export async function startFastifyServer() {
     const { createMessageWorker } = await import('../../../packages/queue/src/workers/message.worker');
     const msgWorker = createMessageWorker();
     app.log.info('[message-worker] v2 iniciado (shadow mode ativo enquanto ATENDIMENTO_ENGINE=legacy)');
+
+    // R6 — Worker v2 da régua CobrAI. Auto-guardado por COBRAI_ENGINE=v2 (shouldBootWorker);
+    // nunca era chamado antes (bug — descoberto na Fase 2/TAREFA 1, ver commit da fila 'cobrai').
+    // @ts-ignore
+    const { createCobraiWorker } = await import('../../../packages/queue/src/workers/cobrai.worker');
+    const cobraiWorker = createCobraiWorker();
+    if (cobraiWorker) app.log.info('[cobrai-worker] v2 iniciado (COBRAI_ENGINE=v2)');
 
     // F2-01 — Nightly brain worker (03:00 BRT, flag NIGHTLY_BRAIN_ENABLED).
     // @ts-ignore

@@ -167,7 +167,7 @@ async function executeCobraiAction(job: Job<CobraiJobData>): Promise<void> {
           const { isBanditEnabled, tryPickVariant, recordVariantSend, buildMessageFromVariant } =
             await import('../../../../apps/api/src/domain/cobranca/variant-picker.service');
           if (isBanditEnabled()) {
-            const picked = await tryPickVariant(tenantId, variantKey);
+            const picked = await tryPickVariant(tenantId, variantKey!); // já checado truthy na guarda acima
             if (picked) {
               finalMessage = buildMessageFromVariant(
                 picked.template,
@@ -263,7 +263,13 @@ export function createCobraiWorker() {
   }
 
   const worker = new Worker<CobraiJobData>(
-    'astrum:cobranca',
+    // BUG FIX (Fase 2, 2026-08-16): tinha que ser 'cobrai' — mesmo nome da Queue em
+    // priority-queues.ts. Com nomes diferentes, BullMQ nunca conecta Queue->Worker
+    // (namespaces de chave Redis distintos): jobs de queues.cobrai.add(...) (send-now,
+    // DLQ retry, webhook Asaas) eram enfileirados e NUNCA consumidos, silenciosamente.
+    // Não pegou em produção só porque createCobraiWorker() também nunca era chamado
+    // (ver server.ts) — os dois bugs se mascaravam.
+    'cobrai',
     executeCobraiAction,
     {
       connection: connection as any,
