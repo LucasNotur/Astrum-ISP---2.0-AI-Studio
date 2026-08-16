@@ -278,6 +278,10 @@ export async function buildServer() {
   const { jobsRoutes } = await import('./domain/ops/jobs.routes');
   await app.register(jobsRoutes);
 
+  // Fase 2 — dead letter queue (port do Express /api/dlq → v2, retry engine-aware).
+  const { dlqRoutes } = await import('./domain/ops/dlq.routes');
+  await app.register(dlqRoutes);
+
   // Personas de IA por tenant (AIConfigPage) — portado do personaManager legado,
   // mesma fonte (legacy_docs/ai_personas) que o messageWorker lê.
   const { personasRoutes } = await import('./domain/atendimento/personas.routes');

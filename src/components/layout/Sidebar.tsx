@@ -16,6 +16,7 @@ import { Button } from '@/src/components/ui/button';
 import { Badge } from '@/src/components/ui/badge';
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/src/components/ui/tooltip";
 import { supabase } from '@/src/lib/supabase';
+import { apiGet } from '@/src/lib/apiClient';
 
 function NavItem({ active, onClick, icon, label, collapsed, shortcut, badge }: any) {
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -123,11 +124,8 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
     const fetchDlqCount = async () => {
       if (!user?.tenantId) return;
       try {
-        const res = await fetch(`/api/dlq?tenantId=${user.tenantId}`);
-        if (res.ok) {
-          const data = await res.json();
-          setDlqCount(data.length || 0);
-        }
+        const data = await apiGet<any[]>('/api/v2/dlq');
+        setDlqCount(data.length || 0);
       } catch (e) {}
     };
 

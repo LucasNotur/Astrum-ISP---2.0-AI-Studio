@@ -465,7 +465,7 @@ Sem teste novo (é repoint de transporte). **Commit:** `feat(migração): FASE 2
 
 ---
 
-## SPEC B — `dlq` (dead letter queue) — ✅ LIBERADA (execute)
+## SPEC B — `dlq` (dead letter queue) — ✅ CONCLUÍDA (2026-08-16)
 
 **Contexto (verificado pelo Claude via MCP):** a tabela `public.dead_letter_queue` EXISTE. O legado
 `src/routes/dlq.ts` usava colunas que NÃO existem (`type`, `retried_at`, `action`) — IGNORE o legado

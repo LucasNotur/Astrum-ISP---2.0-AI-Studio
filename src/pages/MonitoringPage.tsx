@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Activity, RefreshCw, Smartphone, Server, AlertTriangle, AlertCircle, CheckCircle } from 'lucide-react';
 import { supabase } from '@/src/lib/supabase';
 import { useAppStore } from '@/src/store/useAppStore';
-import { apiGet } from '@/src/lib/apiClient';
+import { apiGet, apiPost } from '@/src/lib/apiClient';
 
 export function MonitoringPage() {
   const { user } = useAppStore();
@@ -81,21 +81,8 @@ export function MonitoringPage() {
 
   const retryDlqJob = async (id: string) => {
     try {
-      const res = await fetch(`/api/dlq/${id}/retry`, { method: 'POST' });
-      const contentType = res.headers.get("content-type");
-      if (res.ok && contentType && contentType.includes("application/json")) {
-        const data = await res.json();
-        toast.success('Job reenviado para a fila');
-      } else if (res.ok) {
-        toast.success('Job reenviado (resposta não-JSON)');
-      } else {
-        let errorMsg = 'Desconhecido';
-        if (contentType && contentType.includes("application/json")) {
-           const data = await res.json();
-           errorMsg = data.error || errorMsg;
-        }
-        toast.error(`Erro ao retentar: ${errorMsg}`);
-      }
+      await apiPost(`/api/v2/dlq/${id}/retry`, {});
+      toast.success('Job reenviado para a fila');
     } catch (e) {
       toast.error('Erro ao retentar job');
     }
