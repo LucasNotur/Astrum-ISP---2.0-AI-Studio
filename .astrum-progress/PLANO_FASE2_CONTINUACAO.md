@@ -171,3 +171,26 @@ cutover de atendimento. Registrar como pendência do cutover, não da Fase 2-A "
 asaas v2 no ar + facebook migrado/verificado (ou adiado com aval do dono) + evolution/ai-ask documentados
 como cutover-gated. Aí a Fase 2-A está fechada e o próximo marco é a **Fase 3** (SPA fora do Express) →
 **Fase 4** (aposentar Express: rm `server.ts` raiz + `src/routes/*` restantes).
+
+---
+
+## ✅ FASE 2-A "MECÂNICA" FECHADA (2026-08-16)
+
+Placar final: os / super-admin / jobs / cobrai (monitor+send-now+DELETE) / evolution-proxy / dlq /
+**asaas** / **facebook-migration** = 8 de 8 rotas portadas e no main. TAREFA 3 (evolution) e TAREFA 4
+(ai/ask) documentadas acima como cutover-gated (S74) — não é trabalho mecânico pendente, é decisão de
+corte que já tem plano.
+
+**Dois achados desta sessão que não eram do escopo original mas bloqueavam entregas já "concluídas"
+em sessões anteriores** (ver detalhe nas seções TAREFA 1 e TAREFA 2 acima):
+1. Fila `cobrai`: Worker escutava `'astrum:cobranca'`, Queue criava `'cobrai'` — send-now e
+   DLQ-retry-pra-cobrai (ambos ✅ de sessões passadas) enfileiravam pro vazio. Corrigido + worker
+   agora sobe no boot (antes nunca era chamado). **Recomendo re-testar manualmente** send-now e
+   DLQ-retry pra confirmar o fim-a-fim, já que só a causa raiz foi corrigida aqui.
+2. `SUPABASE_SERVICE_ROLE_KEY` no `.env` da raiz é placeholder/demo — scripts locais (`tsx`) ou o
+   Fastify local não conseguem falar com o Supabase real. Só o MCP (chave própria) consegue. Não é
+   bug de código, é credencial ausente — sinalizando pra não perder tempo re-descobrindo isso.
+
+**Próximo marco:** Fase 3 (SPA fora do Express) → Fase 4 (aposentar Express). Ou, se o dono preferir,
+o cutover S74 (`ATENDIMENTO_ENGINE=v2` + `COBRAI_ENGINE` já é v2 localmente — conferir se é intencional
+em produção) antes de seguir pra Fase 3.
