@@ -96,7 +96,47 @@ sessão — só a causa raiz foi corrigida).
    processa); idempotência (mesmo evento 2×  não loga 2×); tenant resolvido server-side; lockout só
    dispara com `billing_status='overdue'` real (o worker já checa). Testar com evento forjado.
 
-## TAREFA 2 — facebook/meta webhook (MIGRATION + VERIFY + R5)
+## TAREFA 2 — facebook/meta webhook — ✅ CONCLUÍDA (2026-08-16, migration `102_tenant_meta_pages.sql`)
+
+**Entregue:** tabela `tenant_meta_pages(page_id PK, tenant_id FK, page_type check(instagram|messenger),
+page_access_token, created_at, updated_at)` aplicada via MCP + registrada em `schema_migrations`
+(checksum `a4a08d9697d3b7f8`). RLS no padrão atual do projeto (`ENABLE`+`FORCE`, policy
+`tenant_own_*` via `get_tenant_id()`, policy `super_admin_all_*`, REVOKE de `anon`). `get_advisors`
+rodado depois: nenhum warning novo sobre essa tabela. Path é `/api/v2/webhook/meta` (GET verify +
+POST), não `/api/v2/webhook/facebook` — o meta-webhook.routes.ts já expõe esse path, não precisou
+mudar. Adicionado `META_WEBHOOK_VERIFY_TOKEN` ao `.env.example` (não configurado em lugar nenhum
+ainda — precisa de valor real).
+
+**Verify de fato (o que deu pra verificar sem deploy):** conferido por leitura que
+`resolveTenantByPageId`/`extractMetaMessages` fazem o mesmo que o `facebookWebhookRouter` legado
+(resolve por page_id, ignora echo/delivery sem `message.text`, enfileira na fila `astrum-messages`
+— **essa é a mesma fila que o worker v2 `message.worker.ts` escuta**, já confirmado sem o problema
+de nome que achei no cobrai). Rodei um INSERT/SELECT/DELETE real via MCP contra `tenant_meta_pages`
+pra confirmar que o shape da tabela bate exatamente com a query que o código faz — passou. **Não deu**
+pra testar o handshake HTTP real (GET com `hub.challenge`) porque isso exige o Meta chamando um
+servidor publicado + token real configurado no painel do app Meta — ambos são "config externa" (item
+3 abaixo), fora do meu alcance nesta sessão.
+
+**⚠️ Achado à parte (não é bug, é uma trava de ambiente):** tentei rodar um script local (`tsx`) contra
+o Supabase real pra verificar via código de app (não SQL direto) e tomei "Invalid API key" — o
+`SUPABASE_SERVICE_ROLE_KEY` no `.env` da raiz é um valor placeholder/demo (`iss: supabase-demo` no
+JWT), não a chave real do projeto `dnisztuafnpzlkutgbiw`. O MCP do Supabase autentica por fora (chave
+própria), por isso minhas verificações via `execute_sql`/`apply_migration` funcionam normalmente — mas
+**nenhum script local nem o servidor Fastify rodando localmente vai conseguir falar com o Supabase real**
+até esse valor ser trocado pelo de verdade. Não mexi nisso (é credencial, fora do meu alcance decidir
+sozinho) — só registrando pra não perder tempo re-descobrindo isso numa sessão futura.
+
+**Pendente (não é desta tarefa):** popular `tenant_meta_pages` por tenant real (page_id + token da
+página) — hoje só dá pra inserir via SQL direto, não existe UI/rota admin ainda. Se for usado de
+verdade em breve, pode valer uma rota simples de CRUD (fora do escopo mecânico desta tarefa).
+
+**R5 (remoção do legado):** **NÃO removido** — `src/routes/facebookWebhook.ts` continua montado.
+Só remover depois do cutover real (Meta apontando pro `/api/v2/webhook/meta` em produção + confirmado
+recebendo tráfego).
+
+---
+
+## TAREFA 2 (texto original do plano, referência)
 1. **Migration `tenant_meta_pages`** (Claude/Sonnet via MCP): criar a tabela do cabeçalho de
    `meta-webhook.routes.ts` + RLS tenant_own + registrar em `schema_migrations`
    (checksum sha256(sql).slice(0,16)).
