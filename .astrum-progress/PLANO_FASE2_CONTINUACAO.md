@@ -77,8 +77,8 @@ código REAL (git diff + typecheck + teste) antes do push.
 3. **Config externa (Lucas):** apontar o webhook do app Meta para `/api/v2/webhook/meta` (ou manter
    `/api/v2/webhook/facebook` — conferir qual path o meta-webhook expõe).
 4. **R5:** remover `src/routes/facebookWebhook.ts` + mount só depois do cutover do provider.
-5. ⚠️ Se o Meta/Instagram **não estiver de fato em uso** (nenhum tenant com página conectada), rebaixar
-   pra "documentar e adiar" em vez de migração — confirmar com o Lucas antes de criar a tabela.
+5. ✅ **Confirmado pelo dono (2026-08-15): Meta EM USO / uso iminente** → criar a migration
+   `tenant_meta_pages` e fazer o verify de fato (NÃO adiar). Facebook está no escopo de fechar a 2-A.
 
 ## TAREFA 3 — evolution webhook (CUTOVER, não build)
 Não construir. v2 pronto (shadow). Documentar que o corte é ligar `ATENDIMENTO_ENGINE=v2` (S74) e então
