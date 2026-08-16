@@ -42,7 +42,35 @@ código REAL (git diff + typecheck + teste) antes do push.
 
 ---
 
-## TAREFA 1 — asaas webhook v2 (BUILD) — prioridade, é o único "novo"
+## TAREFA 1 — asaas webhook v2 (BUILD) — ✅ CONCLUÍDA (2026-08-16, commit `e3b1888`)
+
+**Entregue:** `POST /api/v2/webhook/asaas` (token `asaas-access-token`, fail-closed timing-safe,
+`ASAAS_WEBHOOK_SECRET`). Resolve a invoice por `external_id` (setado pelo sync F6-02) — nunca por
+tenantId do request. RECEIVED/CONFIRMED/RECEIVED_IN_CASH → `invoices.status='paid'` + job
+`invoice.paid` na fila `cobrai`. OVERDUE → `status='overdue'`. DELETED → `'cancelled'`. Idempotente
+via Redis (dedup por evento+payment.id, TTL 7d). Arquivos: `asaas-webhook.service.ts` (+test),
+`asaas-webhook.routes.ts`, registro em `server.ts`, env em `.env.example`.
+
+**Decisão registrada (fora de escopo):** o branch `lockout_tenant` do legado (Astrum suspende o
+ISP por inadimplência DELE com a Astrum) **não foi portado**. Verificado via MCP: `tenants` não tem
+colunas `billing_status`/`status`/`asaas_customer_id` — só `plan`/`subscriber_count` (modelo
+R$2,50/assinante, ver memória `astrum-precificacao-escada`). Nenhum tenant tem esse dado hoje; essa
+frente de cobrança (Astrum→ISP via Asaas) nunca foi ativada em produção. Precisa de migration +
+decisão do Lucas sobre COMO a Astrum cobra o ISP antes de reconstruir — não é webhook mecânico.
+
+**Bug pré-existente descoberto e corrigido no caminho (mesmo commit):** `cobrai.worker.ts` escutava
+a fila `'astrum:cobranca'`, mas `priority-queues.ts` cria a Queue como `'cobrai'` — nomes diferentes,
+BullMQ nunca conecta Queue→Worker. Isso significa que **`send-now` (cobrai-dispatch, SPEC C) e o
+retry do DLQ pra fila cobrai (SPEC B) já estavam mergeados e "✅ concluídos" mas inertes** — jobs
+enfileirados, nunca consumidos. Não estourou em produção só porque `createCobraiWorker()` também
+nunca era chamado em `server.ts` (os dois bugs se mascaravam). Corrigido: nome unificado + worker
+agora sobe no boot (auto-guardado por `COBRAI_ENGINE=v2`). **Ação recomendada:** re-testar
+`send-now`/DLQ-retry manualmente agora que a fila está de fato conectada (não fizeram parte desta
+sessão — só a causa raiz foi corrigida).
+
+---
+
+## TAREFA 1 (texto original do plano, referência)
 **Objetivo:** `POST /api/v2/webhook/asaas` recebendo eventos do Asaas (PAYMENT_RECEIVED / PAYMENT_OVERDUE
 / PAYMENT_CONFIRMED etc.) com HMAC fail-closed, disparando lockout de inadimplente / marcando invoice paga.
 
