@@ -4,7 +4,33 @@
 > lendo `server.ts` (raiz), `apps/api/src/server.ts` e os `fetch()` do frontend.
 > Respeita R4 (lógica nova em apps/api) e R5 (portar+validar antes de apagar).
 
-## 🔄 PONTO DE RETOMADA (nova sessão começa aqui) — 2026-08-14
+## 🔄 PONTO DE RETOMADA (nova sessão começa aqui) — 2026-08-17
+
+**Confirmado com o Lucas (2026-08-17): o alvo é migrar TUDO pro Fastify (`apps/api`), sem pressa,
+priorizando qualidade — não é corrida pra VPS.** Infra real hoje: backend (server.ts raiz, que já
+inicia o Fastify em background e faz proxy de `/api/v2`) rodando na própria máquina do Lucas, exposto
+via túnel Cloudflare em `api.astrumlabs.online`; frontend no Vercel; Docker só pra Redis/Qdrant/Evolution;
+Supabase cloud. Railway/Vercel via GitHub Actions (`deploy.yml`) **nunca funcionou de verdade** (10/10
+últimas execuções falharam antes de rodar qualquer job — CI upstream falha antes do deploy disparar).
+
+**Fase 2 FECHADA** (ver `PLANO_FASE2_CONTINUACAO.md`): asaas webhook v2 + facebook/meta migration — placar
+8/8 rotas portadas. **Fase 3 avançada:** SPA fora do Express já é realidade de fato (Vercel serve o build)
+— o trabalho de código foi esvaziar o que sobrava no `server.ts` raiz: removido `/api/queues` (duplicado
+morto) + `superAdmin.ts` (zero caller). No caminho, achadas e consertadas 2 features **100% quebradas há
+tempos** (rotas nunca montadas, 404 sempre): `hsm-templates` (WhatsAppPage) e `webchat` (widget embeddable)
+— ambas portadas pra `/api/v2` com tabela nativa própria (`hsm_templates`/`hsm_send_logs`, migrations
+103/104) e teste. Detalhe completo no commit `05babaa`.
+
+**Restam em `server.ts` raiz:** só os 3 webhooks (facebook/evolution/asaas, todos com v2 pronto,
+faltando cutover real — S74 pra evolution, ver `astrum-migracao-express-fastify` memória) + 2 endpoints
+de health triviais + o proxy `/api/v2` + o serving do SPA em dev (`npm run dev` depende disso — não
+remover sem definir um workflow de dev alternativo). **Fase 4 (apagar `server.ts`/`src/routes/*` de vez)
+não é mais bloqueio de código — é bloqueio de tempo/dados (S74) + ação externa do Lucas (repontar
+Meta/Asaas/Evolution pras URLs v2).**
+
+---
+
+## 🔄 PONTO DE RETOMADA ANTERIOR — 2026-08-14
 
 **⏭️ ORDEM COMBINADA COM O DONO (2026-08-14):** pausa agora → próxima sessão faz o **BACKLOG DE PRODUTO** (os 5 🟡 meia-construídos: decidir/terminar cada — ver Apêndice C ❓) → **finaliza com a FASE 2** (portar rotas Express legadas). Fase 1 (matar 404 de roteamento) **essencialmente concluída**.
 
