@@ -20,7 +20,7 @@ import { createCustomer, updateCustomer as updateCustomerDb } from '@/src/lib/db
 import { cn } from "@/src/lib/utils";
 import { GlowButton } from "@/src/components/ui/glow-button";
 import { CustomerDetailSheet } from '@/src/components/CustomerDetailSheet';
-import { apiPost } from '@/src/lib/apiClient';
+import { apiGet, apiPost } from '@/src/lib/apiClient';
 
 export function CustomersPage() {
   const { customers, setCustomers, tickets, invoices, auditLogs, currentUserRole, setSelectedCustomerDetails, setIsDetailsDialogOpen, setConfirmDialog, integrationKeys, companySettings, user } = useAppStore();
@@ -80,13 +80,12 @@ export function CustomersPage() {
 
   React.useEffect(() => {
     if (isNotificarOpen && tenantId) {
-       fetch(`/api/hsm-templates?tenantId=${tenantId}`)
-         .then(res => res.json())
-         .then(data => {
+       apiGet('/api/v2/hsm-templates')
+         .then((data: any) => {
             if (Array.isArray(data)) setTemplates(data);
          })
          .catch(e => console.error("Error fetching templates", e));
-       
+
        if (connections.length > 0) {
          setSelectedConn(connections[0].instanceName);
        }
@@ -130,7 +129,7 @@ export function CustomersPage() {
         await apiPost('/api/v2/evolution/proxy', {
            path: `/message/sendText/${selectedConn}`,
            method: 'POST',
-           proxyBody: {
+           body: {
              number: cust.phone.replace(/\\D/g, ''),
              options: { delay: 1200 },
              textMessage: { text: message }

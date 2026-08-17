@@ -270,6 +270,15 @@ export async function buildServer() {
   const { evolutionProxyRoutes } = await import('./domain/atendimento/evolution-proxy.routes');
   await app.register(evolutionProxyRoutes);
 
+  // Fase 3 — templates HSM (port de /api/hsm-templates, nunca montado no Express — bug pré-existente).
+  const { hsmTemplatesRoutes } = await import('./domain/atendimento/hsm-templates.routes');
+  await app.register(hsmTemplatesRoutes);
+
+  // Fase 3 — widget de webchat (port de /api/webchat/*, nunca montado no Express — bug pré-existente).
+  // Público (visitante anônimo do site do ISP) — sem authenticate, ver header do arquivo.
+  const { webchatRoutes } = await import('./domain/atendimento/webchat.routes');
+  await app.register(webchatRoutes);
+
   // Fase 2 — stats das filas BullMQ (port do Express /api/queues/stats → v2).
   const { queuesRoutes } = await import('./domain/ops/queues.routes');
   await app.register(queuesRoutes);

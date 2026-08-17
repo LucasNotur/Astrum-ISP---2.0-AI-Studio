@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Send, Bot, User, Phone, MapPin, ExternalLink, Zap } from "lucide-react";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
-// S99 — config loaded via /api/webchat/config (no direct Firestore needed)
+import { apiGet, apiPost } from "@/src/lib/apiClient";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function WebchatPage() {
@@ -38,17 +38,10 @@ export default function WebchatPage() {
      if (!tenantId) return;
      const loadConfig = async () => {
          try {
-             const res = await fetch(`/api/webchat/config?tenantId=${tenantId}`);
-             if (res.ok) {
-                 const data = await res.json();
-                 if (data.agentName) setTenantName(data.agentName);
-                 if (data.logoUrl) setLogoUrl(data.logoUrl);
-                 if (data.primaryColor) setPrimaryColor(data.primaryColor);
-                 
-                 if (data.welcomeMessage && messages.length === 0) {
-                     setMessages([{ text: data.welcomeMessage, sender: "bot", id: "welcome" }]);
-                 }
-             }
+             const data: any = await apiGet(`/api/v2/webchat/config?tenantId=${tenantId}`, { auth: false });
+             if (data.agent_name) setTenantName(data.agent_name);
+             if (data.logo_url) setLogoUrl(data.logo_url);
+             if (data.primary_color) setPrimaryColor(data.primary_color);
          } catch(e) {
              console.error("Error loading webchat config", e);
          }
@@ -75,19 +68,9 @@ export default function WebchatPage() {
       setIsLoading(true);
       
       try {
-          const res = await fetch("/api/webchat/message", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                  tenantId,
-                  sessionId,
-                  text: msg,
-                  pushName: "Visitante"
-              })
-          });
-          const data = await res.json();
-          if (data.success && data.text) {
-              setMessages(prev => [...prev, { text: data.text, sender: "bot", id: Date.now().toString() + Math.random() }]);
+          const data: any = await apiPost("/api/v2/webchat/message", { tenantId, sessionId, text: msg }, { auth: false });
+          if (data.reply) {
+              setMessages(prev => [...prev, { text: data.reply, sender: "bot", id: Date.now().toString() + Math.random() }]);
           }
       } catch(e) {
           console.error("Error sending message", e);

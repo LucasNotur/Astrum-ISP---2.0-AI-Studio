@@ -4,10 +4,8 @@ import path from "path";
 import fs from "fs";
 import http from "http";
 
-import { queuesRouter } from "./src/routes/queues.ts";
 import { facebookWebhookRouter } from "./src/routes/facebookWebhook.ts";
 import { evolutionWebhookRouter } from "./src/routes/evolutionWebhook.ts";
-import { verifySuperAdmin } from "./src/routes/superAdmin.ts";
 import { asaasWebhookHandler } from "./src/lib/billing.ts";
 
 import { getLLMStatus } from "./apps/api/src/adapters/ai/llm.adapter.ts";
@@ -126,7 +124,8 @@ async function startServer() {
   // R4 proíbe feature nova em /src; se uma API pública for necessária, nasce no apps/api
   // com key hasheada + comparação timing-safe. /api/v1/* agora cai no catch-all /api/* (404).
   // FASE 2-A.4: mount /api/cobrai REMOVIDO (portado p/ /api/v2/cobranca/*: monitor + send-now + DELETE).
-  app.use("/api/queues", verifySuperAdmin, queuesRouter);
+  // FASE 3: mount /api/queues REMOVIDO (duplicava /api/v2/queues/stats, já portado na SPEC A;
+  // MonitoringPage.tsx já usa apiGet('/api/v2/queues/stats') — este era código morto).
   // FASE 2-A(dlq): mount /api/dlq REMOVIDO (portado p/ /api/v2/dlq: lista + retry engine-aware).
   // FASE 2-A.5: mount /api/evolution REMOVIDO (portado p/ /api/v2/evolution/proxy: creds server-side + SSRF).
   app.use("/api/webhook/facebook", facebookWebhookRouter);

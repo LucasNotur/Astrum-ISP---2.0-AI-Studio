@@ -2,11 +2,11 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import { securityLogger } from '../logging/logger';
 
 export type Role = 'super_admin' | 'admin' | 'operator' | 'viewer';
-export type Resource = 'tickets' | 'customers' | 'billing' | 'ai_config' | 'reports' | 'users' | 'service_orders' | '*';
+export type Resource = 'tickets' | 'customers' | 'billing' | 'ai_config' | 'reports' | 'users' | 'service_orders' | 'whatsapp_templates' | '*';
 export type Action = 'read' | 'write' | 'delete' | 'admin' | '*';
 
 const ROLE_PERMISSIONS: Record<Role, Record<Resource, Action[]>> = {
-  super_admin: { '*': ['*'], tickets: ['*'], customers: ['*'], billing: ['*'], ai_config: ['*'], reports: ['*'], users: ['*'], service_orders: ['*'] },
+  super_admin: { '*': ['*'], tickets: ['*'], customers: ['*'], billing: ['*'], ai_config: ['*'], reports: ['*'], users: ['*'], service_orders: ['*'], whatsapp_templates: ['*'] },
   admin: {
     '*': [],
     tickets: ['read', 'write', 'delete'],
@@ -16,6 +16,7 @@ const ROLE_PERMISSIONS: Record<Role, Record<Resource, Action[]>> = {
     reports: ['read'],
     users: ['read', 'write'],
     service_orders: ['read', 'write', 'delete'],
+    whatsapp_templates: ['read', 'write'],
   },
   operator: {
     '*': [],
@@ -27,6 +28,7 @@ const ROLE_PERMISSIONS: Record<Role, Record<Resource, Action[]>> = {
     users: [],
     // Técnico de campo (D-06) usa role operator: diagnostica e anexa na OS.
     service_orders: ['read', 'write'],
+    whatsapp_templates: ['read'],
   },
   viewer: {
     '*': [],
@@ -37,6 +39,7 @@ const ROLE_PERMISSIONS: Record<Role, Record<Resource, Action[]>> = {
     reports: ['read'],
     users: [],
     service_orders: ['read'],
+    whatsapp_templates: ['read'],
   },
 };
 

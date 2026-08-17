@@ -174,7 +174,9 @@ export async function requireAuth(
 // ─────────────────────────────────────────────────────────
 // MIDDLEWARE 2: requireAdminAuth
 // Verifica autenticação + role admin ou super_admin.
-// Uso: /api/super-admin, /api/queues, /api/dlq
+// FASE 3 (2026-08-17): os mounts que usavam isto (/api/super-admin, /api/queues,
+// /api/dlq) foram todos portados/removidos — utilitário genérico sem caller hoje,
+// mantido pra próxima rota admin-only que precisar (testado em auth.test.ts).
 // ─────────────────────────────────────────────────────────
 export async function requireAdminAuth(
   req: Request,

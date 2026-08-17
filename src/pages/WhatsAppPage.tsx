@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { useAppStore } from '@/src/store/useAppStore';
 import { supabase } from '@/src/lib/supabase';
 import { saveIntegrationKeys } from '@/src/lib/db';
-import { apiGet, apiPost } from '@/src/lib/apiClient';
+import { apiGet, apiPost, apiDelete } from '@/src/lib/apiClient';
 
 export function WhatsAppConnectionsPage() {
   const { user, companySettings, integrationKeys, setIntegrationKeys } = useAppStore();
@@ -446,10 +446,7 @@ function WhatsAppTemplatesTab({ tenantId, connections, integrationKeys }: any) {
   const fetchTemplates = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/hsm-templates?tenantId=${tenantId}`);
-      if (res.ok) {
-        setTemplates(await res.json());
-      }
+      setTemplates(await apiGet('/api/v2/hsm-templates'));
     } catch (e) {
       console.error(e);
       toast.error('Erro ao buscar templates');
@@ -460,39 +457,24 @@ function WhatsAppTemplatesTab({ tenantId, connections, integrationKeys }: any) {
 
   const handleCreate = async () => {
     try {
-      const res = await fetch('/api/hsm-templates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId, ...formData })
-      });
-      if (res.ok) {
-        toast.success("Template criado com sucesso!");
-        setIsCreateOpen(false);
-        setFormData({ name: '', category: 'MARKETING', language: 'pt_BR', header_type: 'none', header_content: '', body: '', footer: '' });
-        fetchTemplates();
-      } else {
-        const error = await res.json();
-        toast.error(`Erro: ${error.error}`);
-      }
-    } catch (e) {
-      toast.error("Erro ao criar template");
+      await apiPost('/api/v2/hsm-templates', formData);
+      toast.success("Template criado com sucesso!");
+      setIsCreateOpen(false);
+      setFormData({ name: '', category: 'MARKETING', language: 'pt_BR', header_type: 'none', header_content: '', body: '', footer: '' });
+      fetchTemplates();
+    } catch (e: any) {
+      toast.error(`Erro: ${e?.message || 'não foi possível criar o template'}`);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!window.confirm("Deseja realmente excluir este template?")) return;
     try {
-      const res = await fetch(`/api/hsm-templates/${id}?tenantId=${tenantId}`, {
-         method: 'DELETE'
-      });
-      if (res.ok) {
-        toast.success("Excluído com sucesso");
-        fetchTemplates();
-      } else {
-        toast.error("Não foi possível excluir");
-      }
-    } catch(e) {
-      toast.error("Erro ao excluir template");
+      await apiDelete(`/api/v2/hsm-templates/${id}`);
+      toast.success("Excluído com sucesso");
+      fetchTemplates();
+    } catch (e: any) {
+      toast.error(e?.message || "Não foi possível excluir");
     }
   };
 
@@ -529,7 +511,7 @@ function WhatsAppTemplatesTab({ tenantId, connections, integrationKeys }: any) {
       await apiPost(`/api/v2/evolution/proxy`, {
         path: `/message/sendText/${testData.instanceName}`,
         method: 'POST',
-        proxyBody: {
+        body: {
           number: testData.phone,
           options: { delay: 1200 },
           textMessage: { text: message }

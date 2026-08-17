@@ -1,4 +1,4 @@
-import { adminDb as db } from "./firebaseAdmin";
+import { supabaseAdmin } from "./supabaseAdmin";
 import { getIntegrationKeys } from "./dbAdmin";
 
 export class TemplateNotApprovedError extends Error {
@@ -14,22 +14,21 @@ export async function sendHSMTemplate(
   recipientPhone: string,
   variables: Record<string, string>
 ) {
-  // 1. Fetch the template
-  const templateSnap = await db
-    .collection("tenants")
-    .doc(tenantId)
-    .collection("hsm_templates")
-    .where("name", "==", templateName)
-    .where("status", "==", "APPROVED")
+  // 1. Fetch the template — Fase 3: agora tabela nativa `hsm_templates`
+  // (era subcoleção Firestore/legacy_docs; a linha nunca existia de verdade
+  // porque o CRUD que a criava nunca esteve montado em server.ts).
+  const { data: template } = await supabaseAdmin
+    .from("hsm_templates")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .eq("name", templateName)
+    .eq("status", "APPROVED")
     .limit(1)
-    .get();
+    .maybeSingle();
 
-  if (templateSnap.empty) {
+  if (!template) {
     throw new TemplateNotApprovedError("TEMPLATE_NOT_APPROVED");
   }
-
-  const templateDoc = templateSnap.docs[0];
-  const template = templateDoc.data();
 
   // 3. Substituir no body localmente para log e checar variaveis:
   let bodyText = template.body as string;
@@ -78,13 +77,12 @@ export async function sendHSMTemplate(
   }
 
   // 5. Registrar o envio
-  await db.collection("hsm_send_logs").add({
-    template_id: templateDoc.id,
+  await supabaseAdmin.from("hsm_send_logs").insert({
+    tenant_id: tenantId,
+    template_id: template.id,
     template_name: templateName,
     recipient: recipientPhone,
-    variables: variables,
-    sent_at: new Date(),
-    tenant_id: tenantId,
+    variables: variables ?? {},
   });
 
   return resData;

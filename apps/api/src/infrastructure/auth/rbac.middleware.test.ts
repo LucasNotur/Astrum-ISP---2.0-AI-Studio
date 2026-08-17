@@ -32,4 +32,11 @@ describe('RBAC — Controle de Acesso por Role', () => {
     expect(checkPermission('admin', 'ai_config', 'write')).toBe(true);
     expect(checkPermission('operator', 'ai_config', 'write')).toBe(false);
   });
+
+  it('whatsapp_templates: admin escreve, operator só lê, viewer só lê', () => {
+    expect(checkPermission('admin', 'whatsapp_templates', 'write')).toBe(true);
+    expect(checkPermission('operator', 'whatsapp_templates', 'read')).toBe(true);
+    expect(checkPermission('operator', 'whatsapp_templates', 'write')).toBe(false);
+    expect(checkPermission('viewer', 'whatsapp_templates', 'write')).toBe(false);
+  });
 });
