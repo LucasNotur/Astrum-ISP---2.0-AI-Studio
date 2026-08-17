@@ -28,6 +28,7 @@ evolutionWebhookRouter.post("/", async (req, res) => {
     }
 
     let tenantId;
+    let tenantDoc: any;
     let tenantQuery = await db.collection("tenants")
       .where("evolutionInstance", "==", instanceName)
       .limit(1)
@@ -35,6 +36,7 @@ evolutionWebhookRouter.post("/", async (req, res) => {
 
     if (!tenantQuery.empty) {
       tenantId = tenantQuery.docs[0].id;
+      tenantDoc = tenantQuery.docs[0].data();
     } else {
       tenantQuery = await db.collection("tenants")
         .where("evolution_instances", "array-contains", instanceName)
@@ -42,6 +44,7 @@ evolutionWebhookRouter.post("/", async (req, res) => {
         .get();
       if (!tenantQuery.empty) {
         tenantId = tenantQuery.docs[0].id;
+        tenantDoc = tenantQuery.docs[0].data();
       } else {
         console.warn(`[SECURITY] Webhook rejeitado: instance '${instanceName}' não mapeada a nenhum tenant`);
         return res.status(403).json({ error: "Unknown instance" });
@@ -87,8 +90,7 @@ evolutionWebhookRouter.post("/", async (req, res) => {
          base64Media = payload.data.message.base64;
       }
 
-      // Add to queue
-      await enqueueMessage(tenantId, {
+      const enqueueLegacy = () => enqueueMessage(tenantId, {
         remoteJid,
         textMessage,
         messageData: payload.data,
@@ -103,18 +105,40 @@ evolutionWebhookRouter.post("/", async (req, res) => {
         messageId: key.id
       });
 
-      // S74 — Shadow espelhamento (exceção autorizada a R4, ~10 linhas).
-      // Repassa o payload ao motor novo com x-shadow:true. Fire-and-forget:
-      // falha no espelhamento nunca impacta o atendimento real.
+      // S74 — cutover/shadow do atendimento (exceção autorizada a R4). Respeita o
+      // canário por tenant (tenants.atendimento_engine): um ISP pode estar em 'v2'
+      // enquanto os demais seguem 'legacy', ou vice-versa (rollback fino).
       {
-        const [{ generateWebhookSignature }, { getAtendimentoEngine }] = await Promise.all([
+        const [{ generateWebhookSignature }, { resolveEvolutionWebhookMode }] = await Promise.all([
           import('../../apps/api/src/infrastructure/security/hmac.service.ts'),
           import('../../apps/api/src/infrastructure/config/engine-flags.ts'),
         ]);
-        if (getAtendimentoEngine() === 'legacy') {
+        const mode = resolveEvolutionWebhookMode(tenantDoc?.atendimentoEngine ?? null);
+        const v2Url = (process.env.FASTIFY_INTERNAL_URL ?? 'http://localhost:3001') + '/api/v2/webhook/evolution';
+
+        if (mode === 'proxy_to_v2') {
+          // Cutover real: o legado NÃO processa — repassa (sem x-shadow) pro v2
+          // processar e enviar de verdade. Se o v2 estiver fora do ar, cai pro
+          // legado como fallback (nunca perde a mensagem do cliente).
+          try {
+            const sig = generateWebhookSignature(rawBody, 'evolution');
+            const resp = await fetch(v2Url, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json', 'x-hub-signature-256': sig },
+              body: rawBody.toString('utf8'),
+            });
+            if (!resp.ok) throw new Error(`v2 respondeu ${resp.status}`);
+          } catch (err: any) {
+            console.error('[cutover] proxy pro v2 falhou — processando via legado (fallback):', err?.message);
+            await enqueueLegacy();
+          }
+        } else {
+          // Legado processa normalmente + espelha uma cópia pro v2 (shadow, sem
+          // enviar). Fire-and-forget: falha no espelhamento nunca impacta o
+          // atendimento real.
+          await enqueueLegacy();
           const shadowSig = generateWebhookSignature(rawBody, 'evolution');
-          const shadowUrl = (process.env.FASTIFY_INTERNAL_URL ?? 'http://localhost:3001') + '/api/v2/webhook/evolution';
-          fetch(shadowUrl, {
+          fetch(v2Url, {
             method: 'POST',
             headers: { 'content-type': 'application/json', 'x-shadow': 'true', 'x-hub-signature-256': shadowSig },
             body: rawBody.toString('utf8'),

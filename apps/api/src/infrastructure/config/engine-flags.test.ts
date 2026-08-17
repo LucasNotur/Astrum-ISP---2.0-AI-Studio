@@ -6,6 +6,7 @@ import {
   isAtendimentoEngineActive,
   shouldBootWorker,
   resolveAtendimentoEngineForTenant,
+  resolveEvolutionWebhookMode,
   isMultiAgentEnabled,
 } from './engine-flags';
 
@@ -135,6 +136,34 @@ describe('engine-flags', () => {
       process.env.ATENDIMENTO_ENGINE = 'legacy'; // default global
       expect(resolveAtendimentoEngineForTenant('v2')).toBe('v2');       // ISP piloto
       expect(resolveAtendimentoEngineForTenant(null)).toBe('legacy');   // demais
+    });
+  });
+
+  describe('resolveEvolutionWebhookMode (S74 — webhook Evolution legado)', () => {
+    it('global legacy, tenant sem override -> legacy_and_shadow_mirror', () => {
+      expect(resolveEvolutionWebhookMode(null, 'legacy')).toBe('legacy_and_shadow_mirror');
+    });
+
+    it('global legacy, tenant com override v2 -> proxy_to_v2 (canário)', () => {
+      expect(resolveEvolutionWebhookMode('v2', 'legacy')).toBe('proxy_to_v2');
+    });
+
+    it('global v2, tenant sem override -> proxy_to_v2', () => {
+      expect(resolveEvolutionWebhookMode(null, 'v2')).toBe('proxy_to_v2');
+    });
+
+    it('global v2, tenant com override legacy -> legacy_and_shadow_mirror (rollback fino)', () => {
+      expect(resolveEvolutionWebhookMode('legacy', 'v2')).toBe('legacy_and_shadow_mirror');
+    });
+
+    it('override inválido no tenant cai pro default global (fail-safe)', () => {
+      expect(resolveEvolutionWebhookMode('banana', 'v2')).toBe('proxy_to_v2');
+      expect(resolveEvolutionWebhookMode('banana', 'legacy')).toBe('legacy_and_shadow_mirror');
+    });
+
+    it('sem 2º argumento, usa getAtendimentoEngine() (env real)', () => {
+      process.env.ATENDIMENTO_ENGINE = 'v2';
+      expect(resolveEvolutionWebhookMode(null)).toBe('proxy_to_v2');
     });
   });
 });

@@ -62,6 +62,27 @@ export function isAtendimentoEngineActive(target: EngineTarget): boolean {
   return getAtendimentoEngine() === target;
 }
 
+export type EvolutionWebhookMode = 'legacy_and_shadow_mirror' | 'proxy_to_v2';
+
+/**
+ * S74 — decide o que o webhook Evolution legado (`src/routes/evolutionWebhook.ts`) faz
+ * com a mensagem de UM tenant. Respeita o cutover canário por tenant
+ * (`resolveAtendimentoEngineForTenant`): um ISP pode estar em 'v2' com o resto da base
+ * ainda em 'legacy' (rollout gradual), ou um ISP pode ficar preso em 'legacy' mesmo
+ * depois do cutover global (rollback fino).
+ *
+ * 'legacy_and_shadow_mirror' → processa localmente (legado) e espelha uma cópia pro v2
+ *   com `x-shadow:true` (processa mas NÃO envia — é só observação).
+ * 'proxy_to_v2' → NÃO processa localmente; repassa pro v2 processar e enviar de verdade.
+ */
+export function resolveEvolutionWebhookMode(
+  tenantEngineValue: string | null | undefined,
+  envDefault: EngineTarget = getAtendimentoEngine(),
+): EvolutionWebhookMode {
+  const engine = resolveAtendimentoEngineForTenant(tenantEngineValue, envDefault);
+  return engine === 'v2' ? 'proxy_to_v2' : 'legacy_and_shadow_mirror';
+}
+
 /**
  * Decide se um worker deve subir. Retorna true se a engine dele é a ativa.
  * Quando false, o chamador NÃO deve instanciar o worker (evita disparo duplo).
