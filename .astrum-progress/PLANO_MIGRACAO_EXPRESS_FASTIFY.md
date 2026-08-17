@@ -4,7 +4,48 @@
 > lendo `server.ts` (raiz), `apps/api/src/server.ts` e os `fetch()` do frontend.
 > Respeita R4 (lógica nova em apps/api) e R5 (portar+validar antes de apagar).
 
-## 🔄 PONTO DE RETOMADA (nova sessão começa aqui) — 2026-08-17
+## 🔄 PONTO DE RETOMADA (nova sessão começa aqui) — 2026-08-17 (execução S74/Fase4/health-tracking)
+
+**Decisão do Lucas (2026-08-17):** executar S74 agora (sem esperar shadow 3-7d — nunca houve
+tráfego real pra espelhar mesmo), desbloquear Fase 4 (URLs externas podem ser repontadas
+depois via painel), e seguir com o chip "WhatsApp health tracking". Fluxo de trabalho: DB/MCP
+(só Claude tem acesso) fica com Claude; código puro vai pro GLM/DeepSeek via HANDOFF, Claude
+audita antes do push.
+
+**Achados críticos desta sessão (mudam o plano):**
+1. **`ATENDIMENTO_ENGINE=v2` e `COBRAI_ENGINE=v2` já estavam ativos no `.env` desde
+   2026-08-12** — 5 dias antes desta sessão, sem os gates formais (replay/shadow report)
+   terem rodado. `COBRAI_ENGINE=v2` é escopo da S76 (fora do combinado hoje) — só documentado
+   aqui, não investigado/mexido (decisão do Lucas: não travar o que foi pedido hoje).
+2. **Sem chave de LLM real configurada** (`OPENAI_API_KEY` é placeholder, sem Gemini/Anthropic)
+   — nem legado nem v2 geram resposta de IA nesta máquina hoje. Replay de validação fica
+   pendente até o Lucas subir uma chave (decisão dele: não vale gastar tokens rodando replay
+   sem isso, retomar quando conectar a chave). Ver `CHECKLIST_PENDENCIAS_EXTERNAS.md` §S74.
+3. **O túnel Cloudflare (`~/.cloudflared/config.yml`) aponta 100% pra Express (porta 3000)** —
+   isso inclui o proxy de `/api/v2/*`, não só os webhooks. Apagar o `server.ts` sem repontar
+   o túnel derruba a API inteira, não só os webhooks.
+4. **Webhook Asaas real está em uso** (221 invoices/30d) em `/api/webhook/asaas` (path
+   diferente do v2: `/api/v2/webhook/asaas`) — apagar o Express sem alias quebra a
+   atualização de status de pagamento real até o Lucas trocar a URL no painel do Asaas.
+
+**Abordagem escolhida pra Fase 4 (opção A, aprovada pelo Lucas):** em vez de exigir que o
+Lucas reponte Meta/Asaas/Evolution manualmente, o Fastify passa a responder nos MESMOS paths
+antigos (`/api/webhook/{asaas,evolution,facebook}`, `/api/system/webhook-url`,
+`/api/health`, `/api/health/whatsapp`) como alias dos handlers v2 que já existem
+(`asaas-webhook.routes.ts`, `evolution-webhook.routes.ts`, `meta-webhook.routes.ts`). Depois
+disso: repontar `~/.cloudflared/config.yml` de `localhost:3000` → `localhost:3001`, apagar
+`server.ts` + `src/routes/*`. `apps/api` já tem bootstrap standalone pronto
+(`npm run dev` = `tsx watch src/server.ts`, sem depender do Express) — não precisa de
+trabalho extra pra isso. HANDOFF specs (aliasing + migração 105 de health-tracking) dados ao
+Lucas nesta sessão pro GLM/DeepSeek; Claude faz o repoint do túnel + delete do Express depois
+de auditar o código.
+
+**Migration 105** (`whatsapp_health_snapshots`, aplicada via MCP) — histórico/tendência em
+cima do `whatsapp-health.service.ts` já existente (que só dá a fotografia ao vivo).
+
+---
+
+## 🔄 PONTO DE RETOMADA ANTERIOR — 2026-08-17
 
 **Confirmado com o Lucas (2026-08-17): o alvo é migrar TUDO pro Fastify (`apps/api`), sem pressa,
 priorizando qualidade — não é corrida pra VPS.** Infra real hoje: backend (server.ts raiz, que já

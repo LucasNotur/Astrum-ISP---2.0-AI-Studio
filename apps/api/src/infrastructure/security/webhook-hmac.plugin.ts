@@ -22,6 +22,11 @@ const webhookHmacPlugin: FastifyPluginCallback = (fastify, _opts, done) => {
     const provider = WEBHOOK_ROUTES[urlWithoutQuery];
     if (!provider) return; // não é rota de webhook — ignorar
 
+    // GET é o handshake de verificação (ex.: hub.challenge da Meta) — sem corpo, sem
+    // assinatura por design. Quem autentica esse caso é o handler (verify_token próprio),
+    // não HMAC. Só POST (evento de verdade, com corpo assinável) passa por aqui.
+    if (request.method === 'GET') return;
+
     // Buscar assinatura no header (cada provider usa header diferente)
     const signature =
       (request.headers['x-hub-signature-256'] as string) ||

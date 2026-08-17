@@ -88,6 +88,10 @@ export async function buildServer() {
   const webhookHmacPlugin = await import('./infrastructure/security/webhook-hmac.plugin');
   await app.register(webhookHmacPlugin.default);
 
+  // Compat com o Express legado: /api/system/webhook-url, /api/health, /api/health/whatsapp.
+  const legacyCompatRoutes = await import('./infrastructure/http/legacy-compat.routes');
+  await app.register(legacyCompatRoutes.default);
+
   const { authRoutes } = await import('./domain/auth/auth.routes');
   await app.register(authRoutes);
 
@@ -265,6 +269,10 @@ export async function buildServer() {
   // Saúde da conexão WhatsApp (card WhatsAppPage) — sinais Redis + fila global.
   const { whatsappHealthRoutes } = await import('./domain/atendimento/whatsapp-health.routes');
   await app.register(whatsappHealthRoutes);
+
+  // Histórico de saúde WhatsApp (tendência no card WhatsAppPage) — migration 105.
+  const { whatsappHealthHistoryRoutes } = await import('./domain/atendimento/whatsapp-health-history.routes');
+  await app.register(whatsappHealthHistoryRoutes);
 
   // Fase 2 — proxy Evolution API (port do Express /api/evolution/proxy). Creds server-side + guard SSRF.
   const { evolutionProxyRoutes } = await import('./domain/atendimento/evolution-proxy.routes');
@@ -572,6 +580,14 @@ export async function startFastifyServer() {
       }
     );
     app.log.info('ETL: job recorrente agendado (a cada 15min)');
+
+    // Histórico de saúde WhatsApp (migration 105): snapshot a cada 15 min por
+    // instância — permite ler tendência de ban_signals no card do WhatsAppPage.
+    const { createWhatsappHealthSnapshotWorker, scheduleWhatsappHealthSnapshotJobs } =
+      await import('./domain/atendimento/whatsapp-health-snapshot.worker');
+    createWhatsappHealthSnapshotWorker();
+    await scheduleWhatsappHealthSnapshotJobs();
+    app.log.info('[whatsapp-health-snapshot] job recorrente agendado (a cada 15min)');
 
     // Inicializar DuckDB Analytics Schema
     const { initAnalyticsSchema } = await import('./infrastructure/analytics/analytics.schema');

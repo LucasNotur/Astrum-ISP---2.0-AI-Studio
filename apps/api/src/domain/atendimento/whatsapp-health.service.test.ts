@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { computeHealthStats, dailyCountKey, type HealthStatsDeps } from './whatsapp-health.service';
+import {
+  computeHealthStats,
+  computeRiskLevel,
+  dailyCountKey,
+  type HealthStatsDeps,
+  type WhatsAppHealthStats,
+} from './whatsapp-health.service';
 
 function makeDeps(over: Partial<HealthStatsDeps> & { store?: Record<string, string> } = {}): HealthStatsDeps {
   const store = over.store ?? {};
@@ -10,6 +16,40 @@ function makeDeps(over: Partial<HealthStatsDeps> & { store?: Record<string, stri
     ...over,
   };
 }
+
+function stats(over: Partial<WhatsAppHealthStats> = {}): WhatsAppHealthStats {
+  return { ban_signals: 0, is_paused: false, daily_messages_today: 0, messages_in_queue: 0, ...over };
+}
+
+describe('computeRiskLevel', () => {
+  it('ban_signals=0, sem pausa → ok', () => {
+    expect(computeRiskLevel(stats({ ban_signals: 0 }))).toBe('ok');
+  });
+
+  it('ban_signals=1 → warning', () => {
+    expect(computeRiskLevel(stats({ ban_signals: 1 }))).toBe('warning');
+  });
+
+  it('ban_signals=2 → warning', () => {
+    expect(computeRiskLevel(stats({ ban_signals: 2 }))).toBe('warning');
+  });
+
+  it('ban_signals=3 → critical', () => {
+    expect(computeRiskLevel(stats({ ban_signals: 3 }))).toBe('critical');
+  });
+
+  it('ban_signals alto (>= 3) → critical', () => {
+    expect(computeRiskLevel(stats({ ban_signals: 7 }))).toBe('critical');
+  });
+
+  it('is_paused=true → critical mesmo com ban_signals=0', () => {
+    expect(computeRiskLevel(stats({ ban_signals: 0, is_paused: true }))).toBe('critical');
+  });
+
+  it('is_paused=true com ban_signals=1 → critical (prevalece sobre warning)', () => {
+    expect(computeRiskLevel(stats({ ban_signals: 1, is_paused: true }))).toBe('critical');
+  });
+});
 
 describe('dailyCountKey', () => {
   it('formata a data local no mesmo padrão do rateLimiter legado', () => {

@@ -28,6 +28,22 @@ export interface WhatsAppHealthStats {
   messages_in_queue: number;
 }
 
+export type WhatsAppRiskLevel = 'ok' | 'warning' | 'critical';
+
+/**
+ * Classificação de risco de banimento — função PURA (sem I/O), usada tanto pelo
+ * card ao vivo quanto pelo worker de snapshot histórico.
+ *
+ *   critical: ban_signals >= 3 OU envios pausados (rate limiter no teto)
+ *   warning:  ban_signals >= 1
+ *   ok:       nenhum sinal
+ */
+export function computeRiskLevel(stats: WhatsAppHealthStats): WhatsAppRiskLevel {
+  if (stats.ban_signals >= 3 || stats.is_paused === true) return 'critical';
+  if (stats.ban_signals >= 1) return 'warning';
+  return 'ok';
+}
+
 /** Chave do contador diário — mesmo formato do rateLimiter legado (data LOCAL do servidor). */
 export function dailyCountKey(tenantId: string, now: Date): string {
   const yyyy = now.getFullYear();

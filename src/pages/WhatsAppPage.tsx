@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Phone, CheckCircle2, XCircle, RefreshCw, QrCode, MessageSquare, LogOut, Loader2, Save, Plus, Trash2, Activity, ShieldAlert, Play, Info } from "lucide-react";
+import { Phone, CheckCircle2, XCircle, RefreshCw, QrCode, MessageSquare, LogOut, Loader2, Save, Plus, Trash2, Activity, ShieldAlert, Play, Info, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { GlowButton } from "@/src/components/ui/glow-button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/src/components/ui/card";
 import { Button } from "@/src/components/ui/button";
@@ -21,6 +21,15 @@ import { supabase } from '@/src/lib/supabase';
 import { saveIntegrationKeys } from '@/src/lib/db';
 import { apiGet, apiPost, apiDelete } from '@/src/lib/apiClient';
 
+// Tendência de ban_signals na janela de 24h (primeiro vs último snapshot).
+function banTrend(history: any[] | undefined): { dir: 'up' | 'down' | 'stable' | 'none', first: number, last: number } {
+  if (!history || history.length < 2) return { dir: 'none', first: 0, last: 0 };
+  const first = history[0]?.ban_signals ?? 0;
+  const last = history[history.length - 1]?.ban_signals ?? 0;
+  const dir = last > first ? 'up' : last < first ? 'down' : 'stable';
+  return { dir, first, last };
+}
+
 export function WhatsAppConnectionsPage() {
   const { user, companySettings, integrationKeys, setIntegrationKeys } = useAppStore();
   const [activeTab, setActiveTab] = useState('connections');
@@ -31,6 +40,7 @@ export function WhatsAppConnectionsPage() {
   // Transient state for QR / Status per connection
   const [connStates, setConnStates] = useState<Record<string, { status: string, qrCode: string | null, isFetching: boolean }>>({});
   const [healthStats, setHealthStats] = useState<Record<string, any>>({});
+  const [healthHistory, setHealthHistory] = useState<Record<string, any[]>>({});
 
   const fetchHealth = async (conn: any) => {
     try {
@@ -38,6 +48,9 @@ export function WhatsAppConnectionsPage() {
       // Tenant vem do JWT no backend; só a instância vai no query.
       const data = await apiGet<any>(`/api/v2/whatsapp/health-stats?instanceId=${encodeURIComponent(conn.instanceName)}`);
       setHealthStats(prev => ({ ...prev, [conn.id]: data }));
+      // Série temporal (snapshots do worker, migration 105) p/ indicador de tendência.
+      const history = await apiGet<any[]>(`/api/v2/whatsapp/health-history?instanceId=${encodeURIComponent(conn.instanceName)}&hours=24`);
+      setHealthHistory(prev => ({ ...prev, [conn.id]: history || [] }));
     } catch (e) {
       console.error("Error fetching health", e);
     }
@@ -315,12 +328,42 @@ export function WhatsAppConnectionsPage() {
                                  <div className="text-xs text-muted-foreground mb-1">Envios Diários</div>
                                  <div className="font-medium">{healthStats[conn.id]?.daily_messages_today || 0} msgs</div>
                                </div>
-                               <div className="bg-secondary/40 p-3 rounded-lg border border-border">
-                                 <div className="text-xs text-muted-foreground mb-1">Fila Global</div>
-                                 <div className="font-medium">{healthStats[conn.id]?.messages_in_queue || 0} msgs</div>
-                               </div>
-                             </div>
-                           </div>
+                                <div className="bg-secondary/40 p-3 rounded-lg border border-border">
+                                  <div className="text-xs text-muted-foreground mb-1">Fila Global</div>
+                                  <div className="font-medium">{healthStats[conn.id]?.messages_in_queue || 0} msgs</div>
+                                </div>
+                              </div>
+                              {/* Tendência 24h (snapshots do worker) */}
+                              {(() => {
+                                const history = healthHistory[conn.id] || [];
+                                const t = banTrend(history);
+                                if (t.dir === 'none') return null;
+                                const bars = history.map((s: any) => s?.ban_signals ?? 0);
+                                const max = Math.max(1, ...bars);
+                                return (
+                                  <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                                    <span>Tendência 24h:</span>
+                                    <span className={cn(
+                                      "flex items-center gap-1 font-medium",
+                                      t.dir === 'up' ? "text-astrum-red" : t.dir === 'down' ? "text-astrum-signal" : "text-muted-foreground"
+                                    )}>
+                                      {t.dir === 'up' ? <TrendingUp size={14} /> : t.dir === 'down' ? <TrendingDown size={14} /> : <Minus size={14} />}
+                                      ban_signals {t.first} → {t.last}
+                                      {t.dir === 'up' ? ' (↑ desde ontem)' : t.dir === 'down' ? ' (↓ desde ontem)' : ' (estável)'}
+                                    </span>
+                                    <div className="flex items-end gap-0.5 h-4 ml-auto" title="ban_signals por snapshot (24h)">
+                                      {bars.map((v: number, i: number) => (
+                                        <div
+                                          key={i}
+                                          className={cn("w-1 rounded-sm", v >= 3 ? "bg-astrum-red" : v >= 1 ? "bg-astrum-orange" : "bg-astrum-signal/40")}
+                                          style={{ height: `${Math.max(2, (v / max) * 16)}px` }}
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
                          </div>
 
                          {/* QR Code Area */}

@@ -109,28 +109,58 @@
 
 ## S74 — Shadow mode + cutover do atendimento
 
-> Código 100% completo (19 testes). Execução real aguarda 3–7 dias de tráfego espelhado.
+> **ATUALIZADO 2026-08-17 (decisão do Lucas):** o plano original (shadow 3–7d + replay ≥95%
+> ANTES de virar a chave) foi abandonado porque nunca houve tráfego real pra observar
+> (0 instâncias Evolution conectadas — ver abaixo) e não há sentido travar o motor v2
+> esperando validação contra um legado que também nunca serviu cliente real por esse canal.
+> `ATENDIMENTO_ENGINE=v2` **já estava setado no `.env` local desde 2026-08-12** (achado
+> nesta sessão — os docs estavam desatualizados, o flag já tinha sido virado sem o gate
+> formal). Decisão: manter v2 como default, sem bloquear em validação.
 
-### Pré-condições para ativação do shadow
+### Pré-condições (histórico)
 
 - [x] **Aplicar migrations** `023_shadow_results.sql` e `047_replay.sql` — já estavam aplicadas; 068 e 069 aplicadas em 2026-07-11
 - [x] **`FASTIFY_INTERNAL_URL`** — padrão `http://localhost:3001` funciona para co-localizado; em Docker usar URL do container `api`
 - [x] **Subir o `message.worker`** — `createMessageWorker()` adicionado ao boot do Fastify em `apps/api/src/server.ts` (commit 9dcb7dd)
-- [ ] **Verificar log** `[shadow] resposta gravada` no dashboard da fila após primeira mensagem espelhada
+- [x] **`ATENDIMENTO_ENGINE=v2`** — já ativo em produção (`.env` linha 29, desde 2026-08-12)
 
-### Observação (3–7 dias)
+### 🔴 BLOQUEIO REAL descoberto 2026-08-17: sem chave de LLM
 
-- [ ] Monitorar tabela `shadow_results` acumulando respostas
-- [ ] Executar `POST /api/v2/ia/replay` com amostra ≥ 50 pares — verificar `pass_rate ≥ 0.95`
-- [ ] Preencher `docs/port/SHADOW_REPORT.md` com dados reais (latência p95, custo/conversa, taxa de equivalência)
+- [ ] **Nenhuma chave de LLM funcional configurada** — `OPENAI_API_KEY` é placeholder
+  (`sk-PLACEHOLDER-forneca-sua-chave`), sem `GEMINI_API_KEY`/`ANTHROPIC_API_KEY` no `.env`.
+  O agente v2 (`langGraphService`) e o judge do replay (`gpt-4o-mini`) não geram nada sem isso.
+  **Nem legado nem v2 respondem de verdade nesta máquina hoje** — não é questão de engine.
+- [ ] **Ação do Lucas:** subir e conectar uma `OPENAI_API_KEY` ou `GEMINI_API_KEY` real.
+- [ ] **Depois da chave:** rodar o replay (`POST /api/v2/ia/replay`, ou script direto —
+  `executeReplayRun` não tem worker consumidor ainda, ver nota abaixo) contra o histórico
+  real de `messages` (2 tenants, ~20 pares user→assistant cada) **antes de qualquer tráfego
+  real de cliente** — isso É o "temos tudo sob controle" pedido pelo Lucas, só que como
+  smoke-test pré-produção, não como gate de 3-7 dias.
+- [ ] **Gap técnico achado:** a fila BullMQ `astrum-replay` (`replay.routes.ts`) não tem
+  nenhum Worker consumidor implementado — hoje uma run enfileirada fica em `queued` pra
+  sempre. Precisa de um worker (padrão dos outros workers do repo) OU chamar
+  `executeReplayRun(runId)` direto via script pontual. Não é urgente enquanto não há chave.
 
-### Decisão de cutover (Lucas)
+### Realidade de tráfego (por que o risco de ter virado cedo é baixo)
 
-- [ ] **SHADOW_REPORT aprovado** — taxa ≥ 95 %, p95 ≤ legado, custo ≤ legado
-- [ ] **Setar `ATENDIMENTO_ENGINE=v2`** em produção
-- [ ] **Testar rollback** — trocar env de volta para `legacy` e confirmar que legado responde
-- [ ] **Desligar `messageWorker` legado** após 48 h de estabilidade no v2
+- [x] **0 instâncias Evolution conectadas** (`tenant_evolution_instances` vazia) — nenhum
+  tenant recebe mensagem real de WhatsApp hoje, então não há cliente afetado pela troca.
+- [x] Os 2 tenants existentes têm dados claramente de seed/demo (mensagens em lote, mesmo
+  timestamp) — não é tráfego de cliente real.
+
+### Decisão de cutover — feita, mas sem evidência formal
+
+- [x] **`ATENDIMENTO_ENGINE=v2`** já em produção — decisão tomada 2026-08-17 sem o gate de
+  equivalência ≥95% (aceito pelo Lucas, dado que não havia como gerar essa evidência sem
+  tráfego real nem chave de LLM).
+- [ ] Rodar o smoke-test de replay assim que houver chave (ver acima) — não bloqueia nada,
+  é validação, não gate.
+- [ ] **Testar rollback** — trocar `ATENDIMENTO_ENGINE` de volta pra `legacy` e confirmar
+  que o caminho legado ainda responde (relevante só depois que a Fase 4 apagar o Express —
+  ver `PLANO_MIGRACAO_EXPRESS_FASTIFY.md`, o rollback muda de forma).
+- [x] Não há `messageWorker` legado a desligar — ele já não bootava (gate `shouldBootWorker`
+  respeita o flag desde que foi setado em 12/08).
 
 ---
 
-*Última atualização: 2026-07-11 (após S74)*
+*Última atualização: 2026-08-17 (sessão de execução S74 + achados de infra).*
