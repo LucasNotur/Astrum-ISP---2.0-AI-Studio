@@ -25,7 +25,6 @@
  */
 
 import { generateObject } from 'ai';
-import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { iaLogger } from '../../infrastructure/logging/logger';
@@ -34,6 +33,7 @@ import { setCreateToolsOverride } from '../agent/agent.nodes';
 import { langGraphService } from '../agent/langgraph.service';
 import { ToolsExecutor } from '../../infrastructure/ai/tools.executor';
 import type { IToolsPort } from '../ports/ai.port';
+import { withFailover } from '../../infrastructure/ai/providers/model-router';
 
 // ─── Tipos públicos ──────────────────────────────────────────────────────────
 
@@ -222,12 +222,16 @@ const JudgeSchema = z.object({
   rationale: z.string().max(200).describe('Justificativa curta (max 200 chars) explicando o veredito'),
 });
 
-const judgeModel = openai('gpt-4o-mini');
-
 /**
  * LLM-as-judge para UM par. O prompt é deliberadamente conservador:
  * queremos saber se a resposta é EQUIVALENTE na prática (não idêntica).
  * Erros do judge propagam — o caller (executeReplayRun) marca verdict='erro'.
+ *
+ * Usa `withFailover` (mesmo mecanismo de `classifyIntent`) em vez de um
+ * client OpenAI fixo — se `PROVIDER_FAILOVER_ENABLED=true`, percorre
+ * `PROVIDER_ORDER` (ex.: openai→google) e passa pro próximo provider em
+ * erro retryável (sem crédito, rate-limit, 5xx). Sem a flag, comportamento
+ * idêntico ao anterior (openai direto).
  */
 export async function judgeOnePair(
   userMessage: string,
@@ -235,28 +239,33 @@ export async function judgeOnePair(
   candidate: string,
   tenantId: string,
 ): Promise<{ equivalent: boolean; rationale: string }> {
-  const { object } = await generateObject({
-    model: judgeModel as any,
-    schema: JudgeSchema,
-    system:
-      'Você julga se duas respostas de um agente de ISP para a mesma pergunta são EQUIVALENTES na prática. ' +
-      'Considere: intenção, informação factual principal, tom, próximo passo sugerido. ' +
-      'Diferenças cosméticas (pontuação, sinônimos) NÃO tornam divergente. ' +
-      'Seja rigoroso: se o signatário da resposta é outro (humano vs. IA), ou se o link/pix/status de fatura mudou, marque divergente.',
-    messages: [
-      {
-        role: 'user',
-        content:
-          `PERGUNTA DO CLIENTE:\n${userMessage}\n\n` +
-          `RESPOSTA ORIGINAL:\n${original}\n\n` +
-          `RESPOSTA CANDIDATA (motor de hoje):\n${candidate}`,
-      },
-    ],
-    headers: {
-      'Helicone-Property-TenantId': tenantId,
-      'Helicone-Property-UseCase': 'replay-judge',
-    },
-  });
+  const { object } = await withFailover(
+    'mini',
+    (model) =>
+      generateObject({
+        model: model as any,
+        schema: JudgeSchema,
+        system:
+          'Você julga se duas respostas de um agente de ISP para a mesma pergunta são EQUIVALENTES na prática. ' +
+          'Considere: intenção, informação factual principal, tom, próximo passo sugerido. ' +
+          'Diferenças cosméticas (pontuação, sinônimos) NÃO tornam divergente. ' +
+          'Seja rigoroso: se o signatário da resposta é outro (humano vs. IA), ou se o link/pix/status de fatura mudou, marque divergente.',
+        messages: [
+          {
+            role: 'user',
+            content:
+              `PERGUNTA DO CLIENTE:\n${userMessage}\n\n` +
+              `RESPOSTA ORIGINAL:\n${original}\n\n` +
+              `RESPOSTA CANDIDATA (motor de hoje):\n${candidate}`,
+          },
+        ],
+        headers: {
+          'Helicone-Property-TenantId': tenantId,
+          'Helicone-Property-UseCase': 'replay-judge',
+        },
+      }),
+    tenantId,
+  );
   return { equivalent: object.equivalent, rationale: object.rationale };
 }
 
