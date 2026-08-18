@@ -124,22 +124,43 @@
 - [x] **Subir o `message.worker`** — `createMessageWorker()` adicionado ao boot do Fastify em `apps/api/src/server.ts` (commit 9dcb7dd)
 - [x] **`ATENDIMENTO_ENGINE=v2`** — já ativo em produção (`.env` linha 29, desde 2026-08-12)
 
-### 🔴 BLOQUEIO REAL descoberto 2026-08-17: sem chave de LLM
+### ✅ Chaves conectadas (2026-08-18) — mas replay ainda bloqueado (créditos)
 
-- [ ] **Nenhuma chave de LLM funcional configurada** — `OPENAI_API_KEY` é placeholder
-  (`sk-PLACEHOLDER-forneca-sua-chave`), sem `GEMINI_API_KEY`/`ANTHROPIC_API_KEY` no `.env`.
-  O agente v2 (`langGraphService`) e o judge do replay (`gpt-4o-mini`) não geram nada sem isso.
-  **Nem legado nem v2 respondem de verdade nesta máquina hoje** — não é questão de engine.
-- [ ] **Ação do Lucas:** subir e conectar uma `OPENAI_API_KEY` ou `GEMINI_API_KEY` real.
-- [ ] **Depois da chave:** rodar o replay (`POST /api/v2/ia/replay`, ou script direto —
-  `executeReplayRun` não tem worker consumidor ainda, ver nota abaixo) contra o histórico
-  real de `messages` (2 tenants, ~20 pares user→assistant cada) **antes de qualquer tráfego
-  real de cliente** — isso É o "temos tudo sob controle" pedido pelo Lucas, só que como
-  smoke-test pré-produção, não como gate de 3-7 dias.
-- [ ] **Gap técnico achado:** a fila BullMQ `astrum-replay` (`replay.routes.ts`) não tem
-  nenhum Worker consumidor implementado — hoje uma run enfileirada fica em `queued` pra
-  sempre. Precisa de um worker (padrão dos outros workers do repo) OU chamar
-  `executeReplayRun(runId)` direto via script pontual. Não é urgente enquanto não há chave.
+- [x] **`OPENAI_API_KEY`** e **`GEMINI_API_KEY`** reais adicionadas ao `.env` (Lucas forneceu).
+- [x] **`SUPABASE_SERVICE_ROLE_KEY`** também era placeholder (`iss: supabase-demo`) — achado
+  e corrigido na mesma sessão. Isso é mais sério do que o LLM: sem essa chave, **nenhum
+  processo local (incluindo o backend de produção nesta máquina) conseguia gravar/ler o
+  Supabase real** — só o MCP (credencial própria do Claude) conseguia. Corrigido com uma
+  chave `service_role` real fornecida pelo Lucas (formato novo `sb_secret_...`). Testado:
+  `supabaseAdmin.from('tenants').select(...)` retorna dado real agora.
+- [x] **🐛 BUG REAL achado e corrigido:** `CustomerIntentSchema.extracted_data` (schema Zod
+  em `vercel-ai.service.ts`, usado pelo node de classificação de intenção do LangGraph) tinha
+  campos `.optional()` dentro de um objeto aninhado — o modo `strict:true` da OpenAI
+  Structured Outputs **exige que toda chave apareça em `required`** (não existe "opcional"
+  de verdade nesse modo). Isso quebrava **100% das chamadas do motor v2**, mesmo com chave
+  válida — todo `classifyIntent()` falhava com `400 invalid_json_schema`. Corrigido trocando
+  `.optional()` → `.nullable()` (mesma semântica, mas aceito pelo schema strict). Testes
+  atualizados (`vercel-ai.service.test.ts`, 11/11 verdes), typecheck limpo.
+- [ ] **BLOQUEIO ATUAL: a `OPENAI_API_KEY` fornecida está sem crédito** — `"You have no
+  credits remaining. Add credits to continue using the API"`. O smoke-test do replay rodou
+  (script `scripts/replay/run-replay-smoke.ts`) e confirmou a conexão Supabase+schema OK, mas
+  toda chamada real ao modelo falhou por falta de crédito. **Ação do Lucas:** adicionar
+  crédito em https://platform.openai.com/settings/organization/billing (ou usar a
+  `GEMINI_API_KEY`, que ainda não foi testada — o `model-router.ts` decide qual provider usar).
+- [ ] **Depois de ter crédito:** rodar `npx tsx -r dotenv/config scripts/replay/run-replay-smoke.ts`
+  de novo (não precisa reiniciar nada, é script avulso) contra o histórico real de `messages`
+  (2 tenants, ~20 pares user→assistant cada) **antes de qualquer tráfego real de cliente**.
+- [ ] **Gap técnico (não bloqueia, mas fica registrado):** a fila BullMQ `astrum-replay`
+  (`replay.routes.ts`) não tem nenhum Worker consumidor implementado — hoje uma run enfileirada
+  via `POST /api/v2/ia/replay` fica em `queued` pra sempre. O script acima contorna isso
+  chamando `executeReplayRun(runId)` direto. Precisa de um worker de verdade eventualmente.
+- [ ] **⚠️ Importante para o backend de produção (não só o replay):** o processo padrão
+  (`apps/api`, PID atual servindo `api.astrumlabs.online`) ainda está rodando com as chaves
+  ANTIGAS (placeholder) — as novas só valem para processos novos iniciados depois de hoje
+  (o `.env` foi atualizado, mas o processo já vivo não recarrega env em quente). Precisa
+  reiniciar o backend (`stop_astrum_nopause.bat` + `start_astrum.bat`, ou via Gerenciador de
+  Tarefas se o taskkill der "Acesso negado" de novo) para o Supabase real + IA real valerem
+  em produção.
 
 ### Realidade de tráfego (por que o risco de ter virado cedo é baixo)
 

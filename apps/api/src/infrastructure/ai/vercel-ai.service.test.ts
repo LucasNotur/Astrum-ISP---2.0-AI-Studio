@@ -59,7 +59,7 @@ describe('VercelAIService — Structured Outputs', () => {
         intent: 'support_technical',
         urgency: 'high',
         sentiment: 'frustrated',
-        extracted_data: { equipment_model: 'TP-Link AX1500' },
+        extracted_data: { cpf: null, contract_id: null, address: null, equipment_model: 'TP-Link AX1500' },
         suggested_tools: ['query_rag', 'create_ticket'],
       };
       expect(() => CustomerIntentSchema.parse(valid)).not.toThrow();
@@ -76,12 +76,12 @@ describe('VercelAIService — Structured Outputs', () => {
       expect(() => CustomerIntentSchema.parse(invalid)).toThrow();
     });
 
-    it('extracted_data pode ter todos os campos opcionais vazios', () => {
+    it('extracted_data pode ter todos os campos null (OpenAI strict mode não permite omitir chaves)', () => {
       const valid = {
         intent: 'check_status',
         urgency: 'low',
         sentiment: 'neutral',
-        extracted_data: {},
+        extracted_data: { cpf: null, contract_id: null, address: null, equipment_model: null },
         suggested_tools: ['query_supabase'],
       };
       expect(() => CustomerIntentSchema.parse(valid)).not.toThrow();

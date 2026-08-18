@@ -62,11 +62,15 @@ export const CustomerIntentSchema = z.object({
   ]),
   urgency: z.enum(['low', 'normal', 'high']),
   sentiment: z.enum(['positive', 'neutral', 'negative', 'frustrated']),
+  // OpenAI Structured Outputs (strict:true) exige que TODA chave declarada em
+  // `properties` apareça em `required` — não existe "opcional" de verdade nesse
+  // modo. `.nullable()` (em vez de `.optional()`) mantém a mesma semântica
+  // ("sem esse dado") mas via `null` explícito, que o schema strict aceita.
   extracted_data: z.object({
-    cpf: z.string().optional(),
-    contract_id: z.string().optional(),
-    address: z.string().optional(),
-    equipment_model: z.string().optional(),
+    cpf: z.string().nullable(),
+    contract_id: z.string().nullable(),
+    address: z.string().nullable(),
+    equipment_model: z.string().nullable(),
   }),
   suggested_tools: z.array(z.enum([
     'suspend_signal', 'check_invoice', 'create_ticket',
