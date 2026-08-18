@@ -205,7 +205,6 @@ import {
 import { seedPopularAstrum, wipeSystemData } from "./lib/seedAstrum";
 import { uploadAttachment } from "./lib/storage";
 import {
-  getAIResponse,
   AGENT_CATEGORIES,
   SYSTEM_PROMPTS,
   summarizeTicketHistory,
@@ -633,9 +632,6 @@ export default function App() {
   const [testAgentCategory, setTestAgentCategory] = useState<
     string | undefined
   >(undefined);
-  const [testAgentMessage, setTestAgentMessage] = useState("");
-  const [testAgentResponse, setTestAgentResponse] = useState<any>(null);
-  const [isTestingAgent, setIsTestingAgent] = useState(false);
 
   const bufferTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [lastAiResponseTime, setLastAiResponseTime] = useState<number | null>(
@@ -1558,23 +1554,6 @@ export default function App() {
     }
   };
 
-  const handleTestAgent = async () => {
-    if (!testAgentMessage.trim()) return;
-    setIsTestingAgent(true);
-    setTestAgentResponse(null);
-    try {
-      const res = await getAIResponse(
-        [{ role: "user", parts: [{ text: testAgentMessage }] }],
-        testAgentCategory,
-      );
-      setTestAgentResponse(res);
-    } catch (err: any) {
-      setTestAgentResponse({ error: err.message || "Erro ao testar agente" });
-    } finally {
-      setIsTestingAgent(false);
-    }
-  };
-
   const handleSavePrompts = async () => {
     setIsSavingPrompts(true);
     try {
@@ -2186,145 +2165,6 @@ export default function App() {
       toast.info(
         "Atendimento humano iniciado. IA desativada para este ticket.",
       );
-    }
-  };
-
-  const simulateAiChat = async (ticketId: string, userText: string) => {
-    setIsAiThinking(true);
-    const startTime = Date.now();
-
-    // Add user message
-    await sendMessage(ticketId, userText, "customer");
-
-    // Increment AI attempts
-    await incrementAiAttempts(ticketId);
-    const currentTicket = tickets.find((t) => t.id === ticketId);
-    const customer = customers.find((c) => c.id === currentTicket?.customerId);
-    const currentAttempts = (currentTicket?.aiAttempts || 0) + 1;
-
-    // Remove mensagens velhas para a IA não herdar escalamentos passados
-    // Mantém as 10 últimas mensagens apenas
-    const recentMessages = messages.slice(-10);
-
-    // Get AI response
-    const history = recentMessages.map((m) => ({
-      role: m.senderType === "customer" ? "user" : "model",
-      parts: [{ text: m.text }],
-    }));
-
-    // Injeta Memória Implícita (Substitui o Redis sem gastar DB)
-    if (customer && history.length > 0) {
-      const implicitMemory = `[MEMÓRIA DO SISTEMA INVISÍVEL AO CLIENTE: O usuário falando com você se chama ${customer.name}. O protocolo de atendimento (Ticket ID) para esta conversa é #${ticketId.slice(0, 8)}. O plano contratado é ${customer.plan} (Status: ${customer.status}). OBSERVAÇÃO CRÍTICA: Você DEVE informar e saudar o cliente enviando o número do protocolo de atendimento (Ticket ID) caso seja a primeira resposta, ou informá-lo prontamente caso ele pergunte.]\n\n`;
-      if (history[0].role === "user") {
-        history[0].parts[0].text = implicitMemory + history[0].parts[0].text;
-      }
-    }
-
-    history.push({ role: "user", parts: [{ text: userText }] });
-
-    try {
-      const sessionState = currentTicket?.session_state || {
-        active_flow: "IDLE",
-        step: "inicial",
-        lead_stage: "LEAD",
-        agent: "Orquestrador",
-      };
-      const aiRes = await getAIResponse(
-        history as any,
-        undefined,
-        customer as any,
-        ticketId,
-        sessionState,
-      );
-      const endTime = Date.now();
-      const responseTime = (endTime - startTime) / 1000;
-      setLastAiResponseTime(responseTime);
-
-      await sendMessage(ticketId, aiRes.message, "ai", aiRes.category);
-
-      // Update session state
-      if (aiRes.session_state_update) {
-        try {
-          const { updateTicketSessionState } = await import("@/src/lib/db");
-          await updateTicketSessionState(ticketId, aiRes.session_state_update);
-        } catch (e) {
-          console.error("Failed to update session state", e);
-        }
-      }
-
-      const shouldEscalate = aiRes.shouldEscalate || currentAttempts >= 3;
-
-      if (shouldEscalate) {
-        if (currentTicket?.session_state) {
-          try {
-            const { updateTicketSessionState } = await import("@/src/lib/db");
-            await updateTicketSessionState(ticketId, {
-              lead_stage: "LEAD",
-              step: "erro_parcial",
-            });
-          } catch (e) {}
-        }
-        await updateTicketStatus(ticketId, "escalated");
-        await toggleTicketAI(ticketId, false);
-        await notifyTeam(
-          "CRITICAL_ESCALATION",
-          `Ticket ${ticketId} escalado (Tentativas: ${currentAttempts}): ${aiRes.message?.slice(0, 50) || ""}...`,
-          ticketId,
-        );
-
-        // Log para auditoria de negócio (Alibi Provedora vs IA)
-        await sendMessage(
-          ticketId,
-          `[AUDITORIA DO SISTEMA]: O atendimento foi transferido da IA para a Equipe Humana. Motivo: ${aiRes.shouldEscalate ? "Decisão de Segurança/Filtro Neural" : "Excesso de Tentativas"}. Data: ${new Date().toLocaleString("pt-BR")}`,
-          "system",
-        );
-
-        toast.error(
-          currentAttempts >= 3
-            ? "Ticket escalado por excesso de tentativas."
-            : "Ticket escalado automaticamente devido à criticidade.",
-        );
-
-        // Push notification do navegador
-        if ("Notification" in window && Notification.permission === "granted") {
-          new Notification("🧑‍💼 Novo Atendimento Humano (Urgente)", {
-            body: `O Ticket #${ticketId.slice(0, 8)} de ${customer?.name} foi escalado e precisa da sua atenção agora.`,
-            icon: "/vite.svg",
-          });
-        }
-      }
-
-      // SLA Alert Simulation
-      const slaCompliant = responseTime <= 10;
-      if (!slaCompliant) {
-        await notifyTeam(
-          "SLA_BREACH",
-          `Violação de SLA no ticket ${ticketId}: ${responseTime.toFixed(1)}s`,
-          ticketId,
-        );
-        toast.warning(
-          `Alerta de SLA: Resposta demorou ${responseTime.toFixed(1)}s`,
-          {
-            description:
-              "Notificação enviada ao grupo de supervisores (Simulado).",
-          },
-        );
-      }
-
-      // Log Audit
-      await logAudit("AI_RESPONSE", {
-        ticketId: ticketId,
-        category: aiRes.category,
-        sentiment: aiRes.sentiment,
-        responseTime,
-        slaCompliant,
-        isCritical: aiRes.isCritical,
-      });
-    } catch (error) {
-      console.error("Chat Error:", error);
-      toast.error("Erro ao processar resposta da IA.");
-    } finally {
-      setIsAiThinking(false);
     }
   };
 

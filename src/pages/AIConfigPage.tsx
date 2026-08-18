@@ -14,9 +14,9 @@ import { RingChart, RingLegend, ASTRUM_SEMANTIC } from '@/src/components/ui/ring
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/src/components/ui/dialog';
 import { useAppStore } from '@/src/store/useAppStore';
 import { getSystemPrompts, saveSystemPrompts, seedKnowledgeBase, createKBArticle, updateKBArticle, deleteKBArticle, saveIntegrationKeys as saveIntegrationKeysDb } from '@/src/lib/db';
-import { apiGet, apiPost, apiPut, apiDelete } from '@/src/lib/apiClient';
+import { api, apiGet, apiPost, apiPut, apiDelete } from '@/src/lib/apiClient';
 import { getKnowledgeBase as sbGetKnowledgeBase } from '@/src/lib/supabaseDb';
-import { getAIResponse, generateKBArticleFromTickets, SYSTEM_PROMPTS } from '@/src/lib/gemini';
+import { generateKBArticleFromTickets, SYSTEM_PROMPTS } from '@/src/lib/gemini';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/src/components/ui/tooltip";
 import { Switch } from "@/src/components/ui/switch";
@@ -251,8 +251,36 @@ export function AIConfigPage() {
     if (!testAgentMessage.trim()) return;
     setIsTestingAgent(true); setTestAgentResponse(null);
     try {
-      const res = await getAIResponse([{ role: 'user', parts: [{ text: testAgentMessage }] }], testAgentCategory);
-      setTestAgentResponse(res);
+      const response = await api<Response>('/api/v2/chat/stream', {
+        method: 'POST',
+        body: { message: testAgentMessage },
+        raw: true,
+      });
+      if (!response.ok || !response.body) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = '';
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const event = JSON.parse(line.slice(6));
+          if (event.type === 'token') fullText += event.content;
+          if (event.type === 'error') throw new Error(event.message);
+        }
+      }
+
+      setTestAgentResponse({ message: fullText || 'Sem resposta.' });
     } catch (err: any) {
       setTestAgentResponse({ error: err.message || 'Erro ao testar agente' });
     } finally { setIsTestingAgent(false); }

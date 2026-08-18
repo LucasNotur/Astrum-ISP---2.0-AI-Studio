@@ -1,4 +1,4 @@
-// S78: Gemini client-side removido. Toda IA passa pelo backend v2 (/api/ai/ask).
+// S78: Gemini client-side removido. Toda IA passa pelo backend v2 (/api/v2/chat/stream).
 // O import de @google/generative-ai foi eliminado. Este módulo mantém apenas
 // as constantes (SYSTEM_PROMPTS, AGENT_CATEGORIES, COBRAI_TEMPLATES ref) e
 // wrappers que delegam ao backend.
@@ -563,43 +563,6 @@ Retorne:
   "estimated_ltv_at_risk": "string com valor estimado"
 }`
 };
-
-// Placeholder for client-side usage (should probably call an API in a real app)
-export async function getAIResponse(
-  history: any[],
-  forceCategory?: string,
-  customerData?: any,
-  ticketId?: string,
-  sessionState?: any,
-  tenantId: string = "default"
-) {
-  try {
-    const response = await fetch('/api/ai/ask', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        history, forceCategory, customerData, ticketId, sessionState, tenantId
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error("HTTP " + response.status);
-    }
-    
-    return await response.json();
-  } catch (err: any) {
-    logger.error("client_ai_error", { error: err.message });
-    return { 
-      message: "Desculpe, tive um erro ao processar sua solicitação no cliente.", 
-      text: "Erro no cliente.",
-      category: forceCategory || "SAC_GERAL",
-      session_state_update: null,
-      shouldEscalate: true,
-      sentiment: "NEGATIVO",
-      isCritical: true
-    };
-  }
-}
 
 export async function summarizeTicketHistory(history: any, customerData?: any) { return "Resumo não disponível no cliente."; }
 export async function summarizeCustomerHistory(history: any, customerData?: any) { return "Resumo não disponível no cliente."; }

@@ -45,7 +45,6 @@ import { io as socketIoClient, Socket } from "socket.io-client";
 import { KanbanBoard } from "@/src/components/KanbanBoard";
 import {
   summarizeTicketHistory as summarizeTicket,
-  getAIResponse as askAiAgent,
 } from "@/src/lib/gemini";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
