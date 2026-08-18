@@ -727,6 +727,13 @@ export async function startFastifyServer() {
     createIndexingWorker();
     app.log.info('[indexing-worker] iniciado (astrum:ai-processing)');
 
+    // RAG — Documents worker (consome a fila 'documents' do Outbox; extrai texto PDF/DOCX/TXT/MD
+    // e enfileira em astrum:ai-processing). Sem isso, upload de documento ficava preso em 'processing'.
+    // @ts-ignore
+    const { createDocumentsWorker } = await import('../../../packages/queue/src/workers/documents.worker');
+    createDocumentsWorker();
+    app.log.info('[documents-worker] iniciado (fila: documents)');
+
     // Agendar Batch Jobs
     await scheduleBatchJobs();
 
