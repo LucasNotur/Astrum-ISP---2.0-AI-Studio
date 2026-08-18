@@ -1,11 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Garante caminho "mock redis": objeto sem `.options` → isMockRedis = true
+// Garante caminho "mock redis": getRedisStatus()==='mock' → isMockRedis = true
+// (getQueueConnection() é sempre uma instância real por design — não dá pra
+// detectar mock por ela; ver comentário em bullmq.client.ts)
 vi.mock('../cache/redis.client', () => ({
   default: {
     get: vi.fn().mockResolvedValue(null),
     set: vi.fn().mockResolvedValue('OK'),
   },
+  getRedisStatus: () => 'mock',
+  getQueueConnection: () => ({}),
 }));
 
 describe('bullmq.client (modo mock redis)', () => {

@@ -1,10 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- bullmq connection type não é compatível com ioredis Redis; mocks precisam de any para partial Queue */
 import { Queue } from "bullmq";
-import redis from "../cache/redis.client";
+import redis, { getRedisStatus, getQueueConnection } from "../cache/redis.client";
 import EventEmitter from "events";
 import { infraLogger } from '../logging/logger';
 
-const isMockRedis = !((redis as any).options);
+// isMockRedis reflete se há REDIS_URL configurada (getRedisStatus), não a instância
+// de conexão em si — getQueueConnection() é SEMPRE uma instância ioredis real (ver
+// redis.client.ts), então checar `.options` nela sempre daria "não é mock".
+const isMockRedis = getRedisStatus() === 'mock';
 export const mockQueueEmitter = new EventEmitter();
 
 export const messageQueue = isMockRedis ? {
@@ -16,13 +19,13 @@ export const messageQueue = isMockRedis ? {
   getJob: async () => null,
   getJobCounts: async () => ({})
 } as any : new Queue("message-processing", {
-  connection: redis as any,
+  connection: getQueueConnection() as any,
 });
 
 export const deadLetterQueue = isMockRedis ? {
   add: async () => {}
 } as any : new Queue("message-dead-letter", {
-  connection: redis as any,
+  connection: getQueueConnection() as any,
 });
 
 export function setupDLQ(worker: any) {
@@ -60,7 +63,7 @@ export function getTenantQueue(tenantId: string): Queue {
 
   if (!tenantQueues.has(tenantId)) {
     const queue = new Queue(`messages-${tenantId}`, {
-      connection: redis as any,
+      connection: getQueueConnection() as any,
       defaultJobOptions: {
         attempts: 3,
         backoff: { type: 'exponential', delay: 2000 },

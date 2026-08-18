@@ -1,5 +1,5 @@
 import { Queue as BullQueue } from 'bullmq';
-import { getRedisClient } from '../cache/redis.client';
+import { getRedisStatus, getQueueConnection } from '../cache/redis.client';
 
 /**
  * Filas Prioritárias Dinâmicas (Bloco 6)
@@ -9,7 +9,9 @@ import { getRedisClient } from '../cache/redis.client';
  * batch   (1):  ETL, Batch API, relatórios, indexação
  */
 
-const isMock = !((getRedisClient() as any).options);
+// isMock reflete se há REDIS_URL configurada — getQueueConnection() é SEMPRE uma
+// instância ioredis real (ver redis.client.ts), não dá pra detectar mock por ela.
+const isMock = getRedisStatus() === 'mock';
 
 const Queue = isMock ? class {
   constructor(public name: string, opts: any) {}
@@ -24,10 +26,10 @@ const Queue = isMock ? class {
 };
 
 export const queues = {
-  cobrai:        new Queue('cobrai',        { connection: getRedisClient(), defaultJobOptions: { priority: 10 } }),
-  notifications: new Queue('notifications', { connection: getRedisClient(), defaultJobOptions: { priority: 5 } }),
-  documents:     new Queue('documents',     { connection: getRedisClient(), defaultJobOptions: { priority: 1 } }),
-  'ai-batch':    new Queue('ai-batch',      { connection: getRedisClient(), defaultJobOptions: { priority: 1 } }),
-  'outbox-poller': new Queue('outbox-poller', { connection: getRedisClient() }),
+  cobrai:        new Queue('cobrai',        { connection: getQueueConnection(), defaultJobOptions: { priority: 10 } }),
+  notifications: new Queue('notifications', { connection: getQueueConnection(), defaultJobOptions: { priority: 5 } }),
+  documents:     new Queue('documents',     { connection: getQueueConnection(), defaultJobOptions: { priority: 1 } }),
+  'ai-batch':    new Queue('ai-batch',      { connection: getQueueConnection(), defaultJobOptions: { priority: 1 } }),
+  'outbox-poller': new Queue('outbox-poller', { connection: getQueueConnection() }),
 };
 

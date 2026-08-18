@@ -1,7 +1,10 @@
 import * as RedisModule from 'ioredis';
 const Redis = (RedisModule as any).default || (RedisModule as any).Redis || RedisModule;
 
-const isLocalRedis = !process.env.REDIS_URL || process.env.REDIS_URL.includes('localhost') || process.env.REDIS_URL.includes('127.0.0.1') || !process.env.REDIS_URL.startsWith('redis');
+// Só mockamos quando REDIS_URL está genuinamente ausente/inválida. Um REDIS_URL
+// apontando para localhost (dev local com Docker) é intenção explícita de usar
+// Redis de verdade — tratá-lo como mock quebrava o BullMQ (ver getQueueConnection abaixo).
+const isLocalRedis = !process.env.REDIS_URL || !process.env.REDIS_URL.startsWith('redis');
 const redisUrl = process.env.REDIS_URL && process.env.REDIS_URL.startsWith('redis') ? process.env.REDIS_URL : 'redis://localhost:6379';
 
 const createRedisClient = () => {
@@ -125,13 +128,17 @@ const createRedisClient = () => {
     } as any;
   }
 
+  return createRealRedisClient((times) => {
+    if (times > 3) return null;
+    return Math.min(times * 50, 2000);
+  });
+};
+
+function createRealRedisClient(retryStrategy: (times: number) => number | null) {
   const client = new Redis(redisUrl, {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
-    retryStrategy(times: number) {
-      if (times > 3) return null;
-      return Math.min(times * 50, 2000);
-    }
+    retryStrategy,
   });
 
   client.on('error', (err: any) => {
@@ -143,9 +150,26 @@ const createRedisClient = () => {
   });
 
   return client;
-};
+}
 
 const redis = createRedisClient();
 
-export const connection = redis;
+/**
+ * Conexão dedicada para BullMQ. NUNCA aponta para o mock in-memory — um plain
+ * object não passa no `isRedisInstance()` que o BullMQ usa pra reconhecer uma
+ * conexão real, e ele silenciosamente cria seu próprio `new IORedis()` com
+ * defaults (127.0.0.1:6379, sem senha), ignorando o mock por completo. Também
+ * usa uma retryStrategy que NUNCA desiste (diferente da de cache acima, capada
+ * em 3 tentativas) — um worker morto por reconexão abandonada é pior que um
+ * cache miss. Toda fila/worker BullMQ deve importar `connection` — nunca o
+ * `redis` default.
+ */
+let queueConnection: ReturnType<typeof createRealRedisClient> | null = null;
+export const getQueueConnection = () => {
+  if (!queueConnection) {
+    queueConnection = createRealRedisClient((times) => Math.min(times * 200, 10000));
+  }
+  return queueConnection;
+};
+export const connection = getQueueConnection();
 export default redis;

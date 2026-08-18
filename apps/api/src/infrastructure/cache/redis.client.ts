@@ -3,7 +3,10 @@ import { infraLogger } from '../logging/logger';
 
 const Redis = (RedisModule as any).default || (RedisModule as any).Redis || RedisModule;
 
-const isMock = !process.env.REDIS_URL || process.env.REDIS_URL.includes('localhost') || process.env.REDIS_URL.includes('127.0.0.1') || !process.env.REDIS_URL.startsWith('redis');
+// Só mockamos quando REDIS_URL está genuinamente ausente/inválida. Um REDIS_URL
+// apontando para localhost (dev local com Docker) é uma intenção explícita de usar
+// Redis de verdade — tratá-lo como mock quebrava o BullMQ (ver getQueueConnection abaixo).
+const isMock = !process.env.REDIS_URL || !process.env.REDIS_URL.startsWith('redis');
 const redisUrl = process.env.REDIS_URL && process.env.REDIS_URL.startsWith('redis') ? process.env.REDIS_URL : 'redis://localhost:6379';
 
 export const getRedisStatus = (): 'real' | 'mock' => isMock ? 'mock' : 'real';
@@ -129,25 +132,36 @@ function createMockClient() {
   } as any;
 }
 
-const createRedisClient = () => {
-  if (isMock) {
-    return createMockClient();
-  }
+type RetryStrategy = (times: number) => number | null;
 
+// Retry do client de CACHE: desiste após 10 tentativas (~15s) — aceitável, cache
+// degrada bem (fallback = miss). NÃO usar essa política pra conexão de fila (ver abaixo).
+const CACHE_RETRY_STRATEGY: RetryStrategy = (times) => {
+  if (times > 10) {
+    infraLogger.error('Redis (cache): máximo de tentativas atingido — desistindo');
+    return null;
+  }
+  const delay = Math.min(times * 100, 3000);
+  infraLogger.warn({ attempt: times, delayMs: delay }, 'Redis (cache): reconectando...');
+  return delay;
+};
+
+// Retry da conexão de FILA: nunca desiste (retorna null = ioredis para de vez).
+// Um worker BullMQ que "desiste" de reconectar fica morto até reiniciar o processo —
+// bem pior que um cache miss. Backoff exponencial suave, sem teto de tentativas.
+const QUEUE_RETRY_STRATEGY: RetryStrategy = (times) => {
+  const delay = Math.min(times * 200, 10000);
+  infraLogger.warn({ attempt: times, delayMs: delay }, 'Redis (fila): reconectando...');
+  return delay;
+};
+
+function createRealRedisClient(opts: { commandTimeout?: number; retryStrategy: RetryStrategy }) {
   const client = new Redis(redisUrl, {
     maxRetriesPerRequest: null,
     enableReadyCheck: true,
     connectTimeout: 5000,
-    commandTimeout: 3000,
-    retryStrategy(times: number) {
-      if (times > 10) {
-        infraLogger.error('Redis: máximo de tentativas atingido — desistindo');
-        return null;
-      }
-      const delay = Math.min(times * 100, 3000);
-      infraLogger.warn({ attempt: times, delayMs: delay }, 'Redis: reconectando...');
-      return delay;
-    },
+    ...(opts.commandTimeout ? { commandTimeout: opts.commandTimeout } : {}),
+    retryStrategy: opts.retryStrategy,
     lazyConnect: false,
   });
 
@@ -158,16 +172,57 @@ const createRedisClient = () => {
   client.on('reconnecting', () => infraLogger.warn('Redis: reconectando...'));
 
   return client;
+}
+
+const createRedisClient = () => {
+  if (isMock) {
+    return createMockClient();
+  }
+  // commandTimeout curto é seguro para chamadas de cache (GET/SET pontuais).
+  return createRealRedisClient({ commandTimeout: 3000, retryStrategy: CACHE_RETRY_STRATEGY });
 };
 
 export const redis = createRedisClient();
-export const connection = redis;
 export const getRedisClient = () => redis;
 export default redis;
+
+/**
+ * Conexão dedicada para BullMQ — SEMPRE uma instância própria, nunca compartilhada
+ * com `redis`/`getRedisClient()`, por três motivos:
+ *
+ * 1. Nunca pode ser o mock in-memory: BullMQ distingue uma instância ioredis real
+ *    de "opções de conexão" checando `isRedisInstance(opts)` (ver node_modules/bullmq/
+ *    dist/cjs/classes/redis-connection.js) — um plain object (o mock) falha nesse
+ *    teste e o BullMQ silenciosamente cria seu PRÓPRIO `new IORedis()` com defaults
+ *    (127.0.0.1:6379, sem senha, sem a retryStrategy/logging deste módulo), ignorando
+ *    o mock por completo. Isso causava ECONNREFUSED bufferizado (Docker fora) ou
+ *    NOAUTH (Redis real exigindo senha) de forma totalmente silenciosa.
+ * 2. Nunca pode reusar a conexão de cache: BullMQ mantém comandos bloqueantes
+ *    (BZPOPMIN etc.) abertos por longos períodos esperando jobs — o
+ *    `commandTimeout: 3000` do client de cache (correto para GET/SET pontuais)
+ *    derruba esses comandos bloqueantes a cada 3s, quebrando o processamento.
+ * 3. Precisa de uma retryStrategy que NUNCA desiste (ver QUEUE_RETRY_STRATEGY) —
+ *    diferente do client de cache, que pode dar-se ao luxo de desistir depois de
+ *    10 tentativas (o app degrada bem sem cache; um worker morto, não).
+ *
+ * Toda fila/worker BullMQ deve importar `connection`/`getQueueConnection()` —
+ * nunca `redis`/`getRedisClient()`.
+ */
+let queueConnection: ReturnType<typeof createRealRedisClient> | null = null;
+export const getQueueConnection = () => {
+  if (!queueConnection) {
+    queueConnection = createRealRedisClient({ retryStrategy: QUEUE_RETRY_STRATEGY });
+  }
+  return queueConnection;
+};
+export const connection = getQueueConnection();
 
 export async function closeRedis(): Promise<void> {
   if (!isMock && typeof redis.quit === 'function') {
     await (redis as any).quit();
     infraLogger.info('Redis: conexão encerrada graciosamente');
+  }
+  if (queueConnection && typeof queueConnection.quit === 'function') {
+    await queueConnection.quit();
   }
 }

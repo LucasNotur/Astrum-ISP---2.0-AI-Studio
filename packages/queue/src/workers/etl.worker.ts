@@ -10,7 +10,7 @@ export interface ETLJobData {
 
 export function createETLWorker() {
   const worker = new Worker<ETLJobData>(
-    'astrum:ai-processing',
+    'astrum-etl',
     async (job: Job<ETLJobData>) => {
       infraLogger.info({ trigger: job.data.trigger, tenantId: job.data.tenantId }, 'ETL job iniciado');
       const result = await runFullETL(job.data.tenantId);

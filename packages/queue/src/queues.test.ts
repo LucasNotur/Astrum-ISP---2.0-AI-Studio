@@ -18,7 +18,7 @@ vi.mock('bullmq', () => {
   };
 });
 
-vi.mock('../../apps/api/src/infrastructure/cache/redis.client', () => ({
+vi.mock('../../../apps/api/src/infrastructure/cache/redis.client', () => ({
   connection: {},
   getRedisStatus: () => 'mock',
 }));

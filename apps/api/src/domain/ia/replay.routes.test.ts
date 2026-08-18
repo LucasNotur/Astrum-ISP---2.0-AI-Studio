@@ -36,6 +36,7 @@ vi.mock('../../domain/atendimento/replay.service', () => ({
 vi.mock('../../infrastructure/cache/redis.client', () => ({
   connection: { options: { host: 'mock-host' } },
   default: { options: { host: 'mock-host' } },
+  getRedisStatus: () => 'real',
 }));
 
 // Mock do BullMQ Queue — captura o `add` (sem subir Redis).

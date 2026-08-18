@@ -1,5 +1,5 @@
 import { Queue } from 'bullmq';
-import { connection } from '../../../apps/api/src/infrastructure/cache/redis.client';
+import { connection, getRedisStatus } from '../../../apps/api/src/infrastructure/cache/redis.client';
 
 /**
  * Filas BullMQ nomeadas por domínio.
@@ -13,7 +13,9 @@ const DEFAULT_JOB_OPTIONS = {
   removeOnFail: false,
 };
 
-const isMockRedis = !((connection as any).options);
+// isMockRedis reflete se há REDIS_URL configurada — `connection` é SEMPRE uma
+// instância ioredis real por design (ver getQueueConnection em redis.client.ts).
+const isMockRedis = getRedisStatus() === 'mock';
 
 const createQueue = (name: string, opts: any) => {
   if (isMockRedis) return {

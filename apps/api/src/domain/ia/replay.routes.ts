@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Queue } from 'bullmq';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { validateBody, validateQuery, validateParams } from '../../infrastructure/validation/zod-validator';
-import { connection } from '../../infrastructure/cache/redis.client';
+import { connection, getRedisStatus } from '../../infrastructure/cache/redis.client';
 import { iaLogger } from '../../infrastructure/logging/logger';
 import {
   enqueueReplay,
@@ -24,7 +24,9 @@ import {
  * é proposital: o frontend mostra a flag `replay` desabilitada pelo public-flags.
  */
 
-const isMockRedis = !((connection as any).options);
+// isMockRedis reflete se há REDIS_URL configurada — `connection` é SEMPRE uma
+// instância ioredis real por design (ver getQueueConnection em redis.client.ts).
+const isMockRedis = getRedisStatus() === 'mock';
 
 const replayQueue = isMockRedis
   ? {

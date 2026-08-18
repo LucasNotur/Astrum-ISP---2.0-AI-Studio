@@ -1,5 +1,5 @@
 import { Worker, Queue, type Job } from 'bullmq';
-import { connection } from '../../../../apps/api/src/infrastructure/cache/redis.client';
+import { connection, getRedisStatus } from '../../../../apps/api/src/infrastructure/cache/redis.client';
 import { setupDLQ } from '../../../../apps/api/src/infrastructure/queue/bullmq.client';
 import { chunkTechnicalManual } from '../../../../apps/api/src/infrastructure/rag/document-chunker.service';
 import { generateEmbeddingsBatch } from '../../../../apps/api/src/adapters/ai/embedding.service';
@@ -21,11 +21,13 @@ export interface IndexingJobData {
   articleId?: string;   // ID do knowledge_articles (quando entityType='article')
 }
 
-// Queue exportada para que outros módulos possam enfileirar jobs de indexação
-const isMockRedis = !(connection as any).options;
+// Queue exportada para que outros módulos possam enfileirar jobs de indexação.
+// isMockRedis reflete se há REDIS_URL configurada — `connection` é SEMPRE uma
+// instância ioredis real por design (ver getQueueConnection em redis.client.ts).
+const isMockRedis = getRedisStatus() === 'mock';
 export const aiProcessingQueue: Pick<Queue, 'add'> = isMockRedis
   ? { add: async () => ({ id: 'mock' }) as any }
-  : new Queue('astrum:ai-processing', { connection: connection as any });
+  : new Queue('astrum-ai-processing', { connection: connection as any });
 
 async function indexDocument(job: Job<IndexingJobData>): Promise<void> {
   const { tenantId, documentId, filename, fileType, textContent, entityType = 'document', articleId } = job.data;
@@ -85,7 +87,7 @@ async function indexDocument(job: Job<IndexingJobData>): Promise<void> {
 
 export function createIndexingWorker() {
   const worker = new Worker<IndexingJobData>(
-    'astrum:ai-processing',
+    'astrum-ai-processing',
     indexDocument,
     { connection: connection as any, concurrency: 2 }
   );
