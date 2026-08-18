@@ -717,6 +717,13 @@ export async function startFastifyServer() {
     createReplayWorker();
     app.log.info('[replay-worker] boot verificado (ver log próprio para enabled/disabled)');
 
+    // RAG — Indexing worker (consome a fila astrum:ai-processing — chunk+embed+upsert Qdrant).
+    // Existia desde antes mas nunca era chamado no boot; fila ficava sem consumidor.
+    // @ts-ignore
+    const { createIndexingWorker } = await import('../../../packages/queue/src/workers/indexing.worker');
+    createIndexingWorker();
+    app.log.info('[indexing-worker] iniciado (astrum:ai-processing)');
+
     // Agendar Batch Jobs
     await scheduleBatchJobs();
 
