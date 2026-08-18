@@ -9,7 +9,7 @@ import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import { supabase } from '@/src/lib/supabase';
 import { createKBArticle, updateKBArticle, deleteKBArticle } from '@/src/lib/db';
-import { apiPost } from '@/src/lib/apiClient';
+import { api, apiGet, apiPost } from '@/src/lib/apiClient';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/components/ui/select";
 import { Textarea } from "@/src/components/ui/textarea";
@@ -207,18 +207,13 @@ export function KnowledgeBasePage() {
   };
 
   const startReindex = async () => {
-    await fetch('/api/knowledge/reindex', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tenantId: currentTenant?.id })
-    });
+    await apiPost('/api/v2/knowledge/reindex', {});
     pollReindexStatus();
   };
 
   const pollReindexStatus = () => {
     const interval = setInterval(async () => {
-      const res = await fetch(`/api/knowledge/reindex/status?tenantId=${currentTenant?.id}`);
-      const data = await res.json();
+      const data = await apiGet<any>('/api/v2/knowledge/reindex/status');
       setReindexStatus(data);
       if (data.status === 'completed' || data.status === 'not_running') {
         clearInterval(interval);
@@ -263,27 +258,17 @@ export function KnowledgeBasePage() {
 
   const testSearch = async () => {
     if (!currentTenant?.id || !searchQuery) return;
-    const res = await fetch('/api/knowledge/search-test', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: searchQuery, tenantId: currentTenant.id })
-    });
-    setSearchResults(await res.json());
+    const data = await apiPost<any>('/api/v2/knowledge/search-test', { query: searchQuery });
+    setSearchResults(data);
   };
 
   const handleReindexArticle = async (id: string) => {
     if (!currentTenant?.id) return;
     try {
-      const res = await fetch(`/api/knowledge/articles/${id}/reindex`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId: currentTenant.id })
-      });
-      if (res.ok) {
-        fetchKBArticles(currentTenant.id);
-      }
-    } catch(e) {
-      console.error(e);
+      await apiPost(`/api/v2/knowledge/articles/${id}/reindex`, {});
+      fetchKBArticles(currentTenant.id);
+    } catch (e: any) {
+      toast.error('Erro ao reindexar artigo: ' + (e?.message || 'desconhecido'));
     }
   };
 
@@ -353,7 +338,7 @@ export function KnowledgeBasePage() {
     }
   };
 
-  const indexedCount = kbArticles.filter(a => a.vector_indexed).length;
+  const indexedCount = kbArticles.filter(a => a.ingest_status === 'indexed').length;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8 p-1">
@@ -488,7 +473,7 @@ export function KnowledgeBasePage() {
                         {article.created_at?.toDate ? new Date(article.created_at.toDate()).toLocaleDateString('pt-BR') : 'Hoje'}
                       </td>
                       <td className="px-6 py-4">
-                        {article.vector_indexed ? (
+                        {article.ingest_status === 'indexed' ? (
                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none"><CheckCircle2 size={12} className="mr-1"/> Indexado</Badge>
                         ) : (
                            <Badge variant="secondary" className="text-zinc-500"><RotateCcw size={12} className="mr-1"/> Pendente</Badge>

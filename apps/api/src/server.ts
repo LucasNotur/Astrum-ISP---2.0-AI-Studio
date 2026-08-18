@@ -113,6 +113,9 @@ export async function buildServer() {
   const { documentRoutes } = await import('./domain/ia/documents.routes');
   await app.register(documentRoutes);
 
+  const { knowledgeReindexRoutes } = await import('./domain/conhecimento/knowledge-reindex.routes');
+  await app.register(knowledgeReindexRoutes);
+
   const { analyticsRoutes } = await import('./domain/ia/analytics.routes');
   await app.register(analyticsRoutes);
 
