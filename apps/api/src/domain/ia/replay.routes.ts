@@ -30,7 +30,17 @@ const replayQueue = isMockRedis
   ? {
       add: async (_name: string, _payload: unknown) => ({ id: 'mock' }),
     } as any
-  : new Queue('astrum-replay', { connection: connection as any });
+  : new Queue('astrum-replay', {
+      connection: connection as any,
+      // Espelha o retry que antes (erroneamente) vivia em WorkerOptions —
+      // defaultJobOptions é propriedade de Queue, não de Worker (TS2353).
+      defaultJobOptions: {
+        attempts: 2,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: false,
+        removeOnFail: false,
+      },
+    });
 
 const postBody = z.object({
   from: z.string().datetime({ message: 'from deve ser ISO datetime' }),

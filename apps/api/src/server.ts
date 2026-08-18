@@ -711,6 +711,12 @@ export async function startFastifyServer() {
     createHistoryImportWorker();
     app.log.info('[history-import-worker] iniciado (on-demand via queue)');
 
+    // IA-46 — Replay worker (consome a fila astrum-replay; no-op se REPLAY_ENGINE_ENABLED=false).
+    // @ts-ignore
+    const { createReplayWorker } = await import('../../../packages/queue/src/workers/replay.worker');
+    createReplayWorker();
+    app.log.info('[replay-worker] boot verificado (ver log próprio para enabled/disabled)');
+
     // Agendar Batch Jobs
     await scheduleBatchJobs();
 

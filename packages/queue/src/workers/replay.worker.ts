@@ -41,12 +41,6 @@ export function createReplayWorker() {
   const worker = new Worker<ReplayJobData>('astrum-replay', processReplayJob, {
     connection: connection as any,
     concurrency: 1, // Replay consome muitos tokens; 1 evita estourar rate limit.
-    defaultJobOptions: {
-      attempts: 2,
-      backoff: { type: 'exponential', delay: 5000 },
-      removeOnComplete: false,
-      removeOnFail: false,
-    },
   });
 
   setupDLQ(worker);
