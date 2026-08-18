@@ -23,17 +23,15 @@ set "DOCKER_SERVICES=redis qdrant"
 :: Containers esperados (para checagem de saude)
 set "EXPECTED_CONTAINERS=astrum-redis astrum-qdrant"
 
-:: Portas do backend
-set "EXPRESS_PORT=3000"
-set "FASTIFY_PORT=3001"
+:: Porta do backend (Fastify — unico backend desde a Fase 4 / 2026-08-17;
+:: Express raiz aposentado, server.ts + src/routes/* apagados)
+set "BACKEND_PORT=3001"
 
-:: Health check URLs
-set "HEALTH_EXPRESS=http://localhost:%EXPRESS_PORT%/api/health"
-set "HEALTH_FASTIFY=http://localhost:%FASTIFY_PORT%/api/v2/health"
+:: Health check URL
+set "HEALTH_BACKEND=http://localhost:%BACKEND_PORT%/api/health"
 
-:: Cloudflare Tunnel
-set "TUNNEL_API_PORT=%FASTIFY_PORT%"
-set "TUNNEL_WEBHOOK_PORT=%EXPRESS_PORT%"
+:: Cloudflare Tunnel (aponta pro Fastify — webhooks e /api/v2 no mesmo processo)
+set "TUNNEL_API_PORT=%BACKEND_PORT%"
 
 :: Docker Desktop
 set "DOCKER_DESKTOP_PATH=C:\Program Files\Docker\Docker\Docker Desktop.exe"

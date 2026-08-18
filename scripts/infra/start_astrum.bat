@@ -11,7 +11,7 @@ color 0A
 ::    2. Inicia Docker Desktop se necessario
 ::    3. Sobe containers (Redis, Qdrant) via compose
 ::    4. Verifica saude dos containers
-::    5. Inicia backend Node.js (Express + Fastify)
+::    5. Inicia backend Node.js (Fastify)
 ::    6. Abre tunnel Cloudflare
 ::    7. Exibe painel de status final
 ::
@@ -158,7 +158,7 @@ call :ok "Todos os containers saudaveis"
 :: --------------------------------------------------------
 call :step "5/7" "Iniciando backend Node.js"
 
-curl -sf %HEALTH_EXPRESS% >nul 2>nul
+curl -sf %HEALTH_BACKEND% >nul 2>nul
 if !errorlevel! equ 0 (
     call :ok "Backend ja esta rodando"
     goto :backend_ready
@@ -171,7 +171,7 @@ set /a "BACKEND_WAIT=0"
 :wait_backend
 timeout /t 3 /nobreak >nul
 set /a "BACKEND_WAIT+=3"
-curl -sf %HEALTH_EXPRESS% >nul 2>nul
+curl -sf %HEALTH_BACKEND% >nul 2>nul
 if !errorlevel! equ 0 goto :backend_ok
 if !BACKEND_WAIT! geq 90 (
     call :error "Backend nao respondeu em 90s"
@@ -184,13 +184,10 @@ goto :wait_backend
 :backend_ok
 :backend_ready
 
-set "EXPRESS_OK=0"
-set "FASTIFY_OK=0"
-curl -sf %HEALTH_EXPRESS% >nul 2>nul && set "EXPRESS_OK=1"
-curl -sf %HEALTH_FASTIFY% >nul 2>nul && set "FASTIFY_OK=1"
+set "BACKEND_OK=0"
+curl -sf %HEALTH_BACKEND% >nul 2>nul && set "BACKEND_OK=1"
 
-if "!EXPRESS_OK!"=="1" (call :ok "Express :%EXPRESS_PORT%") else (call :warn "Express :%EXPRESS_PORT% nao respondeu")
-if "!FASTIFY_OK!"=="1" (call :ok "Fastify :%FASTIFY_PORT%") else (call :warn "Fastify :%FASTIFY_PORT% nao respondeu (pode levar mais tempo)")
+if "!BACKEND_OK!"=="1" (call :ok "Fastify :%BACKEND_PORT%") else (call :warn "Fastify :%BACKEND_PORT% nao respondeu")
 
 :: --------------------------------------------------------
 ::  ETAPA 6: Cloudflare Tunnel
@@ -206,7 +203,7 @@ if !errorlevel! equ 0 (
 wscript "%~dp0launch_hidden.vbs" "tunnel" "%~dp0run_tunnel.bat"
 timeout /t 4 /nobreak >nul
 
-call :ok "Tunnel iniciado (astrum-api -> localhost:%EXPRESS_PORT%)"
+call :ok "Tunnel iniciado (astrum-api -> localhost:%BACKEND_PORT%)"
 
 :tunnels_ready
 
@@ -225,8 +222,7 @@ echo     %URL_FRONTEND%
 echo.
 echo   API:
 echo     %URL_API%
-echo     Local Express:  http://localhost:%EXPRESS_PORT%
-echo     Local Fastify:  http://localhost:%FASTIFY_PORT%
+echo     Local Backend:  http://localhost:%BACKEND_PORT%
 echo.
 echo   Containers:
 
@@ -242,8 +238,7 @@ for %%c in (%EXPECTED_CONTAINERS%) do (
 
 echo.
 echo   Backend:
-if "!EXPRESS_OK!"=="1" (echo     + Express :%EXPRESS_PORT%) else (echo     X Express :%EXPRESS_PORT%)
-if "!FASTIFY_OK!"=="1" (echo     + Fastify :%FASTIFY_PORT%) else (echo     ~ Fastify :%FASTIFY_PORT% [iniciando])
+if "!BACKEND_OK!"=="1" (echo     + Fastify :%BACKEND_PORT%) else (echo     ~ Fastify :%BACKEND_PORT% [iniciando])
 
 echo.
 echo   Cloudflare:

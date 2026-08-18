@@ -43,6 +43,41 @@ de auditar o código.
 **Migration 105** (`whatsapp_health_snapshots`, aplicada via MCP) — histórico/tendência em
 cima do `whatsapp-health.service.ts` já existente (que só dá a fotografia ao vivo).
 
+**CUTOVER EXECUTADO (2026-08-17, mesma sessão):** `~/.cloudflared/config.yml` repontado de
+`localhost:3000` → `localhost:3001`; `server.ts` (raiz) + `src/routes/{evolutionWebhook,
+evolutionConnection,facebookWebhook}.ts` + 3 testes órfãos apagados. Scripts de infra
+(`astrum.config.bat` e os 6 `.bat` que o usam) migrados pra topologia de backend único
+(`BACKEND_PORT=3001`, sem mais dual Express/Fastify). `package.json` raiz (`dev`/`build`/
+`start`) repontado pra `apps/api` (Vercel usa `buildCommand` próprio no `vercel.json`, não
+foi afetado). Verificado ao vivo via `https://api.astrumlabs.online`: os 3 aliases (`/api/
+health`, `/api/health/whatsapp`, `/api/system/webhook-url`) + os 3 webhooks (`evolution`,
+`asaas`, `facebook` — incluindo o handshake GET da Meta, que só funcionou depois do fix no
+`webhook-hmac.plugin.ts`) respondendo corretamente pelo domínio real.
+
+**Achados de infra durante o cutover (não relacionados ao código, documentados à parte):**
+1. `apps/api/src/server.ts` nunca tinha auto-boot standalone — só definia `startFastifyServer()`,
+   sempre dependia do Express chamar. Corrigido com guard de entrypoint ESM
+   (`process.argv[1] === fileURLToPath(import.meta.url)`) + load explícito do `.env` da raiz
+   (script `dev` do `apps/api` não herdava o `-r dotenv/config` do script raiz).
+2. **BUG real achado no par mock-Redis/BullMQ** (`redis.client.ts` em `apps/api` E `src/lib/
+   redis.ts` no legado): o fallback in-memory (`isMock` quando `REDIS_URL` contém `localhost`)
+   é tratado pelo BullMQ como se fosse um OBJETO DE OPÇÕES de conexão real (não um client
+   ioredis) — resultado: toda fila/worker BullMQ tenta uma conexão real e NÃO-autenticada em
+   `127.0.0.1:6379` por baixo do mock, independente do app achar que está em modo mock. Com
+   Docker/Redis desligado vira ECONNREFUSED silencioso (comandos ficam bufferizados/pendurados
+   pelo ioredis); com Redis ligado (como o `astrum-redis` real, que EXIGE senha) vira
+   `NOAUTH`. Isso afeta TODAS as filas do app (mensagens, cobrança, DLQ, SLA/FCR/snooze/
+   report/gamification/plan-sync, o novo snapshot de saúde WhatsApp) sempre que rodado nesta
+   máquina — não é um bug introduzido nesta sessão, é estrutural e provavelmente já afeta
+   produção sempre que o Docker sobe (o que `start_astrum.bat` faz automaticamente).
+   **Não corrigido nesta sessão** (fora de escopo, precisa de mudança cuidadosa em 2 arquivos
+   compartilhados + teste de integração real com BullMQ) — ver pendência aberta no chip.
+3. Rodar a suíte `vitest` inteira nesta sessão (1481 suites) mostrou ~24 falhas que NÃO
+   reproduzem isoladamente (re-rodadas individuais de cada arquivo passaram 100%) — flakiness
+   por contenção de recursos (muitos processos node + Docker sendo ligado/desligado durante a
+   sessão), não regressão real. `typecheck:legacy` limpo, `apps/api tsc --noEmit` sem erros
+   novos, verificação ao vivo via domínio público confirmou o comportamento correto.
+
 ---
 
 ## 🔄 PONTO DE RETOMADA ANTERIOR — 2026-08-17

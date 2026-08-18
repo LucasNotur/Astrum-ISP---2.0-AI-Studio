@@ -11,9 +11,9 @@
   "_migration_notes": "FZ 2026-07-03: Firestore/Firebase removidos TOTALMENTE — Supabase e o unico banco (ver .astrum-progress/PLANO_FIRESTORE_ZERO__CONCLUIDO.md)",
   "scripts": {
     "dev:turbo": "turbo run dev",
-    "dev": "tsx -r dotenv/config server.ts",
+    "dev": "npm --prefix apps/api run dev",
     "dev:vite": "vite",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "build": "vite build",
     "build:turbo": "turbo run build",
     "test:unit": "vitest run",
     "test:e2e": "npx playwright test",
@@ -34,7 +34,7 @@
     "db:migrate:dry": "tsx packages/db/src/migrate.ts --dry-run",
     "db:baseline": "tsx packages/db/src/migrate.ts --baseline",
     "lint:design": "tsx scripts/design-lint.ts",
-    "start": "node dist/server.cjs"
+    "start": "npm --prefix apps/api run start"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.68",

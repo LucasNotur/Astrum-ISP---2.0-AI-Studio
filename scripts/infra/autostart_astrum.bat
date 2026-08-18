@@ -129,7 +129,7 @@ call :log "  OK: Containers verificados"
 :: --------------------------------------------------------
 call :log "[5/7] Iniciando backend Node.js..."
 
-curl -sf %HEALTH_EXPRESS% >nul 2>nul
+curl -sf %HEALTH_BACKEND% >nul 2>nul
 if !errorlevel! equ 0 (
     call :log "  OK: Backend ja esta rodando"
     goto :backend_ready_auto
@@ -142,7 +142,7 @@ set /a "BACKEND_WAIT=0"
 :wait_backend_auto
 timeout /t 5 /nobreak >nul
 set /a "BACKEND_WAIT+=5"
-curl -sf %HEALTH_EXPRESS% >nul 2>nul
+curl -sf %HEALTH_BACKEND% >nul 2>nul
 if !errorlevel! equ 0 goto :backend_ok_auto
 if !BACKEND_WAIT! geq 120 (
     call :log "WARN: Backend nao respondeu em 120s - verifique manualmente"
@@ -183,13 +183,10 @@ if !errorlevel! equ 0 (
 :: --------------------------------------------------------
 call :log "[7/7] Verificacao final..."
 
-set "EXPRESS_OK=0"
-set "FASTIFY_OK=0"
-curl -sf %HEALTH_EXPRESS% >nul 2>nul && set "EXPRESS_OK=1"
-curl -sf %HEALTH_FASTIFY% >nul 2>nul && set "FASTIFY_OK=1"
+set "BACKEND_OK=0"
+curl -sf %HEALTH_BACKEND% >nul 2>nul && set "BACKEND_OK=1"
 
-call :log "  Express :%EXPRESS_PORT% = %EXPRESS_OK%"
-call :log "  Fastify :%FASTIFY_PORT% = %FASTIFY_OK%"
+call :log "  Fastify :%BACKEND_PORT% = %BACKEND_OK%"
 call :log "  Frontend: %URL_FRONTEND%"
 call :log "  API:      %URL_API%"
 call :log "=== AUTOSTART CONCLUIDO - %date% %time% ==="

@@ -49,11 +49,8 @@ echo.
 
 :: Backend
 echo  [Backend]
-curl -sf %HEALTH_EXPRESS% >nul 2>nul
-if !errorlevel! equ 0 (echo     + Express :%EXPRESS_PORT% ONLINE) else (echo     X Express :%EXPRESS_PORT% OFFLINE)
-
-curl -sf %HEALTH_FASTIFY% >nul 2>nul
-if !errorlevel! equ 0 (echo     + Fastify :%FASTIFY_PORT% ONLINE) else (echo     X Fastify :%FASTIFY_PORT% OFFLINE)
+curl -sf %HEALTH_BACKEND% >nul 2>nul
+if !errorlevel! equ 0 (echo     + Fastify :%BACKEND_PORT% ONLINE) else (echo     X Fastify :%BACKEND_PORT% OFFLINE)
 echo.
 
 :: Tunnels
@@ -71,7 +68,7 @@ echo.
 
 :: Portas em uso
 echo  [Portas]
-for %%p in (%EXPRESS_PORT% %FASTIFY_PORT% 6379 6333 8000 8080) do (
+for %%p in (%BACKEND_PORT% 6379 6333 8000 8080) do (
     netstat -ano 2>nul | findstr ":%%p .*LISTENING" >nul 2>nul
     if !errorlevel! equ 0 (echo     + Porta %%p: em uso) else (echo     - Porta %%p: livre)
 )

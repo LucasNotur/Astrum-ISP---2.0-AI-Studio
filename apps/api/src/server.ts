@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
@@ -778,4 +779,24 @@ export async function startFastifyServer() {
   process.on('SIGINT', () => shutdown('SIGINT'));
 
   return app;
+}
+
+// Fase 4 — Fastify vira o processo principal (antes só era invocado pelo Express raiz
+// via `await import(...) + startFastifyServer()`, nunca rodava sozinho). Roda o boot
+// só quando este arquivo é o entrypoint de verdade (`tsx watch src/server.ts`), não
+// quando é importado como módulo por outro processo.
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  // IIFE (não top-level await — este arquivo é transformado como CJS pelo esbuild/tsx).
+  (async () => {
+    // Standalone não herda o `-r dotenv/config` do script raiz (que carrega o .env da
+    // raiz do monorepo) — carrega explicitamente aqui. `dotenv.config()` não sobrescreve
+    // vars já setadas, então é seguro mesmo se algo já tiver carregado env antes.
+    const { config: loadDotenv } = await import('dotenv');
+    loadDotenv({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
+
+    await startFastifyServer();
+  })().catch((err) => {
+    console.error('[FASTIFY] Falha fatal ao iniciar standalone:', err);
+    process.exit(1);
+  });
 }

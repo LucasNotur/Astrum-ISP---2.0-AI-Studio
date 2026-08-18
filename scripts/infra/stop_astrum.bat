@@ -46,10 +46,7 @@ echo  [2/3] Parando backend Node.js...
 taskkill /fi "windowtitle eq Astrum Server*" /f >nul 2>nul
 
 set "KILLED=0"
-for /f "tokens=5" %%p in ('netstat -ano 2^>nul ^| findstr ":%EXPRESS_PORT% .*LISTENING"') do (
-    taskkill /pid %%p /f >nul 2>nul && set /a "KILLED+=1"
-)
-for /f "tokens=5" %%p in ('netstat -ano 2^>nul ^| findstr ":%FASTIFY_PORT% .*LISTENING"') do (
+for /f "tokens=5" %%p in ('netstat -ano 2^>nul ^| findstr ":%BACKEND_PORT% .*LISTENING"') do (
     taskkill /pid %%p /f >nul 2>nul && set /a "KILLED+=1"
 )
 
