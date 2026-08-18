@@ -278,6 +278,11 @@ export async function buildServer() {
   const { whatsappHealthHistoryRoutes } = await import('./domain/atendimento/whatsapp-health-history.routes');
   await app.register(whatsappHealthHistoryRoutes);
 
+  // Saúde da CONEXÃO WhatsApp (card MonitoringPage) — check ativo na Evolution API,
+  // substitui o stub `/api/health/whatsapp` (Express raiz) que sempre dizia "open".
+  const { whatsappConnectionHealthRoutes } = await import('./domain/atendimento/whatsapp-connection-health.routes');
+  await app.register(whatsappConnectionHealthRoutes);
+
   // Fase 2 — proxy Evolution API (port do Express /api/evolution/proxy). Creds server-side + guard SSRF.
   const { evolutionProxyRoutes } = await import('./domain/atendimento/evolution-proxy.routes');
   await app.register(evolutionProxyRoutes);

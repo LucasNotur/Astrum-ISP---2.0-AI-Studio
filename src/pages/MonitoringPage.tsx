@@ -8,6 +8,14 @@ import { supabase } from '@/src/lib/supabase';
 import { useAppStore } from '@/src/store/useAppStore';
 import { apiGet, apiPost } from '@/src/lib/apiClient';
 
+const WA_STATUS_LABELS: Record<string, string> = {
+  open: 'CONECTADO',
+  close: 'DESCONECTADO',
+  connecting: 'CONECTANDO',
+  not_configured: 'NÃO CONFIGURADO',
+  unknown: 'DESCONHECIDO',
+};
+
 export function MonitoringPage() {
   const { user } = useAppStore();
   const [waHealth, setWaHealth] = useState<any>(null);
@@ -29,9 +37,6 @@ export function MonitoringPage() {
       .order('created_at', { ascending: false }).limit(20)
       .then(({ data }) => setNotifications(data ?? []));
 
-    supabase.from('tenants').select('whatsapp_health').eq('id', tenantId).maybeSingle()
-      .then(({ data }) => { if (data?.whatsapp_health) setWaHealth(data.whatsapp_health); });
-
     fetchWaHealth();
     fetchQueueStats();
 
@@ -41,16 +46,9 @@ export function MonitoringPage() {
   const fetchWaHealth = async () => {
     setIsCheckingWa(true);
     try {
-      const res = await fetch('/api/health/whatsapp');
-      const contentType = res.headers.get("content-type");
-      if (res.ok && contentType && contentType.includes("application/json")) {
-        const data = await res.json();
-        setWaHealth(data);
-      } else if (res.ok) {
-        console.warn("WA Health returned non-JSON. Possible platform interstitial.");
-      } else {
-        console.error("WA Health non-ok response");
-      }
+      // Check ATIVO na Evolution API (não um cache que pode estar velho/stub).
+      const data = await apiGet<any>('/api/v2/whatsapp/health');
+      setWaHealth(data);
     } catch (e) {
       toast.error('Erro ao buscar saúde do WhatsApp');
     } finally {
@@ -126,8 +124,11 @@ export function MonitoringPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-900 rounded-lg">
               <span className="text-sm font-medium">Status Atual</span>
-              <Badge variant={waHealth?.status === 'open' ? 'default' : 'destructive'} className={waHealth?.status === 'open' ? 'bg-green-500' : ''}>
-                {waHealth?.status === 'open' ? 'CONECTADO' : waHealth?.status || 'DESCONECTADO'}
+              <Badge
+                variant={waHealth?.status === 'open' ? 'default' : waHealth?.status === 'not_configured' ? 'secondary' : 'destructive'}
+                className={waHealth?.status === 'open' ? 'bg-green-500' : ''}
+              >
+                {WA_STATUS_LABELS[waHealth?.status as string] ?? waHealth?.status ?? 'DESCONHECIDO'}
               </Badge>
             </div>
             <div className="flex justify-between items-center text-xs text-zinc-500">
