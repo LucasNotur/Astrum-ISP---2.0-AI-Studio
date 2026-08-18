@@ -8,7 +8,7 @@
  * uma resposta contextual. O estado é persistido no Supabase entre turnos.
  */
 import { generateText, generateObject } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { withFailover } from '../../../infrastructure/ai/providers/model-router';
 import { z } from 'zod';
 import type { MultiAgentState } from '../multi-agent.state';
 import {
@@ -33,8 +33,6 @@ import {
 } from '../../vendas/ltv-offer.service';
 import { infraLogger } from '../../../infrastructure/logging/logger';
 import type { ErpPlan } from '../../../adapters/erp/erp.types';
-
-const miniModel = openai('gpt-4o-mini');
 
 export interface VendasSubgraphDeps {
   funnelDb?: SalesFunnelDb;
@@ -75,11 +73,11 @@ export async function runVendasSubgraph(
       case 'collecting_address': {
         const extracted = await extractAddress(userMessage);
         if (!extracted) {
-          const { text } = await generate({
-            model: miniModel as any,
+          const { text } = await withFailover('mini', (model) => generate({
+            model: model as any,
             system: SYSTEM_VENDAS,
             prompt: `O cliente enviou: "${userMessage}"\nPeça o endereço completo para verificar a cobertura (rua, número, bairro, cidade).`,
-          });
+          }), tenantId);
           return response(text, state.steps, 'vendas_collecting_address');
         }
         await updateLead(db, lead.id, { stage: 'checking_viability', address: extracted });
@@ -94,11 +92,11 @@ export async function runVendasSubgraph(
         const plans = await doGetPlans(tenantId, db);
         const extracted = await extractPlanSelection(userMessage, plans);
         if (!extracted) {
-          const { text } = await generate({
-            model: miniModel as any,
+          const { text } = await withFailover('mini', (model) => generate({
+            model: model as any,
             system: SYSTEM_VENDAS,
             prompt: `Planos disponíveis: ${formatPlans(plans)}\nO cliente enviou: "${userMessage}"\nAjude-o a escolher um plano.`,
-          });
+          }), tenantId);
           return response(text, state.steps, 'vendas_presenting_plans');
         }
 
@@ -124,11 +122,11 @@ export async function runVendasSubgraph(
           'D-07 oferta calibrada',
         );
 
-        const { text } = await generate({
-          model: miniModel as any,
+        const { text } = await withFailover('mini', (model) => generate({
+          model: model as any,
           system: SYSTEM_VENDAS,
           prompt: `Cliente selecionou: ${extracted.name}. [Contexto interno — não revelar ao cliente: ${ltvOffer.offerNotes}] Agora colete: nome completo, CPF, e-mail e telefone. Peça tudo de uma vez.`,
-        });
+        }), tenantId);
         return response(text, state.steps, 'vendas_collecting_data');
       }
 
@@ -136,11 +134,11 @@ export async function runVendasSubgraph(
         const data = await extractPersonalData(userMessage, lead);
         if (!isDataComplete(data)) {
           const missing = missingFields(data);
-          const { text } = await generate({
-            model: miniModel as any,
+          const { text } = await withFailover('mini', (model) => generate({
+            model: model as any,
             system: SYSTEM_VENDAS,
             prompt: `Coletando dados do lead. Falta: ${missing.join(', ')}. Mensagem do cliente: "${userMessage}". Peça os dados faltantes.`,
-          });
+          }), tenantId);
           await updateLead(db, lead.id, { stage: 'collecting_data', ...partialData(data) });
           return response(text, state.steps, 'vendas_collecting_data');
         }
@@ -153,18 +151,18 @@ export async function runVendasSubgraph(
           const { erpLeadId } = await doRegisterLead(tenantId, fullLead, db);
           await updateLead(db, lead.id, { stage: 'scheduling', erp_lead_id: erpLeadId });
 
-          const { text } = await generate({
-            model: miniModel as any,
+          const { text } = await withFailover('mini', (model) => generate({
+            model: model as any,
             system: SYSTEM_VENDAS,
             prompt: `Pré-cadastro concluído (ID ERP: ${erpLeadId}). Pergunte a data preferida para instalação (informe que é de segunda a sábado, horário comercial).`,
-          });
+          }), tenantId);
           return response(text, state.steps, 'vendas_scheduling');
         } catch (err) {
-          const { text } = await generate({
-            model: miniModel as any,
+          const { text } = await withFailover('mini', (model) => generate({
+            model: model as any,
             system: SYSTEM_VENDAS,
             prompt: `Houve um problema técnico no cadastro. Informe ao cliente que um atendente entrará em contato para finalizar.`,
-          });
+          }), tenantId);
           return { response: text, requiresHuman: true, steps: [...state.steps, 'vendas_register_error'] };
         }
       }
@@ -172,11 +170,11 @@ export async function runVendasSubgraph(
       case 'scheduling': {
         const dateStr = await extractDate(userMessage);
         if (!dateStr) {
-          const { text } = await generate({
-            model: miniModel as any,
+          const { text } = await withFailover('mini', (model) => generate({
+            model: model as any,
             system: SYSTEM_VENDAS,
             prompt: `O cliente enviou: "${userMessage}". Peça uma data específica para a instalação (ex.: "segunda-feira dia 15/07/2026, pela manhã").`,
-          });
+          }), tenantId);
           return response(text, state.steps, 'vendas_scheduling');
         }
 
@@ -214,37 +212,37 @@ export async function runVendasSubgraph(
             }
           }
 
-          const { text } = await generate({
-            model: miniModel as any,
+          const { text } = await withFailover('mini', (model) => generate({
+            model: model as any,
             system: SYSTEM_VENDAS,
             prompt: `Instalação agendada para ${dateStr} (OS: ${orderId}).${contractMsg} Confirme ao cliente e deseje boas-vindas.`,
-          });
+          }), tenantId);
           return response(text, state.steps, 'vendas_completed');
         } catch (err) {
-          const { text } = await generate({
-            model: miniModel as any,
+          const { text } = await withFailover('mini', (model) => generate({
+            model: model as any,
             system: SYSTEM_VENDAS,
             prompt: `Erro ao agendar instalação. Informe o cliente e transfira para atendimento humano.`,
-          });
+          }), tenantId);
           return { response: text, requiresHuman: true, steps: [...state.steps, 'vendas_schedule_error'] };
         }
       }
 
       case 'viability_failed': {
-        const { text } = await generate({
-          model: miniModel as any,
+        const { text } = await withFailover('mini', (model) => generate({
+          model: model as any,
           system: SYSTEM_VENDAS,
           prompt: `Infelizmente não há cobertura no endereço cadastrado. Ofereça cadastrar o interesse para contato futuro.`,
-        });
+        }), tenantId);
         return response(text, state.steps, 'vendas_viability_failed');
       }
 
       case 'completed': {
-        const { text } = await generate({
-          model: miniModel as any,
+        const { text } = await withFailover('mini', (model) => generate({
+          model: model as any,
           system: SYSTEM_VENDAS,
           prompt: `O contrato do cliente já está em andamento. Confirme o status e ofereça ajuda adicional.`,
-        });
+        }), tenantId);
         return response(text, state.steps, 'vendas_already_completed');
       }
 
@@ -281,34 +279,34 @@ async function handleViability(
   });
 
   if (!result.available) {
-    const { text } = await generate({
-      model: miniModel as any,
+    const { text } = await withFailover('mini', (model) => generate({
+      model: model as any,
       system: SYSTEM_VENDAS,
       prompt: `Endereço: "${lead.address}". Infelizmente não há cobertura neste endereço ainda. Ofereça cadastrar interesse para ser avisado quando a cobertura chegar.`,
-    });
+    }), tenantId);
     return response(text, state.steps, 'vendas_viability_failed');
   }
 
   const plans = await doGetPlans(tenantId, db);
-  const { text } = await generate({
-    model: miniModel as any,
+  const { text } = await withFailover('mini', (model) => generate({
+    model: model as any,
     system: SYSTEM_VENDAS,
     prompt: `Ótima notícia! Há cobertura no endereço "${lead.address}"${result.ctoName ? ` (via CTO: ${result.ctoName})` : ''}. Apresente os planos disponíveis e peça para o cliente escolher:\n\n${formatPlans(plans)}`,
-  });
+  }), tenantId);
   return response(text, state.steps, 'vendas_presenting_plans');
 }
 
 async function extractAddress(message: string): Promise<string | null> {
   try {
-    const { object } = await generateObject({
-      model: miniModel as any,
+    const { object } = await withFailover('mini', (model) => generateObject({
+      model: model as any,
       schema: z.object({
         address: z.string().nullable().describe('Endereço completo extraído da mensagem ou null se não informado'),
         hasAddress: z.boolean().describe('true se a mensagem contém um endereço válido'),
       }),
       system: 'Extraia o endereço de instalação da mensagem do usuário.',
       prompt: message,
-    });
+    }));
     return object.hasAddress && object.address ? object.address : null;
   } catch {
     return null;
@@ -318,14 +316,14 @@ async function extractAddress(message: string): Promise<string | null> {
 async function extractPlanSelection(message: string, plans: ErpPlan[]): Promise<ErpPlan | null> {
   if (!plans.length) return null;
   try {
-    const { object } = await generateObject({
-      model: miniModel as any,
+    const { object } = await withFailover('mini', (model) => generateObject({
+      model: model as any,
       schema: z.object({
         selectedPlanId: z.string().nullable().describe('ID do plano selecionado ou null se não houve seleção clara'),
       }),
       system: `Planos disponíveis: ${JSON.stringify(plans.map(p => ({ id: p.id, name: p.name })))}.\nIdentifique qual plano o cliente está selecionando.`,
       prompt: message,
-    });
+    }));
     if (!object.selectedPlanId) return null;
     return plans.find(p => p.id === object.selectedPlanId) ?? null;
   } catch {
@@ -338,8 +336,8 @@ async function extractPersonalData(
   existing: SalesLead,
 ): Promise<Partial<Pick<SalesLead, 'full_name' | 'cpf' | 'email' | 'phone'>>> {
   try {
-    const { object } = await generateObject({
-      model: miniModel as any,
+    const { object } = await withFailover('mini', (model) => generateObject({
+      model: model as any,
       schema: z.object({
         full_name: z.string().nullable(),
         cpf: z.string().nullable().describe('CPF numérico (11 dígitos) ou null'),
@@ -348,7 +346,7 @@ async function extractPersonalData(
       }),
       system: 'Extraia dados pessoais da mensagem (nome completo, CPF, e-mail, telefone). Retorne null para campos não presentes.',
       prompt: message,
-    });
+    }));
     return {
       full_name: object.full_name ?? existing.full_name ?? null,
       cpf: object.cpf ?? existing.cpf ?? null,
@@ -363,14 +361,14 @@ async function extractPersonalData(
 async function extractDate(message: string): Promise<string | null> {
   try {
     const today = new Date().toISOString().slice(0, 10);
-    const { object } = await generateObject({
-      model: miniModel as any,
+    const { object } = await withFailover('mini', (model) => generateObject({
+      model: model as any,
       schema: z.object({
         isoDate: z.string().nullable().describe(`Data no formato YYYY-MM-DD ou null. Hoje é ${today}.`),
       }),
       system: `Extraia a data de agendamento da mensagem. Hoje é ${today}.`,
       prompt: message,
-    });
+    }));
     return object.isoDate;
   } catch {
     return null;

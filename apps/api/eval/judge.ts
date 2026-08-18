@@ -1,5 +1,5 @@
 import { generateObject } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { withFailover } from '../src/infrastructure/ai/providers/model-router';
 import { z } from 'zod';
 
 /**
@@ -31,8 +31,8 @@ export const JudgeSchema = z.object({
 });
 
 export async function judge(p: JudgeInput, tenantId: string): Promise<JudgeResult> {
-  const { object } = await generateObject({
-    model: openai('gpt-4o-mini') as any,
+  const { object } = await withFailover('mini', (model) => generateObject({
+    model: model as any,
     schema: JudgeSchema,
     system:
       'Você é um juiz LLM que avalia respostas de um agente de suporte de ISP (Astrum). ' +
@@ -57,6 +57,6 @@ export async function judge(p: JudgeInput, tenantId: string): Promise<JudgeResul
       'Helicone-Property-TenantId': tenantId,
       'Helicone-Property-UseCase': 'eval-judge',
     },
-  });
+  }), tenantId);
   return object;
 }

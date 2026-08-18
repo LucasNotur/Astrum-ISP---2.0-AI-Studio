@@ -1,5 +1,5 @@
 import { generateObject } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { withFailover } from '../ai/providers/model-router';
 import { z } from 'zod';
 import { redis } from '../cache/redis.client';
 import { supabaseAdmin } from '../database/supabase.client';
@@ -88,8 +88,8 @@ export async function critiqueAndRevise(
 ): Promise<CritiqueResult> {
   try {
     const principlesText = principles.map((p, i) => `${i + 1}. ${p}`).join('\n');
-    const { object } = await generateObject({
-      model: openai('gpt-4o-mini') as any,
+    const { object } = await withFailover('mini', (model) => generateObject({
+      model: model as any,
       schema: CritiqueSchema,
       system: `Você é um revisor de qualidade de atendimento de ISP (provedor de internet).
 Analise a resposta do agente contra os princípios do provedor.
@@ -106,7 +106,7 @@ ${principlesText}`,
       headers: {
         'Helicone-Property-UseCase': 'constitutional-review',
       },
-    });
+    }));
     return object;
   } catch (err) {
     infraLogger.warn({ err: (err as Error).message }, '[constitution] critique falhou (fail-open)');

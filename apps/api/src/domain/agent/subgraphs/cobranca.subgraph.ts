@@ -1,5 +1,5 @@
 import { generateText } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { withFailover } from '../../../infrastructure/ai/providers/model-router';
 import type { MultiAgentState } from '../multi-agent.state';
 import { ToolsExecutor } from '../../../infrastructure/ai/tools.executor';
 import { infraLogger } from '../../../infrastructure/logging/logger';
@@ -17,8 +17,6 @@ export interface CobrancaSubgraphDeps {
   toolsExecutor?: ToolsExecutor;
   generateTextFn?: typeof generateText;
 }
-
-const miniModel = openai('gpt-4o-mini');
 
 export async function runCobrancaSubgraph(
   state: MultiAgentState,
@@ -38,11 +36,11 @@ export async function runCobrancaSubgraph(
     );
 
     const prompt = buildCobrancaPrompt(userMessage, invoices);
-    const { text } = await generate({
-      model: miniModel as any,
+    const { text } = await withFailover('mini', (model) => generate({
+      model: model as any,
       system: prompt.system,
       prompt: prompt.user,
-    });
+    }), tenantId);
 
     return {
       response: text,

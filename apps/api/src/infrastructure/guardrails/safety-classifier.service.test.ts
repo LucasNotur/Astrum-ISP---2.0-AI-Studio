@@ -4,8 +4,8 @@ vi.mock('ai', () => ({
   generateObject: vi.fn(),
 }));
 
-vi.mock('@ai-sdk/openai', () => ({
-  openai: vi.fn(() => ({})),
+vi.mock('../ai/providers/model-router', () => ({
+  withFailover: (_tier: string, fn: any) => fn({}),
 }));
 
 import { classifyResponseSafety, isSafetyClassifierEnabled, SafetyVerdictSchema } from './safety-classifier.service';

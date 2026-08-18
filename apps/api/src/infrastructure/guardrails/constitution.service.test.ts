@@ -3,8 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('ai', () => ({
   generateObject: vi.fn(),
 }));
-vi.mock('@ai-sdk/openai', () => ({
-  openai: vi.fn(() => 'mock-model'),
+vi.mock('../ai/providers/model-router', () => ({
+  withFailover: (_tier: string, fn: any) => fn({}),
 }));
 vi.mock('../cache/redis.client', () => ({
   redis: {

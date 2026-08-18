@@ -3,7 +3,7 @@ import { ISearchPort } from '../../ports/search.port';
 import { IDatabasePort } from '../../ports/database.port';
 import { ILoggerPort } from '../../ports/logger.port';
 import { generateObject } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { withFailover } from '../../../infrastructure/ai/providers/model-router';
 import { z } from 'zod';
 import { isLiveTranslationEnabled } from '../../../infrastructure/ai/language-detector';
 
@@ -24,8 +24,8 @@ Tickets abertos: ${openTickets.length}`;
  */
 async function translateQueryToPt(query: string, tenantId: string): Promise<string> {
   try {
-    const { object } = await generateObject({
-      model: openai('gpt-4o-mini') as any,
+    const { object } = await withFailover('mini', (model) => generateObject({
+      model: model as any,
       schema: z.object({ translated: z.string() }),
       system: 'Traduza a mensagem do cliente para português do Brasil (pt-BR) para ser usada como busca em uma base de conhecimento técnica de ISP. Mantenha termos técnicos e nomes próprios. Responda apenas com o JSON {"translated": "..."}.',
       messages: [{ role: 'user', content: query }],
@@ -33,7 +33,7 @@ async function translateQueryToPt(query: string, tenantId: string): Promise<stri
         'Helicone-Property-TenantId': tenantId,
         'Helicone-Property-UseCase': 'rag-query-translate',
       },
-    });
+    }), tenantId);
     return object.translated || query;
   } catch {
     return query;

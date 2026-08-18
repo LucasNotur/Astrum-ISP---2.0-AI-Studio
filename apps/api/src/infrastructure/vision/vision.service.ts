@@ -1,5 +1,5 @@
 import { generateObject } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { withFailover } from '../ai/providers/model-router';
 import { z } from 'zod';
 import { infraLogger } from '../logging/logger';
 
@@ -65,17 +65,14 @@ const DocTypeSchema = z.object({
   doc_type: z.enum(['boleto', 'energia', 'concorrente', 'desconhecido']),
 });
 
-const visionModel = openai('gpt-4o');
-const classifyModel = openai('gpt-4o-mini');
-
 export async function classifyDocumentType(
   imageUrl: string,
   tenantId: string,
 ): Promise<DocType> {
   if (!isVisionStructuredEnabled()) return 'desconhecido';
   try {
-    const { object } = await generateObject({
-      model: classifyModel as any,
+    const { object } = await withFailover('mini', (model) => generateObject({
+      model: model as any,
       schema: DocTypeSchema,
       system: `Classifique o documento na imagem em uma das categorias:
 - boleto: boleto bancário brasileiro
@@ -96,7 +93,7 @@ Retorne apenas o tipo.`,
         'Helicone-Property-TenantId': tenantId,
         'Helicone-Property-UseCase': 'ocr-classify',
       },
-    });
+    }), tenantId);
     return object.doc_type;
   } catch (err) {
     infraLogger.warn({ err, tenantId }, 'Vision: doc classify failed (fail-open → desconhecido)');
@@ -128,8 +125,8 @@ async function extractEnergyBill(
   tenantId: string,
 ): Promise<{ extraction: Record<string, unknown>; confidence: number }> {
   try {
-    const { object } = await generateObject({
-      model: visionModel as any,
+    const { object } = await withFailover('full', (model) => generateObject({
+      model: model as any,
       schema: EnergyBillSchema,
       system: `Você extrai dados de contas de energia elétrica brasileiras.
 Identifique: distribuidora, valor em centavos (ex: R$150,00 = 15000), consumo kWh, vencimento (ISO yyyy-mm-dd).`,
@@ -146,7 +143,7 @@ Identifique: distribuidora, valor em centavos (ex: R$150,00 = 15000), consumo kW
         'Helicone-Property-TenantId': tenantId,
         'Helicone-Property-UseCase': 'ocr-extract-energia',
       },
-    });
+    }), tenantId);
     return { extraction: object as any, confidence: object.confidence };
   } catch (err) {
     infraLogger.warn({ err, tenantId }, 'Vision: energy bill extraction failed');
@@ -159,8 +156,8 @@ async function extractCompetitorInvoice(
   tenantId: string,
 ): Promise<{ extraction: Record<string, unknown>; confidence: number }> {
   try {
-    const { object } = await generateObject({
-      model: visionModel as any,
+    const { object } = await withFailover('full', (model) => generateObject({
+      model: model as any,
       schema: CompetitorInvoiceSchema,
       system: `Você extrai dados de faturas de provedores de internet/telecom concorrentes.
 Identifique: operadora, nome do plano, valor em centavos (ex: R$99,90 = 9990).`,
@@ -177,7 +174,7 @@ Identifique: operadora, nome do plano, valor em centavos (ex: R$99,90 = 9990).`,
         'Helicone-Property-TenantId': tenantId,
         'Helicone-Property-UseCase': 'ocr-extract-concorrente',
       },
-    });
+    }), tenantId);
     return { extraction: object as any, confidence: object.confidence };
   } catch (err) {
     infraLogger.warn({ err, tenantId }, 'Vision: competitor invoice extraction failed');
@@ -192,8 +189,8 @@ export async function extractBoleto(
   if (!isVisionStructuredEnabled()) return null;
 
   try {
-    const { object } = await generateObject({
-      model: visionModel as any,
+    const { object } = await withFailover('full', (model) => generateObject({
+      model: model as any,
       schema: BoletoSchema,
       system: `Você extrai dados de boletos bancários brasileiros a partir de imagens.
 Identifique: linha digitável (47-48 dígitos), valor em centavos (ex: R$99,90 = 9990),
@@ -213,7 +210,7 @@ Se for boleto mas estiver ilegível, retorne is_boleto=true e confidence<0.5.`,
         'Helicone-Property-TenantId': tenantId,
         'Helicone-Property-UseCase': 'boleto-ocr',
       },
-    });
+    }), tenantId);
 
     if (!object.is_boleto || object.confidence < 0.6) return null;
 
@@ -232,8 +229,8 @@ export async function classifyFieldPhoto(
   if (!isVisionStructuredEnabled()) return null;
 
   try {
-    const { object } = await generateObject({
-      model: visionModel as any,
+    const { object } = await withFailover('full', (model) => generateObject({
+      model: model as any,
       schema: FieldPhotoSchema,
       system: `Você é um técnico de campo de ISP analisando fotos de equipamentos de rede.
 Identifique: tipo de equipamento (cto, roteador, onu, cabo_fibra, poste),
@@ -252,7 +249,7 @@ e ação recomendada (máx 300 caracteres).`,
         'Helicone-Property-TenantId': tenantId,
         'Helicone-Property-UseCase': 'field-photo',
       },
-    });
+    }), tenantId);
 
     if (object.confidence < 0.6) return null;
 

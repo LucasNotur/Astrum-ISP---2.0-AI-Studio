@@ -4,6 +4,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // vi.hoisted garante que a factory do vi.mock enxergue o mock (vitest hoista o mock).
 const { generateObjectMock } = vi.hoisted(() => ({ generateObjectMock: vi.fn() }));
 vi.mock('ai', () => ({ generateObject: generateObjectMock }));
+vi.mock('./providers/model-router', () => ({
+  withFailover: (_tier: string, fn: any) => fn({}),
+}));
 vi.mock('../logging/logger', () => ({
   infraLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));

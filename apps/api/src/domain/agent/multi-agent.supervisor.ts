@@ -1,6 +1,6 @@
 import { StateGraph, END, START } from '@langchain/langgraph';
 import { generateObject } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { withFailover } from '../../infrastructure/ai/providers/model-router';
 import { z } from 'zod';
 import type { MultiAgentState, AgentDomain } from './multi-agent.state';
 import { MultiAgentStateSchema, initialMultiAgentState } from './multi-agent.state';
@@ -25,8 +25,6 @@ import { isMultiAgentEnabled } from '../../infrastructure/config/engine-flags';
  * Handoff via edge condicional por intent/domain. Estado compartilhado mínimo.
  */
 
-const miniModel = openai('gpt-4o-mini');
-
 const SupervisorIntentSchema = z.object({
   domain: z.enum(['atendimento', 'cobranca', 'retencao', 'vendas', 'escalation']),
   reason: z.string().max(300),
@@ -43,8 +41,8 @@ export async function classifyDomain(
   message: string,
   tenantId: string,
 ): Promise<{ domain: AgentDomain; reason: string }> {
-  const { object } = await generateObject({
-    model: miniModel as any,
+  const { object } = await withFailover('mini', (model) => generateObject({
+    model: model as any,
     schema: SupervisorIntentSchema,
     system: `Você é o supervisor de atendimento da Astrum. Classifique a intenção do cliente em uma das categorias:
 - atendimento: suporte técnico, status, visita, diagnóstico
@@ -58,7 +56,7 @@ Responda apenas com o JSON solicitado.`,
       'Helicone-Property-TenantId': tenantId,
       'Helicone-Property-UseCase': 'multi-agent-supervisor',
     },
-  });
+  }), tenantId);
   return object;
 }
 

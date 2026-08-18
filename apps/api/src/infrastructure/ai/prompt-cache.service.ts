@@ -1,5 +1,3 @@
-import { openai } from '@ai-sdk/openai';
-import { generateText } from 'ai';
 import { getRedisClient } from '../cache/redis.client';
 import { infraLogger } from '../logging/logger';
 

@@ -1,5 +1,5 @@
 import { generateText } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { withFailover } from '../../../infrastructure/ai/providers/model-router';
 import type { MultiAgentState } from '../multi-agent.state';
 import { computeChurnScore, type ChurnFeatures } from '../../ml/churn-score';
 import { extractFeatures } from '../../ml/churn-features.service';
@@ -18,8 +18,6 @@ export interface RetencaoSubgraphDeps {
   extractFeaturesFn?: (tenantId: string, customerId: string) => Promise<ChurnFeatures>;
   generateTextFn?: typeof generateText;
 }
-
-const miniModel = openai('gpt-4o-mini');
 
 export async function runRetencaoSubgraph(
   state: MultiAgentState,
@@ -49,11 +47,11 @@ export async function runRetencaoSubgraph(
     }
 
     const prompt = buildRetencaoPrompt(userMessage, score, features.mrrCents);
-    const { text } = await generate({
-      model: miniModel as any,
+    const { text } = await withFailover('mini', (model) => generate({
+      model: model as any,
       system: prompt.system,
       prompt: prompt.user,
-    });
+    }), tenantId);
 
     return {
       response: text,

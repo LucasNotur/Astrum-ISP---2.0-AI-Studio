@@ -7,7 +7,8 @@
  * resumo determinístico (fallbackSummary).
  */
 import { generateText } from 'ai';
-import { openai, createOpenAI } from '@ai-sdk/openai';
+import { createOpenAI } from '@ai-sdk/openai';
+import { withFailover } from '../../infrastructure/ai/providers/model-router';
 import { infraLogger } from '../../infrastructure/logging/logger';
 
 /**
@@ -20,20 +21,28 @@ export async function generateOsSummaryLLM(
   tenantId: string,
   apiKey?: string,
 ): Promise<string | null> {
-  const model = apiKey
-    ? createOpenAI({ apiKey })('gpt-4o-mini')
-    : openai('gpt-4o-mini');
   try {
-    const { text } = await generateText({
-      model: model as any,
-      prompt,
-      maxOutputTokens: 180,
-      temperature: 0.3,
-      headers: {
-        'Helicone-Property-TenantId': tenantId,
-        'Helicone-Property-UseCase': 'field-os-summary',
-      },
-    });
+    const headers = {
+      'Helicone-Property-TenantId': tenantId,
+      'Helicone-Property-UseCase': 'field-os-summary',
+    };
+    // BYOK: se o tenant deu a própria chave OpenAI, usa ela direto (sem failover — é o
+    // crédito do tenant, não da infra). Sem chave própria, usa o failover multi-provider.
+    const { text } = apiKey
+      ? await generateText({
+          model: createOpenAI({ apiKey })('gpt-4o-mini') as any,
+          prompt,
+          maxOutputTokens: 180,
+          temperature: 0.3,
+          headers,
+        })
+      : await withFailover('mini', (model) => generateText({
+          model: model as any,
+          prompt,
+          maxOutputTokens: 180,
+          temperature: 0.3,
+          headers,
+        }), tenantId);
     const trimmed = (text ?? '').trim();
     return trimmed.length > 0 ? trimmed : null;
   } catch (err) {

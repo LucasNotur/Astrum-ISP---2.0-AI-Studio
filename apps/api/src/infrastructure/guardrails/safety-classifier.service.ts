@@ -1,5 +1,5 @@
 import { generateObject } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { withFailover } from '../ai/providers/model-router';
 import { z } from 'zod';
 import { resolvePrompt } from '../ai/prompt-registry';
 import { infraLogger } from '../logging/logger';
@@ -57,8 +57,8 @@ export async function classifyResponseSafety(
 
   const prompt = resolvePrompt('safety_veto');
   try {
-    const { object, usage } = await generateObject({
-      model: openai('gpt-4o-mini') as any,
+    const { object, usage } = await withFailover('mini', (model) => generateObject({
+      model: model as any,
       schema: SafetyVerdictSchema,
       system: prompt.text,
       messages: [
@@ -72,7 +72,7 @@ export async function classifyResponseSafety(
         'Helicone-Property-UseCase': 'safety-veto',
         'Helicone-Property-PromptVersion': prompt.version,
       },
-    });
+    }), tenantId);
     // COST-01: contabiliza os tokens do classificador (não bloqueia — é fail-open safety).
     await recordLlmUsage(tenantId, Number((usage as any)?.totalTokens ?? (usage as any)?.total_tokens ?? 0) || 0);
     infraLogger.info(
