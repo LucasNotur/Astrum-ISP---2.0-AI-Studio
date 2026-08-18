@@ -21,15 +21,26 @@ vi.mock('ai', async () => {
   };
 });
 
-vi.mock('@ai-sdk/openai', () => ({
-  openai: vi.fn((id: string) => ({ provider: 'openai', modelId: id })),
-}));
-vi.mock('@ai-sdk/anthropic', () => ({
-  anthropic: vi.fn((id: string) => ({ provider: 'anthropic', modelId: id })),
-}));
-vi.mock('@ai-sdk/google', () => ({
-  google: vi.fn((id: string) => ({ provider: 'google', modelId: id })),
-}));
+// createXxx({apiKey}) devolve uma função de modelo — mockamos o factory pra sempre
+// devolver a MESMA vi.fn() interna, assim os testes continuam podendo asserir
+// `expect(openaiModelFn).toHaveBeenCalledWith(modelId)` como antes.
+const { openaiModelFn, anthropicModelFn, googleModelFn, createOpenAIMock, createAnthropicMock, createGoogleGenerativeAIMock } = vi.hoisted(() => {
+  const openaiModelFn = vi.fn((id: string) => ({ provider: 'openai', modelId: id }));
+  const anthropicModelFn = vi.fn((id: string) => ({ provider: 'anthropic', modelId: id }));
+  const googleModelFn = vi.fn((id: string) => ({ provider: 'google', modelId: id }));
+  return {
+    openaiModelFn,
+    anthropicModelFn,
+    googleModelFn,
+    createOpenAIMock: vi.fn(() => openaiModelFn),
+    createAnthropicMock: vi.fn(() => anthropicModelFn),
+    createGoogleGenerativeAIMock: vi.fn(() => googleModelFn),
+  };
+});
+
+vi.mock('@ai-sdk/openai', () => ({ createOpenAI: createOpenAIMock }));
+vi.mock('@ai-sdk/anthropic', () => ({ createAnthropic: createAnthropicMock }));
+vi.mock('@ai-sdk/google', () => ({ createGoogleGenerativeAI: createGoogleGenerativeAIMock }));
 
 const redisStore = new Map<string, { value: string; expiresAt: number | null }>();
 vi.mock('../../../infrastructure/cache/redis.client', () => {
@@ -100,9 +111,6 @@ import {
   type Tier,
 } from './model-router';
 import { APICallError } from 'ai';
-import { anthropic } from '@ai-sdk/anthropic';
-import { google } from '@ai-sdk/google';
-import { openai } from '@ai-sdk/openai';
 
 const originalEnv = { ...process.env };
 
@@ -176,7 +184,7 @@ describe('getModel — flag off', () => {
     process.env.ANTHROPIC_API_KEY = 'ant-1';
     process.env.GOOGLE_API_KEY = 'goog-1';
     const m = getModel('full');
-    expect(openai).toHaveBeenCalledWith('gpt-4o');
+    expect(openaiModelFn).toHaveBeenCalledWith('gpt-4o');
     expect((m as any).provider).toBe('openai');
     expect((m as any).modelId).toBe('gpt-4o');
   });
@@ -196,8 +204,19 @@ describe('getModel — flag on', () => {
     process.env.OPENAI_API_KEY = 'sk-1';
     process.env.ANTHROPIC_API_KEY = 'ant-1';
     const m = getModel('full');
-    expect(anthropic).toHaveBeenCalledWith(TIER_MODELS.anthropic.full);
+    expect(anthropicModelFn).toHaveBeenCalledWith(TIER_MODELS.anthropic.full);
     expect((m as any).provider).toBe('anthropic');
+  });
+
+  // Guarda de regressão: getProviderApiKey() resolve GOOGLE_API_KEY/GEMINI_API_KEY,
+  // mas o @ai-sdk/google só reconhece GOOGLE_GENERATIVE_AI_API_KEY por conta própria —
+  // sem passar a key explicitamente pro createGoogleGenerativeAI(), o client falha
+  // com LoadAPIKeyError mesmo com getProviderApiKey() dizendo que "tem key".
+  it('passa a key resolvida por getProviderApiKey() pro createXxx() de cada provider', () => {
+    process.env.PROVIDER_ORDER = 'google';
+    process.env.GEMINI_API_KEY = 'gem-key-123';
+    getModel('mini');
+    expect(createGoogleGenerativeAIMock).toHaveBeenCalledWith({ apiKey: 'gem-key-123' });
   });
 
   it('pula provider sem key', () => {

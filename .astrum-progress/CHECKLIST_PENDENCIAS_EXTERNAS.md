@@ -141,15 +141,36 @@
   válida — todo `classifyIntent()` falhava com `400 invalid_json_schema`. Corrigido trocando
   `.optional()` → `.nullable()` (mesma semântica, mas aceito pelo schema strict). Testes
   atualizados (`vercel-ai.service.test.ts`, 11/11 verdes), typecheck limpo.
-- [ ] **BLOQUEIO ATUAL: a `OPENAI_API_KEY` fornecida está sem crédito** — `"You have no
-  credits remaining. Add credits to continue using the API"`. O smoke-test do replay rodou
-  (script `scripts/replay/run-replay-smoke.ts`) e confirmou a conexão Supabase+schema OK, mas
-  toda chamada real ao modelo falhou por falta de crédito. **Ação do Lucas:** adicionar
-  crédito em https://platform.openai.com/settings/organization/billing (ou usar a
-  `GEMINI_API_KEY`, que ainda não foi testada — o `model-router.ts` decide qual provider usar).
-- [ ] **Depois de ter crédito:** rodar `npx tsx -r dotenv/config scripts/replay/run-replay-smoke.ts`
-  de novo (não precisa reiniciar nada, é script avulso) contra o histórico real de `messages`
-  (2 tenants, ~20 pares user→assistant cada) **antes de qualquer tráfego real de cliente**.
+- [x] **🐛 2º BUG REAL achado e corrigido (`model-router.ts`):** `getProviderApiKey('google')`
+  resolvia `GOOGLE_API_KEY`/`GEMINI_API_KEY`, mas `buildLanguageModel` chamava o `google()`
+  default do `@ai-sdk/google` sem passar a key — esse SDK só reconhece
+  `GOOGLE_GENERATIVE_AI_API_KEY` por conta própria. `getProviderApiKey()` virava teatro:
+  dizia "tem key" (não pulava no failover) mas o client subia sem nenhuma → `LoadAPIKeyError`.
+  Corrigido: `buildLanguageModel` agora usa `createOpenAI/createAnthropic/
+  createGoogleGenerativeAI({apiKey})` explicitamente pra todos os 3 providers, em vez de
+  confiar no lookup implícito de env var de cada SDK. Teste de regressão adicionado
+  (`model-router.test.ts`, 36/36 verdes).
+- [x] **🐛 3º achado (config, não bug de lógica):** `TIER_MODELS.google` apontava pra
+  `gemini-2.5-flash`/`gemini-2.5-pro` — aposentados pela Google
+  ("no longer available to new users"). Atualizado pra `gemini-3.6-flash`/`gemini-3.6-pro`
+  (flash confirmado pela própria mensagem de erro da API; pro inferido pela convenção, não
+  confirmado — revisar se a Google não seguir esse padrão exato).
+- [x] **Geração de resposta do motor v2 confirmada funcionando de ponta a ponta via Gemini**
+  (2026-08-18) — rodei o smoke-test 3 vezes até esgotar os bugs de credencial/schema/model-id
+  acima; a última rodada teve **zero erros de schema/chave/modelo** nas 20 mensagens reais.
+- [ ] **BLOQUEIO RESTANTE: o juiz do replay (`judgeOnePair`, em `replay.service.ts`) é
+  hardcoded pro OpenAI** (`openai('gpt-4o-mini')` direto, não passa pelo `model-router`/
+  failover) — e a `OPENAI_API_KEY` fornecida está sem crédito (`"You have no credits
+  remaining"`). Isso NÃO bloqueia mais a geração de resposta em si (já comprovada via
+  Gemini), só a métrica de equivalência do replay (`pass_rate`). **Ação do Lucas:** adicionar
+  crédito em https://platform.openai.com/settings/organization/billing — depois disso o
+  replay dá o `pass_rate` real. (Alternativa mais barata: portar o judge pra usar
+  `withFailover`/Gemini também, já que ele já está pago — fica de sugestão, não fiz porque é
+  mudança de comportamento do juiz, não só de credencial, prefiro seu aval antes.)
+- [ ] **Depois de ter crédito (ou decidir mover o judge pro Gemini):** rodar
+  `npx tsx -r dotenv/config scripts/replay/run-replay-smoke.ts` de novo (não precisa
+  reiniciar nada, é script avulso) contra o histórico real de `messages` (2 tenants, ~20
+  pares user→assistant cada) **antes de qualquer tráfego real de cliente**.
 - [ ] **Gap técnico (não bloqueia, mas fica registrado):** a fila BullMQ `astrum-replay`
   (`replay.routes.ts`) não tem nenhum Worker consumidor implementado — hoje uma run enfileirada
   via `POST /api/v2/ia/replay` fica em `queued` pra sempre. O script acima contorna isso

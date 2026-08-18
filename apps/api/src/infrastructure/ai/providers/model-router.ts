@@ -19,9 +19,9 @@
 
 import { APICallError } from 'ai';
 import type { LanguageModel } from 'ai';
-import { anthropic } from '@ai-sdk/anthropic';
-import { google } from '@ai-sdk/google';
-import { openai } from '@ai-sdk/openai';
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createOpenAI } from '@ai-sdk/openai';
 import { redis } from '../../cache/redis.client';
 import { iaLogger } from '../../logging/logger';
 import { assertLlmBudget, recordLlmUsage } from '../llm-budget.service';
@@ -42,7 +42,11 @@ export type ProviderName = 'openai' | 'anthropic' | 'google';
 export const TIER_MODELS: Record<ProviderName, Record<Tier, string>> = {
   openai:    { mini: 'gpt-4o-mini',               full: 'gpt-4o' },
   anthropic: { mini: 'claude-haiku-4-5-20251001', full: 'claude-sonnet-4-6' },
-  google:    { mini: 'gemini-2.5-flash',          full: 'gemini-2.5-pro' },
+  // gemini-2.5-* aposentado pela Google em 2026 ("no longer available to new
+  // users") — achado rodando o replay smoke-test (2026-08-18). 'full' seguindo
+  // a mesma convenção de nome do 'mini' (confirmado pelo erro da API); revisar
+  // se a Google não seguir esse padrão exato.
+  google:    { mini: 'gemini-3.6-flash',          full: 'gemini-3.6-pro' },
 };
 
 // portado de src/ai-provider/ai-provider.service.ts:21 (key resolution)
@@ -70,9 +74,17 @@ export function resolveProviderOrder(): ProviderName[] {
 
 function buildLanguageModel(provider: ProviderName, tier: Tier): LanguageModel {
   const modelId = TIER_MODELS[provider][tier];
-  if (provider === 'openai') return openai(modelId);
-  if (provider === 'anthropic') return anthropic(modelId);
-  return google(modelId);
+  const apiKey = getProviderApiKey(provider);
+  // Cria o provider explicitamente com a key resolvida por getProviderApiKey() em vez
+  // de usar a instância default (openai/anthropic/google) e confiar no lookup implícito
+  // de env var de cada SDK — cada pacote usa seu próprio nome por convenção (ex.:
+  // @ai-sdk/google só reconhece GOOGLE_GENERATIVE_AI_API_KEY, nunca GOOGLE_API_KEY/
+  // GEMINI_API_KEY, que são os nomes que este app usa). Sem isso, getProviderApiKey()
+  // virava teatro: dizia que o provider "tem key" (não pulava no failover) mas o client
+  // era construído sem nenhuma, e falhava com LoadAPIKeyError.
+  if (provider === 'openai') return createOpenAI({ apiKey })(modelId);
+  if (provider === 'anthropic') return createAnthropic({ apiKey })(modelId);
+  return createGoogleGenerativeAI({ apiKey })(modelId);
 }
 
 // portado de src/ai-provider/ai-provider.service.ts:56-64
