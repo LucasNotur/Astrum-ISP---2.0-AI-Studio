@@ -38,7 +38,8 @@ import { useAppStore } from "@/src/store/useAppStore";
 import { updateTicketStatus, toggleTicketAI } from "@/src/lib/db";
 import { supabase } from "@/src/lib/supabase";
 import { apiGet, apiPost } from "@/src/lib/apiClient";
-import { uploadAttachment as uploadToStorage } from "@/src/lib/storage";
+import { uploadAttachment as uploadToStorage, getSignedUrl } from "@/src/lib/storage";
+import { useSignedMediaUrls, resolveMediaUrl } from "@/src/hooks/useSignedMediaUrls";
 import { CustomerHistorySidebar } from "@/src/components/CustomerHistorySidebar";
 import { MaskedSensitiveData } from "@/src/components/MaskedSensitiveData";
 import { io as socketIoClient, Socket } from "socket.io-client";
@@ -351,8 +352,10 @@ export function ChatPage() {
     if (selectedFile) {
       try {
         const tid = selectedTicket.tenant_id ?? selectedTicket.tenantId ?? "default";
-        const url = await uploadToStorage(selectedFile.file, `tickets/${selectedTicket.id}`, tid);
-        attachment = { url, type: selectedFile.type, name: selectedFile.file.name };
+        const uploaded = await uploadToStorage(selectedFile.file, `tickets/${selectedTicket.id}`, tid);
+        // APPSEC-02/LGPD-01: persiste o PATH (bucket privado) — o render abaixo (lista de
+        // mensagens) resign uma URL nova via useSignedMediaUrls no momento de exibir.
+        attachment = { url: uploaded.path, type: selectedFile.type, name: selectedFile.file.name };
         setSelectedFile(null);
       } catch {
         toast.error("Erro ao fazer upload do arquivo.");
@@ -388,6 +391,8 @@ export function ChatPage() {
       const { evolutionUrl, evolutionInstance, evolutionApiKey } = integrationKeys;
 
       if (phone && evolutionUrl && evolutionInstance && evolutionApiKey) {
+        // attachment.url é um PATH do bucket privado — assina de novo pro envio real ao WhatsApp.
+        const sendMediaUrl = attachment ? await getSignedUrl(attachment.url) : "";
         const payload = attachment
           ? {
               number: phone,
@@ -395,7 +400,7 @@ export function ChatPage() {
               mediaMessage: {
                 mediatype: attachment.type.startsWith("image/") ? "image" : "document",
                 fileName: attachment.name,
-                media: attachment.url,
+                media: sendMediaUrl,
                 ...(text ? { caption: text } : {}),
               },
             }
@@ -1160,6 +1165,9 @@ function MessageBubble({ message: m }: { message: any }) {
   const isCustomer = m.senderType === "customer";
   const isAi       = m.senderType === "ai";
   const isInternal = m.is_internal || m.isInternal;
+  // APPSEC-02/LGPD-01: m.attachment.url pode ser um PATH do bucket privado — resign pra exibir.
+  const resolvedMedia = useSignedMediaUrls([m.attachment?.url]);
+  const attachmentUrl = resolveMediaUrl(m.attachment?.url, resolvedMedia);
 
   return (
     <div
@@ -1198,8 +1206,8 @@ function MessageBubble({ message: m }: { message: any }) {
         )}>
           {m.attachment?.url ? (
             m.attachment.type?.startsWith("image/")
-              ? <img src={m.attachment.url} alt="anexo" className="rounded-lg max-w-[220px]" />
-              : <a href={m.attachment.url} target="_blank" rel="noreferrer" className="underline text-xs">{m.attachment.name}</a>
+              ? <img src={attachmentUrl} alt="anexo" className="rounded-lg max-w-[220px]" />
+              : <a href={attachmentUrl} target="_blank" rel="noreferrer" className="underline text-xs">{m.attachment.name}</a>
           ) : (
             <span className="whitespace-pre-wrap">{m.text || m.body || m.content}</span>
           )}

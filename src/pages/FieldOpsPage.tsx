@@ -20,6 +20,7 @@ import {
   fetchLive, fetchKmReport, fetchTempoReport, fetchDispatchBoard, assignOs, fetchDossie,
   type LiveTechnician, type KmReport, type TempoReport, type DispatchBoardItem,
 } from '../lib/fieldOps';
+import { useSignedMediaUrls, resolveMediaUrl } from '../hooks/useSignedMediaUrls';
 
 const statusColor = (status: string) => {
   switch (status) {
@@ -55,6 +56,10 @@ export default function FieldOpsPage() {
   const [loading, setLoading] = useState(true);
   const [dossie, setDossie] = useState<any | null>(null);
   const [dossieLoading, setDossieLoading] = useState(false);
+  // APPSEC-02/LGPD-01: dossie.media[].url é um PATH do bucket privado — resign pra exibir.
+  const resolvedMediaUrls = useSignedMediaUrls(
+    (dossie?.media ?? []).flatMap((m: any) => [m.url, m.thumbnail_url]),
+  );
 
   const openDossie = async (osId: string) => {
     setDossieLoading(true);
@@ -374,16 +379,20 @@ export default function FieldOpsPage() {
                         Fotos ({dossie.media.length})
                       </h3>
                       <div className="grid grid-cols-3 gap-2">
-                        {dossie.media.map((m: any, i: number) => (
-                          <a key={i} href={m.url} target="_blank" rel="noopener noreferrer"
-                            className="relative group rounded overflow-hidden aspect-square bg-zinc-100 dark:bg-zinc-800">
-                            <img src={m.thumbnail_url ?? m.url} alt={m.kind}
-                              className="w-full h-full object-cover" />
-                            <span className="absolute bottom-0 inset-x-0 text-center text-[9px] font-bold bg-black/50 text-white uppercase py-0.5">
-                              {m.kind}
-                            </span>
-                          </a>
-                        ))}
+                        {dossie.media.map((m: any, i: number) => {
+                          const fullUrl = resolveMediaUrl(m.url, resolvedMediaUrls);
+                          const thumbUrl = resolveMediaUrl(m.thumbnail_url, resolvedMediaUrls) || fullUrl;
+                          return (
+                            <a key={i} href={fullUrl} target="_blank" rel="noopener noreferrer"
+                              className="relative group rounded overflow-hidden aspect-square bg-zinc-100 dark:bg-zinc-800">
+                              <img src={thumbUrl} alt={m.kind}
+                                className="w-full h-full object-cover" />
+                              <span className="absolute bottom-0 inset-x-0 text-center text-[9px] font-bold bg-black/50 text-white uppercase py-0.5">
+                                {m.kind}
+                              </span>
+                            </a>
+                          );
+                        })}
                       </div>
                     </div>
                   )}

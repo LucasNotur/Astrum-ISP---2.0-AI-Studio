@@ -5,9 +5,12 @@ import { render, fireEvent } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 // FZ-5: uploads agora vão para o Supabase Storage via lib/storage.uploadTenantFile
+// APPSEC-02: uploadTenantFile devolve { path, url } (url = signed, curta duração).
 const mockUploadTenantFile = vi.fn(
-  async (_tenantId: string, category: string, filename: string) =>
-    `https://mock.url/tenants/t1/${category}/${filename}`,
+  async (tenantId: string, category: string, filename: string) => ({
+    path: `tenants/${tenantId}/${category}/${filename}`,
+    url: `https://mock.url/tenants/${tenantId}/${category}/${filename}`,
+  }),
 );
 vi.mock('../../lib/storage', () => ({
   uploadTenantFile: (...args: any[]) => mockUploadTenantFile(...(args as [string, string, string])),

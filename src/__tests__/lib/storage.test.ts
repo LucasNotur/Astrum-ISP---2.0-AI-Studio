@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // FZ-5: storage agora é Supabase Storage (bucket "uploads")
+// APPSEC-02/LGPD-01: bucket privado — leitura via createSignedUrl, não mais getPublicUrl.
 const mockUpload = vi.fn(async () => ({ data: { path: 'mock' }, error: null }));
 const mockRemove = vi.fn(async () => ({ data: null, error: null }));
 const mockList = vi.fn(async () => ({ data: [{ name: 'file1.txt' }], error: null }));
-const mockGetPublicUrl = vi.fn((path: string) => ({ data: { publicUrl: `http://mocked-url.com/${path}` } }));
+const mockCreateSignedUrl = vi.fn((path: string) => Promise.resolve({ data: { signedUrl: `http://mocked-url.com/${path}?token=fake` }, error: null }));
 
 vi.mock('../../lib/supabase', () => ({
   supabase: {
@@ -13,7 +14,7 @@ vi.mock('../../lib/supabase', () => ({
         upload: mockUpload,
         remove: mockRemove,
         list: mockList,
-        getPublicUrl: mockGetPublicUrl,
+        createSignedUrl: mockCreateSignedUrl,
       })),
     },
   },
@@ -27,9 +28,10 @@ describe('Storage Module Tests (Supabase Storage)', () => {
     });
 
     it('1. uploadTenantFile com tenantId válido → path gerado deve começar com tenants/{tenantId}/', async () => {
-        const url = await uploadTenantFile('tenant1', 'docs', 'file.txt', new Blob(['test']));
+        const result = await uploadTenantFile('tenant1', 'docs', 'file.txt', new Blob(['test']));
         expect(mockUpload).toHaveBeenCalledWith('tenants/tenant1/docs/file.txt', expect.anything(), expect.anything());
-        expect(url).toBe('http://mocked-url.com/tenants/tenant1/docs/file.txt');
+        expect(result.path).toBe('tenants/tenant1/docs/file.txt');
+        expect(result.url).toBe('http://mocked-url.com/tenants/tenant1/docs/file.txt?token=fake');
     });
 
     it('2. uploadTenantFile sem tenantId → deve lançar TENANT_REQUIRED', async () => {
@@ -63,8 +65,9 @@ describe('Storage Module Tests (Supabase Storage)', () => {
 
     it('8. uploadAttachment com tenantId → prefixa tenants/{tenantId}/', async () => {
         const file = new File(['test'], 'test.png');
-        const url = await uploadAttachment(file, 'chat', 'tenant9');
+        const result = await uploadAttachment(file, 'chat', 'tenant9');
         expect(mockUpload).toHaveBeenCalledWith(expect.stringMatching(/^tenants\/tenant9\/chat\//), file);
-        expect(url).toContain('tenants/tenant9/chat/');
+        expect(result.path).toContain('tenants/tenant9/chat/');
+        expect(result.url).toContain('tenants/tenant9/chat/');
     });
 });

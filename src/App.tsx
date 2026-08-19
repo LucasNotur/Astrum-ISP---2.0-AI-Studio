@@ -203,7 +203,7 @@ import {
   upsertTenantOperator,
 } from "./lib/supabaseDb";
 import { seedPopularAstrum, wipeSystemData } from "./lib/seedAstrum";
-import { uploadAttachment } from "./lib/storage";
+import { uploadAttachment, getSignedUrl } from "./lib/storage";
 import {
   AGENT_CATEGORIES,
   SYSTEM_PROMPTS,
@@ -2081,13 +2081,15 @@ export default function App() {
     let attachmentData = undefined;
     if (selectedFile) {
       try {
-        const url = await uploadAttachment(
+        const uploaded = await uploadAttachment(
           selectedFile.file,
           `tickets/${selectedTicket.id}`,
           companySettings?.tenant_id || "default",
         );
         attachmentData = {
-          url,
+          // APPSEC-02/LGPD-01: persiste o PATH do bucket privado (não a URL assinada, que
+          // expira em 1h) — a renderização posterior (ChatPage) resign no momento de exibir.
+          url: uploaded.path,
           type: selectedFile.type,
           base64: selectedFile.base64,
         };
@@ -2117,13 +2119,16 @@ export default function App() {
       try {
         let payload: any;
         if (attachmentData) {
+            // attachmentData.url é um PATH do bucket privado — assina de novo pro envio real
+            // (a URL assinada gerada no upload já pode ter passado por outra volta do event loop).
+            const sendMediaUrl = await getSignedUrl(attachmentData.url);
             payload = {
               number: `${customerPhone}`,
               options: { delay: 1200, presence: "composing" },
               mediaMessage: {
                 mediatype: attachmentData.type.startsWith("image/") ? "image" : "document",
                 fileName: (attachmentData as any).name || "anexo",
-                media: attachmentData.url,
+                media: sendMediaUrl,
               },
             };
             if (text) payload.mediaMessage.caption = text;

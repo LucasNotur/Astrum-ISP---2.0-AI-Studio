@@ -22,7 +22,7 @@ export async function processSignatureAndPdf({
     throw new Error("Canvas vazio: PDF não gerado");
   }
 
-  const signature_url = await uploadTenantFile(
+  const { url: signature_url } = await uploadTenantFile(
     tenantId, "signatures", `${osId}.png`, await dataUrlToBlob(signatureData),
   );
 
@@ -90,7 +90,7 @@ export async function processSignatureAndPdf({
   doc.addImage(signatureData, 'PNG', 20, y, 80, 40);
 
   const pdfDataUri = doc.output("datauristring");
-  const contract_url = await uploadTenantFile(
+  const { url: contract_url } = await uploadTenantFile(
     tenantId, "contracts", `${osId}.pdf`, await dataUrlToBlob(pdfDataUri.toString()),
   );
 

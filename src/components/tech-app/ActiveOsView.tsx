@@ -161,9 +161,11 @@ export function ActiveOsView() {
       if (navigator.onLine) {
         try {
           const blob = await (await fetch(img)).blob();
-          uploadedUrl = await uploadTenantFile('default', 'checkins', `${activeOs.id}_${Date.now()}.jpg`, blob);
+          const uploaded = await uploadTenantFile('default', 'checkins', `${activeOs.id}_${Date.now()}.jpg`, blob);
+          uploadedUrl = uploaded.url;
           if (isRealOsId(activeOs.id)) {
-            registerMedia(activeOs.id, { kind: 'antes', url: uploadedUrl, lat: pos?.coords.latitude, lng: pos?.coords.longitude }).catch(() => {});
+            // APPSEC-02: persiste o PATH (não a URL assinada, que expira) — resign na renderização.
+            registerMedia(activeOs.id, { kind: 'antes', url: uploaded.path, lat: pos?.coords.latitude, lng: pos?.coords.longitude }).catch(() => {});
           }
         } catch {}
       }
@@ -208,9 +210,11 @@ export function ActiveOsView() {
       if (navigator.onLine) {
         try {
           const blob = await (await fetch(img)).blob();
-          uploadedUrl = await uploadTenantFile('default', 'checkins', `${activeOs.id}_${Date.now()}.jpg`, blob);
+          const uploaded = await uploadTenantFile('default', 'checkins', `${activeOs.id}_${Date.now()}.jpg`, blob);
+          uploadedUrl = uploaded.url;
           if (isRealOsId(activeOs.id)) {
-            registerMedia(activeOs.id, { kind: 'depois', url: uploadedUrl, lat: pos?.coords.latitude, lng: pos?.coords.longitude }).catch(() => {});
+            // APPSEC-02: persiste o PATH (não a URL assinada, que expira) — resign na renderização.
+            registerMedia(activeOs.id, { kind: 'depois', url: uploaded.path, lat: pos?.coords.latitude, lng: pos?.coords.longitude }).catch(() => {});
           }
         } catch {}
       }
