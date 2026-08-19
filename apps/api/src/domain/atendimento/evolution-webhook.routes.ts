@@ -61,8 +61,10 @@ const handleEvolutionWebhook = async (request: FastifyRequest, reply: FastifyRep
     (request.headers['x-hub-signature-256'] as string) ??
     (request.headers['x-evolution-signature'] as string) ??
     '';
-  const rawBody = JSON.stringify(request.body);
-  if (!validateWebhookSignature(rawBody, signature, 'evolution')) {
+  // APPSEC-05: bytes crus (capturados pelo content-type parser em server.ts), nunca
+  // JSON.stringify(request.body) — reserializar muda os bytes vs. o que foi assinado.
+  const rawBody = (request as any).rawBody as Buffer | undefined;
+  if (!rawBody || !validateWebhookSignature(rawBody, signature, 'evolution')) {
     return reply.code(401).send({ code: 'INVALID_SIGNATURE', message: 'Assinatura inválida.' });
   }
 

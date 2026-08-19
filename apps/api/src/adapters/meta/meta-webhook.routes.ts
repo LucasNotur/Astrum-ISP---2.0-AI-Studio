@@ -92,14 +92,16 @@ const handleMetaWebhook = async (request: FastifyRequest, reply: FastifyReply) =
     return reply.code(200).send({ status: 'ignored' });
   }
 
-  // Validação de assinatura via FACEBOOK_APP_SECRET (reutiliza provider 'facebook' existente)
-  const rawBody = JSON.stringify(request.body);
+  // Validação de assinatura via FACEBOOK_APP_SECRET (reutiliza provider 'facebook' existente).
+  // APPSEC-05: bytes crus (capturados pelo content-type parser em server.ts), nunca
+  // JSON.stringify(request.body) — reserializar muda os bytes vs. o que a Meta assinou.
+  const rawBody = (request as any).rawBody as Buffer | undefined;
   const signature =
     (request.headers['x-hub-signature-256'] as string) ??
     (request.headers['x-hub-signature'] as string) ??
     '';
 
-  if (process.env.FACEBOOK_APP_SECRET && !validateWebhookSignature(rawBody, signature, 'facebook')) {
+  if (process.env.FACEBOOK_APP_SECRET && (!rawBody || !validateWebhookSignature(rawBody, signature, 'facebook'))) {
     atendimentoLogger.warn('[SECURITY] Meta webhook: assinatura inválida');
     return reply.code(401).send({ code: 'INVALID_SIGNATURE' });
   }

@@ -22,6 +22,23 @@ export async function buildServer() {
     logger: { level: process.env.LOG_LEVEL ?? 'info' },
   });
 
+  // APPSEC-05: captura os bytes CRUS do corpo antes do parse, em request.rawBody.
+  // Necessário para validar HMAC de webhooks contra o que o provider assinou de fato —
+  // reserializar via JSON.stringify(request.body) muda os bytes (ordem de chaves, espaços,
+  // unicode) e pode falsear negativo OU deixar passar assinatura forjada.
+  app.addContentTypeParser('application/json', { parseAs: 'buffer' }, (request, body, done) => {
+    (request as any).rawBody = body;
+    if (body.length === 0) {
+      done(null, undefined);
+      return;
+    }
+    try {
+      done(null, JSON.parse(body.toString('utf8')));
+    } catch (err) {
+      done(err as Error, undefined);
+    }
+  });
+
   // Registrar plugin Sentry antes dos outros plugins
   await app.register(sentryPlugin);
 

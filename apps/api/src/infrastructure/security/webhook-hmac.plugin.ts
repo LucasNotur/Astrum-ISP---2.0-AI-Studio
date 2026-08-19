@@ -41,8 +41,18 @@ const webhookHmacPlugin: FastifyPluginCallback = (fastify, _opts, done) => {
       });
     }
 
-    // Usar o body raw para validação (não o parseado)
-    const rawBody = (request as any).rawBody ?? JSON.stringify(request.body);
+    // APPSEC-05: validar contra os bytes CRUS (request.rawBody, capturado pelo
+    // addContentTypeParser em server.ts) — nunca reserializar via JSON.stringify(request.body),
+    // que produz bytes diferentes do que o provider assinou (ordem de chaves/espaços/unicode)
+    // e pode falsear negativo ou ser burlado. Sem rawBody capturado, falha fechado.
+    const rawBody = (request as any).rawBody as Buffer | undefined;
+    if (!rawBody) {
+      securityLogger.error({ url: request.url, provider }, 'Webhook sem rawBody capturado — content-type parser ausente');
+      return reply.status(401).send({
+        code: 'MISSING_RAW_BODY',
+        message: 'Corpo bruto indisponível para validação de assinatura.',
+      });
+    }
 
     const isValid = validateWebhookSignature(rawBody, signature, provider);
 
