@@ -122,5 +122,11 @@ blindados abertos pro DeepSeek — `.astrum-progress/HANDOFF_SECR5_INTEGRATION_S
 
 ## 📋 Recomendações de processo (Squad Governança)
 - [ ] Pentest externo black-box humano antes do go-live (esta auditoria é IA se auto-revisando).
-- [ ] Tabletop de resposta a incidente (rodar um runbook ao vivo).
-- [ ] MFA + break-glass para a conta Dev/superusuário (`lucaspferraz123@gmail.com`).
+- [ ] Tabletop de resposta a incidente (rodar um runbook ao vivo — `docs/RUNBOOKS_SEGURANCA.md`).
+- [~] **MFA + break-glass para a conta Dev/superusuário — PARCIAL (2026-08-18, migration 106):** `is_super_admin()`
+  agora exige AAL2 assim que houver 1+ fator MFA verificado cadastrado (condicional — sem MFA cadastrado, aal1
+  continua bastando, pra não travar o próprio Dev fora antes do enrollment). **Falta:** (1) Lucas cadastrar o TOTP de
+  verdade (ação client-side, Supabase Dashboard ou fluxo `supabase.auth.mfa.enroll()` no app — ninguém faz isso por
+  ele); (2) cobre só o caminho RLS/Supabase Auth do frontend legado — o login próprio do `apps/api`
+  (`POST /api/v2/auth/login`, senha contra `users.password_hash`) não tem NENHUM conceito de MFA/AAL, é auth
+  totalmente separada; adicionar 2º fator ali é projeto à parte, não tentado.
