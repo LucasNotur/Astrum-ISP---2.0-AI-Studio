@@ -1,11 +1,16 @@
 /// <reference types="vitest" />
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 import { visualizer } from 'rollup-plugin-visualizer';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  // loadEnv também lê o .env do projeto — process.env sozinho não pega essas vars
+  // (só as exportadas de fato no shell), o que fazia o client cair no fallback
+  // 'placeholder.supabase.co' e o login falhar com ERR_NAME_NOT_RESOLVED.
+  const env = loadEnv(mode, process.cwd(), '');
+  return {
   root: '.',
   plugins: [
     react(),
@@ -51,8 +56,8 @@ export default defineConfig({
     },
   },
   define: {
-    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(process.env.VITE_SUPABASE_URL || process.env.URL_SUPABASE || process.env.SUPABASE_URL || ''),
-    'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KE || '')
+    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL || env.URL_SUPABASE || env.SUPABASE_URL || ''),
+    'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY || env.SUPABASE_ANON_KE || '')
   },
   test: {
     environment: 'jsdom',
@@ -68,4 +73,5 @@ export default defineConfig({
       }
     }
   }
+  };
 });

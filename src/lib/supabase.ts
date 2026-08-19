@@ -4,14 +4,14 @@ const getEnv = () => {
   let url = 'https://placeholder.supabase.co';
   let key = 'placeholder';
 
-  // Tentamos pegar do Vite se estiver no contexto do browser
-  const meta = import.meta as any;
-  if (typeof import.meta !== 'undefined' && meta.env) {
-     url = meta.env.VITE_SUPABASE_URL || url;
-     key = meta.env.VITE_SUPABASE_ANON_KEY || key;
-  }
+  // Acesso direto (não aliasado) — o Vite substitui `import.meta.env.X` de forma
+  // estática só quando o padrão aparece literal no código-fonte. Guardar
+  // `import.meta` numa variável antes de ler `.env` quebra essa substituição
+  // e o client sempre caía no fallback 'placeholder.supabase.co'.
+  url = import.meta.env.VITE_SUPABASE_URL || url;
+  key = import.meta.env.VITE_SUPABASE_ANON_KEY || key;
 
-  // Tentamos pegar do process.env se dispnível (Node backend)
+  // Tentamos pegar do process.env se disponível (Node backend)
   if (typeof process !== 'undefined' && process.env) {
      url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.URL_SUPABASE || url;
      key = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KE || key;
