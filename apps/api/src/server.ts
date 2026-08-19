@@ -119,6 +119,10 @@ export async function buildServer() {
   const { registerRoute } = await import('./domain/auth/register.route');
   await app.register(registerRoute);
 
+  // 2º fator (TOTP) do login próprio do apps/api — migration 107.
+  const { mfaRoutes } = await import('./domain/auth/mfa.routes');
+  await app.register(mfaRoutes);
+
   const { onboardingRoutes } = await import('./domain/onboarding/onboarding.routes');
   await app.register(onboardingRoutes);
 

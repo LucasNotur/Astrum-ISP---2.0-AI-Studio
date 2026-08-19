@@ -125,8 +125,21 @@ blindados abertos pro DeepSeek — `.astrum-progress/HANDOFF_SECR5_INTEGRATION_S
 - [ ] Tabletop de resposta a incidente (rodar um runbook ao vivo — `docs/RUNBOOKS_SEGURANCA.md`).
 - [~] **MFA + break-glass para a conta Dev/superusuário — PARCIAL (2026-08-18, migration 106):** `is_super_admin()`
   agora exige AAL2 assim que houver 1+ fator MFA verificado cadastrado (condicional — sem MFA cadastrado, aal1
-  continua bastando, pra não travar o próprio Dev fora antes do enrollment). **Falta:** (1) Lucas cadastrar o TOTP de
-  verdade (ação client-side, Supabase Dashboard ou fluxo `supabase.auth.mfa.enroll()` no app — ninguém faz isso por
-  ele); (2) cobre só o caminho RLS/Supabase Auth do frontend legado — o login próprio do `apps/api`
-  (`POST /api/v2/auth/login`, senha contra `users.password_hash`) não tem NENHUM conceito de MFA/AAL, é auth
-  totalmente separada; adicionar 2º fator ali é projeto à parte, não tentado.
+  continua bastando, pra não travar o próprio Dev fora antes do enrollment). **Falta:** Lucas cadastrar o TOTP de
+  verdade (ação client-side, `supabase.auth.mfa.enroll()` — UI já existe em `SettingsPage.tsx` — ninguém faz isso
+  por ele).
+- [x] **2º fator no login do `apps/api` (2026-08-19, migration 107):** `POST /api/v2/auth/login`
+  (senha contra `users.password_hash`, auth totalmente separada do Supabase Auth/migration 106 acima) agora suporta
+  TOTP: `POST /mfa/enroll` gera secret + `otpauthUrl`, cifrado em repouso com `ERP_CRED_KEY` (mesmo envelope do
+  SEC-R5, `mfa.service.ts`); `POST /mfa/verify` confirma e liga `totp_enabled`; a partir daí o login devolve
+  `{kind:'mfa_required', mfaToken}` (JWT de 5min, audiência `astrum-mfa-pending` — nunca passa no `authenticate`
+  decorator normal) em vez de tokens de sessão; `POST /mfa/challenge` troca o código pelos tokens de verdade;
+  `POST /mfa/disable` exige a senha de novo. 25 testes novos (`mfa.service`, `mfa.routes`, `login.route`, +3 no
+  `jwt.service` existente). Typecheck 56→56 (baseline intacta).
+  **Achado durante a implementação — releitura necessária do escopo:** o login real do frontend legado
+  (`App.tsx` → `handleLogin`) chama `supabase.auth.signInWithPassword` DIRETO — não passa pelo `apps/api`. A ponte
+  `AuthV2`/`src/lib/auth-v2.ts` que chamaria `POST /api/v2/auth/login` existe no código mas **não está importada em
+  nenhuma tela**, só no próprio teste (`auth-v2.test.ts`) — código morto/não conectado. Ou seja: este 2º fator
+  protege quem quer que chame `/api/v2/auth/login` hoje (integrações diretas via API), mas **não** é o que protege
+  a sessão de navegador do Lucas — essa é a migration 106 acima, e só fecha de fato quando o TOTP do Supabase Auth
+  for cadastrado.

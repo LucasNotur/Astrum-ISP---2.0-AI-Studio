@@ -24,6 +24,20 @@ export const refreshBodySchema = z.object({
   refreshToken: z.string().min(10, 'Refresh token inválido'),
 });
 
+// MFA (migration 107) — 2º fator TOTP do login próprio do apps/api.
+export const mfaCodeBodySchema = z.object({
+  code: z.string().regex(/^\d{6}$/, 'Código deve ter 6 dígitos'),
+});
+
+export const mfaChallengeBodySchema = z.object({
+  mfaToken: z.string().min(10, 'Token de MFA inválido'),
+  code: z.string().regex(/^\d{6}$/, 'Código deve ter 6 dígitos'),
+});
+
+export const mfaDisableBodySchema = z.object({
+  password: z.string().min(1, 'Senha é obrigatória'),
+});
+
 export const registerBodySchema = z.object({
   name: z.string().min(2).max(100),
   email: z.string().email(),

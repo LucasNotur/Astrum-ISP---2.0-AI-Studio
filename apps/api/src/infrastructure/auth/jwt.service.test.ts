@@ -54,4 +54,40 @@ describe('JWT Service', () => {
     const { rotateTokens } = await import('./jwt.service');
     await expect(rotateTokens({}, 'revoked-token')).rejects.toThrow('Sessão expirada por segurança');
   });
+
+  it('MFA (107): pending token é assinado com audiência própria, distinta da de operador', async () => {
+    const { signMfaPendingToken, MFA_PENDING_TOKEN_AUDIENCE, OPERATOR_TOKEN_AUDIENCE } = await import('./jwt.service');
+    const signSpy = vi.fn().mockReturnValue('pending.jwt');
+    const fakeFastify = { jwt: { sign: signSpy } };
+
+    signMfaPendingToken(fakeFastify, { userId: 'u1', tenantId: 't1', role: 'admin' });
+
+    const [payload, opts] = signSpy.mock.calls[0];
+    expect(payload.aud).toBe(MFA_PENDING_TOKEN_AUDIENCE);
+    expect(payload.aud).not.toBe(OPERATOR_TOKEN_AUDIENCE);
+    expect(opts.expiresIn).toBe('5m');
+  });
+
+  it('MFA (107): verifyMfaPendingToken rejeita token com audiência errada (ex.: access token normal)', async () => {
+    const { verifyMfaPendingToken, OPERATOR_TOKEN_ISSUER, OPERATOR_TOKEN_AUDIENCE } = await import('./jwt.service');
+    const fakeFastify = {
+      jwt: {
+        verify: vi.fn().mockReturnValue({ userId: 'u1', tenantId: 't1', role: 'admin', iss: OPERATOR_TOKEN_ISSUER, aud: OPERATOR_TOKEN_AUDIENCE }),
+      },
+    };
+
+    expect(() => verifyMfaPendingToken(fakeFastify, 'some.jwt')).toThrow('Token de MFA inválido.');
+  });
+
+  it('MFA (107): verifyMfaPendingToken aceita token com a audiência de MFA pendente', async () => {
+    const { verifyMfaPendingToken, MFA_PENDING_TOKEN_AUDIENCE, OPERATOR_TOKEN_ISSUER } = await import('./jwt.service');
+    const fakeFastify = {
+      jwt: {
+        verify: vi.fn().mockReturnValue({ userId: 'u1', tenantId: 't1', role: 'admin', iss: OPERATOR_TOKEN_ISSUER, aud: MFA_PENDING_TOKEN_AUDIENCE }),
+      },
+    };
+
+    const decoded = verifyMfaPendingToken(fakeFastify, 'some.jwt');
+    expect(decoded).toEqual({ userId: 'u1', tenantId: 't1', role: 'admin' });
+  });
 });

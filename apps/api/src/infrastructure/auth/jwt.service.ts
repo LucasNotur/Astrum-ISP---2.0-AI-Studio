@@ -22,6 +22,33 @@ export interface TokenPayload {
 export const OPERATOR_TOKEN_ISSUER = 'astrum-api';
 export const OPERATOR_TOKEN_AUDIENCE = 'astrum-operator';
 
+// MFA (migration 107): audiência própria e curta duração — este token NUNCA passa no
+// `authenticate` decorator (server.ts exige aud==='astrum-operator'), só serve para
+// POST /api/v2/auth/mfa/challenge trocar por um token completo após o código TOTP.
+export const MFA_PENDING_TOKEN_AUDIENCE = 'astrum-mfa-pending';
+
+export interface MfaPendingPayload {
+  userId: string;
+  tenantId: string;
+  role: 'super_admin' | 'admin' | 'operator' | 'viewer';
+}
+
+export function signMfaPendingToken(fastify: any, payload: MfaPendingPayload): string {
+  return fastify.jwt.sign(
+    { ...payload, iss: OPERATOR_TOKEN_ISSUER, aud: MFA_PENDING_TOKEN_AUDIENCE },
+    { expiresIn: '5m' },
+  );
+}
+
+/** Lança se o token for inválido/expirado ou não tiver a audiência de MFA pendente. */
+export function verifyMfaPendingToken(fastify: any, token: string): MfaPendingPayload {
+  const decoded: any = fastify.jwt.verify(token);
+  if (decoded.iss !== OPERATOR_TOKEN_ISSUER || decoded.aud !== MFA_PENDING_TOKEN_AUDIENCE) {
+    throw new Error('Token de MFA inválido.');
+  }
+  return { userId: decoded.userId, tenantId: decoded.tenantId, role: decoded.role };
+}
+
 /**
  * Gera um par de tokens: access (15min) + refresh (7 dias).
  * O access token é um JWT assinado pelo Fastify.

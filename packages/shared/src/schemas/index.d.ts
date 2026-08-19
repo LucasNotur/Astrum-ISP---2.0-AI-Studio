@@ -14,6 +14,16 @@ export declare const loginBodySchema: z.ZodObject<{
 export declare const refreshBodySchema: z.ZodObject<{
     refreshToken: z.ZodString;
 }, z.core.$strip>;
+export declare const mfaCodeBodySchema: z.ZodObject<{
+    code: z.ZodString;
+}, z.core.$strip>;
+export declare const mfaChallengeBodySchema: z.ZodObject<{
+    mfaToken: z.ZodString;
+    code: z.ZodString;
+}, z.core.$strip>;
+export declare const mfaDisableBodySchema: z.ZodObject<{
+    password: z.ZodString;
+}, z.core.$strip>;
 export declare const registerBodySchema: z.ZodObject<{
     name: z.ZodString;
     email: z.ZodString;

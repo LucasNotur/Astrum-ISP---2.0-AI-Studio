@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { verifyPassword, rehashIfNeeded, hashPassword } from '../../infrastructure/auth/password.service';
-import { generateTokenPair } from '../../infrastructure/auth/jwt.service';
+import { generateTokenPair, signMfaPendingToken } from '../../infrastructure/auth/jwt.service';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { securityLogger } from '../../infrastructure/logging/logger';
 import { validateBody } from '../../infrastructure/validation/zod-validator';
@@ -24,7 +24,7 @@ export async function loginRoute(fastify: FastifyInstance) {
     // Buscar usuário
     const { data: user } = await supabaseAdmin
       .from('users')
-      .select('id, tenant_id, role, password_hash, active, must_reset_password')
+      .select('id, tenant_id, role, password_hash, active, must_reset_password, totp_enabled')
       .eq('email', email.toLowerCase())
       .single();
 
@@ -66,6 +66,20 @@ export async function loginRoute(fastify: FastifyInstance) {
       const result = buildLoginResult(user as any, { accessToken: '', refreshToken: '' });
       securityLogger.info({ userId: user.id }, 'Login exige redefinição de senha (migração)');
       return reply.status(200).send(result);
+    }
+
+    // MFA (migration 107): usuário com TOTP habilitado não recebe sessão plena aqui —
+    // só um token curto (5min, audiência própria) que POST /mfa/challenge troca pelos
+    // tokens de verdade depois do código. Sem isso, senha sozinha bastaria mesmo com
+    // MFA cadastrado.
+    if (user.totp_enabled) {
+      const mfaToken = signMfaPendingToken(fastify, {
+        userId: user.id,
+        tenantId: user.tenant_id,
+        role: user.role as any,
+      });
+      securityLogger.info({ userId: user.id }, 'Login exige 2º fator (TOTP)');
+      return reply.status(200).send({ kind: 'mfa_required', mfaToken });
     }
 
     const tokens = await generateTokenPair(
