@@ -2,7 +2,7 @@
  * D-07 — Painel comercial: conversão por estágio, LTV médio, taxa por origem.
  */
 import type { FastifyInstance } from 'fastify';
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 
 interface FunnelStageCount {
   stage: string;
