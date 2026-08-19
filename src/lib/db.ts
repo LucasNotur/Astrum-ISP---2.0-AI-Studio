@@ -6,7 +6,7 @@
  * Plano: .astrum-progress/PLANO_FIRESTORE_ZERO__CONCLUIDO.md (FZ-4).
  */
 import { supabase } from "./supabase.ts";
-import { apiPost } from "@/src/lib/apiClient";
+import { apiPost, apiPut } from "@/src/lib/apiClient";
 import {
   getCustomers,
   updateCustomer,
@@ -238,14 +238,7 @@ export const getIntegrationKeys = async (): Promise<any> => {
 
 export const saveIntegrationKeys = async (keys: Record<string, string>) => {
   try {
-    const tenantId = await currentTenantId();
-    if (!tenantId) throw new Error("Sem tenant na sessão");
-    const { data } = await supabase
-      .from("tenants").select("integration_keys").eq("id", tenantId).maybeSingle();
-    const merged = { ...((data?.integration_keys as Record<string, string>) ?? {}), ...keys };
-    const { error } = await supabase
-      .from("tenants").update({ integration_keys: merged }).eq("id", tenantId);
-    if (error) throw error;
+    await apiPut('/api/v2/settings/integration-keys', { keys });
   } catch (err) {
     logDbError(err, OperationType.WRITE, "tenants.integration_keys");
     throw err;

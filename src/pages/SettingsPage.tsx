@@ -631,6 +631,29 @@ export function SettingsPage() {
     fetchErpStatus();
   }, [tenantId]);
 
+  // SEC-R5 — status dos 2 segredos de integração (openaiApiKey/evolutionApiKey) sem
+  // vazar o valor: o backend só diz se estão configurados. Os inputs não pré-preenchem
+  // o segredo (que agora fica cifrado no banco); para trocar, digite um novo.
+  const [secretsConfigured, setSecretsConfigured] = useState<{ openaiApiKey: boolean; evolutionApiKey: boolean }>({
+    openaiApiKey: false,
+    evolutionApiKey: false,
+  });
+  const [openaiApiKeyInput, setOpenaiApiKeyInput] = useState('');
+  const [evolutionApiKeyInput, setEvolutionApiKeyInput] = useState('');
+
+  const fetchIntegrationSecretsStatus = async () => {
+    try {
+      const data = await apiGet<{ openaiApiKey: boolean; evolutionApiKey: boolean }>(
+        '/api/v2/settings/integration-keys/status',
+      );
+      setSecretsConfigured(data);
+    } catch { /* sem permissão ou erro — deixa os dois false */ }
+  };
+
+  useEffect(() => {
+    fetchIntegrationSecretsStatus();
+  }, [tenantId]);
+
   const saveVoalleCredentials = async () => {
     try {
       toast.info('Salvando credenciais Voalle...');
@@ -1254,18 +1277,30 @@ export function SettingsPage() {
                         <Label>Global API Key</Label>
                         <Input 
                            type="password" 
-                           placeholder="Sua Global API Key..." 
-                           value={integrationKeys.evolutionApiKey || ''}
-                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, evolutionApiKey: e.target.value }))}
+                           placeholder={secretsConfigured.evolutionApiKey ? '••••••••  (configurado — digite para trocar)' : 'Cole a Global API Key da Evolution'}
+                           value={evolutionApiKeyInput}
+                           onChange={(e) => setEvolutionApiKeyInput(e.target.value)}
                         />
+                        {secretsConfigured.evolutionApiKey && (
+                          <span className="text-xs text-emerald-500">✓ Configurado</span>
+                        )}
                       </div>
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
-                           toast.success('Configurações salvas!');
-                           setIsSavingKeys(false);
-                           setSelectedIntegrationMenu(null);
+                           try {
+                             const keys: Record<string, string> = { evolutionUrl: integrationKeys.evolutionUrl || '' };
+                             if (evolutionApiKeyInput.trim()) keys.evolutionApiKey = evolutionApiKeyInput.trim();
+                             await apiPut('/api/v2/settings/integration-keys', { keys });
+                             toast.success('Configurações salvas!');
+                             setEvolutionApiKeyInput('');
+                             fetchIntegrationSecretsStatus();
+                           } catch (e: any) {
+                             toast.error(`Erro ao salvar: ${e.message}`);
+                           } finally {
+                             setIsSavingKeys(false);
+                             setSelectedIntegrationMenu(null);
+                           }
                         }}>
                            {isSavingKeys ? "Salvando..." : "Salvar Configurações"}
                         </Button>
@@ -1365,18 +1400,30 @@ export function SettingsPage() {
                         <Label>OpenAI API Key</Label>
                         <Input 
                            type="password" 
-                           placeholder="sk-..." 
-                           value={integrationKeys.openaiApiKey || ''}
-                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, openaiApiKey: e.target.value }))}
+                           placeholder={secretsConfigured.openaiApiKey ? '••••••••  (configurado — digite para trocar)' : 'Cole sua OpenAI API Key'}
+                           value={openaiApiKeyInput}
+                           onChange={(e) => setOpenaiApiKeyInput(e.target.value)}
                         />
+                        {secretsConfigured.openaiApiKey && (
+                          <span className="text-xs text-emerald-500">✓ Configurado</span>
+                        )}
                       </div>
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
-                           toast.success('Configurações salvas!');
-                           setIsSavingKeys(false);
-                           setSelectedIntegrationMenu(null);
+                           try {
+                             const keys: Record<string, string> = {};
+                             if (openaiApiKeyInput.trim()) keys.openaiApiKey = openaiApiKeyInput.trim();
+                             await apiPut('/api/v2/settings/integration-keys', { keys });
+                             toast.success('Configurações salvas!');
+                             setOpenaiApiKeyInput('');
+                             fetchIntegrationSecretsStatus();
+                           } catch (e: any) {
+                             toast.error(`Erro ao salvar: ${e.message}`);
+                           } finally {
+                             setIsSavingKeys(false);
+                             setSelectedIntegrationMenu(null);
+                           }
                         }}>Salvar OpenAI</Button>
                       </div>
                   </div>

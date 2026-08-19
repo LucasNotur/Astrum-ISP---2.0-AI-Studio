@@ -4,6 +4,29 @@ import { logger } from "./logger";
 import { encryptCpf as _encryptCpf, decryptCpf as _decryptCpf } from "./fieldCipher";
 import { getEmbeddingProvider } from './embeddingProvider';
 import { getVectorStore } from './vectorStore';
+import { decryptString, looksEncrypted } from './erpCredentialCipher';
+
+/**
+ * SEC-R5 — decifra os 2 campos secretos de integration keys na leitura dos workers
+ * legados (messageWorker/whatsappSender/erpAdapter). Tolerante: texto puro legado
+ * passa direto; se a decifra falhar, loga e devolve string vazia — NUNCA devolve o
+ * ciphertext cru (o worker tentaria usá-lo como chave real).
+ */
+function decryptIntegrationSecrets(keys: Record<string, any>): Record<string, any> {
+  if (!keys || typeof keys !== 'object') return keys;
+  for (const field of ['openaiApiKey', 'evolutionApiKey'] as const) {
+    const value = keys[field];
+    if (value && looksEncrypted(value)) {
+      try {
+        keys[field] = decryptString(value);
+      } catch (err) {
+        console.error(`[erpCredentialCipher] falha ao decifrar ${field}:`, err);
+        keys[field] = '';
+      }
+    }
+  }
+  return keys;
+}
 
 export const getIntegrationKeys = async (tenantId: string = "default"): Promise<any> => {
   try {
@@ -11,7 +34,7 @@ export const getIntegrationKeys = async (tenantId: string = "default"): Promise<
     if (tenantId && tenantId !== 'default') {
       const tenantDoc = await db.collection("tenants").doc(tenantId).collection("settings").doc("integrations").get();
       if (tenantDoc.exists) {
-        const data = tenantDoc.data();
+        const data = decryptIntegrationSecrets(tenantDoc.data() ?? {});
         if (data && data.evolutionUrl && data.evolutionUrl.includes("trycloudflare")) {
            data.evolutionUrl = "";
         }
@@ -22,7 +45,7 @@ export const getIntegrationKeys = async (tenantId: string = "default"): Promise<
     // Fallback to global
     const doc = await db.collection("settings").doc("integrations").get();
     if (doc.exists) {
-      const data = doc.data();
+      const data = decryptIntegrationSecrets(doc.data() ?? {});
       if (data && data.evolutionUrl && data.evolutionUrl.includes("trycloudflare")) {
          data.evolutionUrl = "";
       }

@@ -256,6 +256,10 @@ export async function buildServer() {
   const { erpAdminRoutes } = await import('./domain/erp/erp-admin.routes');
   await app.register(erpAdminRoutes);
 
+  // SEC-R5 — gravação cifrada dos segredos de integração (openaiApiKey/evolutionApiKey).
+  const { integrationSecretsRoutes } = await import('./domain/provedor/integration-secrets.routes');
+  await app.register(integrationSecretsRoutes);
+
   // S90 — Svix outbound webhooks: configuração de endpoints pelo ISP.
   const webhookConfigRoutes = await import('./domain/webhooks/webhook-config.routes');
   await app.register(webhookConfigRoutes.default);
