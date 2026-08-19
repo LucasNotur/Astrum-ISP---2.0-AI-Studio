@@ -134,7 +134,7 @@ export function ActiveOsView() {
   };
 
   // Foto placeholder para o modo demo (simulação só com toques, sem câmera)
-  const DEMO_IMG = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="#3D5AFE"/></svg>');
+  const DEMO_IMG = 'data:image/svg+xml;base64,' + btoa('<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="#0075F2"/></svg>');
 
   const handleCheckin = async () => {
     if (demoMode) { runCheckin(DEMO_IMG); return; }
@@ -511,7 +511,7 @@ export function ActiveOsView() {
               <button
                 onClick={cameraMode === 'checkin' ? handleCaptureAndCheckin : cameraMode === 'checkout' ? handleCaptureAndCheckout : () => { capturePhoto(); }}
                 className="w-16 h-16 rounded-full active:scale-90 transition-transform"
-                style={{ border: '4px solid #3D5AFE', background: 'rgba(61,90,254,0.15)' }}
+                style={{ border: '4px solid #0075F2', background: 'rgba(0,117,242,0.15)' }}
               />
             </div>
           </motion.div>

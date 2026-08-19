@@ -1,9 +1,11 @@
 import { useTechAppStore } from '../../store/techAppStore';
 
 /**
- * Tema do app Uber Técnico — claro + escuro, ambos alinhados ao design system
- * Astrum (accent Fiber #3D5AFE). Cada componente pega os tokens via useTech(),
- * que lê o modo atual da store. `tech` (default = escuro) fica como fallback.
+ * Tema do app técnico — claro + escuro. O modo escuro (usado sempre no mapa/nav)
+ * clona a paleta do case "Navigator" (dprofile.ru/case/30156): MegaBlack + Blue
+ * #0075F2 + Yellow #EECF6D + Green #8BD164 + Red #D64045. Cada componente pega
+ * os tokens via useTech(), que lê o modo atual da store. `tech` (default =
+ * escuro) fica como fallback.
  */
 export interface TechTokens {
   bg: string; card: string; elevated: string; border: string; borderSubtle: string;
@@ -16,14 +18,16 @@ export interface TechTokens {
   isDark: boolean;
 }
 
+// Paleta clonada do case "Navigator" (dprofile.ru/case/30156) — MegaBlack + os 4
+// acentos exatos do moodboard: Blue #0075F2, Yellow #EECF6D, Green #8BD164, Red #D64045.
 export const DARK: TechTokens = {
-  bg: '#0a0a0b', card: '#151517', elevated: '#1c1c1e', border: '#26262a', borderSubtle: '#1c1c1e',
+  bg: '#0B0B0B', card: '#151517', elevated: '#1c1c1e', border: '#282828', borderSubtle: '#1c1c1e',
   text: '#fafafa', textSecondary: '#9c9ca0', textMuted: '#6a6a70', textDim: '#48484d',
-  accent: '#3D5AFE', accentLight: '#6d89ff', accentDeep: '#2f48d1', onAccent: '#ffffff',
-  accentDim: 'rgba(61,90,254,0.12)', accentBorder: 'rgba(61,90,254,0.28)', accentGlow: 'rgba(61,90,254,0.45)',
-  lemon: '#F2E349',
-  pending: '#F5A524', active: '#3D5AFE', done: '#00C2A8', danger: '#E5484D',
-  trafficFree: '#00C2A8', trafficMed: '#F5A524', trafficHeavy: '#E5484D',
+  accent: '#0075F2', accentLight: '#4d9bff', accentDeep: '#0058ba', onAccent: '#ffffff',
+  accentDim: 'rgba(0,117,242,0.12)', accentBorder: 'rgba(0,117,242,0.28)', accentGlow: 'rgba(0,117,242,0.45)',
+  lemon: '#EECF6D',
+  pending: '#EECF6D', active: '#0075F2', done: '#8BD164', danger: '#D64045',
+  trafficFree: '#8BD164', trafficMed: '#EECF6D', trafficHeavy: '#D64045',
   isDark: true,
 };
 

@@ -1,11 +1,10 @@
 import React from 'react';
-// Overlay sobre o mapa (sempre escuro) — token DARK fixo.
-import { DARK as tech } from './theme';
 
 /**
- * Indicador de velocidade atual + limite da via — inspirado no nav (Mapbox/Yango):
- * velocímetro grande à esquerda, placa de limite estilo sinalização à direita.
- * Fica vermelho quando acima do limite.
+ * Indicador de velocidade — clone 1:1 do case "Navigator" (dprofile.ru/case/30156,
+ * imagens 1 e 9): placa de limite (círculo com anel vermelho, como sinalização de
+ * trânsito) empilhada sobre a velocidade atual em texto simples, sem cartão/fundo.
+ * Posicionado na borda ESQUERDA da tela (não no canto superior direito).
  */
 interface SpeedIndicatorProps {
   speedKmh: number;
@@ -15,33 +14,23 @@ interface SpeedIndicatorProps {
 export function SpeedIndicator({ speedKmh, limitKmh }: SpeedIndicatorProps) {
   const over = speedKmh > limitKmh;
   return (
-    <div className="flex items-stretch shadow-xl" style={{ borderRadius: 16, overflow: 'hidden' }}>
-      {/* Velocidade atual */}
+    <div className="flex flex-col items-center gap-1">
+      {/* Placa de limite — sempre com anel vermelho, como no case de referência */}
       <div
-        className="flex flex-col items-center justify-center px-3 py-1.5"
-        style={{ background: over ? tech.danger : `${tech.card}f2`, backdropFilter: 'blur(20px)', minWidth: 58 }}
+        className="flex items-center justify-center rounded-full shadow-xl"
+        style={{ width: 52, height: 52, border: '4px solid #D64045', background: '#fff' }}
       >
-        <span className="text-xl font-extrabold leading-none tabular-nums" style={{ color: '#fff' }}>
-          {Math.round(speedKmh)}
-        </span>
-        <span className="text-[8px] font-bold mt-0.5" style={{ color: over ? 'rgba(255,255,255,0.8)' : tech.textMuted }}>
-          km/h
+        <span className="text-xl font-extrabold leading-none tabular-nums" style={{ color: '#111' }}>
+          {limitKmh}
         </span>
       </div>
-      {/* Placa de limite */}
-      <div
-        className="flex flex-col items-center justify-center px-2 py-1"
-        style={{ background: '#fff' }}
+      {/* Velocidade atual — texto simples, vira vermelho ao ultrapassar o limite */}
+      <span
+        className="text-lg font-extrabold leading-none tabular-nums"
+        style={{ color: over ? '#D64045' : '#fff', textShadow: '0 1px 6px rgba(0,0,0,0.6)' }}
       >
-        <div
-          className="flex items-center justify-center rounded-full"
-          style={{ width: 38, height: 38, border: '3px solid #E5484D', background: '#fff' }}
-        >
-          <span className="text-base font-extrabold leading-none tabular-nums" style={{ color: '#111' }}>
-            {limitKmh}
-          </span>
-        </div>
-      </div>
+        {Math.round(speedKmh)}
+      </span>
     </div>
   );
 }

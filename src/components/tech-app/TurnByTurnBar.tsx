@@ -22,7 +22,7 @@ export function TurnByTurnBar({ icon, instruction, distance, nextInstruction }: 
           <span className="text-3xl flex-shrink-0">{icon}</span>
           <div className="flex-1 min-w-0">
             <p className="text-white font-bold text-sm leading-tight">{instruction}</p>
-            <p className="text-xs mt-0.5" style={{ color: '#3D5AFE' }}>{distance}</p>
+            <p className="text-xs mt-0.5" style={{ color: '#0075F2' }}>{distance}</p>
           </div>
         </div>
 

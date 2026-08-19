@@ -13,7 +13,7 @@ import { toast } from 'sonner';
  * preta pesada. Fundo/título adaptam ao tema (claro ou escuro).
  */
 const STATUS_LABELS: Record<string, string> = { pending: 'Agendada', in_progress: 'Em rota', completed: 'Concluída' };
-const STATUS_COLOR: Record<string, string> = { pending: '#F5A524', in_progress: '#3D5AFE', completed: '#16a34a' };
+const STATUS_COLOR: Record<string, string> = { pending: '#EECF6D', in_progress: '#0075F2', completed: '#8BD164' };
 
 type Seg = 'ativas' | 'concluidas';
 

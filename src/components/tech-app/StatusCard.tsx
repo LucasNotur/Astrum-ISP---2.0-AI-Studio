@@ -52,9 +52,9 @@ const STATUS_ICON: Record<CardStatus, { icon: React.ReactNode; spin?: boolean }>
 };
 
 const ACCENT_BY_STATUS: Record<CardStatus, string> = {
-  scheduled: '#3D5AFE',
-  in_progress: '#6d7cff',
-  completed: '#00C2A8',
+  scheduled: '#0075F2',
+  in_progress: '#4d9bff',
+  completed: '#8BD164',
 };
 
 function dotGrid(isDark: boolean): React.CSSProperties {

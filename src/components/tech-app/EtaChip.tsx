@@ -17,7 +17,7 @@ export function EtaChip({ distance, duration }: EtaChipProps) {
         border: '1px solid #222',
       }}
     >
-      <Clock size={14} style={{ color: '#3D5AFE' }} />
+      <Clock size={14} style={{ color: '#0075F2' }} />
       <span className="text-sm font-bold text-white">{formatDuration(duration)}</span>
       <span style={{ color: '#444' }}>•</span>
       <span className="text-xs" style={{ color: '#888' }}>{formatDistance(distance)}</span>

@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import type { FieldOs, OptimizedRouteResult } from '../lib/fieldOps';
 import type { OsrmRoute, OsrmStep } from '../lib/osrm';
+import type { PoiResult } from '../lib/poiSearch';
+import type { CtoAvailability } from '../lib/ctoAvailability';
 
 export type TechView =
   | 'map'
@@ -89,6 +91,23 @@ interface TechAppState {
   viewMode: 'desktop' | 'mobile';
   setViewMode: (m: 'desktop' | 'mobile') => void;
   toggleViewMode: () => void;
+
+  // Camada de POI genérico + disponibilidade de CTO no mapa (clone do case dprofile.ru)
+  showPoiLayer: boolean;
+  toggleShowPoiLayer: () => void;
+
+  poiResults: PoiResult[];
+  setPoiResults: (r: PoiResult[]) => void;
+  selectedPoi: PoiResult | null;
+  setSelectedPoi: (p: PoiResult | null) => void;
+
+  ctos: CtoAvailability[];
+  setCtos: (c: CtoAvailability[]) => void;
+  selectedCto: CtoAvailability | null;
+  setSelectedCto: (c: CtoAvailability | null) => void;
+
+  searchOpen: boolean;
+  setSearchOpen: (v: boolean) => void;
 }
 
 const introInit = (() => {
@@ -194,4 +213,20 @@ export const useTechAppStore = create<TechAppState>((set) => ({
     try { localStorage.setItem('astrum-tech-viewmode', next); } catch {}
     return { viewMode: next };
   }),
+
+  showPoiLayer: false,
+  toggleShowPoiLayer: () => set((s) => ({ showPoiLayer: !s.showPoiLayer })),
+
+  poiResults: [],
+  setPoiResults: (poiResults) => set({ poiResults }),
+  selectedPoi: null,
+  setSelectedPoi: (selectedPoi) => set({ selectedPoi }),
+
+  ctos: [],
+  setCtos: (ctos) => set({ ctos }),
+  selectedCto: null,
+  setSelectedCto: (selectedCto) => set({ selectedCto }),
+
+  searchOpen: false,
+  setSearchOpen: (searchOpen) => set({ searchOpen }),
 }));

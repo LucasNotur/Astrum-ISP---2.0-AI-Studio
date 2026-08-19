@@ -1,11 +1,16 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { Navigation, Crosshair } from 'lucide-react';
+import { Navigation, Crosshair, Search, Layers } from 'lucide-react';
 import { useTechAppStore } from '../../store/techAppStore';
 import { fetchOsrmRoute } from '../../lib/osrm';
+import { fetchNearbyCtos, occupancyColor } from '../../lib/ctoAvailability';
+import { supabase } from '../../lib/supabase';
 import { OsBottomSheet } from './OsBottomSheet';
 import { EtaChip } from './EtaChip';
+import { PoiSearchSheet } from './PoiSearchSheet';
+import { CtoInfoCard } from './CtoInfoCard';
+import { DARK as tech } from './theme';
 import type { FieldOs } from '../../lib/fieldOps';
 
 // Basemap ESCURO estilo Mapbox (imgs 3/4/5) — tiles CARTO dark, sem API key.
@@ -31,9 +36,9 @@ const DARK_STYLE: maplibregl.StyleSpecification = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: '#F5A524',
-  in_progress: '#3D5AFE',
-  completed: '#00C2A8',
+  pending: '#EECF6D',
+  in_progress: '#0075F2',
+  completed: '#8BD164',
 };
 
 export function MapView() {
@@ -41,6 +46,8 @@ export function MapView() {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const techMarkerRef = useRef<maplibregl.Marker | null>(null);
   const osMarkersRef = useRef<maplibregl.Marker[]>([]);
+  const ctoMarkersRef = useRef<maplibregl.Marker[]>([]);
+  const poiMarkerRef = useRef<maplibregl.Marker | null>(null);
 
   const osList = useTechAppStore((s) => s.osList);
   const gps = useTechAppStore((s) => s.gps);
@@ -49,6 +56,28 @@ export function MapView() {
   const osrmRoute = useTechAppStore((s) => s.osrmRoute);
   const setOsrmRoute = useTechAppStore((s) => s.setOsrmRoute);
   const startNavigation = useTechAppStore((s) => s.startNavigation);
+  const showPoiLayer = useTechAppStore((s) => s.showPoiLayer);
+  const toggleShowPoiLayer = useTechAppStore((s) => s.toggleShowPoiLayer);
+  const ctos = useTechAppStore((s) => s.ctos);
+  const setCtos = useTechAppStore((s) => s.setCtos);
+  const selectedCto = useTechAppStore((s) => s.selectedCto);
+  const setSelectedCto = useTechAppStore((s) => s.setSelectedCto);
+  const selectedPoi = useTechAppStore((s) => s.selectedPoi);
+  const searchOpen = useTechAppStore((s) => s.searchOpen);
+  const setSearchOpen = useTechAppStore((s) => s.setSearchOpen);
+
+  // Disponibilidade de CTO em tempo real (clone das vagas de recarga do case
+  // dprofile.ru) — carrega uma vez ao montar o mapa.
+  useEffect(() => {
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const tenantId = (session?.user?.user_metadata as any)?.tenant_id
+        ?? (session?.user as any)?.app_metadata?.tenant_id;
+      if (!tenantId) return;
+      const found = await fetchNearbyCtos(tenantId);
+      setCtos(found);
+    })();
+  }, []);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -77,7 +106,7 @@ export function MapView() {
       el.innerHTML = `
         <div style="position:relative;width:28px;height:28px;">
           <div style="position:absolute;inset:0;border-radius:50%;background:rgba(61,90,254,0.25);animation:pulse-ring 2s ease-out infinite;"></div>
-          <div style="position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:50%;background:#3D5AFE;border:3px solid #0a0a0b;box-shadow:0 2px 10px rgba(61,90,254,0.4);"></div>
+          <div style="position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:50%;background:#0075F2;border:3px solid #0a0a0b;box-shadow:0 2px 10px rgba(61,90,254,0.4);"></div>
         </div>
       `;
       techMarkerRef.current = new maplibregl.Marker({ element: el })
@@ -134,6 +163,59 @@ export function MapView() {
       map.fitBounds(bounds, { padding: 60, maxZoom: 14, duration: 500 });
     }
   }, [osList, activeOs, gps]);
+
+  // Camada de disponibilidade de CTO — pin com badge "livre/total", clone das
+  // vagas de recarga do case dprofile.ru. Some/aparece com o toggle de camadas.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    ctoMarkersRef.current.forEach((m) => m.remove());
+    ctoMarkersRef.current = [];
+
+    if (!showPoiLayer) return;
+
+    for (const cto of ctos) {
+      const free = Math.max(0, cto.totalPorts - cto.usedPorts);
+      const color = occupancyColor(cto.usedPorts, cto.totalPorts);
+
+      const el = document.createElement('div');
+      el.style.cssText = 'display:flex;align-items:center;gap:3px;cursor:pointer;';
+      el.innerHTML = `
+        <div style="display:flex;align-items:center;gap:4px;padding:4px 8px 4px 6px;border-radius:999px;background:#151517ee;border:1.5px solid ${color};box-shadow:0 2px 8px rgba(0,0,0,0.5);">
+          <div style="width:8px;height:8px;border-radius:50%;background:${color};"></div>
+          <span style="font-size:11px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;">${free}/${cto.totalPorts}</span>
+        </div>
+      `;
+
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([cto.longitude, cto.latitude])
+        .addTo(map);
+
+      el.addEventListener('click', () => setSelectedCto(cto));
+      ctoMarkersRef.current.push(marker);
+    }
+  }, [ctos, showPoiLayer]);
+
+  // Marcador do POI selecionado na busca (clone do pin de resultado do case).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (poiMarkerRef.current) {
+      poiMarkerRef.current.remove();
+      poiMarkerRef.current = null;
+    }
+    if (!selectedPoi) return;
+
+    const el = document.createElement('div');
+    el.innerHTML = `<div style="width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#EECF6D;border:3px solid #0B0B0B;box-shadow:0 2px 10px rgba(0,0,0,0.5);"></div>`;
+    poiMarkerRef.current = new maplibregl.Marker({ element: el })
+      .setLngLat([selectedPoi.longitude, selectedPoi.latitude])
+      .addTo(map);
+
+    map.easeTo({ center: [selectedPoi.longitude, selectedPoi.latitude], zoom: 15, duration: 600 });
+  }, [selectedPoi]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -253,17 +335,42 @@ export function MapView() {
         {osrmRoute && (
           <EtaChip distance={osrmRoute.distance} duration={osrmRoute.duration} />
         )}
-        <button
-          onClick={handleRecenter}
-          className="p-3 backdrop-blur-lg shadow-xl active:scale-95 transition-transform"
-          style={{
-            background: 'rgba(17,17,17,0.9)',
-            borderRadius: '50%',
-            border: '1px solid #222',
-          }}
-        >
-          <Crosshair size={18} style={{ color: '#fff' }} />
-        </button>
+        <div className="flex items-center gap-2 ml-auto">
+          {/* Camadas — POI + disponibilidade de CTO (clone do case dprofile.ru) */}
+          <button
+            onClick={toggleShowPoiLayer}
+            className="p-3 backdrop-blur-lg shadow-xl active:scale-95 transition-transform"
+            style={{
+              background: showPoiLayer ? tech.accent : 'rgba(17,17,17,0.9)',
+              borderRadius: '50%',
+              border: '1px solid #222',
+            }}
+          >
+            <Layers size={18} style={{ color: '#fff' }} />
+          </button>
+          {/* Buscar — clone do botão de lupa central da tela "Карта" */}
+          <button
+            onClick={() => setSearchOpen(true)}
+            className="p-3 backdrop-blur-lg shadow-xl active:scale-95 transition-transform"
+            style={{
+              background: '#fff',
+              borderRadius: '50%',
+            }}
+          >
+            <Search size={18} style={{ color: '#111' }} />
+          </button>
+          <button
+            onClick={handleRecenter}
+            className="p-3 backdrop-blur-lg shadow-xl active:scale-95 transition-transform"
+            style={{
+              background: 'rgba(17,17,17,0.9)',
+              borderRadius: '50%',
+              border: '1px solid #222',
+            }}
+          >
+            <Crosshair size={18} style={{ color: '#fff' }} />
+          </button>
+        </div>
       </div>
 
       {/* Start Navigation FAB */}
@@ -272,7 +379,7 @@ export function MapView() {
           onClick={handleStartNav}
           className="absolute bottom-[240px] right-4 z-10 flex items-center gap-2 px-5 py-3 shadow-xl active:scale-95 transition-transform"
           style={{
-            background: '#3D5AFE',
+            background: '#0075F2',
             color: '#ffffff',
             borderRadius: '20px',
             fontWeight: 700,
@@ -283,8 +390,14 @@ export function MapView() {
         </button>
       )}
 
+      {/* Ficha de disponibilidade da CTO tocada no mapa */}
+      <CtoInfoCard />
+
       {/* Bottom Sheet */}
       <OsBottomSheet />
+
+      {/* Busca de POI genérico — clone da tela "Поиск локаций" */}
+      <PoiSearchSheet />
     </div>
   );
 }
