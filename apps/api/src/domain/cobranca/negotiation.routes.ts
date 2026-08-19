@@ -8,6 +8,7 @@
  */
 import type { FastifyInstance } from 'fastify';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
+import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import {
   getPolicy,
   upsertPolicy,
@@ -15,8 +16,14 @@ import {
   countFineWaiversThisYear,
   createAgreement,
   listAgreements,
+  describePolicyChange,
   type NegotiationProposal,
 } from './negotiation-policy.service';
+
+function actorOf(request: any): { tenantId?: string; userId?: string } {
+  const u = request.user ?? {};
+  return { tenantId: u.tenantId ?? u.tenant_id, userId: u.userId ?? u.uid ?? u.sub };
+}
 
 export async function negotiationRoutes(app: FastifyInstance) {
   app.get('/api/v2/cobranca/negotiation/policy', {
@@ -28,16 +35,42 @@ export async function negotiationRoutes(app: FastifyInstance) {
 
   app.put('/api/v2/cobranca/negotiation/policy', {
     preHandler: [app.authenticate, requirePermission('billing', 'write')],
-  }, async (request) => {
-    const { tenantId } = request.user as { tenantId: string };
+  }, async (request, reply) => {
+    const { tenantId, userId } = actorOf(request);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+
     const body = (request.body ?? {}) as Record<string, unknown>;
-    await upsertPolicy({
-      tenantId,
+    const oldPolicy = await getPolicy(tenantId);
+    const newPolicy = {
       maxInstallments: Number(body.maxInstallments ?? 3),
       maxDiscountPct: Number(body.maxDiscountPct ?? 10),
       fineWaiverPerYear: Number(body.fineWaiverPerYear ?? 1),
       autoApproveUpToCents: Number(body.autoApproveUpToCents ?? 50000),
-    });
+    };
+    const change = describePolicyChange(oldPolicy, newPolicy);
+
+    // BILL-06: sem um 2º papel de aprovador (MT-06 em aberto), a mitigação é tornar todo
+    // afrouxamento de alçada AUDITADO e IMUTÁVEL antes de valer — nunca silencioso. Fail-
+    // closed igual ao /security/unmask: se a auditoria não grava, a alteração é negada.
+    if (change.changedFields.length > 0) {
+      try {
+        const { error } = await supabaseAdmin.from('audit_log').insert({
+          tenant_id: tenantId,
+          user_id: userId ?? null,
+          action: change.loosened ? 'negotiation_policy_loosened' : 'negotiation_policy_tightened',
+          resource: 'negotiation_policy',
+          resource_id: null,
+          ip_address: request.ip,
+          user_agent: (request.headers as any)['user-agent'] ?? null,
+          metadata: { old: oldPolicy, new: newPolicy, changedFields: change.changedFields },
+        });
+        if (error) throw new Error(error.message);
+      } catch {
+        return reply.code(500).send({ code: 'AUDIT_FAILED', message: 'Falha ao registrar auditoria; alteração de alçada negada.' });
+      }
+    }
+
+    await upsertPolicy({ tenantId, ...newPolicy });
     return { ok: true };
   });
 

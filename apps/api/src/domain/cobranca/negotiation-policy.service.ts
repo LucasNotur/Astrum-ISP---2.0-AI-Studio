@@ -111,6 +111,35 @@ export async function getPolicy(
   return { tenantId, ...DEFAULT_POLICY };
 }
 
+export interface PolicyChangeDescription {
+  changedFields: string[];
+  loosened: boolean;
+}
+
+/**
+ * BILL-06 (segregação de funções): quem cria acordos e quem define a alçada que os
+ * limita é o MESMO papel (billing:write) — não dá pra bloquear sem travar o admin do
+ * tenant (não existe um 2º papel de aprovador no modelo hoje, MT-06 ainda em aberto).
+ * Mitigação real: tornar todo AFROUXAMENTO de alçada visível e permanente (audit_log
+ * imutável, migration 095) em vez de silencioso. `loosened=true` quando qualquer campo
+ * sobe (mais desconto, mais parcelas, mais isenção, alçada automática maior) — o caso
+ * que permite auto-escalação seguida de uso imediato num acordo maior.
+ */
+export function describePolicyChange(
+  oldPolicy: Omit<NegotiationPolicy, 'tenantId'>,
+  newPolicy: Omit<NegotiationPolicy, 'tenantId'>,
+): PolicyChangeDescription {
+  const fields: Array<keyof Omit<NegotiationPolicy, 'tenantId'>> = [
+    'maxInstallments',
+    'maxDiscountPct',
+    'fineWaiverPerYear',
+    'autoApproveUpToCents',
+  ];
+  const changedFields = fields.filter((f) => oldPolicy[f] !== newPolicy[f]);
+  const loosened = fields.some((f) => newPolicy[f] > oldPolicy[f]);
+  return { changedFields, loosened };
+}
+
 export async function upsertPolicy(
   policy: NegotiationPolicy,
   db: typeof supabase = supabase,

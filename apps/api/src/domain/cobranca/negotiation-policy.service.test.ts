@@ -10,6 +10,7 @@ vi.mock('../../infrastructure/logging/logger', () => ({
 
 import {
   validateProposal,
+  describePolicyChange,
   DEFAULT_POLICY,
   type NegotiationPolicy,
   type NegotiationProposal,
@@ -129,5 +130,35 @@ describe('D-03 — validateProposal (validator puro)', () => {
     };
     const v = validateProposal(proposal, generous, 3);
     expect(v.allowed).toBe(true);
+  });
+});
+
+describe('BILL-06 — describePolicyChange (segregação de funções)', () => {
+  it('nenhum campo mudou → changedFields vazio, loosened false', () => {
+    const r = describePolicyChange(DEFAULT_POLICY, { ...DEFAULT_POLICY });
+    expect(r.changedFields).toEqual([]);
+    expect(r.loosened).toBe(false);
+  });
+
+  it('desconto sobe → loosened true, campo listado', () => {
+    const r = describePolicyChange(DEFAULT_POLICY, { ...DEFAULT_POLICY, maxDiscountPct: 30 });
+    expect(r.loosened).toBe(true);
+    expect(r.changedFields).toEqual(['maxDiscountPct']);
+  });
+
+  it('desconto desce (aperta) → loosened false, mas ainda é changedFields', () => {
+    const r = describePolicyChange(DEFAULT_POLICY, { ...DEFAULT_POLICY, maxDiscountPct: 5 });
+    expect(r.loosened).toBe(false);
+    expect(r.changedFields).toEqual(['maxDiscountPct']);
+  });
+
+  it('um campo sobe e outro desce ao mesmo tempo → loosened true (qualquer afrouxamento conta)', () => {
+    const r = describePolicyChange(DEFAULT_POLICY, {
+      ...DEFAULT_POLICY,
+      maxDiscountPct: 5, // aperta
+      autoApproveUpToCents: 999999, // afrouxa
+    });
+    expect(r.loosened).toBe(true);
+    expect(r.changedFields.sort()).toEqual(['autoApproveUpToCents', 'maxDiscountPct']);
   });
 });
