@@ -10,6 +10,7 @@ import { OsBottomSheet } from './OsBottomSheet';
 import { EtaChip } from './EtaChip';
 import { PoiSearchSheet } from './PoiSearchSheet';
 import { CtoInfoCard } from './CtoInfoCard';
+import { PoiActionCard } from './PoiActionCard';
 import { DARK as tech } from './theme';
 import type { FieldOs } from '../../lib/fieldOps';
 
@@ -91,7 +92,21 @@ export function MapView() {
     map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
     mapRef.current = map;
 
+    // O container nasce com altura 0 (o layout flex ainda não assentou no momento
+    // do construtor) — sem isso o MapLibre calcula 0 tiles necessários e nunca pede
+    // nenhum, ficando com a tela preta até um resize manual da janela. Duas defesas:
+    // 1) resize forçado depois de dois rAF (garante que já passou um layout/paint
+    //    real do browser); 2) ResizeObserver pra qualquer mudança de tamanho depois
+    //    disso (toggle de view mode, teclado abrindo, etc.).
+    const raf1 = requestAnimationFrame(() => {
+      requestAnimationFrame(() => map.resize());
+    });
+    const ro = new ResizeObserver(() => map.resize());
+    ro.observe(containerRef.current);
+
     return () => {
+      cancelAnimationFrame(raf1);
+      ro.disconnect();
       map.remove();
       mapRef.current = null;
     };
@@ -392,6 +407,9 @@ export function MapView() {
 
       {/* Ficha de disponibilidade da CTO tocada no mapa */}
       <CtoInfoCard />
+
+      {/* Ação sobre local buscado/endereço digitado à mão — "iniciar rota até aqui" */}
+      {!selectedCto && <PoiActionCard />}
 
       {/* Bottom Sheet */}
       <OsBottomSheet />

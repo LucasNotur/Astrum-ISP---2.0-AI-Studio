@@ -70,7 +70,17 @@ export function NavigationView() {
     });
     mapRef.current = map;
 
+    // Mesmo fix do MapView: container nasce com altura 0 (layout flex ainda não
+    // assentou), sem isso o MapLibre nunca pede tile nenhum.
+    const raf1 = requestAnimationFrame(() => {
+      requestAnimationFrame(() => map.resize());
+    });
+    const ro = new ResizeObserver(() => map.resize());
+    ro.observe(containerRef.current);
+
     return () => {
+      cancelAnimationFrame(raf1);
+      ro.disconnect();
       map.remove();
       mapRef.current = null;
     };
