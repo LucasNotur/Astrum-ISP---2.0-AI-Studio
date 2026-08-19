@@ -103,22 +103,10 @@ services:
       - internal
       - external
 
-  # ─── Frontend ───────────────────────────────────────────
-  web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-      args:
-        VITE_API_URL: http://localhost:3001
-    container_name: astrum-web
-    ports:
-      - "8080:80"
-    depends_on:
-      api:
-        condition: service_healthy
-    restart: unless-stopped
-    networks:
-      - external
+  # Frontend legado (R1, CLAUDE.md) é publicado no Vercel (ver vercel.json — rewrite
+  # /api/* → https://api.astrumlabs.online) e NÃO sobe por aqui. Serviço `web` removido
+  # em 2026-08-19: apontava pra apps/web/Dockerfile, que não existe (apps/web será
+  # deletado na S78) — `docker compose up` sem lista de serviços quebrava nisso.
 
   # ─── Zep (Memória de Longo Prazo) ───────────────────────
   zep:
