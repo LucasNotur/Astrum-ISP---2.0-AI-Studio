@@ -17,7 +17,7 @@ import {
 import { format, parseISO } from 'date-fns';
 import { ptBR as datePtBR } from 'date-fns/locale';
 import { ptBR } from '@/src/lib/i18n/pt-br';
-import { supabase } from '@/src/lib/supabase';
+import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { Card, CardContent } from '@/src/components/ui/card';
 import { Skeleton } from '@/src/components/Skeleton';
 import { EmptyState } from '@/src/components/intelligence/EmptyState';
@@ -299,8 +299,8 @@ export function DriftPage() {
 
   React.useEffect(() => {
     let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (mounted) setToken(data.session?.access_token ?? null);
+    getApiAccessToken().then((t) => {
+      if (mounted) setToken(t);
     });
     return () => {
       mounted = false;

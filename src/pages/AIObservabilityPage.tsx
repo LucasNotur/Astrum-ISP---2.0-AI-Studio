@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
+import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { apiGet } from '@/src/lib/apiClient';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
 import { Badge } from "@/src/components/ui/badge";
@@ -92,8 +93,8 @@ export const AIObservabilityPage = () => {
   // IA-43 — Providers (TanStack Query, polling 30s)
   useEffect(() => {
     let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (mounted) setToken(data.session?.access_token ?? null);
+    getApiAccessToken().then((t) => {
+      if (mounted) setToken(t);
     });
     return () => { mounted = false; };
   }, []);

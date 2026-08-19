@@ -16,8 +16,6 @@
  * O `path` é passado COMO ESTÁ (inclusive o prefixo). A correção dos prefixos
  * errados (`/api/x` → `/api/v2/x`) é a Fase 1 — aqui só centralizamos o mecanismo.
  */
-import { supabase } from './supabase';
-
 /** Base URL da API. Vazio = mesma origem (o Express na :3000 roteia /api/v2 → Fastify). */
 export const API_BASE_URL: string =
   (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) || '';
@@ -33,10 +31,14 @@ export class ApiError extends Error {
   }
 }
 
-/** Header de auth a partir da sessão Supabase ativa (persistSession:false → em memória). */
+/**
+ * Header de auth a partir do token PRÓPRIO do apps/api (não o do Supabase Auth —
+ * são dois sistemas de auth diferentes, ver `src/lib/apiAuth.ts`). Import dinâmico
+ * pra evitar ciclo: `apiAuth.ts` importa `API_BASE_URL` deste arquivo.
+ */
 export async function authHeader(): Promise<Record<string, string>> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
+  const { getApiAccessToken } = await import('./apiAuth');
+  const token = await getApiAccessToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 

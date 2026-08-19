@@ -3,13 +3,10 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ProviderFallbackOrderCard } from './ProviderFallbackOrderCard';
 
-// O card lê o token da sessão Supabase (em memória), não do localStorage.
-vi.mock('@/src/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      getSession: vi.fn().mockResolvedValue({ data: { session: { access_token: 'fake-token' } } }),
-    },
-  },
+// O card autentica com o token PRÓPRIO do apps/api (não o do Supabase Auth —
+// ver src/lib/apiAuth.ts).
+vi.mock('@/src/lib/apiAuth', () => ({
+  getApiAccessToken: vi.fn().mockResolvedValue('fake-token'),
 }));
 
 function wrapper({ children }: { children: React.ReactNode }) {

@@ -8,6 +8,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/src/lib/supabase';
+import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
 import { RingChart, RingLegend } from "@/src/components/ui/ring-chart";
 import { Badge } from "@/src/components/ui/badge";
@@ -236,8 +237,8 @@ interface FeatureRow {
 
 export function AICostsPage() {
   const navigate = useNavigate();
-  const { user } = useAppStore();
-  const tenantId: string = user?.tenantId ?? 'default';
+  const companySettings = useAppStore((s) => s.companySettings);
+  const tenantId: string = companySettings?.tenant_id ?? 'default';
   const { flags } = useFeatureFlags();
   const costdrill = !!flags.costdrill;
   const [logs, setLogs] = useState<LogRow[]>([]);
@@ -250,8 +251,8 @@ export function AICostsPage() {
   // IA-34: drill-down por cliente / por feature.
   const [accessToken, setAccessToken] = useState<string | null>(null);
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setAccessToken(data.session?.access_token ?? null);
+    getApiAccessToken().then((t) => {
+      setAccessToken(t);
     });
   }, []);
 

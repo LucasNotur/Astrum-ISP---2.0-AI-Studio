@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Wrench, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { ptBR } from '@/src/lib/i18n/pt-br';
-import { supabase } from '@/src/lib/supabase';
+import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { Card, CardContent } from '@/src/components/ui/card';
 import { Switch } from '@/src/components/ui/switch';
 import { Button } from '@/src/components/ui/button';
@@ -58,8 +58,8 @@ export function ToolsPage() {
 
   React.useEffect(() => {
     let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (mounted) setToken(data.session?.access_token ?? null);
+    getApiAccessToken().then((t) => {
+      if (mounted) setToken(t);
     });
     return () => { mounted = false; };
   }, []);

@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ptBR } from '@/src/lib/i18n/pt-br';
-import { supabase } from '@/src/lib/supabase';
+import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { Label } from '@/src/components/ui/label';
@@ -64,8 +64,7 @@ interface RunDetail {
 // ─── Helpers HTTP ───────────────────────────────────────────────────────────
 
 async function getToken(): Promise<string> {
-  const { data } = await supabase.auth.getSession();
-  return data.session?.access_token ?? '';
+  return (await getApiAccessToken()) ?? '';
 }
 
 async function fetchRuns(token: string): Promise<RunRow[]> {
@@ -141,8 +140,8 @@ export function ReplayPage() {
 
   React.useEffect(() => {
     let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (mounted) setToken(data.session?.access_token ?? null);
+    getApiAccessToken().then((t) => {
+      if (mounted) setToken(t);
     });
     return () => { mounted = false; };
   }, []);
@@ -285,8 +284,8 @@ function Wizard({ onStarted }: { onStarted: () => void }) {
   const [token, setToken] = useState<string | null>(null);
   React.useEffect(() => {
     let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (mounted) setToken(data.session?.access_token ?? null);
+    getApiAccessToken().then((t) => {
+      if (mounted) setToken(t);
     });
     return () => { mounted = false; };
   }, []);

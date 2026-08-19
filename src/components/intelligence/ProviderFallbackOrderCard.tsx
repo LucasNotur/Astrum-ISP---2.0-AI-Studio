@@ -6,7 +6,7 @@ import { Badge } from '@/src/components/ui/badge';
 import { Skeleton } from '@/src/components/Skeleton';
 import { RiskBadge, type RiskLevel } from '@/src/components/intelligence/RiskBadge';
 import { cn } from '@/src/lib/utils';
-import { supabase } from '@/src/lib/supabase';
+import { getApiAccessToken } from '@/src/lib/apiAuth';
 
 const API_BASE_URL =
   (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) ||
@@ -61,9 +61,8 @@ export function ProviderFallbackOrderCard() {
 
   React.useEffect(() => {
     let mounted = true;
-    // token da sessão Supabase ativa (em memória; persistSession:false).
-    supabase.auth.getSession().then(({ data }) => {
-      if (mounted) setToken(data.session?.access_token ?? null);
+    getApiAccessToken().then((t) => {
+      if (mounted) setToken(t);
     });
     return () => { mounted = false; };
   }, []);

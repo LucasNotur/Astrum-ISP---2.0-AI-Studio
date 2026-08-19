@@ -6,7 +6,7 @@ import { DataTablePro } from '@/src/components/intelligence/DataTablePro';
 import { EmptyState } from '@/src/components/intelligence/EmptyState';
 import { PhoneCall, ArrowLeft } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
-import { supabase } from '@/src/lib/supabase';
+import { getApiAccessToken } from '@/src/lib/apiAuth';
 import {
   RadarChart,
   PolarGrid,
@@ -81,8 +81,8 @@ export function VoiceQaPage() {
 
   React.useEffect(() => {
     let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (mounted) setToken(data.session?.access_token ?? null);
+    getApiAccessToken().then((t) => {
+      if (mounted) setToken(t);
     });
     return () => { mounted = false; };
   }, []);

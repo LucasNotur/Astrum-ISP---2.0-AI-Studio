@@ -1,7 +1,7 @@
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FileSearch } from 'lucide-react';
-import { supabase } from '@/src/lib/supabase';
+import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { useFeatureFlags } from '@/src/hooks/useFeatureFlags';
 import { Skeleton } from '@/src/components/Skeleton';
 import { EmptyState } from '@/src/components/intelligence/EmptyState';
@@ -77,8 +77,8 @@ export function ReviewQueuePage() {
   const [token, setToken] = React.useState<string | null>(null);
   React.useEffect(() => {
     let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (mounted) setToken(data.session?.access_token ?? null);
+    getApiAccessToken().then((t) => {
+      if (mounted) setToken(t);
     });
     return () => { mounted = false; };
   }, []);

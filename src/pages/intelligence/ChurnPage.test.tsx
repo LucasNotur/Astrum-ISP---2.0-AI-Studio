@@ -4,17 +4,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import ChurnPage from './ChurnPage';
 
-vi.mock('@/src/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      getSession: vi.fn().mockResolvedValue({
-        data: { session: { access_token: 'tok' } },
-      }),
-      onAuthStateChange: vi.fn(() => ({
-        data: { subscription: { unsubscribe: vi.fn() } },
-      })),
-    },
-  },
+vi.mock('@/src/lib/apiAuth', () => ({
+  getApiAccessToken: vi.fn().mockResolvedValue('tok'),
 }));
 
 const flagsState: { flags: Record<string, boolean>; isLoading: boolean } = {

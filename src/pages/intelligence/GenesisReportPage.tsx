@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import {
   Zap, Users, DollarSign, MessageSquare, AlertTriangle, TrendingUp, Loader2,
 } from 'lucide-react';
-import { supabase } from '@/src/lib/supabase';
+import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Badge } from '@/src/components/ui/badge';
 import { Button } from '@/src/components/ui/button';
@@ -80,8 +80,8 @@ export default function GenesisReportPage() {
   const [token, setToken] = React.useState<string | null>(null);
   React.useEffect(() => {
     let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (mounted) setToken(data.session?.access_token ?? null);
+    getApiAccessToken().then((t) => {
+      if (mounted) setToken(t);
     });
     return () => { mounted = false; };
   }, []);

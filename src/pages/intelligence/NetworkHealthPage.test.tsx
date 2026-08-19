@@ -3,10 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 
-vi.mock('@/src/lib/supabase', () => ({
-  supabase: {
-    auth: { getSession: () => Promise.resolve({ data: { session: { access_token: 'tok' } } }) },
-  },
+vi.mock('@/src/lib/apiAuth', () => ({
+  getApiAccessToken: vi.fn().mockResolvedValue('tok'),
 }));
 
 const mockResponse = vi.fn();

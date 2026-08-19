@@ -14,7 +14,7 @@ import { Button } from '@/src/components/ui/button';
 import { Loader2, DollarSign, Bot, Clock, Ticket, TrendingUp, RefreshCw, Share2, Copy, ChevronDown, ChevronUp, Info, Brain } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { useAppStore } from '@/src/store/useAppStore';
-import { supabase } from '@/src/lib/supabase';
+import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { toast } from 'sonner';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -143,8 +143,7 @@ export function ValorGeradoPage() {
   const [autoevo, setAutoevo]    = useState<AutoevolucaoReport | null>(null);
 
   async function getToken() {
-    const { data } = await supabase.auth.getSession();
-    return data?.session?.access_token ?? '';
+    return (await getApiAccessToken()) ?? '';
   }
 
   async function load(p: Period) {

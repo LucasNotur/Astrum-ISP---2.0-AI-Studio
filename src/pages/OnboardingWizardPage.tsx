@@ -10,6 +10,7 @@ import {
   TrendingDown, AlertTriangle, DollarSign,
 } from 'lucide-react';
 import { supabase } from '@/src/lib/supabase';
+import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { Card, CardContent } from '@/src/components/ui/card';
 import { Button } from '@/src/components/ui/button';
 import { PageHeader } from '@/src/components/ui/PageHeader';
@@ -36,8 +37,7 @@ const STEPS: Step[] = [
 ];
 
 async function getToken(): Promise<string> {
-  const { data } = await supabase.auth.getSession();
-  return data?.session?.access_token ?? '';
+  return (await getApiAccessToken()) ?? '';
 }
 
 function StepIndicator({ step, index, current, completed }: {

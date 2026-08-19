@@ -79,6 +79,7 @@ import {
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/src/lib/supabase";
+import { getApiAccessToken } from "@/src/lib/apiAuth";
 
 export function DashboardPage() {
   const loading = useAppStore((s) => s.loading);
@@ -1575,9 +1576,7 @@ function useValorGerado(period: ValorPeriod) {
 
     (async () => {
       try {
-        // Obtém o JWT do Supabase para autenticar na Fastify (apps/api)
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
+        const token = await getApiAccessToken();
         if (!token) throw new Error("Sessão não encontrada");
 
         const res = await fetch(`/api/v2/valor/dashboard?period=${period}`, {

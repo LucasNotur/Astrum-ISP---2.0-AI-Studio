@@ -10,11 +10,13 @@ const mockAiCircuit = vi.fn();
 const mockPerfLogs = vi.fn();
 const mockRagasScores = vi.fn();
 const mockGuardrailBlocks = vi.fn();
-const mockGetSession = vi.fn();
+
+vi.mock('@/src/lib/apiAuth', () => ({
+  getApiAccessToken: vi.fn().mockResolvedValue('tok'),
+}));
 
 vi.mock('@/src/lib/supabase', () => ({
   supabase: {
-    auth: { getSession: () => mockGetSession() },
     // Query builder chainable: from(table).select('*').order(...).limit(...) → Promise
     from: (table: string) => ({
       select: () => ({
@@ -90,10 +92,8 @@ describe('AIObservabilityPage — IA-32 card Telemetria', () => {
     mockPerfLogs.mockReset();
     mockRagasScores.mockReset();
     mockGuardrailBlocks.mockReset();
-    mockGetSession.mockReset();
 
-    // Defaults: sessão válida, queries vazias, OTel desligado
-    mockGetSession.mockResolvedValue({ data: { session: { access_token: 'tok' } } });
+    // Defaults: queries vazias, OTel desligado
     // ai_performance_logs precisa ter pelo menos 1 linha para que `metrics`
     // seja populado e a página renderize o conteúdo (senão cai no early-return
     // "Sem dados suficientes..." e o card Telemetria nunca aparece).

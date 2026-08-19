@@ -8,10 +8,8 @@ vi.mock('@/src/hooks/useFeatureFlags', () => ({
   useFeatureFlags: () => mockFlags(),
 }));
 
-vi.mock('@/src/lib/supabase', () => ({
-  supabase: {
-    auth: { getSession: () => Promise.resolve({ data: { session: { access_token: 'tok' } } }) },
-  },
+vi.mock('@/src/lib/apiAuth', () => ({
+  getApiAccessToken: vi.fn().mockResolvedValue('tok'),
 }));
 
 const mockFetchRanking = vi.fn();

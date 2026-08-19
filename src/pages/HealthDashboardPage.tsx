@@ -6,7 +6,7 @@ import {
   CardTitle,
 } from "@/src/components/ui/card";
 import { Badge } from "@/src/components/ui/badge";
-import { supabase } from "@/src/lib/supabase";
+import { getApiAccessToken } from "@/src/lib/apiAuth";
 
 interface QueueStatus {
   name: string;
@@ -93,8 +93,7 @@ export default function HealthDashboardPage() {
       try {
         setLoading(true);
         const baseUrl = (import.meta as any).env?.VITE_API_URL || "";
-        const { data: sessionData } = await supabase.auth.getSession();
-        const token = sessionData?.session?.access_token;
+        const token = await getApiAccessToken();
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         if (token) headers["Authorization"] = `Bearer ${token}`;
 

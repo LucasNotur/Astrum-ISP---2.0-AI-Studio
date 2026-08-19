@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Brain, Play, AlertTriangle, Info, AlertOctagon } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { ptBR as datePtBR } from 'date-fns/locale';
-import { supabase } from '@/src/lib/supabase';
+import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { Card, CardContent } from '@/src/components/ui/card';
 import { Badge } from '@/src/components/ui/badge';
 import { Button } from '@/src/components/ui/button';
@@ -157,8 +157,8 @@ export default function ReflectionsPage() {
   const [token, setToken] = React.useState<string | null>(null);
   React.useEffect(() => {
     let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (mounted) setToken(data.session?.access_token ?? null);
+    getApiAccessToken().then((t) => {
+      if (mounted) setToken(t);
     });
     return () => { mounted = false; };
   }, []);

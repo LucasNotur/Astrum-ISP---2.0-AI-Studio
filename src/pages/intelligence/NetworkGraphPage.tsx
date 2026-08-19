@@ -4,6 +4,7 @@ import { Network, AlertOctagon, Activity, Zap, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ptBR } from '@/src/lib/i18n/pt-br';
 import { supabase } from '@/src/lib/supabase';
+import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { Card, CardContent } from '@/src/components/ui/card';
 import { Button } from '@/src/components/ui/button';
 import {
@@ -35,8 +36,7 @@ interface ReincidenciaRow { cto_id: string; cto_name: string; tickets: number; r
 interface CapacidadeRow { cto_id: string; cto_name: string; used_ports: number; total_ports: number; occupancy: number; risk: 'medio' | 'alto' | 'critico' }
 
 async function fetchToken() {
-  const { data } = await supabase.auth.getSession();
-  return data.session?.access_token ?? '';
+  return (await getApiAccessToken()) ?? '';
 }
 
 async function getJSON<T>(token: string, path: string): Promise<T> {

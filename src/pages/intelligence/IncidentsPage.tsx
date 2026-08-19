@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { ptBR as datePtBR } from 'date-fns/locale';
-import { supabase } from '@/src/lib/supabase';
+import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { Card, CardContent } from '@/src/components/ui/card';
 import { Badge } from '@/src/components/ui/badge';
 import { Button } from '@/src/components/ui/button';
@@ -49,8 +49,7 @@ const STATUS_CONFIG: Record<IncidentStatus, { label: string; className: string; 
 };
 
 async function getToken(): Promise<string> {
-  const { data } = await supabase.auth.getSession();
-  return data?.session?.access_token ?? '';
+  return (await getApiAccessToken()) ?? '';
 }
 
 async function fetchIncidents(token: string): Promise<Incident[]> {

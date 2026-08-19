@@ -4,11 +4,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import NetworkGraphPage from './NetworkGraphPage';
 
+// Caso misto: a página usa getApiAccessToken() (apps/api) para o fetch autenticado,
+// MAS também usa supabase.from(...) direto para listar CTOs (ver NetworkGraphPage.tsx).
+vi.mock('@/src/lib/apiAuth', () => ({
+  getApiAccessToken: vi.fn().mockResolvedValue('tok'),
+}));
+
 vi.mock('@/src/lib/supabase', () => ({
   supabase: {
-    auth: {
-      getSession: vi.fn().mockResolvedValue({ data: { session: { access_token: 'tok' } } }),
-    },
     from: vi.fn((table: string) => {
       if (table === 'network_ctos') {
         return {

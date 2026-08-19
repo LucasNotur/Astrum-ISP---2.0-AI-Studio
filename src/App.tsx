@@ -214,6 +214,7 @@ import {
 } from "./lib/gemini";
 import { UpgradePrompt } from "./components/UpgradePrompt";
 import { LoginScreen } from "./components/LoginScreen";
+import { loginToApi, submitApiMfaChallenge, clearApiTokens } from "./lib/apiAuth";
 import { AppLayout } from "./components/layout/AppLayout";
 import { StatCard } from "./components/ui/StatCard";
 
@@ -679,6 +680,12 @@ export default function App() {
   const [needsMfaEnrollment, setNeedsMfaEnrollment] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  // Ponte pro auth próprio do apps/api (ver src/lib/apiAuth.ts) — quando o login
+  // exige TOTP, guardamos o mfaToken de 5min pra segunda etapa.
+  const [apiMfaChallenge, setApiMfaChallenge] = useState<{ mfaToken: string } | null>(null);
+  const [apiMfaCode, setApiMfaCode] = useState('');
+  const [apiMfaSubmitting, setApiMfaSubmitting] = useState(false);
+  const [apiMfaError, setApiMfaError] = useState('');
   const [pdfSummary, setPdfSummary] = useState<string | null>(null);
   const [isProcessingPdf, setIsProcessingPdf] = useState(false);
   const { isTicketDetailOpen, setIsTicketDetailOpen } = useAppStore();
@@ -1934,13 +1941,44 @@ export default function App() {
         return;
       }
       toast.success("Bem-vindo ao Astrum!");
+
+      // Auth v2 (S77) autentica só no Supabase — mas apps/api (dashboards novos:
+      // Vendas, Custos IA, Central de Inteligência etc.) exige seu PRÓPRIO login,
+      // com JWT/iss/aud dedicados (ver src/lib/apiAuth.ts). Sem isso, essas telas
+      // voltam 401 mesmo com o login acima OK. Não bloqueia a sessão legada se
+      // falhar — só os dashboards novos ficam sem dado até resolver.
+      const apiOutcome = await loginToApi(loginEmail.trim(), loginPassword);
+      if (apiOutcome.kind === 'mfa_required') {
+        setApiMfaChallenge({ mfaToken: apiOutcome.mfaToken });
+      } else if (apiOutcome.kind === 'error') {
+        toast.warning("Dashboards avançados indisponíveis: " + apiOutcome.message);
+      } else if (apiOutcome.kind === 'reset_required') {
+        toast.warning(apiOutcome.message);
+      }
     } catch (error: any) {
       toast.error("Erro ao fazer login: " + (error?.message ?? "falha desconhecida"));
     }
   };
 
+  const handleApiMfaSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!apiMfaChallenge || apiMfaCode.length < 6) return;
+    setApiMfaSubmitting(true);
+    setApiMfaError('');
+    const outcome = await submitApiMfaChallenge(apiMfaChallenge.mfaToken, apiMfaCode);
+    setApiMfaSubmitting(false);
+    if (outcome.kind === 'ok') {
+      setApiMfaChallenge(null);
+      setApiMfaCode('');
+      toast.success("Dashboards avançados liberados.");
+    } else if (outcome.kind === 'error') {
+      setApiMfaError(outcome.message);
+    }
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    clearApiTokens();
     setUser(null);
     setCurrentUserRole("" as any);
   };
@@ -2390,6 +2428,35 @@ export default function App() {
       {/* FZ-4: enrollment de MFA agora é 100% Supabase na SettingsPage (S101) */}
       <UpgradePrompt />
       <Toaster position="top-right" />
+      {/* 2º fator do login PRÓPRIO do apps/api (distinto do MFA/AAL2 do Supabase acima) —
+          só aparece se o usuário tiver TOTP habilitado nesse sistema (ver src/lib/apiAuth.ts). */}
+      <Dialog open={!!apiMfaChallenge} onOpenChange={(open) => { if (!open) { setApiMfaChallenge(null); setApiMfaCode(''); setApiMfaError(''); } }}>
+        <DialogContent className="sm:max-w-[380px]">
+          <DialogHeader>
+            <DialogTitle>Confirme com seu autenticador</DialogTitle>
+            <DialogDescription>
+              Os dashboards avançados (Vendas, Custos IA, Central de Inteligência) exigem um segundo fator próprio. Digite o código de 6 dígitos.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleApiMfaSubmit} className="space-y-4">
+            <Input
+              autoFocus
+              inputMode="numeric"
+              maxLength={6}
+              placeholder="000000"
+              value={apiMfaCode}
+              onChange={(e) => setApiMfaCode(e.target.value.replace(/\D/g, ''))}
+              className="text-center text-lg tracking-[0.4em]"
+            />
+            {apiMfaError && <p className="text-xs text-astrum-red">{apiMfaError}</p>}
+            <DialogFooter>
+              <Button type="submit" disabled={apiMfaCode.length < 6 || apiMfaSubmitting} className="w-full">
+                {apiMfaSubmitting ? 'Verificando...' : 'Confirmar'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       {userProfile && currentUserRole && (
         <OnboardingTour
           role={currentUserRole}

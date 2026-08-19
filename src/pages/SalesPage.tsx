@@ -10,7 +10,7 @@ import {
 import { Loader2, TrendingUp, Users, CheckCircle2, DollarSign, RefreshCw } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { useAppStore } from '@/src/store/useAppStore';
-import { supabase } from '@/src/lib/supabase';
+import { getApiAccessToken } from '@/src/lib/apiAuth';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -98,8 +98,7 @@ export function SalesPage() {
     setLoading(true);
     setError(null);
     try {
-      const { data: session } = await supabase.auth.getSession();
-      const token = session?.session?.access_token ?? '';
+      const token = await getApiAccessToken() ?? '';
 
       const res = await fetch(`${API_BASE_URL}/api/v2/vendas/dashboard?days=${periodDays}`, {
         headers: {

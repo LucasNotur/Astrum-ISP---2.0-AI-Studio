@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// Mock do client Supabase que o apiClient usa para o header de auth.
-// vi.hoisted: o vi.mock é içado ao topo; a fn precisa existir antes.
-const { getSession } = vi.hoisted(() => ({ getSession: vi.fn() }));
-vi.mock('../../lib/supabase', () => ({
-  supabase: { auth: { getSession } },
-}));
+// authHeader() do apiClient pega o token do auth PRÓPRIO do apps/api (não do
+// Supabase Auth — são sistemas diferentes, ver src/lib/apiAuth.ts), via import
+// dinâmico. vi.hoisted: o vi.mock é içado ao topo; a fn precisa existir antes.
+const { getApiAccessToken } = vi.hoisted(() => ({ getApiAccessToken: vi.fn() }));
+vi.mock('../../lib/apiAuth', () => ({ getApiAccessToken }));
 
 import { api, apiGet, apiPost, apiDelete, ApiError } from '../../lib/apiClient';
 
@@ -22,7 +21,7 @@ describe('apiClient (Fase 0 — cliente central)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal('fetch', fetchMock);
-    getSession.mockResolvedValue({ data: { session: { access_token: 'tok-123' } } });
+    getApiAccessToken.mockResolvedValue('tok-123');
   });
   afterEach(() => vi.unstubAllGlobals());
 
@@ -60,7 +59,7 @@ describe('apiClient (Fase 0 — cliente central)', () => {
     await apiGet('/api/v2/flags/public', { auth: false });
     const [, init] = fetchMock.mock.calls[0]!;
     expect(init.headers.Authorization).toBeUndefined();
-    expect(getSession).not.toHaveBeenCalled();
+    expect(getApiAccessToken).not.toHaveBeenCalled();
   });
 
   it('status não-2xx lança ApiError com status + corpo', async () => {

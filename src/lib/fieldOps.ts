@@ -5,12 +5,13 @@
  *   POST /api/v2/field/os/:id/transition
  *   POST /api/v2/field/route/optimize
  *
- * Auth: o Bearer token vem da sessão Supabase ativa (em memória — o client usa
- * `persistSession:false`), NÃO de `localStorage['sb-access-token']` (chave que
- * ninguém grava; ler dela mandava `Authorization: Bearer ` vazio e quebrava a auth).
+ * Auth: o Bearer token vem do login PRÓPRIO do apps/api (JWT com iss/aud dedicados,
+ * distinto do Supabase Auth — ver `src/lib/apiAuth.ts`). Chamar `getApiAccessToken()`
+ * NÃO usar `supabase.auth.getSession()`: o Fastify rejeita token do Supabase Auth
+ * na hora (assinatura/iss/aud não batem) e toda chamada aqui voltava 401.
  */
 
-import { supabase } from './supabase';
+import { getApiAccessToken } from './apiAuth';
 
 export type FieldOsStatus = 'pending' | 'in_progress' | 'completed';
 
@@ -44,8 +45,7 @@ export interface TransitionResult {
 }
 
 async function getAccessToken(): Promise<string> {
-  const { data } = await supabase.auth.getSession();
-  return data.session?.access_token ?? '';
+  return (await getApiAccessToken()) ?? '';
 }
 
 async function authHeaders(): Promise<Record<string, string>> {

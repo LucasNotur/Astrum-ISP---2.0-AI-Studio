@@ -35,6 +35,10 @@ vi.mock('@/src/lib/supabase', () => ({
   },
 }));
 
+vi.mock('@/src/lib/apiAuth', () => ({
+  getApiAccessToken: vi.fn().mockResolvedValue('tok'),
+}));
+
 const flagsState: { flags: Record<string, boolean>; isLoading: boolean } = {
   flags: {},
   isLoading: false,

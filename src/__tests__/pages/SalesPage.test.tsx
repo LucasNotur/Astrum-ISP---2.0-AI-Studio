@@ -4,14 +4,8 @@ import { MemoryRouter } from 'react-router-dom';
 
 // -- Mocks --------------------------------------------------------------------
 
-vi.mock('@/src/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      getSession: vi.fn().mockResolvedValue({
-        data: { session: { access_token: 'test-token' } },
-      }),
-    },
-  },
+vi.mock('@/src/lib/apiAuth', () => ({
+  getApiAccessToken: vi.fn().mockResolvedValue('test-token'),
 }));
 
 vi.mock('@/src/store/useAppStore', () => ({

@@ -5,6 +5,7 @@ import {
   TrendingUp, Loader2, ChevronRight, Info, Zap, PackagePlus,
 } from 'lucide-react';
 import { supabase } from '@/src/lib/supabase';
+import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Badge } from '@/src/components/ui/badge';
 import { Button } from '@/src/components/ui/button';
@@ -18,8 +19,7 @@ const API_BASE_URL =
   'http://localhost:3001';
 
 async function getToken(): Promise<string> {
-  const { data } = await supabase.auth.getSession();
-  return data?.session?.access_token ?? '';
+  return (await getApiAccessToken()) ?? '';
 }
 
 // ── Tipos que espelham FailureSimulation e GrowthSimulation do backend ────────

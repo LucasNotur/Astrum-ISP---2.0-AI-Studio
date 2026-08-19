@@ -4,7 +4,7 @@ import { StatCard } from '@/src/components/intelligence/StatCard';
 import { DataTablePro } from '@/src/components/intelligence/DataTablePro';
 import { EmptyState } from '@/src/components/intelligence/EmptyState';
 import { TrendingUp } from 'lucide-react';
-import { supabase } from '@/src/lib/supabase';
+import { getApiAccessToken } from '@/src/lib/apiAuth';
 
 const API_BASE_URL =
   (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) ||
@@ -57,8 +57,8 @@ export function StaffingPage() {
   const [token, setToken] = React.useState<string | null>(null);
   React.useEffect(() => {
     let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (mounted) setToken(data.session?.access_token ?? null);
+    getApiAccessToken().then((t) => {
+      if (mounted) setToken(t);
     });
     return () => { mounted = false; };
   }, []);

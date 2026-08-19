@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ShieldCheck, AlertOctagon, Activity, CheckCircle2, XCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { ptBR } from '@/src/lib/i18n/pt-br';
-import { supabase } from '@/src/lib/supabase';
+import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { Card, CardContent } from '@/src/components/ui/card';
 import { Button } from '@/src/components/ui/button';
 import { Skeleton } from '@/src/components/Skeleton';
@@ -31,8 +31,7 @@ interface SafetyStats {
 }
 
 async function fetchToken() {
-  const { data } = await supabase.auth.getSession();
-  return data.session?.access_token ?? '';
+  return (await getApiAccessToken()) ?? '';
 }
 
 async function fetchVetoes(token: string, status: string): Promise<{ items: SafetyVeto[]; total: number }> {

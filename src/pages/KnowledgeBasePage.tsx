@@ -8,6 +8,7 @@ import { Badge } from "@/src/components/ui/badge";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
 import { supabase } from '@/src/lib/supabase';
+import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { createKBArticle, updateKBArticle, deleteKBArticle } from '@/src/lib/db';
 import { api, apiGet, apiPost } from '@/src/lib/apiClient';
 import { toast } from 'sonner';
@@ -53,8 +54,7 @@ export function KnowledgeBasePage() {
     'http://localhost:3001';
 
   async function getToken() {
-    const { data } = await supabase.auth.getSession();
-    return data?.session?.access_token ?? '';
+    return (await getApiAccessToken()) ?? '';
   }
 
   async function fetchDrafts(status?: string) {

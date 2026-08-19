@@ -5,7 +5,7 @@ import {
   WifiOff, Wifi, TrendingUp, Bell, Navigation, MapPin, ChevronRight, BarChart3,
 } from 'lucide-react';
 import { useTechAppStore } from '../../store/techAppStore';
-import { supabase } from '../../lib/supabase';
+import { getApiAccessToken } from '../../lib/apiAuth';
 import { tech } from './theme';
 import { StatusCard, type CardStatus } from './StatusCard';
 import { toast } from 'sonner';
@@ -37,8 +37,7 @@ export function MyDayView() {
   const handleStartShift = async () => {
     const odometer = odometerInput ? parseInt(odometerInput) : undefined;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token ?? '';
+      const token = (await getApiAccessToken()) ?? '';
       const baseUrl = (import.meta as any).env?.VITE_API_URL || '';
       const res = await fetch(`${baseUrl}/api/v2/field/shift/start`, {
         method: 'POST',
@@ -60,8 +59,7 @@ export function MyDayView() {
   const handleEndShift = async () => {
     const odometer = odometerInput ? parseInt(odometerInput) : undefined;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token ?? '';
+      const token = (await getApiAccessToken()) ?? '';
       const baseUrl = (import.meta as any).env?.VITE_API_URL || '';
       await fetch(`${baseUrl}/api/v2/field/shift/end`, {
         method: 'POST',

@@ -6,6 +6,7 @@ import { ptBR as datePtBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { ptBR } from '@/src/lib/i18n/pt-br';
 import { supabase } from '@/src/lib/supabase';
+import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { useFeatureFlags } from '@/src/hooks/useFeatureFlags';
 import { Card, CardContent } from '@/src/components/ui/card';
 import { Button } from '@/src/components/ui/button';
@@ -54,8 +55,7 @@ interface UserRow {
 }
 
 async function fetchToken(): Promise<string | null> {
-  const { data } = await supabase.auth.getSession();
-  return data.session?.access_token ?? null;
+  return getApiAccessToken();
 }
 
 async function fetchIsSuperAdmin(userId: string | null): Promise<boolean> {
@@ -115,15 +115,16 @@ export function SandboxPage() {
   const [userId, setUserId] = React.useState<string | null>(null);
   React.useEffect(() => {
     let mounted = true;
+    // `token` autentica em apps/api (JWT próprio — ver src/lib/apiAuth.ts);
+    // `userId` é o do Supabase Auth, usado só pra checar is_super_admin via RLS.
+    getApiAccessToken().then((t) => {
+      if (mounted) setToken(t);
+    });
     supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      setToken(data.session?.access_token ?? null);
-      setUserId(data.session?.user?.id ?? null);
+      if (mounted) setUserId(data.session?.user?.id ?? null);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (!mounted) return;
-      setToken(session?.access_token ?? null);
-      setUserId(session?.user?.id ?? null);
+      if (mounted) setUserId(session?.user?.id ?? null);
     });
     return () => {
       mounted = false;
