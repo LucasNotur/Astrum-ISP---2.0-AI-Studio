@@ -217,10 +217,13 @@ export function NavigationView() {
           o pai independentemente do position. */}
       <div ref={containerRef} className="absolute inset-0 w-full h-full" />
 
-      {/* Velocidade + limite — borda ESQUERDA, empilhado (case dprofile.ru — imgs 1/9) */}
-      <div className="absolute left-3 z-10" style={{ top: 100 }}>
-        <SpeedIndicator speedKmh={speedKmh} limitKmh={speedLimit} />
-      </div>
+      {/* Velocidade + limite — borda ESQUERDA, empilhado (case dprofile.ru — imgs 1/9).
+          Esconde enquanto o banner de trânsito ocupa o topo (como no case). */}
+      {!showReroute && (
+        <div className="absolute left-3 z-10" style={{ top: 100 }}>
+          <SpeedIndicator speedKmh={speedKmh} limitKmh={speedLimit} />
+        </div>
+      )}
 
       {/* Alternar camadas (POI / disponibilidade de CTO) — canto superior direito */}
       <button
