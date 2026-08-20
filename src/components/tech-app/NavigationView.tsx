@@ -136,9 +136,18 @@ export function NavigationView() {
     if (!map || !gps || !navigation) return;
 
     if (!techMarkerRef.current) {
+      // Seta direcional branca (case dprofile — imgs 3/4/5): arrowhead com glow
+      // azul. O mapa é heading-up (gira p/ o bearing), então a seta fica fixa na
+      // tela apontando pra cima = direção do movimento.
       const el = document.createElement('div');
-      el.innerHTML = `<div style="width:22px;height:22px;border-radius:50%;background:#0075F2;border:3px solid #0B0B0B;box-shadow:0 2px 10px rgba(0,117,242,0.4);"></div>`;
-      techMarkerRef.current = new maplibregl.Marker({ element: el })
+      el.innerHTML = `
+        <div style="position:relative;width:44px;height:44px;display:flex;align-items:center;justify-content:center;">
+          <div style="position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle, rgba(0,117,242,0.40) 0%, rgba(0,117,242,0.10) 45%, transparent 70%);"></div>
+          <svg width="30" height="30" viewBox="0 0 24 24" style="filter:drop-shadow(0 2px 6px rgba(0,0,0,0.6));">
+            <path d="M12 2.5 L20 20.5 L12 15.7 L4 20.5 Z" fill="#ffffff" stroke="#0B0B0B" stroke-width="1.3" stroke-linejoin="round"/>
+          </svg>
+        </div>`;
+      techMarkerRef.current = new maplibregl.Marker({ element: el, rotationAlignment: 'viewport' })
         .setLngLat([gps.lng, gps.lat])
         .addTo(map);
     } else {
