@@ -112,8 +112,9 @@ function mapboxDarkStyle(token: string): maplibregl.StyleSpecification {
  */
 export function buildDarkStyle(cfg = loadBasemapConfig()): string | maplibregl.StyleSpecification {
   if (cfg.provider === 'maptiler' && cfg.key) {
-    // streets-v2-dark: ruas + rótulos em tema escuro, quase idêntico ao case.
-    return `https://api.maptiler.com/maps/streets-v2-dark/style.json?key=${encodeURIComponent(cfg.key)}`;
+    // dataviz-dark: fundo quase preto, ruas sutis em cinza, pouquíssimo POI —
+    // o match do case (o streets-v2-dark ficava azulado e cheio de ícones).
+    return `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${encodeURIComponent(cfg.key)}`;
   }
   if (cfg.provider === 'mapbox' && cfg.key) {
     return mapboxDarkStyle(cfg.key);
