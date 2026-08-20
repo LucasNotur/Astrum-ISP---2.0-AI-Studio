@@ -152,6 +152,24 @@ export function NavigationView() {
     else map.once('load', draw);
   }, [altGeoms]);
 
+  // Trânsito (image 3): quando o banner "Trocar a rota?" aparece, a alternativa
+  // vira VERDE cheia (rota mais rápida sugerida); fora disso fica cinza tracejada.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.getLayer('nav-alts-line')) return;
+    if (showReroute) {
+      map.setPaintProperty('nav-alts-line', 'line-color', '#8BD164');
+      map.setPaintProperty('nav-alts-line', 'line-opacity', 0.95);
+      map.setPaintProperty('nav-alts-line', 'line-width', 6);
+      map.setPaintProperty('nav-alts-line', 'line-dasharray', [1, 0]);
+    } else {
+      map.setPaintProperty('nav-alts-line', 'line-color', '#6a6a70');
+      map.setPaintProperty('nav-alts-line', 'line-opacity', 0.5);
+      map.setPaintProperty('nav-alts-line', 'line-width', 4);
+      map.setPaintProperty('nav-alts-line', 'line-dasharray', [1.5, 1.2]);
+    }
+  }, [showReroute, altGeoms]);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !navigation) return;
@@ -177,15 +195,16 @@ export function NavigationView() {
       // azul. O mapa é heading-up (gira p/ o bearing), então a seta fica fixa na
       // tela apontando pra cima = direção do movimento.
       const el = document.createElement('div');
+      // Seta estilo Waze/case: triângulo AZUL com PONTAS ARREDONDADAS (round join),
+      // borda branca e glow. Aponta pra cima = direção do movimento (mapa heading-up).
       el.innerHTML = `
-        <div style="position:relative;width:52px;height:52px;display:flex;align-items:center;justify-content:center;">
-          <div style="position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle, rgba(0,117,242,0.45) 0%, rgba(0,117,242,0.12) 48%, transparent 72%);"></div>
-          <svg width="36" height="36" viewBox="0 0 36 36" style="filter:drop-shadow(0 3px 7px rgba(0,0,0,0.55));">
-            <defs><linearGradient id="navArrowG" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dbe9ff"/>
-            </linearGradient></defs>
-            <path d="M18 4.2 C18.7 4.2 19.3 4.6 19.6 5.25 L28.4 25.6 C28.9 26.75 27.7 27.9 26.55 27.35 L18 23.4 L9.45 27.35 C8.3 27.9 7.1 26.75 7.6 25.6 L16.4 5.25 C16.7 4.6 17.3 4.2 18 4.2 Z"
-                  fill="url(#navArrowG)" stroke="#0075F2" stroke-width="1.6" stroke-linejoin="round"/>
+        <div style="position:relative;width:54px;height:54px;display:flex;align-items:center;justify-content:center;">
+          <div style="position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle, rgba(0,117,242,0.42) 0%, rgba(0,117,242,0.10) 50%, transparent 72%);"></div>
+          <svg width="38" height="38" viewBox="0 0 40 40" style="filter:drop-shadow(0 3px 8px rgba(0,0,0,0.5));">
+            <path d="M20 11 L29.5 29 L10.5 29 Z"
+                  fill="#0075F2" stroke="#ffffff" stroke-width="4.5"
+                  stroke-linejoin="round" stroke-linecap="round"
+                  paint-order="stroke"/>
           </svg>
         </div>`;
       techMarkerRef.current = new maplibregl.Marker({ element: el, rotationAlignment: 'viewport' })

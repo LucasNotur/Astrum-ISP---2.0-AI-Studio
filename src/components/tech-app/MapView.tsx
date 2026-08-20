@@ -197,11 +197,17 @@ export function MapView() {
       const color = occupancyColor(cto.usedPorts, cto.totalPorts);
 
       const el = document.createElement('div');
-      el.style.cssText = 'display:flex;align-items:center;gap:3px;cursor:pointer;';
+      el.style.cssText = 'cursor:pointer;';
+      // Marcador amarelo estilo case (círculo + raio) representando a CTO no poste,
+      // com badge de portas livres (cor = ocupação). Não mais o alfinete sobre a casa.
       el.innerHTML = `
-        <div style="display:flex;align-items:center;gap:4px;padding:4px 8px 4px 6px;border-radius:999px;background:#151517ee;border:1.5px solid ${color};box-shadow:0 2px 8px rgba(0,0,0,0.5);">
-          <div style="width:8px;height:8px;border-radius:50%;background:${color};"></div>
-          <span style="font-size:11px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;">${free}/${cto.totalPorts}</span>
+        <div style="position:relative;width:32px;height:32px;">
+          <div style="width:32px;height:32px;border-radius:50%;background:#EECF6D;border:2px solid #0B0B0B;box-shadow:0 3px 9px rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="#0B0B0B"><path d="M13 2 L4.5 13.5 H10 L9 22 L19.5 9.5 H12.5 Z"/></svg>
+          </div>
+          <div style="position:absolute;right:-5px;top:-5px;min-width:16px;height:16px;padding:0 3px;border-radius:8px;background:${color};border:1.5px solid #0B0B0B;display:flex;align-items:center;justify-content:center;">
+            <span style="font-size:9px;font-weight:900;color:#0B0B0B;line-height:1;font-variant-numeric:tabular-nums;">${free}</span>
+          </div>
         </div>
       `;
 
