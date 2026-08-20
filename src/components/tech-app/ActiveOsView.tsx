@@ -277,12 +277,18 @@ export function ActiveOsView() {
   };
 
   const handleNavigate = async () => {
-    if (!gps || !activeOs.latitude || !activeOs.longitude) {
+    if (!activeOs.latitude || !activeOs.longitude) {
+      toast.error('Esta OS não tem endereço localizado no mapa.');
+      return;
+    }
+    // gps sempre existe (real ou fallback SP, ver TechnicianAppPage). Guard defensivo.
+    if (!gps) {
       window.open(`https://waze.com/ul?ll=${activeOs.latitude},${activeOs.longitude}&navigate=yes`, '_blank');
       return;
     }
     const route = await fetchOsrmRoute([[gps.lat, gps.lng], [activeOs.latitude, activeOs.longitude]]);
     if (route) startNavigation(route, activeOs);
+    else toast.error('Não foi possível calcular a rota agora. Tente de novo em instantes.');
   };
 
   return (

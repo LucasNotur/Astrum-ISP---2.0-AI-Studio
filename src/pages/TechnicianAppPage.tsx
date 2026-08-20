@@ -59,21 +59,31 @@ export default function TechnicianAppPage() {
     loadOss();
   }, []);
 
-  // GPS tracking
+  // GPS tracking — usa a localização REAL do técnico. Se a permissão for negada
+  // ou o GPS estiver indisponível, cai num fallback (centro de SP) pra que mapa e
+  // rota nunca travem por falta de origem (antes: gps null → "Ir para o cliente"
+  // bounce pro Waze e a rota nunca iniciava no app).
   useEffect(() => {
-    if (!navigator.geolocation) return;
+    const FALLBACK = { lat: -23.5505, lng: -46.6333, accuracy: 9999, heading: null, speed: null, timestamp: Date.now() };
+    const applyFallbackIfMissing = () => {
+      if (!useTechAppStore.getState().gps) setGps(FALLBACK);
+    };
+    if (!navigator.geolocation) { setGps(FALLBACK); return; }
+
+    const onPos = (pos: GeolocationPosition) => setGps({
+      lat: pos.coords.latitude,
+      lng: pos.coords.longitude,
+      accuracy: pos.coords.accuracy,
+      heading: pos.coords.heading,
+      speed: pos.coords.speed,
+      timestamp: pos.timestamp,
+    });
+
+    // Primeiro fix rápido (watchPosition pode demorar); erro → fallback SP.
+    navigator.geolocation.getCurrentPosition(onPos, applyFallbackIfMissing, { enableHighAccuracy: true, timeout: 8000 });
     const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        setGps({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-          heading: pos.coords.heading,
-          speed: pos.coords.speed,
-          timestamp: pos.timestamp,
-        });
-      },
-      undefined,
+      onPos,
+      applyFallbackIfMissing,
       { enableHighAccuracy: true, maximumAge: 10000 },
     );
     return () => navigator.geolocation.clearWatch(watchId);
