@@ -4,6 +4,8 @@ import {
   nearestNeighborOrder,
   twoOptImprove,
   optimizeRoute,
+  scoredPathCost,
+  estimateArrivals,
   type RouteStop,
   type GeoPoint,
 } from './route-optimizer.service';
@@ -96,6 +98,44 @@ describe('route-optimizer.service', () => {
       const inputDist = pathDistanceKm(BASE, input);
       const r = optimizeRoute(BASE, input);
       expect(r.totalKm).toBeLessThanOrEqual(Math.round(inputDist * 100) / 100 + 1e-9);
+    });
+  });
+
+  describe('ponderação por urgência e janela de horário', () => {
+    it('scoredPathCost = distância pura quando não há dados de prioridade', () => {
+      const order = [A, B, C, D];
+      expect(scoredPathCost(BASE, order, 8 * 60)).toBeCloseTo(pathDistanceKm(BASE, order), 6);
+    });
+
+    it('estimateArrivals cresce ao longo do caminho (deslocamento + atendimento)', () => {
+      const arr = estimateArrivals(BASE, [A, B, C], 8 * 60);
+      expect(arr).toHaveLength(3);
+      expect(arr[0]).toBeLessThan(arr[1]!);
+      expect(arr[1]).toBeLessThan(arr[2]!);
+    });
+
+    it('janela apertada puxa a OS distante pra frente (não fica por último)', () => {
+      // D é a mais distante (ordem por distância = A,B,C,D). Mas D precisa ser
+      // atendida cedo (08:20) → o otimizador ponderado deve adiantá-la.
+      const dUrgente: RouteStop = { ...D, dueMinutes: 8 * 60 + 20 };
+      const r = optimizeRoute(BASE, [A, B, C, dUrgente], { startMinutes: 8 * 60 });
+      expect(r.algorithm).toBe('weighted_2opt');
+      const ids = r.order.map((s) => s.serviceOrderId);
+      expect(ids[ids.length - 1]).not.toBe('D'); // D não fica por último
+      expect(r.totalKm).toBeGreaterThan(0);
+    });
+
+    it('urgência alta adianta a OS mesmo custando mais km', () => {
+      const dUrgente: RouteStop = { ...D, urgency: 1 };
+      const r = optimizeRoute(BASE, [A, B, C, dUrgente], { startMinutes: 8 * 60 });
+      expect(r.algorithm).toBe('weighted_2opt');
+      const ids = r.order.map((s) => s.serviceOrderId);
+      expect(ids.indexOf('D')).toBeLessThan(ids.indexOf('C')); // D antes de C
+    });
+
+    it('sem prioridade mantém o algoritmo de distância', () => {
+      const r = optimizeRoute(BASE, [D, B, A, C]);
+      expect(r.algorithm).toBe('nearest_neighbor_2opt');
     });
   });
 });

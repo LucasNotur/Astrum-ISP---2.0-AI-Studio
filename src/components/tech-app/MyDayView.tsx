@@ -8,6 +8,7 @@ import { useTechAppStore } from '../../store/techAppStore';
 import { getApiAccessToken } from '../../lib/apiAuth';
 import { tech } from './theme';
 import { StatusCard, type CardStatus } from './StatusCard';
+import { DayMaterialsCard } from './DayMaterialsCard';
 import { toast } from 'sonner';
 
 /** OS.status ('pending'|'in_progress'|'completed') → status do StatusCard. */
@@ -261,6 +262,9 @@ export function MyDayView() {
             </div>
           )}
         </div>
+
+        {/* Materiais a levar hoje — agregado das OS do dia (some se vazio/preview) */}
+        <DayMaterialsCard />
 
         {/* Timeline do Dia — cards de status (StatusCard) por OS */}
         <div>

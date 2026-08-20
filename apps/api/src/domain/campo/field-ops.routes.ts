@@ -6,6 +6,7 @@ import supabase from '../../infrastructure/database/supabase.client';
 import { applyTransition, type OsEvent } from './os-lifecycle.service';
 import { osLifecyclePorts } from './os-lifecycle.repo';
 import { optimizeRoute, type RouteStop, type GeoPoint } from './route-optimizer.service';
+import { aggregateMaterials } from './materials.service';
 import { computeShiftKm, auditKmDivergence, type Breadcrumb } from './field-km.service';
 import {
   computeOsDurations, aggregateKmByDay, averageDurationByType,
@@ -297,7 +298,7 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     // OSs do dia, atribuídas, não-terminais, com coordenada.
     const { data: orders, error } = await supabase
       .from('service_orders')
-      .select('id, latitude, longitude, scheduled_for')
+      .select('id, latitude, longitude, scheduled_for, time_window_end, sla_due_at, type')
       .eq('tenant_id', tenantId)
       .eq('assigned_to', tech.id)
       .not('status', 'in', '(concluido,cancelado,completed,cancelled)')
@@ -306,12 +307,43 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
 
     if (error) return reply.code(500).send({ code: 'OPTIMIZE_ERROR', message: 'Falha ao carregar OSs.' });
 
+    // "Fazer até" (janela) em minutos-do-dia no fuso de SP; urgência do SLA.
+    const toDayMinutes = (ts: string | null): number | undefined => {
+      if (!ts) return undefined;
+      const hhmm = new Date(ts).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false });
+      const [h, m] = hhmm.split(':').map(Number);
+      return (h ?? 0) * 60 + (m ?? 0);
+    };
+    const slaUrgency = (slaTs: string | null): number | undefined => {
+      if (!slaTs) return undefined;
+      const hoursLeft = (new Date(slaTs).getTime() - Date.now()) / 3.6e6;
+      if (hoursLeft <= 0) return 1;      // estourado
+      if (hoursLeft <= 2) return 0.8;    // aperto
+      if (hoursLeft <= 6) return 0.5;
+      if (hoursLeft <= 24) return 0.25;
+      return 0.1;
+    };
+    // Duração típica por tipo (min) — instalação demora mais que reparo.
+    const serviceMinutesFor = (type: string | null): number => {
+      const t = (type || '').toLowerCase();
+      if (t.includes('instal')) return 60;
+      if (t.includes('repar') || t.includes('reparo')) return 40;
+      return 30;
+    };
+
     const stops: RouteStop[] = (orders ?? [])
       .filter((o: any) => {
         if (!o.scheduled_for) return true; // sem agendamento entra no dia corrente
         return String(o.scheduled_for).slice(0, 10) === date;
       })
-      .map((o: any) => ({ serviceOrderId: o.id, latitude: o.latitude, longitude: o.longitude }));
+      .map((o: any) => ({
+        serviceOrderId: o.id,
+        latitude: o.latitude,
+        longitude: o.longitude,
+        urgency: slaUrgency(o.sla_due_at),
+        dueMinutes: toDayMinutes(o.time_window_end ?? o.scheduled_for),
+        serviceMinutes: serviceMinutesFor(o.type),
+      }));
 
     if (start === null) {
       if (stops.length === 0) return reply.code(200).send({ date, total_km: 0, stops: [] });
@@ -319,7 +351,13 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
       start = { latitude: first.latitude, longitude: first.longitude };
     }
 
-    const optimized = optimizeRoute(start, stops);
+    // Início do turno: se for hoje, usa a hora atual (SP); senão, 08:00.
+    const nowHHMM = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', hour12: false });
+    const isToday = date === new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+    const [nh, nm] = nowHHMM.split(':').map(Number);
+    const startMinutes = isToday ? (nh ?? 8) * 60 + (nm ?? 0) : 8 * 60;
+
+    const optimized = optimizeRoute(start, stops, { startMinutes });
 
     // Persiste o plano do dia (idempotente: limpa o anterior do mesmo técnico+data).
     const { data: prior } = await supabase
@@ -355,6 +393,45 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
       algorithm: optimized.algorithm,
       stops: optimized.order.map((s, i) => ({ position: i + 1, service_order_id: s.serviceOrderId })),
     });
+  });
+
+  /**
+   * GET /api/v2/field/materials?date=YYYY-MM-DD
+   * Soma os materiais de TODAS as OS ativas do técnico no dia — a lista pra ele
+   * carregar da base e não voltar por causa de um roteador que faltou.
+   */
+  fastify.get('/api/v2/field/materials', {
+    onRequest: [fastify.authenticate],
+    preHandler: [requirePermission('service_orders', 'read'), validateQuery(agendaQuerySchema)],
+  }, async (request, reply) => {
+    const { tenantId, userId } = (request as any).user;
+    const q = (request as any).validatedQuery as z.infer<typeof agendaQuerySchema>;
+
+    const tech = await getTech(tenantId, userId);
+    if (!tech) return reply.code(404).send({ code: 'NOT_A_TECHNICIAN', message: 'Usuário não é um técnico.' });
+
+    // OS ativas do técnico (opcionalmente do dia informado).
+    const { data: orders } = await supabase
+      .from('service_orders')
+      .select('id, scheduled_for')
+      .eq('tenant_id', tenantId)
+      .eq('assigned_to', tech.id)
+      .not('status', 'in', '(concluido,cancelado,completed,cancelled)');
+
+    const osIds = (orders ?? [])
+      .filter((o: any) => !q.date || !o.scheduled_for || String(o.scheduled_for).slice(0, 10) === q.date)
+      .map((o: any) => o.id);
+
+    if (osIds.length === 0) return { items: [], os_count: 0 };
+
+    const { data: mats } = await supabase
+      .from('service_order_materials')
+      .select('name, quantity, unit')
+      .eq('tenant_id', tenantId)
+      .in('service_order_id', osIds);
+
+    const items = aggregateMaterials((mats ?? []) as any);
+    return { items, os_count: osIds.length };
   });
 
   // ─── Jornada (shift) ───────────────────────────────────────────────────────

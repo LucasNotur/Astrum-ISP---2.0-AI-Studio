@@ -341,3 +341,17 @@ export async function optimizeRoute(date?: string): Promise<OptimizedRouteResult
     stops: (data.stops ?? []).map((s: any) => ({ position: s.position, serviceOrderId: s.service_order_id })),
   };
 }
+
+export interface DayMaterial { name: string; quantity: number; unit: string }
+
+/** Lista agregada de materiais a levar da base pra cumprir as OS do dia. */
+export async function fetchDayMaterials(date?: string): Promise<{ items: DayMaterial[]; osCount: number }> {
+  const qs = date ? `?date=${encodeURIComponent(date)}` : '';
+  const res = await fetch(`/api/v2/field/materials${qs}`, { headers: await authHeaders() });
+  if (!res.ok) throw new Error(`Materiais HTTP ${res.status}`);
+  const data = await res.json();
+  return {
+    items: (data.items ?? []).map((m: any) => ({ name: m.name, quantity: Number(m.quantity) || 0, unit: m.unit ?? '' })),
+    osCount: data.os_count ?? 0,
+  };
+}
