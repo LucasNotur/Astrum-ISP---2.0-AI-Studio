@@ -342,6 +342,32 @@ export async function optimizeRoute(date?: string): Promise<OptimizedRouteResult
   };
 }
 
+export interface FleetVehicle {
+  model: string | null;
+  plate: string | null;
+  fuelPct: number | null;
+  tankLiters: number | null;
+  odometerKm: number | null;
+  fuelType: string | null;
+}
+
+/** Veículo da frota atribuído ao técnico logado (ou null). */
+export async function fetchMyVehicle(): Promise<FleetVehicle | null> {
+  const res = await fetch('/api/v2/field/vehicle', { headers: await authHeaders() });
+  if (!res.ok) throw new Error(`Veículo HTTP ${res.status}`);
+  const data = await res.json();
+  const v = data.vehicle;
+  if (!v) return null;
+  return {
+    model: v.model ?? null,
+    plate: v.plate ?? null,
+    fuelPct: v.fuel_pct != null ? Number(v.fuel_pct) : null,
+    tankLiters: v.tank_liters != null ? Number(v.tank_liters) : null,
+    odometerKm: v.odometer_km != null ? Number(v.odometer_km) : null,
+    fuelType: v.fuel_type ?? null,
+  };
+}
+
 export interface DayMaterial { name: string; quantity: number; unit: string }
 
 /** Lista agregada de materiais a levar da base pra cumprir as OS do dia. */

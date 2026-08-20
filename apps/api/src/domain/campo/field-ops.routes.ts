@@ -434,6 +434,43 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     return { items, os_count: osIds.length };
   });
 
+  /**
+   * GET /api/v2/field/vehicle — veículo da frota atribuído ao técnico logado
+   * (modelo, placa, combustível %, odômetro). Null se não houver veículo.
+   */
+  fastify.get('/api/v2/field/vehicle', {
+    onRequest: [fastify.authenticate],
+    preHandler: [requirePermission('service_orders', 'read')],
+  }, async (request, reply) => {
+    const { tenantId, userId } = (request as any).user;
+
+    const { data: tech } = await supabase
+      .from('technicians')
+      .select('vehicle, plate, vehicle_id')
+      .eq('tenant_id', tenantId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!tech) return reply.code(404).send({ code: 'NOT_A_TECHNICIAN', message: 'Usuário não é um técnico.' });
+
+    let vehicle: any = null;
+    if ((tech as any).vehicle_id) {
+      const { data: v } = await supabase
+        .from('fleet_vehicles')
+        .select('model, plate, fuel_pct, tank_liters, odometer_km, fuel_type')
+        .eq('tenant_id', tenantId)
+        .eq('id', (tech as any).vehicle_id)
+        .maybeSingle();
+      vehicle = v ?? null;
+    }
+    // Fallback: campos texto no próprio technicians (sem registro de frota).
+    if (!vehicle && ((tech as any).vehicle || (tech as any).plate)) {
+      vehicle = { model: (tech as any).vehicle ?? null, plate: (tech as any).plate ?? null, fuel_pct: null, tank_liters: null, odometer_km: null, fuel_type: null };
+    }
+
+    return { vehicle };
+  });
+
   // ─── Jornada (shift) ───────────────────────────────────────────────────────
 
   /** POST /api/v2/field/shift/start — abre a jornada do técnico (odômetro opcional). */

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Wifi, WifiOff, Play, Square, Smartphone, GraduationCap, Headset, LogOut, ChevronRight, Sun, Moon, Monitor, Map as MapIcon, Check,
+  Wifi, WifiOff, Play, Square, Smartphone, GraduationCap, Headset, LogOut, ChevronRight, Sun, Moon, Monitor, Map as MapIcon, Check, Truck, Fuel, Gauge,
 } from 'lucide-react';
 import { useTechAppStore } from '../../store/techAppStore';
 import { tech } from './theme';
@@ -25,6 +25,7 @@ export function ProfileView() {
   const basemapProvider = useTechAppStore((s) => s.basemapProvider);
   const basemapKey = useTechAppStore((s) => s.basemapKey);
   const setBasemap = useTechAppStore((s) => s.setBasemap);
+  const myVehicle = useTechAppStore((s) => s.myVehicle);
 
   // Rascunho local do provedor/chave do mapa — só aplica ao tocar em "Aplicar".
   const [mapProviderDraft, setMapProviderDraft] = useState<BasemapProvider>(basemapProvider);
@@ -67,6 +68,45 @@ export function ProfileView() {
           </div>
         </div>
       </div>
+
+      {/* Veículo da frota */}
+      {myVehicle && (myVehicle.model || myVehicle.plate) && (
+        <div className="px-4 mb-4">
+          <div className="p-4" style={{ background: tech.card, borderRadius: 16, border: `1px solid ${tech.borderSubtle}` }}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex items-center justify-center rounded-xl" style={{ width: 40, height: 40, background: tech.accentDim }}>
+                <Truck size={20} style={{ color: tech.accentLight }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-extrabold truncate" style={{ color: tech.text }}>{myVehicle.model ?? 'Veículo'}</p>
+                {myVehicle.plate && (
+                  <span className="inline-block mt-0.5 px-2 py-0.5 text-[11px] font-bold tracking-wider" style={{ background: tech.elevated, borderRadius: 6, color: tech.textSecondary }}>
+                    {myVehicle.plate}
+                  </span>
+                )}
+              </div>
+            </div>
+            {myVehicle.fuelPct != null && (
+              <div className="mb-2">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="flex items-center gap-1.5 text-xs font-semibold" style={{ color: tech.textSecondary }}>
+                    <Fuel size={13} style={{ color: fuelColorP(myVehicle.fuelPct) }} /> Combustível
+                  </span>
+                  <span className="text-sm font-extrabold tabular-nums" style={{ color: tech.text }}>{Math.round(myVehicle.fuelPct)}%</span>
+                </div>
+                <div className="h-2 rounded-full overflow-hidden" style={{ background: tech.border }}>
+                  <div className="h-full rounded-full" style={{ width: `${myVehicle.fuelPct}%`, background: fuelColorP(myVehicle.fuelPct) }} />
+                </div>
+              </div>
+            )}
+            {myVehicle.odometerKm != null && (
+              <div className="flex items-center gap-1.5 text-xs" style={{ color: tech.textMuted }}>
+                <Gauge size={13} /> {myVehicle.odometerKm.toLocaleString('pt-BR')} km no odômetro
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Turno */}
       <div className="px-4 mb-4">
@@ -225,6 +265,12 @@ export function ProfileView() {
       <p className="text-center text-xs mt-8" style={{ color: tech.textDim }}>Astrum Técnico · v3</p>
     </div>
   );
+}
+
+function fuelColorP(pct: number): string {
+  if (pct > 50) return tech.done;
+  if (pct > 20) return tech.lemon;
+  return tech.danger;
 }
 
 function Item({ icon, label, onClick, danger }: { icon: React.ReactNode; label: string; onClick?: () => void; danger?: boolean }) {

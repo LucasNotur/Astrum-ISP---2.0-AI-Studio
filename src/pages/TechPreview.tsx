@@ -84,10 +84,12 @@ export default function TechPreview() {
   const setGps = useTechAppStore((s) => s.setGps);
   const setIsOnline = useTechAppStore((s) => s.setIsOnline);
   const setDemoMode = useTechAppStore((s) => s.setDemoMode);
+  const setMyVehicle = useTechAppStore((s) => s.setMyVehicle);
 
   useEffect(() => {
     setDemoMode(true); // simulação só com toques (sem câmera/backend)
     setOsList(MOCK_OS as any);
+    setMyVehicle({ model: 'Fiat Fiorino Furgão', plate: 'FTC-2E19', fuelPct: 62, tankLiters: 48, odometerKm: 84213, fuelType: 'flex' });
     setIsOnline(true);
     setGps({
       lat: -23.5505,

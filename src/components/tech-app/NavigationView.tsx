@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { X, Navigation2, Plus, Minus, MapPin, ChevronUp, ChevronDown, Grip, Layers, Zap } from 'lucide-react';
+import { X, Navigation2, Plus, Minus, MapPin, ChevronUp, ChevronDown, Grip, Layers, Zap, Fuel } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTechAppStore } from '../../store/techAppStore';
 import { findNearestStep, formatDistance, formatDuration, maneuverText } from '../../lib/osrm';
@@ -24,6 +24,7 @@ export function NavigationView() {
   const stopNavigation = useTechAppStore((s) => s.stopNavigation);
   const showPoiLayer = useTechAppStore((s) => s.showPoiLayer);
   const toggleShowPoiLayer = useTechAppStore((s) => s.toggleShowPoiLayer);
+  const myVehicle = useTechAppStore((s) => s.myVehicle);
   const [showReroute, setShowReroute] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
@@ -234,6 +235,23 @@ export function NavigationView() {
         <Layers size={18} style={{ color: '#fff' }} />
       </button>
 
+      {/* Veículo da frota + combustível — chip compacto (case img 4: info do carro) */}
+      {myVehicle && myVehicle.fuelPct != null && (
+        <div className="absolute right-3 z-10 flex flex-col items-end gap-1 px-3 py-2 shadow-xl"
+          style={{ top: 96, borderRadius: 14, background: `${tech.card}f2`, backdropFilter: 'blur(16px)', border: `1px solid ${tech.border}` }}>
+          <div className="flex items-center gap-1.5">
+            <Fuel size={13} style={{ color: fuelColor(myVehicle.fuelPct) }} />
+            <span className="text-[13px] font-extrabold tabular-nums" style={{ color: tech.text }}>{Math.round(myVehicle.fuelPct)}%</span>
+          </div>
+          <div className="h-1 rounded-full overflow-hidden" style={{ width: 46, background: tech.border }}>
+            <div className="h-full rounded-full" style={{ width: `${myVehicle.fuelPct}%`, background: fuelColor(myVehicle.fuelPct) }} />
+          </div>
+          {myVehicle.plate && (
+            <span className="text-[9px] font-bold tracking-wide" style={{ color: tech.textMuted }}>{myVehicle.plate}</span>
+          )}
+        </div>
+      )}
+
       {/* Pílula de manobra no topo-centro — clone do "↱ 200 m" do case (Навигатор) */}
       {currentStep && !showReroute && (
         <div className="absolute left-0 right-0 z-10 flex justify-center pointer-events-none" style={{ top: 50 }}>
@@ -367,6 +385,12 @@ export function NavigationView() {
       </div>
     </div>
   );
+}
+
+function fuelColor(pct: number): string {
+  if (pct > 50) return tech.done;   // verde
+  if (pct > 20) return tech.lemon;  // amarelo
+  return tech.danger;               // vermelho
 }
 
 function Metric({ value, label, accent }: { value: string; label: string; accent?: boolean }) {

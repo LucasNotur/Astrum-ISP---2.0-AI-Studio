@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { openDB } from 'idb';
 import { useTechAppStore } from '../store/techAppStore';
-import { fetchAgenda } from '../lib/fieldOps';
+import { fetchAgenda, fetchMyVehicle } from '../lib/fieldOps';
 import { BottomNav } from '../components/tech-app/BottomNav';
 import { MapView } from '../components/tech-app/MapView';
 import { NavigationView } from '../components/tech-app/NavigationView';
@@ -35,6 +35,12 @@ export default function TechnicianAppPage() {
   const themeMode = useTechAppStore((s) => s.themeMode);
   const basemapProvider = useTechAppStore((s) => s.basemapProvider);
   const basemapKey = useTechAppStore((s) => s.basemapKey);
+  const setMyVehicle = useTechAppStore((s) => s.setMyVehicle);
+
+  // Veículo da frota do técnico (modelo, placa, combustível). Fail-safe: ignora erro.
+  useEffect(() => {
+    fetchMyVehicle().then(setMyVehicle).catch(() => {});
+  }, []);
 
   // Load agenda (online → API, offline → IDB cache)
   useEffect(() => {

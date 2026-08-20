@@ -4,6 +4,7 @@ import type { OsrmRoute, OsrmStep } from '../lib/osrm';
 import type { PoiResult } from '../lib/poiSearch';
 import type { CtoAvailability } from '../lib/ctoAvailability';
 import { loadBasemapConfig, saveBasemapConfig, type BasemapProvider } from '../lib/basemap';
+import type { FleetVehicle } from '../lib/fieldOps';
 
 export type TechView =
   | 'map'
@@ -114,6 +115,10 @@ interface TechAppState {
   basemapProvider: BasemapProvider;
   basemapKey: string;
   setBasemap: (provider: BasemapProvider, key: string) => void;
+
+  // Veículo da frota do técnico (modelo, placa, combustível %).
+  myVehicle: FleetVehicle | null;
+  setMyVehicle: (v: FleetVehicle | null) => void;
 }
 
 const introInit = (() => {
@@ -244,4 +249,7 @@ export const useTechAppStore = create<TechAppState>((set) => ({
     saveBasemapConfig({ provider: basemapProvider, key: basemapKey });
     set({ basemapProvider, basemapKey });
   },
+
+  myVehicle: null,
+  setMyVehicle: (myVehicle) => set({ myVehicle }),
 }));
