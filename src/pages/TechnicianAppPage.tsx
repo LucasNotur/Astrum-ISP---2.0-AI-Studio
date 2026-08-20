@@ -126,7 +126,7 @@ export default function TechnicianAppPage() {
   }
 
   return (
-    <div key={`${themeMode}-${basemapProvider}-${basemapKey}`} className="h-screen w-screen flex flex-col overflow-hidden" style={{ background: tech.bg, color: tech.text, fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif' }}>
+    <div key={`${themeMode}-${basemapProvider}-${basemapKey}`} className="relative h-screen w-screen flex flex-col overflow-hidden" style={{ background: tech.bg, color: tech.text, fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif' }}>
       {/* View content */}
       <div className="flex-1 relative overflow-hidden">
         {currentView === 'map' && <MapView />}

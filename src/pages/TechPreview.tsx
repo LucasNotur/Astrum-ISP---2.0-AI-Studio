@@ -12,65 +12,47 @@ import { ProfileView } from '../components/tech-app/ProfileView';
 import { TeachingScreen } from '../components/tech-app/TeachingScreen';
 import { tech } from '../components/tech-app/theme';
 
-// IDs começam com "OS-" → tratados como demo (sem chamadas de API/backend)
-const MOCK_OS = [
-  {
-    id: 'OS-PREVIEW-1',
-    client: 'João da Silva',
-    address: 'Rua Augusta, 1200 — Consolação, SP',
-    type: 'Instalação',
-    status: 'pending' as const,
-    scheduledTime: '08:30',
-    latitude: -23.5535,
-    longitude: -46.6580,
+// Fallback quando a geolocalização é negada: centro de SP (Praça da Sé).
+const FALLBACK = { lat: -23.5505, lng: -46.6333 };
+
+// OS demo como OFFSETS (graus) em torno da posição REAL do técnico — assim a
+// simulação de rota funciona onde quer que ele esteja, não fixa em SP.
+const OS_TEMPLATES = [
+  { id: 'OS-PREVIEW-1', client: 'João da Silva', address: 'Cliente residencial · Instalação', type: 'Instalação', status: 'pending' as const, scheduledTime: '08:30', dLat: 0.0065, dLng: 0.0042,
     checklist: [
       { id: 'c1', text: 'Verificar sinal na CTO', done: false },
       { id: 'c2', text: 'Passar cabo até cliente', done: false },
       { id: 'c3', text: 'Configurar ONU', done: false },
       { id: 'c4', text: 'Testar velocidade', done: false },
-    ],
-  },
-  {
-    id: 'OS-PREVIEW-2',
-    client: 'Maria Oliveira',
-    address: 'Av. Paulista, 900 — Bela Vista, SP',
-    type: 'Reparo',
-    status: 'in_progress' as const,
-    scheduledTime: '10:00',
-    latitude: -23.5613,
-    longitude: -46.6560,
+    ] },
+  { id: 'OS-PREVIEW-2', client: 'Maria Oliveira', address: 'Cliente comercial · Reparo', type: 'Reparo', status: 'in_progress' as const, scheduledTime: '10:00', dLat: -0.0048, dLng: 0.0085,
     checklist: [
       { id: 'c5', text: 'Verificar ONU do cliente', done: true },
       { id: 'c6', text: 'Trocar conector', done: false },
-    ],
-  },
-  {
-    id: 'OS-PREVIEW-3',
-    client: 'Pedro Santos',
-    address: 'Rua Oscar Freire, 300 — Jardins, SP',
-    type: 'Manutenção preventiva',
-    status: 'completed' as const,
-    scheduledTime: '07:00',
-    latitude: -23.5622,
-    longitude: -46.6691,
-    checklist: [],
-  },
-  {
-    id: 'OS-PREVIEW-4',
-    client: 'Ana Costa',
-    address: 'Al. Santos, 450 — Cerqueira César, SP',
-    type: 'Troca de equipamento',
-    status: 'pending' as const,
-    scheduledTime: '14:00',
-    latitude: -23.5580,
-    longitude: -46.6620,
+    ] },
+  { id: 'OS-PREVIEW-3', client: 'Pedro Santos', address: 'Cliente residencial · Manutenção', type: 'Manutenção preventiva', status: 'completed' as const, scheduledTime: '07:00', dLat: -0.0082, dLng: -0.0031, checklist: [] },
+  { id: 'OS-PREVIEW-4', client: 'Ana Costa', address: 'Cliente residencial · Troca de equipamento', type: 'Troca de equipamento', status: 'pending' as const, scheduledTime: '14:00', dLat: 0.0034, dLng: -0.0092,
     checklist: [
       { id: 'c7', text: 'Retirar equipamento antigo', done: false },
       { id: 'c8', text: 'Instalar novo roteador', done: false },
       { id: 'c9', text: 'Validar navegação', done: false },
-    ],
-  },
+    ] },
 ];
+
+// CTOs demo (offsets) — postos/caixas espalhados p/ a mancha de cobertura km².
+const CTO_TEMPLATES = [
+  { id: 'cto-1', name: 'CTO-01', dLat: 0.001, dLng: 0.001, totalPorts: 16, usedPorts: 11 },
+  { id: 'cto-2', name: 'CTO-02', dLat: 0.008, dLng: 0.006, totalPorts: 16, usedPorts: 4 },
+  { id: 'cto-3', name: 'CTO-03', dLat: 0.003, dLng: -0.011, totalPorts: 8, usedPorts: 8 },
+  { id: 'cto-4', name: 'CTO-04', dLat: -0.009, dLng: -0.002, totalPorts: 16, usedPorts: 7 },
+  { id: 'cto-5', name: 'CTO-05', dLat: -0.006, dLng: 0.009, totalPorts: 8, usedPorts: 2 },
+  { id: 'cto-6', name: 'CTO-06', dLat: 0.006, dLng: -0.007, totalPorts: 16, usedPorts: 13 },
+];
+
+const buildOss = (lat: number, lng: number) =>
+  OS_TEMPLATES.map((t) => ({ ...t, latitude: lat + t.dLat, longitude: lng + t.dLng }));
+const buildCtos = (lat: number, lng: number) =>
+  CTO_TEMPLATES.map((c) => ({ id: c.id, name: c.name, latitude: lat + c.dLat, longitude: lng + c.dLng, totalPorts: c.totalPorts, usedPorts: c.usedPorts, status: 'active' }));
 
 export default function TechPreview() {
   const currentView = useTechAppStore((s) => s.currentView);
@@ -89,30 +71,29 @@ export default function TechPreview() {
 
   useEffect(() => {
     setDemoMode(true); // simulação só com toques (sem câmera/backend)
-    setOsList(MOCK_OS as any);
     setMyVehicle({ model: 'Fiat Fiorino Furgão', plate: 'FTC-2E19', fuelPct: 62, tankLiters: 48, odometerKm: 84213, fuelType: 'flex' });
-    // CTOs demo espalhadas por SP → mancha de cobertura visível (categoria 4).
-    setCtos([
-      { id: 'cto-1', name: 'CTO Centro', latitude: -23.5505, longitude: -46.6333, totalPorts: 16, usedPorts: 11, status: 'active' },
-      { id: 'cto-2', name: 'CTO Paulista', latitude: -23.5614, longitude: -46.6559, totalPorts: 16, usedPorts: 4, status: 'active' },
-      { id: 'cto-3', name: 'CTO Pinheiros', latitude: -23.5670, longitude: -46.6920, totalPorts: 8, usedPorts: 8, status: 'active' },
-      { id: 'cto-4', name: 'CTO Vila Mariana', latitude: -23.5890, longitude: -46.6340, totalPorts: 16, usedPorts: 7, status: 'active' },
-      { id: 'cto-5', name: 'CTO Moema', latitude: -23.6010, longitude: -46.6660, totalPorts: 8, usedPorts: 2, status: 'active' },
-      { id: 'cto-6', name: 'CTO Consolação', latitude: -23.5560, longitude: -46.6600, totalPorts: 16, usedPorts: 13, status: 'active' },
-    ]);
     setIsOnline(true);
-    setGps({
-      lat: -23.5505,
-      lng: -46.6333,
-      accuracy: 10,
-      heading: 45,
-      speed: 10.5, // ~38 km/h para o velocímetro do nav
-      timestamp: Date.now(),
-    });
+
+    // Usa a localização REAL do dispositivo — OS e CTOs se posicionam ao redor de
+    // onde o técnico está (não fixo em SP). Fallback: Praça da Sé se negar/indisponível.
+    const applyAt = (lat: number, lng: number, heading = 45, speed = 0) => {
+      setGps({ lat, lng, accuracy: 20, heading, speed, timestamp: Date.now() });
+      setOsList(buildOss(lat, lng) as any);
+      setCtos(buildCtos(lat, lng) as any);
+    };
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => applyAt(pos.coords.latitude, pos.coords.longitude, pos.coords.heading ?? 45, pos.coords.speed ?? 0),
+        () => applyAt(FALLBACK.lat, FALLBACK.lng),
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 },
+      );
+    } else {
+      applyAt(FALLBACK.lat, FALLBACK.lng);
+    }
   }, []);
 
   const content = introOpen ? (
-    <TeachingScreen techName="Técnico Astrum" osCount={MOCK_OS.length} onContinue={() => setIntroOpen(false)} />
+    <TeachingScreen techName="Técnico Astrum" osCount={OS_TEMPLATES.length} onContinue={() => setIntroOpen(false)} />
   ) : (
     <div key={`${themeMode}-${basemapProvider}-${basemapKey}`} className="flex flex-col overflow-hidden" style={{ height: '100%', width: '100%', background: tech.bg, color: tech.text, fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif' }}>
       <div className="flex-1 relative overflow-hidden">
@@ -156,5 +137,5 @@ export default function TechPreview() {
   }
 
   // Modo Desktop: tela cheia.
-  return <div className="h-screen w-screen overflow-hidden" style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif' }}>{content}</div>;
+  return <div className="relative h-screen w-screen overflow-hidden" style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif' }}>{content}</div>;
 }

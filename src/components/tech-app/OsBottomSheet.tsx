@@ -18,6 +18,7 @@ function dotColor(s: string): string {
 
 export function OsBottomSheet() {
   const [expanded, setExpanded] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const osList = useTechAppStore((s) => s.osList);
   const activeOs = useTechAppStore((s) => s.activeOs);
   const setActiveOs = useTechAppStore((s) => s.setActiveOs);
@@ -44,28 +45,43 @@ export function OsBottomSheet() {
   }
 
   return (
-    <motion.div
-      className="absolute bottom-20 left-0 right-0 z-10"
-      initial={{ y: 0 }}
-      animate={{ y: 0 }}
+    <div
+      className="absolute bottom-16 left-0 right-0 z-10 shadow-2xl overflow-hidden"
+      style={{
+        background: `${tech.card}f7`,
+        borderTopLeftRadius: 22,
+        borderTopRightRadius: 22,
+        borderTop: `1px solid ${tech.border}`,
+        backdropFilter: 'blur(20px)',
+      }}
     >
-      <div
-        className="mx-3 shadow-2xl overflow-hidden"
-        style={{
-          background: `${tech.card}f7`,
-          borderRadius: '20px',
-          border: `1px solid ${tech.border}`,
-          backdropFilter: 'blur(20px)',
-        }}
+      {/* Handle — toca pra minimizar/expandir (estilo Waze/Google Maps) */}
+      <button
+        onClick={() => setCollapsed((c) => !c)}
+        className="w-full flex items-center justify-center pt-2.5 pb-1.5"
       >
-        {/* Handle */}
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="w-full flex items-center justify-center py-2"
-        >
-          <div className="w-10 h-1 rounded-full" style={{ background: tech.border }} />
-        </button>
+        <div className="w-10 h-1 rounded-full" style={{ background: tech.textMuted, opacity: 0.6 }} />
+      </button>
 
+      {/* Peek (minimizado): só cliente + ETA + Abrir OS */}
+      {collapsed && currentOs && (
+        <div className="flex items-center gap-2.5 px-4 pb-3">
+          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: dotColor(currentOs.status) }} />
+          <span className="text-sm font-bold truncate flex-1" style={{ color: tech.text }}>{currentOs.client}</span>
+          {osrmRoute && (
+            <span className="text-xs font-semibold" style={{ color: tech.accent }}>ETA {formatDuration(osrmRoute.duration)}</span>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); setActiveOs(currentOs); setView('active-os'); }}
+            className="px-4 py-1.5 text-xs font-bold active:scale-95 transition-transform flex-shrink-0"
+            style={{ background: tech.accent, color: tech.onAccent, borderRadius: 12 }}
+          >
+            Abrir OS
+          </button>
+        </div>
+      )}
+
+      <div style={{ display: collapsed ? 'none' : 'block' }}>
         {/* Current OS Card */}
         {currentOs && (
           <div className="px-4 pb-3">
@@ -174,6 +190,6 @@ export function OsBottomSheet() {
           </button>
         )}
       </div>
-    </motion.div>
+    </div>
   );
 }

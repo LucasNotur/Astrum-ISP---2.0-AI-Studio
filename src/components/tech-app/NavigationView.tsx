@@ -25,6 +25,8 @@ export function NavigationView() {
   const showPoiLayer = useTechAppStore((s) => s.showPoiLayer);
   const toggleShowPoiLayer = useTechAppStore((s) => s.toggleShowPoiLayer);
   const myVehicle = useTechAppStore((s) => s.myVehicle);
+  const demoMode = useTechAppStore((s) => s.demoMode);
+  const setGps = useTechAppStore((s) => s.setGps);
   const [showReroute, setShowReroute] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [altGeoms, setAltGeoms] = useState<[number, number][][]>([]);
@@ -176,10 +178,14 @@ export function NavigationView() {
       // tela apontando pra cima = direção do movimento.
       const el = document.createElement('div');
       el.innerHTML = `
-        <div style="position:relative;width:44px;height:44px;display:flex;align-items:center;justify-content:center;">
-          <div style="position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle, rgba(0,117,242,0.40) 0%, rgba(0,117,242,0.10) 45%, transparent 70%);"></div>
-          <svg width="30" height="30" viewBox="0 0 24 24" style="filter:drop-shadow(0 2px 6px rgba(0,0,0,0.6));">
-            <path d="M12 2.5 L20 20.5 L12 15.7 L4 20.5 Z" fill="#ffffff" stroke="#0B0B0B" stroke-width="1.3" stroke-linejoin="round"/>
+        <div style="position:relative;width:52px;height:52px;display:flex;align-items:center;justify-content:center;">
+          <div style="position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle, rgba(0,117,242,0.45) 0%, rgba(0,117,242,0.12) 48%, transparent 72%);"></div>
+          <svg width="36" height="36" viewBox="0 0 36 36" style="filter:drop-shadow(0 3px 7px rgba(0,0,0,0.55));">
+            <defs><linearGradient id="navArrowG" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#dbe9ff"/>
+            </linearGradient></defs>
+            <path d="M18 4.2 C18.7 4.2 19.3 4.6 19.6 5.25 L28.4 25.6 C28.9 26.75 27.7 27.9 26.55 27.35 L18 23.4 L9.45 27.35 C8.3 27.9 7.1 26.75 7.6 25.6 L16.4 5.25 C16.7 4.6 17.3 4.2 18 4.2 Z"
+                  fill="url(#navArrowG)" stroke="#0075F2" stroke-width="1.6" stroke-linejoin="round"/>
           </svg>
         </div>`;
       techMarkerRef.current = new maplibregl.Marker({ element: el, rotationAlignment: 'viewport' })
@@ -193,7 +199,7 @@ export function NavigationView() {
     map.easeTo({
       center: [gps.lng, gps.lat],
       bearing: bearing,
-      duration: 1000,
+      duration: 500,
     });
 
     const allSteps = navigation.route.legs.flatMap((l) => l.steps);
@@ -208,6 +214,41 @@ export function NavigationView() {
 
     updateNavigation(stepIndex, remainingDist, remainingDur);
   }, [gps, navigation?.route]);
+
+  // Simulação de trajeto (demo): anda a posição AO LONGO da rota (sempre na rua),
+  // atualizando o gps → o marcador, a câmera (heading-up) e o ETA seguem juntos.
+  useEffect(() => {
+    if (!navigation || !demoMode) return;
+    const geom = navigation.route.geometry; // [lat,lng][]
+    if (geom.length < 2) return;
+
+    // Distâncias acumuladas ao longo da polilinha.
+    const cum = [0];
+    for (let i = 1; i < geom.length; i++) cum.push(cum[i - 1]! + haversineM(geom[i - 1]!, geom[i]!));
+    const totalM = cum[cum.length - 1]!;
+    if (totalM < 1) return;
+
+    // Ritmo agradável: percorre a rota inteira em 35–90s conforme o tamanho.
+    const durationMs = Math.min(90000, Math.max(35000, totalM / 8 * 1000 / 11));
+    let startTs = 0;
+    let raf = 0;
+    const tick = (ts: number) => {
+      if (!startTs) startTs = ts;
+      const t = Math.min(1, (ts - startTs) / durationMs);
+      const target = t * totalM;
+      let i = 1;
+      while (i < cum.length && cum[i]! < target) i++;
+      const a = geom[i - 1]!, b = geom[Math.min(i, geom.length - 1)]!;
+      const segLen = (cum[i] ?? cum[i - 1]!) - cum[i - 1]! || 1;
+      const f = (target - cum[i - 1]!) / segLen;
+      const lat = a[0] + (b[0] - a[0]) * f;
+      const lng = a[1] + (b[1] - a[1]) * f;
+      setGps({ lat, lng, heading: bearingDeg(a, b), speed: 11, accuracy: 8, timestamp: Math.round(ts) });
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [navigation?.route, demoMode]);
 
   const handleRecenter = useCallback(() => {
     if (!mapRef.current || !gps) return;
@@ -425,6 +466,22 @@ function fuelColor(pct: number): string {
   if (pct > 50) return tech.done;   // verde
   if (pct > 20) return tech.lemon;  // amarelo
   return tech.danger;               // vermelho
+}
+
+/** Distância em metros entre [lat,lng]. */
+function haversineM(a: [number, number], b: [number, number]): number {
+  const R = 6371000, toRad = Math.PI / 180;
+  const dLat = (b[0] - a[0]) * toRad, dLng = (b[1] - a[1]) * toRad;
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * toRad) * Math.cos(b[0] * toRad) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(s)));
+}
+
+/** Rumo (graus, 0=N) de a→b. */
+function bearingDeg(a: [number, number], b: [number, number]): number {
+  const toRad = Math.PI / 180;
+  const y = Math.sin((b[1] - a[1]) * toRad) * Math.cos(b[0] * toRad);
+  const x = Math.cos(a[0] * toRad) * Math.sin(b[0] * toRad) - Math.sin(a[0] * toRad) * Math.cos(b[0] * toRad) * Math.cos((b[1] - a[1]) * toRad);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
 }
 
 function Metric({ value, label, accent }: { value: string; label: string; accent?: boolean }) {

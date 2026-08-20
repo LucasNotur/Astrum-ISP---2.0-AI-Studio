@@ -24,7 +24,7 @@ export function BottomNav() {
   if (currentView === 'navigation') return null;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 safe-area-bottom"
+    <nav className="absolute bottom-0 left-0 right-0 z-50 safe-area-bottom"
       style={{ background: tech.card, borderTop: `1px solid ${tech.border}` }}>
       <div className="flex items-center justify-around h-16 px-2">
         {tabs.map(({ view, icon: Icon, label, match }) => {
