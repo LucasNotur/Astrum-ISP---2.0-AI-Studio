@@ -33,6 +33,13 @@ export default defineConfig(({ mode }) => {
       output: {
         // U7-04: chunks manuais — separa vendors pesados do bundle principal
         manualChunks(id) {
+          // MapLibre no próprio chunk: no chunk principal, um símbolo interno dele
+          // colidia com o de outra lib sob a minificação do rolldown (Vite 8),
+          // virando "Zp is not defined" em produção — a linha de rota (e outras
+          // ops MapLibre em runtime) quebrava só no build minificado, não em dev.
+          if (id.includes('node_modules/maplibre-gl')) {
+            return 'vendor-maplibre';
+          }
           if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-')) {
             return 'vendor-charts';
           }
