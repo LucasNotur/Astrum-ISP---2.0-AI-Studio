@@ -33,6 +33,8 @@ export default function TechnicianAppPage() {
   const introOpen = useTechAppStore((s) => s.introOpen);
   const setIntroOpen = useTechAppStore((s) => s.setIntroOpen);
   const themeMode = useTechAppStore((s) => s.themeMode);
+  const basemapProvider = useTechAppStore((s) => s.basemapProvider);
+  const basemapKey = useTechAppStore((s) => s.basemapKey);
 
   // Load agenda (online → API, offline → IDB cache)
   useEffect(() => {
@@ -108,7 +110,7 @@ export default function TechnicianAppPage() {
   }
 
   return (
-    <div key={themeMode} className="h-screen w-screen flex flex-col overflow-hidden" style={{ background: tech.bg, color: tech.text }}>
+    <div key={`${themeMode}-${basemapProvider}-${basemapKey}`} className="h-screen w-screen flex flex-col overflow-hidden" style={{ background: tech.bg, color: tech.text }}>
       {/* View content */}
       <div className="flex-1 relative overflow-hidden">
         {currentView === 'map' && <MapView />}

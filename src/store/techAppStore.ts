@@ -3,6 +3,7 @@ import type { FieldOs, OptimizedRouteResult } from '../lib/fieldOps';
 import type { OsrmRoute, OsrmStep } from '../lib/osrm';
 import type { PoiResult } from '../lib/poiSearch';
 import type { CtoAvailability } from '../lib/ctoAvailability';
+import { loadBasemapConfig, saveBasemapConfig, type BasemapProvider } from '../lib/basemap';
 
 export type TechView =
   | 'map'
@@ -108,6 +109,11 @@ interface TechAppState {
 
   searchOpen: boolean;
   setSearchOpen: (v: boolean) => void;
+
+  // Basemap plug-and-play (CARTO grátis | MapTiler | Mapbox), persistido.
+  basemapProvider: BasemapProvider;
+  basemapKey: string;
+  setBasemap: (provider: BasemapProvider, key: string) => void;
 }
 
 const introInit = (() => {
@@ -117,6 +123,8 @@ const introInit = (() => {
 const themeInit: 'light' | 'dark' = (() => {
   try { return localStorage.getItem('astrum-tech-theme') === 'light' ? 'light' : 'dark'; } catch { return 'dark'; }
 })();
+
+const basemapInit = loadBasemapConfig();
 
 const viewInit: 'desktop' | 'mobile' = (() => {
   try {
@@ -229,4 +237,11 @@ export const useTechAppStore = create<TechAppState>((set) => ({
 
   searchOpen: false,
   setSearchOpen: (searchOpen) => set({ searchOpen }),
+
+  basemapProvider: basemapInit.provider,
+  basemapKey: basemapInit.key,
+  setBasemap: (basemapProvider, basemapKey) => {
+    saveBasemapConfig({ provider: basemapProvider, key: basemapKey });
+    set({ basemapProvider, basemapKey });
+  },
 }));

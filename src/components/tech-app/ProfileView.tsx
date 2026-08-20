@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
-  Wifi, WifiOff, Play, Square, Smartphone, GraduationCap, Headset, LogOut, ChevronRight, Sun, Moon, Monitor,
+  Wifi, WifiOff, Play, Square, Smartphone, GraduationCap, Headset, LogOut, ChevronRight, Sun, Moon, Monitor, Map as MapIcon, Check,
 } from 'lucide-react';
 import { useTechAppStore } from '../../store/techAppStore';
 import { tech } from './theme';
+import type { BasemapProvider } from '../../lib/basemap';
 import { toast } from 'sonner';
 
 /**
@@ -21,6 +22,22 @@ export function ProfileView() {
   const toggleTheme = useTechAppStore((s) => s.toggleTheme);
   const viewMode = useTechAppStore((s) => s.viewMode);
   const setViewMode = useTechAppStore((s) => s.setViewMode);
+  const basemapProvider = useTechAppStore((s) => s.basemapProvider);
+  const basemapKey = useTechAppStore((s) => s.basemapKey);
+  const setBasemap = useTechAppStore((s) => s.setBasemap);
+
+  // Rascunho local do provedor/chave do mapa — só aplica ao tocar em "Aplicar".
+  const [mapProviderDraft, setMapProviderDraft] = useState<BasemapProvider>(basemapProvider);
+  const [mapKeyDraft, setMapKeyDraft] = useState(basemapKey);
+
+  const applyBasemap = () => {
+    if ((mapProviderDraft === 'maptiler' || mapProviderDraft === 'mapbox') && !mapKeyDraft.trim()) {
+      toast.error('Cole a chave do provedor antes de aplicar.');
+      return;
+    }
+    setBasemap(mapProviderDraft, mapProviderDraft === 'carto' ? '' : mapKeyDraft.trim());
+    toast.success('Mapa atualizado!');
+  };
 
   const toggleShift = () => {
     if (shift) { setShift(null); toast.success('Turno encerrado!'); }
@@ -127,6 +144,71 @@ export function ProfileView() {
               <Smartphone size={15} /> Mobile
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Mapa — provedor plug-and-play (CARTO grátis | MapTiler | Mapbox) */}
+      <div className="px-4 mb-2">
+        <div className="p-4" style={{ background: tech.card, borderRadius: 14, border: `1px solid ${tech.borderSubtle}` }}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center justify-center rounded-xl" style={{ width: 36, height: 36, background: tech.elevated }}>
+              <MapIcon size={18} style={{ color: tech.accentLight }} />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold" style={{ color: tech.text }}>Mapa</p>
+              <p className="text-xs" style={{ color: tech.textMuted }}>Provedor de tiles. Se ficar preto, troque aqui.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            {([
+              { key: 'carto', label: 'CARTO', hint: 'grátis' },
+              { key: 'maptiler', label: 'MapTiler', hint: 'chave' },
+              { key: 'mapbox', label: 'Mapbox', hint: 'token' },
+            ] as { key: BasemapProvider; label: string; hint: string }[]).map((p) => {
+              const on = mapProviderDraft === p.key;
+              return (
+                <button key={p.key} onClick={() => setMapProviderDraft(p.key)}
+                  className="flex flex-col items-center py-2.5 active:scale-95 transition-transform"
+                  style={{
+                    borderRadius: 12,
+                    background: on ? tech.accent : tech.elevated,
+                    color: on ? tech.onAccent : tech.textSecondary,
+                    border: `1px solid ${on ? tech.accent : tech.border}`,
+                  }}>
+                  <span className="text-sm font-bold">{p.label}</span>
+                  <span className="text-[10px] opacity-80">{p.hint}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {mapProviderDraft !== 'carto' && (
+            <input
+              value={mapKeyDraft}
+              onChange={(e) => setMapKeyDraft(e.target.value)}
+              placeholder={mapProviderDraft === 'maptiler' ? 'Cole sua chave MapTiler' : 'Cole seu token Mapbox'}
+              className="w-full px-3 py-2.5 mb-3 text-sm outline-none"
+              style={{ background: tech.elevated, borderRadius: 12, border: `1px solid ${tech.border}`, color: tech.text }}
+            />
+          )}
+
+          <button onClick={applyBasemap}
+            className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-bold active:scale-95 transition-transform"
+            style={{ borderRadius: 12, background: tech.accent, color: tech.onAccent }}>
+            <Check size={15} /> Aplicar mapa
+          </button>
+
+          {mapProviderDraft === 'maptiler' && (
+            <p className="text-[11px] mt-2.5 leading-snug" style={{ color: tech.textMuted }}>
+              Chave grátis em maptiler.com → Account → Keys. O estilo vetorial escuro fica idêntico ao do case.
+            </p>
+          )}
+          {mapProviderDraft === 'mapbox' && (
+            <p className="text-[11px] mt-2.5 leading-snug" style={{ color: tech.textMuted }}>
+              Token em mapbox.com → Account → Tokens (public token, começa com pk.).
+            </p>
+          )}
         </div>
       </div>
 

@@ -9,28 +9,7 @@ import { SpeedIndicator } from './SpeedIndicator';
 import { RerouteBanner } from './RerouteBanner';
 // Overlays de navegação são SEMPRE escuros (o mapa é sempre dark) — token DARK fixo.
 import { DARK as tech } from './theme';
-
-// Basemap ESCURO estilo Mapbox (imgs 3/4/5) — tiles CARTO dark, sem API key.
-const NAV_STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {
-    carto: {
-      type: 'raster',
-      tiles: [
-        'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-        'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-        'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-        'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-      ],
-      tileSize: 256,
-      attribution: '© OpenStreetMap © CARTO',
-    },
-  },
-  layers: [
-    { id: 'bg', type: 'background', paint: { 'background-color': '#0a0a0b' } },
-    { id: 'carto', type: 'raster', source: 'carto' },
-  ],
-};
+import { buildDarkStyle } from '../../lib/basemap';
 
 export function NavigationView() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -62,7 +41,7 @@ export function NavigationView() {
     if (!containerRef.current || mapRef.current) return;
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: NAV_STYLE,
+      style: buildDarkStyle(),
       center: [-46.6333, -23.5505],
       zoom: 16,
       pitch: 45,
@@ -232,7 +211,12 @@ export function NavigationView() {
 
   return (
     <div className="relative w-full h-full" style={{ background: '#0B0B0B' }}>
-      <div ref={containerRef} className="absolute inset-0" />
+      {/* w-full h-full explícitos: o CSS do MapLibre força .maplibregl-map a
+          position:relative (vence o .absolute do Tailwind por ordem de origem),
+          e aí `inset-0` não dimensiona nada — o container colapsa pra altura 0 e
+          o mapa nunca pede tile (tela preta). Largura/altura fixas resolvem contra
+          o pai independentemente do position. */}
+      <div ref={containerRef} className="absolute inset-0 w-full h-full" />
 
       {/* Velocidade + limite — borda ESQUERDA, empilhado (case dprofile.ru — imgs 1/9) */}
       <div className="absolute left-3 z-10" style={{ top: 100 }}>

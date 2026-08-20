@@ -76,6 +76,8 @@ export default function TechPreview() {
   const currentView = useTechAppStore((s) => s.currentView);
   const themeMode = useTechAppStore((s) => s.themeMode);
   const viewMode = useTechAppStore((s) => s.viewMode);
+  const basemapProvider = useTechAppStore((s) => s.basemapProvider);
+  const basemapKey = useTechAppStore((s) => s.basemapKey);
   const introOpen = useTechAppStore((s) => s.introOpen);
   const setIntroOpen = useTechAppStore((s) => s.setIntroOpen);
   const setOsList = useTechAppStore((s) => s.setOsList);
@@ -100,7 +102,7 @@ export default function TechPreview() {
   const content = introOpen ? (
     <TeachingScreen techName="Técnico Astrum" osCount={MOCK_OS.length} onContinue={() => setIntroOpen(false)} />
   ) : (
-    <div key={themeMode} className="flex flex-col overflow-hidden" style={{ height: '100%', width: '100%', background: tech.bg, color: tech.text }}>
+    <div key={`${themeMode}-${basemapProvider}-${basemapKey}`} className="flex flex-col overflow-hidden" style={{ height: '100%', width: '100%', background: tech.bg, color: tech.text }}>
       <div className="flex-1 relative overflow-hidden">
         {currentView === 'map' && <MapView />}
         {currentView === 'navigation' && <NavigationView />}

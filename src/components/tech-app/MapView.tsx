@@ -12,29 +12,8 @@ import { PoiSearchSheet } from './PoiSearchSheet';
 import { CtoInfoCard } from './CtoInfoCard';
 import { PoiActionCard } from './PoiActionCard';
 import { DARK as tech } from './theme';
+import { buildDarkStyle } from '../../lib/basemap';
 import type { FieldOs } from '../../lib/fieldOps';
-
-// Basemap ESCURO estilo Mapbox (imgs 3/4/5) — tiles CARTO dark, sem API key.
-const DARK_STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {
-    carto: {
-      type: 'raster',
-      tiles: [
-        'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-        'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-        'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-        'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-      ],
-      tileSize: 256,
-      attribution: '© OpenStreetMap © CARTO',
-    },
-  },
-  layers: [
-    { id: 'bg', type: 'background', paint: { 'background-color': '#0a0a0b' } },
-    { id: 'carto', type: 'raster', source: 'carto' },
-  ],
-};
 
 const STATUS_COLORS: Record<string, string> = {
   pending: '#EECF6D',
@@ -49,6 +28,7 @@ export function MapView() {
   const osMarkersRef = useRef<maplibregl.Marker[]>([]);
   const ctoMarkersRef = useRef<maplibregl.Marker[]>([]);
   const poiMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const [mapError, setMapError] = React.useState<string | null>(null);
 
   const osList = useTechAppStore((s) => s.osList);
   const gps = useTechAppStore((s) => s.gps);
@@ -84,13 +64,22 @@ export function MapView() {
     if (!containerRef.current || mapRef.current) return;
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: DARK_STYLE,
+      style: buildDarkStyle(),
       center: [-46.6333, -23.5505],
       zoom: 12,
       attributionControl: false,
     });
     map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
     mapRef.current = map;
+
+    // Se os tiles falharem (CDN bloqueado, chave inválida), o mapa fica preto
+    // silenciosamente. Aqui isso vira um aviso visível pro técnico agir.
+    map.on('error', (e: any) => {
+      const status = e?.error?.status;
+      if (status === 401 || status === 403) setMapError('Chave do mapa inválida ou sem permissão. Revise em Ajustes.');
+      else if (e?.error) setMapError('Não foi possível carregar o mapa. Verifique a conexão ou troque o provedor em Ajustes.');
+    });
+    map.on('data', (e: any) => { if (e?.tile) setMapError(null); });
 
     // O container nasce com altura 0 (o layout flex ainda não assentou no momento
     // do construtor) — sem isso o MapLibre calcula 0 tiles necessários e nunca pede
@@ -343,7 +332,20 @@ export function MapView() {
         }
       `}</style>
 
-      <div ref={containerRef} className="absolute inset-0" />
+      {/* w-full h-full explícitos: o CSS do MapLibre força .maplibregl-map a
+          position:relative (vence o .absolute do Tailwind por ordem de origem),
+          e aí `inset-0` não dimensiona nada — o container colapsa pra altura 0 e
+          o mapa nunca pede tile (tela preta). Largura/altura fixas resolvem contra
+          o pai (relative w-full h-full) independentemente do position. */}
+      <div ref={containerRef} className="absolute inset-0 w-full h-full" />
+
+      {/* Aviso quando os tiles não carregam (CDN bloqueado / chave inválida). */}
+      {mapError && (
+        <div className="absolute top-3 left-3 right-3 z-30 px-4 py-3 text-xs font-semibold shadow-xl"
+          style={{ background: '#D64045', color: '#fff', borderRadius: 14 }}>
+          {mapError}
+        </div>
+      )}
 
       {/* Top bar */}
       <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
