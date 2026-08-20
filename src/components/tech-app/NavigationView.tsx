@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { X, Navigation2, Plus, Minus, MapPin, ChevronUp, ChevronDown, Settings, Layers } from 'lucide-react';
+import { X, Navigation2, Plus, Minus, MapPin, ChevronUp, ChevronDown, Grip, Layers, Zap } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTechAppStore } from '../../store/techAppStore';
-import { findNearestStep, formatDistance, formatDuration, maneuverIcon, maneuverText } from '../../lib/osrm';
+import { findNearestStep, formatDistance, formatDuration, maneuverText } from '../../lib/osrm';
 import { SpeedIndicator } from './SpeedIndicator';
+import { ManeuverArrow } from './ManeuverArrow';
 import { RerouteBanner } from './RerouteBanner';
 // Overlays de navegação são SEMPRE escuros (o mapa é sempre dark) — token DARK fixo.
 import { DARK as tech } from './theme';
@@ -198,8 +199,6 @@ export function NavigationView() {
   // Horário de chegada estimado (imagem 5: "10:24")
   const arrival = new Date(Date.now() + navigation.remainingDuration * 1000)
     .toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  const maneuverArrow = currentStep
-    ? maneuverIcon(currentStep.maneuver.type, currentStep.maneuver.modifier) : '↑';
   const maneuverStreet = currentStep
     ? (currentStep.name || maneuverText(currentStep.maneuver.type, currentStep.maneuver.modifier, currentStep.name)) : '';
 
@@ -232,6 +231,19 @@ export function NavigationView() {
         <Layers size={18} style={{ color: '#fff' }} />
       </button>
 
+      {/* Pílula de manobra no topo-centro — clone do "↱ 200 m" do case (Навигатор) */}
+      {currentStep && !showReroute && (
+        <div className="absolute left-0 right-0 z-10 flex justify-center pointer-events-none" style={{ top: 50 }}>
+          <div className="flex items-center gap-2 pl-2.5 pr-4 py-2 shadow-xl"
+            style={{ background: `${tech.card}f2`, backdropFilter: 'blur(16px)', borderRadius: 999, border: `1px solid ${tech.border}` }}>
+            <ManeuverArrow type={currentStep.maneuver.type} modifier={currentStep.maneuver.modifier} size={22} />
+            <span className="text-[15px] font-extrabold tabular-nums" style={{ color: tech.text }}>
+              {formatDistance(currentStep.distance)}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Recalcular por trânsito */}
       <AnimatePresence>
         {showReroute && (
@@ -255,84 +267,98 @@ export function NavigationView() {
         </button>
       </div>
 
-      {/* Painel único consolidado — clone do "Route details" (case dprofile.ru, imgs 1/6):
-          manobra + barra de progresso com marcador + distância/tempo/chegada + ações,
-          tudo num só cartão (em vez de cartão de manobra + pílula de ETA separados). */}
+      {/* Painel "Detalhes da rota" — clone 1:1 do case (Route details, imgs 1/6):
+          manobra com seta azul + distância grande + rua; barra de progresso;
+          card de parada estilo "Finish"; distância/tempo/chegada; Add/Finish/Settings. */}
       <div className="absolute left-3 right-3 z-10" style={{ bottom: 74 }}>
-        <div className="shadow-2xl overflow-hidden" style={{ background: `${tech.card}f7`, backdropFilter: 'blur(20px)', borderRadius: 22, border: `1px solid ${tech.border}` }}>
-          {/* Manobra atual */}
-          {currentStep && (
-            <button onClick={() => setExpanded((v) => !v)} className="w-full flex items-center gap-3 px-4 pt-4 pb-2 text-left">
-              <span className="text-3xl leading-none flex-shrink-0" style={{ color: tech.accentLight }}>{maneuverArrow}</span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[24px] font-extrabold leading-none tabular-nums" style={{ color: tech.text }}>
-                  {formatDistance(currentStep.distance)}
-                </p>
-                <p className="text-xs mt-1 truncate" style={{ color: tech.textSecondary }}>{maneuverStreet}</p>
-              </div>
-              {expanded ? <ChevronDown size={18} style={{ color: tech.textMuted }} /> : <ChevronUp size={18} style={{ color: tech.textMuted }} />}
-            </button>
-          )}
-
-          {/* Barra de progresso com marcador da próxima manobra (img 1: linha com ícone) */}
-          <div className="px-4 pb-3">
-            <div className="relative h-1 rounded-full" style={{ background: tech.border }}>
-              <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${progressPct}%`, background: tech.accent }} />
-              <div
-                className="absolute flex items-center justify-center rounded-full"
-                style={{ left: `calc(${progressPct}% - 7px)`, top: -6, width: 14, height: 14, background: tech.accent, border: `2px solid ${tech.card}` }}
-              />
-              <div className="absolute rounded-full" style={{ right: -2, top: -2, width: 6, height: 6, background: tech.danger }} />
-            </div>
-          </div>
-
-          {/* Expandido: "depois" + próxima parada (imgs 1/6) */}
+        <div className="shadow-2xl overflow-hidden" style={{ background: `${tech.card}f7`, backdropFilter: 'blur(20px)', borderRadius: 24, border: `1px solid ${tech.border}` }}>
+          {/* Cabeçalho só no modo expandido — "Detalhes da rota" */}
           <AnimatePresence>
             {expanded && (
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
-                <div className="px-4 pb-3 space-y-2" style={{ borderTop: `1px solid ${tech.border}` }}>
+                <div className="flex items-center justify-between px-5 pt-4 pb-1">
+                  <span className="text-[15px] font-bold" style={{ color: tech.text }}>Detalhes da rota</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Manobra atual: seta azul num tile + distância grande + rua */}
+          {currentStep && (
+            <button onClick={() => setExpanded((v) => !v)} className="w-full flex items-center gap-3.5 px-5 pt-4 pb-3 text-left">
+              <div className="flex items-center justify-center flex-shrink-0" style={{ width: 46, height: 46, borderRadius: 15, background: tech.accentDim }}>
+                <ManeuverArrow type={currentStep.maneuver.type} modifier={currentStep.maneuver.modifier} size={30} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-extrabold leading-none tabular-nums" style={{ color: tech.text, fontSize: 26 }}>
+                  {formatDistance(currentStep.distance)}
+                </p>
+                <p className="text-[13px] mt-1.5 truncate" style={{ color: tech.textSecondary }}>{maneuverStreet}</p>
+              </div>
+              {expanded ? <ChevronDown size={20} style={{ color: tech.textMuted }} /> : <ChevronUp size={20} style={{ color: tech.textMuted }} />}
+            </button>
+          )}
+
+          {/* Barra de progresso com o raio (próxima parada de energia/CTO) e destino */}
+          <div className="px-5 pb-3.5">
+            <div className="relative h-[3px] rounded-full" style={{ background: tech.border }}>
+              <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${progressPct}%`, background: tech.accent }} />
+              <div className="absolute flex items-center justify-center rounded-full"
+                style={{ left: `calc(${progressPct}% - 8px)`, top: -6.5, width: 16, height: 16, background: tech.lemon, border: `2px solid ${tech.card}` }}>
+                <Zap size={9} style={{ color: '#0B0B0B' }} fill="#0B0B0B" />
+              </div>
+              <div className="absolute rounded-full" style={{ right: -3, top: -2.5, width: 8, height: 8, background: tech.danger }} />
+            </div>
+          </div>
+
+          {/* Expandido: card de parada estilo "Finish Kazan" (destino da OS) */}
+          <AnimatePresence>
+            {expanded && (
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+                <div className="px-5 pb-1.5">
+                  <div className="flex items-center gap-3 px-3.5 py-3" style={{ background: tech.elevated, borderRadius: 16 }}>
+                    <div className="flex items-center justify-center rounded-full flex-shrink-0" style={{ width: 34, height: 34, background: tech.danger }}>
+                      <MapPin size={16} style={{ color: '#fff' }} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[14px] font-bold truncate" style={{ color: tech.text }}>Destino · {navigation.destinationOs.client}</p>
+                      <p className="text-[12px] mt-0.5 tabular-nums" style={{ color: tech.textSecondary }}>
+                        {formatDistance(navigation.remainingDistance)} · {formatDuration(navigation.remainingDuration)} · {arrival}
+                      </p>
+                    </div>
+                  </div>
                   {nextStep && (
-                    <div className="flex items-center gap-2 pt-3">
-                      <span className="text-sm" style={{ color: tech.textMuted }}>{maneuverIcon(nextStep.maneuver.type, nextStep.maneuver.modifier)}</span>
+                    <div className="flex items-center gap-2 px-1 pt-2.5">
+                      <ManeuverArrow type={nextStep.maneuver.type} modifier={nextStep.maneuver.modifier} size={15} color={tech.textMuted} />
                       <span className="text-[11px] truncate" style={{ color: tech.textMuted }}>
                         Depois: {maneuverText(nextStep.maneuver.type, nextStep.maneuver.modifier, nextStep.name)}
                       </span>
                     </div>
                   )}
-                  <div className="flex items-center gap-3 px-3 py-2.5" style={{ background: tech.elevated, borderRadius: 14 }}>
-                    <div className="flex items-center justify-center rounded-xl flex-shrink-0" style={{ width: 32, height: 32, background: tech.accentDim }}>
-                      <MapPin size={15} style={{ color: tech.accentLight }} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[9px] font-bold tracking-wider" style={{ color: tech.textMuted }}>PRÓXIMA PARADA</p>
-                      <p className="text-sm font-bold truncate" style={{ color: tech.text }}>{navigation.destinationOs.client}</p>
-                    </div>
-                    <span className="text-xs truncate max-w-[100px]" style={{ color: tech.textMuted }}>{shortAddr(navigation.destinationOs.address)}</span>
-                  </div>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
 
           {/* Distância / tempo / chegada */}
-          <div className="flex items-center justify-around px-4 py-3" style={{ borderTop: `1px solid ${tech.border}` }}>
+          <div className="flex items-center justify-around px-5 py-3.5" style={{ borderTop: `1px solid ${tech.border}` }}>
             <Metric value={formatDistance(navigation.remainingDistance)} label="distância" />
-            <span className="w-px h-7" style={{ background: tech.border }} />
+            <span className="w-px h-8" style={{ background: tech.border }} />
             <Metric value={formatDuration(navigation.remainingDuration)} label="tempo" accent />
-            <span className="w-px h-7" style={{ background: tech.border }} />
+            <span className="w-px h-8" style={{ background: tech.border }} />
             <Metric value={arrival} label="chegada" />
           </div>
 
-          {/* Ações — clone da linha Add/Finish/Settings (img 6) */}
-          <div className="flex items-center justify-around px-4 py-3" style={{ borderTop: `1px solid ${tech.border}` }}>
-            <ActionButton icon={<Layers size={18} />} label="Camadas" onClick={toggleShowPoiLayer} active={showPoiLayer} />
+          {/* Ações — clone exato da linha Add / Finish / Settings (img 6) */}
+          <div className="flex items-center justify-around px-5 py-3.5" style={{ borderTop: `1px solid ${tech.border}` }}>
+            <ActionButton icon={<Plus size={20} />} label="Adicionar" onClick={toggleShowPoiLayer} active={showPoiLayer} />
             <button onClick={stopNavigation} className="flex flex-col items-center gap-1.5 active:scale-95 transition-transform">
-              <div className="flex items-center justify-center rounded-full" style={{ width: 48, height: 48, background: tech.danger }}>
-                <X size={20} style={{ color: '#fff' }} />
+              <div className="flex items-center justify-center rounded-full" style={{ width: 52, height: 52, background: tech.danger }}>
+                <X size={22} style={{ color: '#fff' }} />
               </div>
-              <span className="text-[10px] font-semibold" style={{ color: tech.textMuted }}>Encerrar</span>
+              <span className="text-[11px] font-semibold" style={{ color: tech.textMuted }}>Encerrar</span>
             </button>
-            <ActionButton icon={<Settings size={18} />} label="Ajustes" onClick={handleRecenter} />
+            <ActionButton icon={<Grip size={19} />} label="Ajustes" onClick={handleRecenter} />
           </div>
         </div>
       </div>
@@ -343,8 +369,8 @@ export function NavigationView() {
 function Metric({ value, label, accent }: { value: string; label: string; accent?: boolean }) {
   return (
     <div className="text-center">
-      <p className="text-base font-extrabold leading-none tabular-nums" style={{ color: accent ? tech.accentLight : tech.text }}>{value}</p>
-      <p className="text-[10px] mt-1" style={{ color: tech.textMuted }}>{label}</p>
+      <p className="text-[17px] font-extrabold leading-none tabular-nums" style={{ color: accent ? tech.accentLight : tech.text }}>{value}</p>
+      <p className="text-[11px] mt-1.5" style={{ color: tech.textMuted }}>{label}</p>
     </div>
   );
 }
@@ -354,15 +380,11 @@ function ActionButton({ icon, label, onClick, active }: { icon: React.ReactNode;
     <button onClick={onClick} className="flex flex-col items-center gap-1.5 active:scale-95 transition-transform">
       <div
         className="flex items-center justify-center rounded-full"
-        style={{ width: 48, height: 48, background: active ? tech.accentDim : tech.elevated, color: active ? tech.accentLight : '#fff' }}
+        style={{ width: 52, height: 52, background: active ? tech.accentDim : tech.elevated, color: active ? tech.accentLight : '#fff' }}
       >
         {icon}
       </div>
-      <span className="text-[10px] font-semibold" style={{ color: active ? tech.accentLight : tech.textMuted }}>{label}</span>
+      <span className="text-[11px] font-semibold" style={{ color: active ? tech.accentLight : tech.textMuted }}>{label}</span>
     </button>
   );
-}
-
-function shortAddr(a: string): string {
-  return a.split('—')[0].trim();
 }

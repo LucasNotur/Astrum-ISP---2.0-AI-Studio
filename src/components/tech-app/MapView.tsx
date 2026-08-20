@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { Navigation, Crosshair, Search, Layers } from 'lucide-react';
+import { Navigation, Crosshair, Search, Zap } from 'lucide-react';
 import { useTechAppStore } from '../../store/techAppStore';
 import { fetchOsrmRoute } from '../../lib/osrm';
 import { fetchNearbyCtos, occupancyColor } from '../../lib/ctoAvailability';
@@ -347,47 +347,44 @@ export function MapView() {
         </div>
       )}
 
-      {/* Top bar */}
-      <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
-        {osrmRoute && (
+      {/* Controles do mapa — vocabulário da tela "Карта" do case:
+          localizar (canto sup. esq.), carregadores/CTO em raio amarelo e busca
+          branca (canto sup. dir.), com o ETA da rota centralizado no topo. */}
+      <button
+        onClick={handleRecenter}
+        className="absolute top-3 left-3 z-10 flex items-center justify-center backdrop-blur-lg shadow-xl active:scale-95 transition-transform"
+        style={{ width: 46, height: 46, borderRadius: '50%', background: `${tech.card}e6`, border: `1px solid ${tech.border}` }}
+      >
+        <Crosshair size={19} style={{ color: '#fff' }} />
+      </button>
+
+      {osrmRoute && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
           <EtaChip distance={osrmRoute.distance} duration={osrmRoute.duration} />
-        )}
-        <div className="flex items-center gap-2 ml-auto">
-          {/* Camadas — POI + disponibilidade de CTO (clone do case dprofile.ru) */}
-          <button
-            onClick={toggleShowPoiLayer}
-            className="p-3 backdrop-blur-lg shadow-xl active:scale-95 transition-transform"
-            style={{
-              background: showPoiLayer ? tech.accent : 'rgba(17,17,17,0.9)',
-              borderRadius: '50%',
-              border: '1px solid #222',
-            }}
-          >
-            <Layers size={18} style={{ color: '#fff' }} />
-          </button>
-          {/* Buscar — clone do botão de lupa central da tela "Карта" */}
-          <button
-            onClick={() => setSearchOpen(true)}
-            className="p-3 backdrop-blur-lg shadow-xl active:scale-95 transition-transform"
-            style={{
-              background: '#fff',
-              borderRadius: '50%',
-            }}
-          >
-            <Search size={18} style={{ color: '#111' }} />
-          </button>
-          <button
-            onClick={handleRecenter}
-            className="p-3 backdrop-blur-lg shadow-xl active:scale-95 transition-transform"
-            style={{
-              background: 'rgba(17,17,17,0.9)',
-              borderRadius: '50%',
-              border: '1px solid #222',
-            }}
-          >
-            <Crosshair size={18} style={{ color: '#fff' }} />
-          </button>
         </div>
+      )}
+
+      <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+        {/* Carregadores / disponibilidade de CTO — raio amarelo (clone do case) */}
+        <button
+          onClick={toggleShowPoiLayer}
+          className="flex items-center justify-center backdrop-blur-lg shadow-xl active:scale-95 transition-transform"
+          style={{
+            width: 46, height: 46, borderRadius: '50%',
+            background: showPoiLayer ? tech.lemon : `${tech.card}e6`,
+            border: `1px solid ${showPoiLayer ? tech.lemon : tech.border}`,
+          }}
+        >
+          <Zap size={19} style={{ color: showPoiLayer ? '#0B0B0B' : tech.lemon }} fill={showPoiLayer ? '#0B0B0B' : 'none'} />
+        </button>
+        {/* Busca — lupa branca (clone do botão central da tela "Карта") */}
+        <button
+          onClick={() => setSearchOpen(true)}
+          className="flex items-center justify-center shadow-xl active:scale-95 transition-transform"
+          style={{ width: 46, height: 46, borderRadius: '50%', background: '#fff' }}
+        >
+          <Search size={19} style={{ color: '#111' }} />
+        </button>
       </div>
 
       {/* Start Navigation FAB */}

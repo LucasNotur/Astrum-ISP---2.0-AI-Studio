@@ -102,7 +102,7 @@ export default function TechPreview() {
   const content = introOpen ? (
     <TeachingScreen techName="Técnico Astrum" osCount={MOCK_OS.length} onContinue={() => setIntroOpen(false)} />
   ) : (
-    <div key={`${themeMode}-${basemapProvider}-${basemapKey}`} className="flex flex-col overflow-hidden" style={{ height: '100%', width: '100%', background: tech.bg, color: tech.text }}>
+    <div key={`${themeMode}-${basemapProvider}-${basemapKey}`} className="flex flex-col overflow-hidden" style={{ height: '100%', width: '100%', background: tech.bg, color: tech.text, fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif' }}>
       <div className="flex-1 relative overflow-hidden">
         {currentView === 'map' && <MapView />}
         {currentView === 'navigation' && <NavigationView />}
@@ -122,7 +122,7 @@ export default function TechPreview() {
     return (
       <div
         className="w-full flex items-center justify-center"
-        style={{ minHeight: '100vh', background: '#050506', padding: 16 }}
+        style={{ minHeight: '100vh', background: '#050506', padding: 16, fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif' }}
       >
         <div
           style={{
@@ -144,5 +144,5 @@ export default function TechPreview() {
   }
 
   // Modo Desktop: tela cheia.
-  return <div className="h-screen w-screen overflow-hidden">{content}</div>;
+  return <div className="h-screen w-screen overflow-hidden" style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif' }}>{content}</div>;
 }
