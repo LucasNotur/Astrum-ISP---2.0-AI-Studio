@@ -4,7 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { X, Navigation2, Plus, Minus, MapPin, ChevronUp, ChevronDown, Grip, Layers, Zap, Fuel } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTechAppStore } from '../../store/techAppStore';
-import { findNearestStep, formatDistance, formatDuration, maneuverText } from '../../lib/osrm';
+import { findNearestStep, formatDistance, formatDuration, maneuverText, fetchOsrmAlternatives } from '../../lib/osrm';
 import { SpeedIndicator } from './SpeedIndicator';
 import { ManeuverArrow } from './ManeuverArrow';
 import { RerouteBanner } from './RerouteBanner';
@@ -27,6 +27,7 @@ export function NavigationView() {
   const myVehicle = useTechAppStore((s) => s.myVehicle);
   const [showReroute, setShowReroute] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [altGeoms, setAltGeoms] = useState<[number, number][][]>([]);
 
   // Velocidade em km/h (GPS fornece m/s). Limite fixo urbano simulado.
   const speedKmh = gps?.speed != null && gps.speed > 0 ? gps.speed * 3.6 : 0;
@@ -115,6 +116,39 @@ export function NavigationView() {
     if (map.isStyleLoaded()) draw();
     else map.once('load', draw);
   }, [navigation?.route]);
+
+  // Rotas alternativas origem→destino (OSRM) — clone das opções do case.
+  useEffect(() => {
+    if (!navigation) { setAltGeoms([]); return; }
+    const g = navigation.route.geometry;
+    if (g.length < 2) return;
+    let alive = true;
+    fetchOsrmAlternatives(g[0]!, g[g.length - 1]!)
+      .then((routes) => { if (alive) setAltGeoms(routes.slice(1).map((r) => r.geometry)); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [navigation?.route]);
+
+  // Desenha as alternativas como linhas cinza tracejadas ABAIXO da rota principal.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const draw = () => {
+      const coords = altGeoms.map((geom) => geom.map(([lat, lng]) => [lng, lat]));
+      const data: any = { type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: coords } };
+      if (map.getSource('nav-alts')) { (map.getSource('nav-alts') as maplibregl.GeoJSONSource).setData(data); return; }
+      if (coords.length === 0) return;
+      map.addSource('nav-alts', { type: 'geojson', data });
+      const beforeId = map.getLayer('nav-route-outline') ? 'nav-route-outline' : undefined;
+      map.addLayer({
+        id: 'nav-alts-line', type: 'line', source: 'nav-alts',
+        paint: { 'line-color': '#6a6a70', 'line-width': 4, 'line-opacity': 0.5, 'line-dasharray': [1.5, 1.2] },
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+      }, beforeId);
+    };
+    if (map.isStyleLoaded()) draw();
+    else map.once('load', draw);
+  }, [altGeoms]);
 
   useEffect(() => {
     const map = mapRef.current;

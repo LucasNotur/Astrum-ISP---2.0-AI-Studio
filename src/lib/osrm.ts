@@ -92,6 +92,50 @@ export async function fetchOsrmRoute(
   };
 }
 
+function parseOsrmRoute(route: any): OsrmRoute {
+  return {
+    distance: route.distance,
+    duration: route.duration,
+    geometry: decodePolyline(route.geometry),
+    legs: (route.legs ?? []).map((leg: any) => ({
+      distance: leg.distance,
+      duration: leg.duration,
+      steps: (leg.steps ?? []).map((step: any) => ({
+        maneuver: step.maneuver,
+        name: step.name || '',
+        distance: step.distance,
+        duration: step.duration,
+        geometry: step.geometry,
+      })),
+    })),
+  };
+}
+
+/**
+ * Rotas alternativas origem→destino (OSRM `alternatives`). Devolve a principal +
+ * as alternativas, ordenadas pela mais rápida. Clone do "Создание маршрута" do
+ * case (várias opções de rota). Só faz sentido para 2 pontos.
+ */
+export async function fetchOsrmAlternatives(
+  origin: [number, number],
+  destination: [number, number],
+  max = 3,
+): Promise<OsrmRoute[]> {
+  const coordStr = `${origin[1]},${origin[0]};${destination[1]},${destination[0]}`;
+  const url = `${OSRM_BASE}/route/v1/driving/${coordStr}?overview=full&geometries=polyline&steps=true&alternatives=${max}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (data.code !== 'Ok' || !data.routes?.length) return [];
+    return data.routes
+      .map(parseOsrmRoute)
+      .sort((a: OsrmRoute, b: OsrmRoute) => a.duration - b.duration);
+  } catch {
+    return [];
+  }
+}
+
 export function formatDistance(meters: number): string {
   if (meters < 1000) return `${Math.round(meters)} m`;
   return `${(meters / 1000).toFixed(1)} km`;

@@ -85,11 +85,21 @@ export default function TechPreview() {
   const setIsOnline = useTechAppStore((s) => s.setIsOnline);
   const setDemoMode = useTechAppStore((s) => s.setDemoMode);
   const setMyVehicle = useTechAppStore((s) => s.setMyVehicle);
+  const setCtos = useTechAppStore((s) => s.setCtos);
 
   useEffect(() => {
     setDemoMode(true); // simulação só com toques (sem câmera/backend)
     setOsList(MOCK_OS as any);
     setMyVehicle({ model: 'Fiat Fiorino Furgão', plate: 'FTC-2E19', fuelPct: 62, tankLiters: 48, odometerKm: 84213, fuelType: 'flex' });
+    // CTOs demo espalhadas por SP → mancha de cobertura visível (categoria 4).
+    setCtos([
+      { id: 'cto-1', name: 'CTO Centro', latitude: -23.5505, longitude: -46.6333, totalPorts: 16, usedPorts: 11, status: 'active' },
+      { id: 'cto-2', name: 'CTO Paulista', latitude: -23.5614, longitude: -46.6559, totalPorts: 16, usedPorts: 4, status: 'active' },
+      { id: 'cto-3', name: 'CTO Pinheiros', latitude: -23.5670, longitude: -46.6920, totalPorts: 8, usedPorts: 8, status: 'active' },
+      { id: 'cto-4', name: 'CTO Vila Mariana', latitude: -23.5890, longitude: -46.6340, totalPorts: 16, usedPorts: 7, status: 'active' },
+      { id: 'cto-5', name: 'CTO Moema', latitude: -23.6010, longitude: -46.6660, totalPorts: 8, usedPorts: 2, status: 'active' },
+      { id: 'cto-6', name: 'CTO Consolação', latitude: -23.5560, longitude: -46.6600, totalPorts: 16, usedPorts: 13, status: 'active' },
+    ]);
     setIsOnline(true);
     setGps({
       lat: -23.5505,

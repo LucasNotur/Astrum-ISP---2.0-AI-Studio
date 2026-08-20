@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { Navigation, Crosshair, Search, Zap, X } from 'lucide-react';
+import { Navigation, Crosshair, Search, Zap, X, Hexagon } from 'lucide-react';
 import { useTechAppStore } from '../../store/techAppStore';
 import { fetchOsrmRoute } from '../../lib/osrm';
 import { fetchNearbyCtos, occupancyColor } from '../../lib/ctoAvailability';
+import { coverageOf } from '../../lib/coverage';
 import { supabase } from '../../lib/supabase';
 import { OsBottomSheet } from './OsBottomSheet';
 import { EtaChip } from './EtaChip';
@@ -29,6 +30,7 @@ export function MapView() {
   const ctoMarkersRef = useRef<maplibregl.Marker[]>([]);
   const poiMarkerRef = useRef<maplibregl.Marker | null>(null);
   const [mapError, setMapError] = React.useState<string | null>(null);
+  const [showCoverage, setShowCoverage] = React.useState(false);
 
   const osList = useTechAppStore((s) => s.osList);
   const gps = useTechAppStore((s) => s.gps);
@@ -212,6 +214,36 @@ export function MapView() {
     }
   }, [ctos, showPoiLayer]);
 
+  // Cobertura da rede — polígono (convex hull) das CTOs + área km². Mostra a
+  // extensão de onde as caixas da empresa estão e a mancha de expansão.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const draw = () => {
+      const hull = showCoverage ? coverageOf(ctos).hull : [];
+      const ring = hull.length >= 3
+        ? [...hull.map((p) => [p.longitude, p.latitude]), [hull[0]!.longitude, hull[0]!.latitude]]
+        : [];
+      const data: any = { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: ring.length ? [ring] : [] } };
+
+      if (map.getSource('coverage')) {
+        (map.getSource('coverage') as maplibregl.GeoJSONSource).setData(data);
+        return;
+      }
+      if (ring.length === 0) return;
+
+      map.addSource('coverage', { type: 'geojson', data });
+      // Preenchimento translúcido azul + borda — abaixo dos marcadores.
+      const firstSymbol = map.getStyle().layers?.find((l: any) => l.type === 'symbol')?.id;
+      map.addLayer({ id: 'coverage-fill', type: 'fill', source: 'coverage', paint: { 'fill-color': '#0075F2', 'fill-opacity': 0.12 } }, firstSymbol);
+      map.addLayer({ id: 'coverage-line', type: 'line', source: 'coverage', paint: { 'line-color': '#0075F2', 'line-width': 2, 'line-opacity': 0.7, 'line-dasharray': [2, 1.5] } }, firstSymbol);
+    };
+
+    if (map.isStyleLoaded()) draw();
+    else map.once('load', draw);
+  }, [showCoverage, ctos]);
+
   // Marcador do POI selecionado na busca (clone do pin de resultado do case).
   useEffect(() => {
     const map = mapRef.current;
@@ -361,6 +393,26 @@ export function MapView() {
       >
         <Crosshair size={19} style={{ color: '#fff' }} />
       </button>
+
+      {/* Cobertura da rede — polígono das CTOs + área km² (mancha de expansão) */}
+      {ctos.length >= 3 && (
+        <button
+          onClick={() => setShowCoverage((v) => !v)}
+          className="absolute left-3 z-10 flex items-center justify-center backdrop-blur-lg shadow-xl active:scale-95 transition-transform"
+          style={{ top: 60, width: 46, height: 46, borderRadius: '50%', background: showCoverage ? tech.accent : `${tech.card}e6`, border: `1px solid ${showCoverage ? tech.accent : tech.border}` }}
+        >
+          <Hexagon size={19} style={{ color: '#fff' }} />
+        </button>
+      )}
+
+      {showCoverage && ctos.length >= 3 && (
+        <div className="absolute left-3 z-10 px-3 py-2 shadow-xl" style={{ top: 112, borderRadius: 12, background: `${tech.card}f2`, backdropFilter: 'blur(16px)', border: `1px solid ${tech.border}` }}>
+          <p className="text-[15px] font-extrabold tabular-nums leading-none" style={{ color: tech.text }}>
+            {coverageOf(ctos).areaKm2.toLocaleString('pt-BR')} <span className="text-[11px] font-semibold" style={{ color: tech.textMuted }}>km²</span>
+          </p>
+          <p className="text-[10px] mt-1" style={{ color: tech.textMuted }}>{ctos.length} CTOs · cobertura</p>
+        </div>
+      )}
 
       {osrmRoute && (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10">
