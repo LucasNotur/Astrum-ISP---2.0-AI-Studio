@@ -84,7 +84,6 @@ export function NavigationView() {
 
       map.addSource('nav-route', {
         type: 'geojson',
-        lineMetrics: true, // necessário para line-gradient (rota por trânsito)
         data: {
           type: 'Feature',
           properties: {},
@@ -100,22 +99,14 @@ export function NavigationView() {
         layout: { 'line-cap': 'round', 'line-join': 'round' },
       });
 
-      // Gradiente de trânsito ao longo da rota — inspirado no nav Mapbox/Yango
+      // Linha de rota azul sólida (case dprofile — a maioria das telas tem a rota
+      // em azul cheio). Evita o `line-gradient` do MapLibre, cujo caminho de
+      // render quebra sob minificação de produção (ReferenceError interno).
       map.addLayer({
         id: 'nav-route-line',
         type: 'line',
         source: 'nav-route',
-        paint: {
-          'line-width': 6,
-          // Gradiente de trânsito da imagem 5: azul → ciano → laranja → vermelho
-          'line-gradient': [
-            'interpolate', ['linear'], ['line-progress'],
-            0, '#2E7DFF',
-            0.4, '#22D3EE',
-            0.7, '#F59E0B',
-            1, '#EF4444',
-          ],
-        },
+        paint: { 'line-color': '#0075F2', 'line-width': 7 },
         layout: { 'line-cap': 'round', 'line-join': 'round' },
       });
     };

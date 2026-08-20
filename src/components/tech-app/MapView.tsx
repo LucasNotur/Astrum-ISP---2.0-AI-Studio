@@ -255,7 +255,6 @@ export function MapView() {
 
       map.addSource('route', {
         type: 'geojson',
-        lineMetrics: true, // necessário para o gradiente de trânsito
         data: {
           type: 'Feature',
           properties: {},
@@ -278,21 +277,12 @@ export function MapView() {
         layout: { 'line-cap': 'round', 'line-join': 'round' },
       });
 
+      // Azul sólido (case) — sem line-gradient, que quebra sob minificação de prod.
       map.addLayer({
         id: 'route-line',
         type: 'line',
         source: 'route',
-        paint: {
-          'line-width': 5,
-          // Gradiente de trânsito (imgs 3/5): azul → ciano → laranja → vermelho
-          'line-gradient': [
-            'interpolate', ['linear'], ['line-progress'],
-            0, '#2E7DFF',
-            0.4, '#22D3EE',
-            0.7, '#F59E0B',
-            1, '#EF4444',
-          ],
-        },
+        paint: { 'line-color': '#0075F2', 'line-width': 6 },
         layout: { 'line-cap': 'round', 'line-join': 'round' },
       });
     };
