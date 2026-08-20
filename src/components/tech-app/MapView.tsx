@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { Navigation, Crosshair, Search, Zap } from 'lucide-react';
+import { Navigation, Crosshair, Search, Zap, X } from 'lucide-react';
 import { useTechAppStore } from '../../store/techAppStore';
 import { fetchOsrmRoute } from '../../lib/osrm';
 import { fetchNearbyCtos, occupancyColor } from '../../lib/ctoAvailability';
@@ -72,14 +72,24 @@ export function MapView() {
     map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
     mapRef.current = map;
 
-    // Se os tiles falharem (CDN bloqueado, chave inválida), o mapa fica preto
-    // silenciosamente. Aqui isso vira um aviso visível pro técnico agir.
+    // Aviso de mapa quebrado — SÓ em falha real, nunca em erro transiente de tile
+    // (o MapLibre dispara 'error' até quando um único tile falha ao dar pan, o que
+    // fazia o banner grudar com o mapa funcionando). Duas condições reais:
+    //  1) chave inválida/sem permissão (401/403) → acionável, avisa na hora;
+    //  2) NENHUM tile carregou em 8s → CDN bloqueado / sem conexão.
+    // Assim que qualquer tile carrega, o mapa está OK e o banner some pra sempre.
+    let anyTileLoaded = false;
+    const failTimer = setTimeout(() => {
+      if (!anyTileLoaded) setMapError('Não foi possível carregar o mapa. Verifique a conexão ou troque o provedor em Ajustes.');
+    }, 8000);
+    map.on('data', (e: any) => {
+      if (e?.tile) { anyTileLoaded = true; setMapError(null); }
+    });
     map.on('error', (e: any) => {
       const status = e?.error?.status;
       if (status === 401 || status === 403) setMapError('Chave do mapa inválida ou sem permissão. Revise em Ajustes.');
-      else if (e?.error) setMapError('Não foi possível carregar o mapa. Verifique a conexão ou troque o provedor em Ajustes.');
+      // Demais erros (tile 404/timeout isolado) são transientes → ignorados.
     });
-    map.on('data', (e: any) => { if (e?.tile) setMapError(null); });
 
     // O container nasce com altura 0 (o layout flex ainda não assentou no momento
     // do construtor) — sem isso o MapLibre calcula 0 tiles necessários e nunca pede
@@ -95,6 +105,7 @@ export function MapView() {
 
     return () => {
       cancelAnimationFrame(raf1);
+      clearTimeout(failTimer);
       ro.disconnect();
       map.remove();
       mapRef.current = null;
@@ -341,9 +352,12 @@ export function MapView() {
 
       {/* Aviso quando os tiles não carregam (CDN bloqueado / chave inválida). */}
       {mapError && (
-        <div className="absolute top-3 left-3 right-3 z-30 px-4 py-3 text-xs font-semibold shadow-xl"
+        <div className="absolute top-3 left-3 right-3 z-30 flex items-center gap-3 px-4 py-3 text-xs font-semibold shadow-xl"
           style={{ background: '#D64045', color: '#fff', borderRadius: 14 }}>
-          {mapError}
+          <span className="flex-1">{mapError}</span>
+          <button onClick={() => setMapError(null)} className="flex-shrink-0 active:scale-90 transition-transform" aria-label="Fechar">
+            <X size={16} style={{ color: '#fff' }} />
+          </button>
         </div>
       )}
 
