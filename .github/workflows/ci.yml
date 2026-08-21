@@ -10,7 +10,9 @@ on:
   workflow_dispatch:
 
 env:
-  NODE_VERSION: '20'
+  # Node 22 (LTS): tem WebSocket global nativo, exigido por libs (supabase-realtime/ws)
+  # que no Node 20 lançam "Node.js 20 detected without native WebSocket support" no import.
+  NODE_VERSION: '22'
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
