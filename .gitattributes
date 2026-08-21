@@ -1,0 +1,6 @@
+# Scripts do Windows precisam de CRLF de verdade — LF-only corrompe o
+# parser do cmd.exe (setlocal/call/%~dp0) quando roda sem console real
+# (ex.: runner do GitHub Actions). Ver scripts/infra/deploy_restart_backend.bat.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.vbs text eol=crlf
