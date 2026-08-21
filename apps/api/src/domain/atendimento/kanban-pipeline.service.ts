@@ -49,6 +49,7 @@ export function reorderColumns(columns: PipelineColumn[], columnId: string, newP
   if (idx === -1) return columns;
 
   const [moved] = sorted.splice(idx, 1);
+  if (!moved) return columns;
   const clampedPos = Math.max(0, Math.min(newPosition, sorted.length));
   sorted.splice(clampedPos, 0, moved);
 

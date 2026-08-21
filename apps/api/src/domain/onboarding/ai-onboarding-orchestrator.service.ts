@@ -100,7 +100,7 @@ async function updateStep(
   if (error || !data) return;
   const steps = (data as any).steps as StepResult[];
   const idx = steps.findIndex(s => s.step === stepName);
-  if (idx >= 0) steps[idx] = { ...steps[idx], ...patch };
+  if (idx >= 0) steps[idx] = { ...steps[idx]!, ...patch };
   await db.from('ai_onboarding_jobs').update({ steps }).eq('id', jobId);
 }
 
@@ -212,8 +212,6 @@ export const defaultPorts: OnboardingOrchestratorPorts = {
   db: supabase,
 
   importCustomers: async (tenantId, erpConnector) => {
-    // Usa o history-import service (F6-01) que já existe
-    const { importWhatsappHistory } = await import('../atendimento/whatsapp-retro.service');
     // Aqui seria o ERP adapter; por ora retorna contagem existente
     const { data } = await supabase
       .from('customers').select('id', { count: 'exact', head: true })
@@ -260,16 +258,9 @@ export const defaultPorts: OnboardingOrchestratorPorts = {
   },
 
   analyzeWhatsappHistory: async (tenantId) => {
-    const { analyzeContact } = await import('../atendimento/whatsapp-retro.service');
-    const { data: contacts } = await supabase
-      .from('customers').select('id,phone').eq('tenant_id', tenantId).limit(50);
-    let analyzed = 0;
-    for (const c of contacts ?? []) {
-      try {
-        await analyzeContact(tenantId, c.phone ?? c.id);
-        analyzed++;
-      } catch { /* skip */ }
-    }
-    return { contactsAnalyzed: analyzed };
+    // D-23: análise retroativa é batch por tenant (varre todos os contatos com histórico)
+    const { runRetroAnalysis } = await import('../atendimento/whatsapp-retro.service');
+    const report = await runRetroAnalysis(tenantId);
+    return { contactsAnalyzed: report.contactsAnalyzed };
   },
 };

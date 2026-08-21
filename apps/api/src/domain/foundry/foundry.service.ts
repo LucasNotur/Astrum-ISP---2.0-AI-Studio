@@ -53,12 +53,12 @@ const FOUNDRY_ALLOWED_TABLES = [
 function validateFoundryQuery(sql: string, tenantId: string): { valid: boolean; error?: string } {
   try {
     // Usa o sql-guard existente (IA-44)
-    validateSql(sql, tenantId);
+    validateSql(sql);
     // Verifica tabelas adicionalmente
     const tableRe = /\bFROM\s+(\w+)/gi;
     let m;
     while ((m = tableRe.exec(sql)) !== null) {
-      const table = m[1].toLowerCase();
+      const table = m[1]!.toLowerCase();
       if (!FOUNDRY_ALLOWED_TABLES.includes(table)) {
         return { valid: false, error: `Tabela "${table}" não permitida no Foundry. Permitidas: ${FOUNDRY_ALLOWED_TABLES.join(', ')}` };
       }
@@ -174,7 +174,7 @@ Responda APENAS com JSON válido, sem markdown:
     temperature: 0.1,
   });
 
-  const content = resp.choices[0]?.message?.content?.trim() ?? '{}';
+  const content = resp.content.trim() || '{}';
   try {
     return JSON.parse(content);
   } catch {

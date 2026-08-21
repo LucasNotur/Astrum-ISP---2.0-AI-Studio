@@ -75,8 +75,8 @@ export function createNetworkTelemetryWorker(ports?: TelemetryWorkerPorts) {
     },
     { connection, concurrency: 1 },
   );
-  setupDLQ(worker, QUEUE_NAME);
-  addSentryToWorker(worker);
+  setupDLQ(worker);
+  addSentryToWorker(worker, QUEUE_NAME);
   return worker;
 }
 

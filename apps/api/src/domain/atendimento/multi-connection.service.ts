@@ -37,7 +37,7 @@ export function findConnectionForPhone(connections: WhatsAppConnection[], target
   if (dddMatch) return dddMatch;
 
   const primary = healthy.find((c) => c.isPrimary);
-  return primary ?? healthy[0];
+  return primary ?? healthy[0]!;
 }
 
 export function getConnectionHealth(connections: WhatsAppConnection[]): {

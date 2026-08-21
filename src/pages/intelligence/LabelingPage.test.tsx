@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -14,13 +14,23 @@ vi.mock('@/src/lib/apiAuth', () => ({
 
 const mockFetchQueue = vi.fn();
 
+const exampleItem = {
+  id: 'ex1',
+  source: 'feedback',
+  input: 'minha internet caiu',
+  output: 'Vou verificar.',
+  label: null,
+  createdAt: '2026-01-01T00:00:00Z',
+};
+
 const originalFetch = globalThis.fetch;
 beforeEach(() => {
   globalThis.fetch = vi.fn(async (url: any) => {
     const u = String(url);
     if (u.includes('/labeling/queue')) return { ok: true, json: async () => mockFetchQueue() };
     if (u.includes('/labeling/export')) return { ok: true, blob: async () => new Blob(['{}']) };
-    return { ok: false, status: 404 };
+    // Aba default "Rascunhos KB" busca /kb/drafts — devolve vazio válido p/ não quebrar o render.
+    return { ok: true, json: async () => ({ drafts: [] }) };
   }) as any;
   mockFlags.mockReturnValue({ flags: { activelearn: true }, isLoading: false });
   mockFetchQueue.mockResolvedValue({ queue: [], enabled: true });
@@ -41,9 +51,18 @@ async function renderPage() {
   return render(<LabelingPage />, { wrapper });
 }
 
+// A rotulagem vive na aba "Rotulagem" (a aba default é "Rascunhos KB").
+// Radix Tabs ativa por foco (activationMode automático) — click sintético não basta no jsdom.
+async function openLabelingTab() {
+  const tab = await screen.findByRole('tab', { name: /Rotulagem/ });
+  tab.focus();
+  fireEvent.click(tab);
+}
+
 describe('LabelingPage', () => {
   it('shows empty state when queue is empty', async () => {
     await renderPage();
+    await openLabelingTab();
     await waitFor(() => {
       expect(screen.getByText('Fila vazia')).toBeInTheDocument();
     });
@@ -52,22 +71,14 @@ describe('LabelingPage', () => {
   it('shows flag-off message when activelearn flag is off', async () => {
     mockFlags.mockReturnValue({ flags: { activelearn: false }, isLoading: false });
     await renderPage();
-    expect(screen.getByText(/ACTIVE_LEARNING_ENABLED/)).toBeInTheDocument();
+    await openLabelingTab();
+    expect(await screen.findByText(/ACTIVE_LEARNING_ENABLED/)).toBeInTheDocument();
   });
 
   it('renders current example with label buttons', async () => {
-    mockFetchQueue.mockResolvedValue({
-      queue: [{
-        id: 'ex1',
-        source: 'feedback',
-        input: 'minha internet caiu',
-        output: 'Vou verificar.',
-        label: null,
-        createdAt: '2026-01-01T00:00:00Z',
-      }],
-      enabled: true,
-    });
+    mockFetchQueue.mockResolvedValue({ queue: [exampleItem], enabled: true });
     await renderPage();
+    await openLabelingTab();
     await waitFor(() => {
       expect(screen.getByText('minha internet caiu')).toBeInTheDocument();
     });
@@ -76,8 +87,10 @@ describe('LabelingPage', () => {
     expect(screen.getByText('ambíguo')).toBeInTheDocument();
   });
 
-  it('shows export button', async () => {
+  it('shows export button when queue has items', async () => {
+    mockFetchQueue.mockResolvedValue({ queue: [exampleItem], enabled: true });
     await renderPage();
+    await openLabelingTab();
     await waitFor(() => {
       expect(screen.getByText('Exportar JSONL')).toBeInTheDocument();
     });

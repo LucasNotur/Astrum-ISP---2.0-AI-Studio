@@ -108,7 +108,7 @@ Retorne APENAS o código TypeScript, sem markdown, sem explicação.`;
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 4000,
     });
-    const generatedCode = response.choices[0]?.message?.content ?? '';
+    const generatedCode = response.content ?? '';
 
     // 4. Gerar e executar testes básicos de contrato
     const testResults = await ports.runGeneratedTests(generatedCode, `

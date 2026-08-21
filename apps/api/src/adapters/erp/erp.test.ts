@@ -125,8 +125,13 @@ describe('erp.factory', () => {
     expect(createErpProvider('hubsoft', { url: 'u', token: 't' }).name).toBe('hubsoft');
   });
 
-  it('lança para provider ainda não implementado (radiusnet, rbx)', () => {
-    expect(isErpImplemented('radiusnet')).toBe(false);
-    expect(() => createErpProvider('radiusnet' as any, { url: 'u', token: 't' })).toThrow(/não implementado/);
+  it('radiusnet e rbx agora estão implementados (S75, 7/7 adapters)', () => {
+    expect(isErpImplemented('radiusnet')).toBe(true);
+    expect(isErpImplemented('rbx')).toBe(true);
+  });
+
+  it('lança para provider desconhecido', () => {
+    expect(isErpImplemented('inexistente' as any)).toBe(false);
+    expect(() => createErpProvider('inexistente' as any, { url: 'u', token: 't' })).toThrow(/não implementado/);
   });
 });

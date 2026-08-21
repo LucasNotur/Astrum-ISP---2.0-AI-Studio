@@ -2,14 +2,13 @@ import { describe, it, expect, vi } from 'vitest';
 import { publishPlaybook, listPlaybooks, installPlaybook, type PlaybookPorts } from './playbook-market.service';
 
 vi.mock('./policy-backtest.service', () => ({
-  runBacktest: vi.fn().mockResolvedValue({
-    invoiceCount: 120,
+  backtestPolicy: vi.fn().mockResolvedValue({
+    baseline: { invoicesTotal: 120 },
     disclaimer: 'o passado não reage',
-    scenarios: {
-      base: { recoveredCents: 1500_00, newlyCollectedPct: 22 },
-      pessimistic: { recoveredCents: 800_00, newlyCollectedPct: 12 },
-      optimistic: { recoveredCents: 2100_00, newlyCollectedPct: 30 },
-    },
+    projectedGainCents: { pessimista: 800_00, base: 1500_00, otimista: 2100_00 },
+    discountCostCents: 0,
+    netGainBaseCents: 1500_00,
+    assumptions: [],
   }),
 }));
 
@@ -78,8 +77,8 @@ describe('D-17 installPlaybook', () => {
   });
 
   it('lida com backtest indisponível (dados insuficientes)', async () => {
-    const { runBacktest } = await import('./policy-backtest.service');
-    vi.mocked(runBacktest).mockRejectedValueOnce(new Error('menos de 30 faturas'));
+    const { backtestPolicy } = await import('./policy-backtest.service');
+    vi.mocked(backtestPolicy).mockRejectedValueOnce(new Error('menos de 30 faturas'));
     const pbs = [{ id: 'pb-1', name: 'Régua 22%', policy: testPolicy, downloads: 0 }];
     const result = await installPlaybook('ten-2', 'pb-1', {}, makePorts(pbs));
     expect(result.backtestResult).toHaveProperty('error');

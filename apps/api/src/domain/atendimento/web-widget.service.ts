@@ -44,8 +44,8 @@ export function validateColor(hex: string): boolean {
 
 export function isWithinBusinessHours(config: WidgetConfig, nowUtcHour: number): boolean {
   if (!config.businessHours) return true;
-  const startHour = parseInt(config.businessHours.start.split(':')[0], 10);
-  const endHour = parseInt(config.businessHours.end.split(':')[0], 10);
+  const startHour = parseInt(config.businessHours.start.split(':')[0] ?? '', 10);
+  const endHour = parseInt(config.businessHours.end.split(':')[0] ?? '', 10);
   return nowUtcHour >= startHour && nowUtcHour < endHour;
 }
 
@@ -71,8 +71,8 @@ export async function validateWidgetConfig(config: WidgetConfig): Promise<{ vali
   if (!config.greeting || config.greeting.length < 3) errors.push('Saudação deve ter pelo menos 3 caracteres');
   if (!config.offlineMessage || config.offlineMessage.length < 3) errors.push('Mensagem offline deve ter pelo menos 3 caracteres');
   if (config.businessHours) {
-    const start = parseInt(config.businessHours.start.split(':')[0], 10);
-    const end = parseInt(config.businessHours.end.split(':')[0], 10);
+    const start = parseInt(config.businessHours.start.split(':')[0] ?? '', 10);
+    const end = parseInt(config.businessHours.end.split(':')[0] ?? '', 10);
     if (isNaN(start) || isNaN(end) || start >= end) errors.push('Horário comercial inválido');
   }
   return { valid: errors.length === 0, errors };

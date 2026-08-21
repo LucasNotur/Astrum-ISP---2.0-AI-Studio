@@ -41,14 +41,14 @@ export async function buildFunnelReport(
 
   const stages: FunnelStageData[] = FUNNEL_ORDER.map((stage, i) => ({
     stage,
-    count: counts[i],
-    conversionFromPrevious: i === 0 || counts[i - 1] === 0
+    count: counts[i]!,
+    conversionFromPrevious: i === 0 || counts[i - 1]! === 0
       ? 100
-      : Math.round((counts[i] / counts[i - 1]) * 100),
+      : Math.round((counts[i]! / counts[i - 1]!) * 100),
   }));
 
   const leads = counts[0] || 1;
-  const actives = counts[2];
+  const actives = counts[2] ?? 0;
   const overallConversion = Math.round((actives / leads) * 100);
 
   const avgDaysLeadToActive = await ports.getAvgConversionDays(tenantId, from, to);

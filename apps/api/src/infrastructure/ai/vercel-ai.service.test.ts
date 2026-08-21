@@ -10,6 +10,8 @@ vi.mock('ai', () => ({
 
 vi.mock('@ai-sdk/openai', () => ({
   openai: vi.fn(() => ({})),
+  // model-router usa createOpenAI({ apiKey })(modelId) — factory que retorna o provider
+  createOpenAI: vi.fn(() => vi.fn(() => ({}))),
 }));
 
 describe('VercelAIService — Structured Outputs', () => {

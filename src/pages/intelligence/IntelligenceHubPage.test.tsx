@@ -27,6 +27,8 @@ describe('IntelligenceHubPage', () => {
   it('renderiza título e EmptyState quando nenhuma flag está ligada', async () => {
     (globalThis.fetch as any).mockResolvedValue({
       ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
       json: async () => ({ flags: {} }),
     });
 
@@ -41,6 +43,8 @@ describe('IntelligenceHubPage', () => {
   it('mostra cards dos módulos cujas flags estão ligadas', async () => {
     (globalThis.fetch as any).mockResolvedValue({
       ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
       json: async () => ({ flags: { toolreg: true, safety: true } }),
     });
 

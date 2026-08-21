@@ -31,7 +31,7 @@ export interface CascadePorts {
 }
 
 export function selectOperator(available: string[]): string | null {
-  return available.length > 0 ? available[Math.floor(Math.random() * available.length)] : null;
+  return available.length > 0 ? available[Math.floor(Math.random() * available.length)] ?? null : null;
 }
 
 export function shouldEscalate(item: QueuedItem, group: QueueGroup, now: number): boolean {
@@ -48,6 +48,7 @@ export async function processQueueItem(
 
   while (groupIdx < config.groups.length) {
     const group = config.groups[groupIdx];
+    if (!group) break;
 
     if (groupIdx === item.currentGroupIndex && !shouldEscalate(item, group, now)) {
       const available = await ports.getAvailableOperators(config.tenantId, group.operatorIds);

@@ -82,7 +82,7 @@ export async function askCopilot(
     temperature: 0.2,
   });
 
-  const raw = resp.choices[0]?.message?.content?.trim() ?? '{}';
+  const raw = resp.content.trim() || '{}';
   let parsed: { answer: string; sql?: string | null; action?: any } = { answer: 'Não consegui interpretar a pergunta.' };
   try {
     // Remover markdown fence se presente
@@ -97,7 +97,7 @@ export async function askCopilot(
   let sqlUsed: string | undefined;
   if (parsed.sql) {
     try {
-      validateSql(parsed.sql, tenantId);
+      validateSql(parsed.sql);
       data = await ports.runSafeQuery(parsed.sql, tenantId);
       sqlUsed = parsed.sql;
     } catch (e: any) {
@@ -121,7 +121,7 @@ export async function askCopilot(
       ],
       max_tokens: 300,
     });
-    finalAnswer = summary.choices[0]?.message?.content?.trim() ?? finalAnswer;
+    finalAnswer = summary.content.trim() || finalAnswer;
   }
 
   infraLogger.info({ tenantId, hasData: data.length > 0, hasAction: !!parsed.action?.type }, 'D-20: copiloto respondeu');
@@ -144,8 +144,10 @@ export const defaultPorts: OwnerCopilotPorts = {
     // Usa o sandbox do IA-44 (executeQuery) quando configurado; fallback Supabase
     const { executeQuery, isSandboxConfigured } = await import('../../infrastructure/sandbox/sandbox-db.service');
     if (isSandboxConfigured()) {
-      const result = await executeQuery(sql, tenantId);
-      return result.rows as Record<string, unknown>[];
+      const result = await executeQuery(tenantId, 'owner-copilot', sql);
+      return result.rows.map((row) =>
+        Object.fromEntries(result.columns.map((col, i) => [col, row[i] ?? null])),
+      );
     }
     // Fallback: não há sandbox configurado
     infraLogger.warn({ tenantId }, 'D-20: sandbox não configurado, query não executada');

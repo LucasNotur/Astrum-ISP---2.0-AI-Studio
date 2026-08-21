@@ -21,14 +21,14 @@ describe('D-20 owner-copilot', () => {
   it('retorna resposta com dados quando SQL válido', async () => {
     vi.mocked(callOpenAI)
       .mockResolvedValueOnce({
-        choices: [{ message: { content: JSON.stringify({
+        content: JSON.stringify({
           answer: 'Você tem 120 clientes ativos.',
           sql: "SELECT count(*) FROM customers WHERE tenant_id = 'ten-1' AND status = 'active'",
           action: { type: 'none', label: '' },
-        }) } }],
+        }),
       } as any)
       .mockResolvedValueOnce({
-        choices: [{ message: { content: 'Você tem 120 clientes ativos no plano analisado.' } }],
+        content: 'Você tem 120 clientes ativos no plano analisado.',
       } as any);
 
     const ports = makePorts([{ count: 120 }]);
@@ -40,11 +40,11 @@ describe('D-20 owner-copilot', () => {
 
   it('retorna resposta sem SQL quando pergunta não precisa de dados', async () => {
     vi.mocked(callOpenAI).mockResolvedValueOnce({
-      choices: [{ message: { content: JSON.stringify({
+      content: JSON.stringify({
         answer: 'Para abrir em um novo bairro, avalie a saturação das CTOs vizinhas.',
         sql: null,
         action: { type: 'open_foundry', label: 'Criar automação de viabilidade' },
-      }) } }],
+      }),
     } as any);
 
     const ports = makePorts([]);
@@ -60,11 +60,11 @@ describe('D-20 owner-copilot', () => {
       throw new (SqlGuardError as any)('DML não permitido');
     });
     vi.mocked(callOpenAI).mockResolvedValueOnce({
-      choices: [{ message: { content: JSON.stringify({
+      content: JSON.stringify({
         answer: 'resposta inicial',
         sql: "DELETE FROM customers WHERE 1=1",
         action: { type: 'none', label: '' },
-      }) } }],
+      }),
     } as any);
 
     const ports = makePorts([]);
@@ -76,7 +76,7 @@ describe('D-20 owner-copilot', () => {
 
   it('lida com JSON malformado do LLM', async () => {
     vi.mocked(callOpenAI).mockResolvedValueOnce({
-      choices: [{ message: { content: 'Sua inadimplência subiu por sazonalidade.' } }],
+      content: 'Sua inadimplência subiu por sazonalidade.',
     } as any);
 
     const ports = makePorts([]);

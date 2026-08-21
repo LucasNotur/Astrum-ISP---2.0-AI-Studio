@@ -76,7 +76,10 @@ export async function processVisionJob(
       return { analysis: null };
     }
 
-    const data = await response.json();
+    const data = await response.json() as {
+      choices?: Array<{ message?: { content?: string } }>;
+      usage?: { total_tokens?: number };
+    };
     const analysis = data.choices?.[0]?.message?.content ?? null;
     const tokens = data.usage?.total_tokens ?? 0;
     const cost = tokens * 0.00015;

@@ -44,14 +44,15 @@ export function findNearestTechnician(
 ): { technician: TechnicianLocation; distanceKm: number } | null {
   if (techLocations.length === 0) return null;
 
-  let nearest = techLocations[0];
+  let nearest = techLocations[0]!;
   let minDist = haversineDistance(nearest.point, target);
 
   for (let i = 1; i < techLocations.length; i++) {
-    const dist = haversineDistance(techLocations[i].point, target);
+    const current = techLocations[i]!;
+    const dist = haversineDistance(current.point, target);
     if (dist < minDist) {
       minDist = dist;
-      nearest = techLocations[i];
+      nearest = current;
     }
   }
 
@@ -61,7 +62,7 @@ export function findNearestTechnician(
 export function calculateRouteDistance(points: GeoPoint[]): number {
   let total = 0;
   for (let i = 1; i < points.length; i++) {
-    total += haversineDistance(points[i - 1], points[i]);
+    total += haversineDistance(points[i - 1]!, points[i]!);
   }
   return Math.round(total * 100) / 100;
 }

@@ -45,7 +45,7 @@ export async function processSyntheticMonitorJob(
   for (const tenant of tenants) {
     const message = SYNTHETIC_MESSAGES[
       Math.floor(Date.now() / 60000) % SYNTHETIC_MESSAGES.length
-    ];
+    ]!;
 
     let result: ProbeResult;
     try {
@@ -98,8 +98,8 @@ export function createSyntheticMonitorWorker(ports?: SyntheticMonitorPorts) {
     },
     { connection, concurrency: 1 },
   );
-  setupDLQ(worker, QUEUE_NAME);
-  addSentryToWorker(worker);
+  setupDLQ(worker);
+  addSentryToWorker(worker, QUEUE_NAME);
   return worker;
 }
 

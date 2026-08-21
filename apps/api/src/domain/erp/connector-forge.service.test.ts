@@ -22,17 +22,13 @@ const makeAdapter = (code: string): ConnectorForgePorts => ({
 // Mock callOpenAI
 vi.mock('../../adapters/openai/openai.adapter', () => ({
   callOpenAI: vi.fn().mockResolvedValue({
-    choices: [{
-      message: {
-        content: `
+    content: `
 class HubsoftAdapter implements IErpAdapter {
   async getCustomers(tenantId: string): Promise<ErpCustomer[]> { return []; }
   async getInvoices(tenantId: string): Promise<ErpInvoice[]> { return []; }
   async suspendService(customerId: string): Promise<void> {}
   async reactivateService(customerId: string): Promise<void> {}
 }`,
-      },
-    }],
   }),
 }));
 

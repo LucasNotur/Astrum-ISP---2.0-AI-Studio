@@ -22,6 +22,8 @@ describe('useFeatureFlags', () => {
   it('retorna flags quando a API responde', async () => {
     (globalThis.fetch as any).mockResolvedValue({
       ok: true,
+      status: 200,
+      headers: { get: () => 'application/json' },
       json: async () => ({ flags: { hub: true } }),
     });
 

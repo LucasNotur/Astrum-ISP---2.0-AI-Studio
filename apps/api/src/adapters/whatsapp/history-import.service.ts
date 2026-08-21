@@ -49,7 +49,7 @@ export async function fetchChatsFromEvolution(
     headers: { apikey: apiKey },
   });
   if (!res.ok) throw new Error(`Evolution findChats: HTTP ${res.status}`);
-  return res.json();
+  return res.json() as Promise<EvolutionChat[]>;
 }
 
 export async function fetchMessagesFromEvolution(
@@ -61,7 +61,7 @@ export async function fetchMessagesFromEvolution(
     body: JSON.stringify({ where: { key: { remoteJid } } }),
   });
   if (!res.ok) throw new Error(`Evolution findMessages: HTTP ${res.status}`);
-  return res.json();
+  return res.json() as Promise<EvolutionMessage[]>;
 }
 
 function extractText(msg: EvolutionMessage): string | null {

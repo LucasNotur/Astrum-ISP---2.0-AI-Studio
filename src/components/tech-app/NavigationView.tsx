@@ -413,7 +413,7 @@ export function NavigationView() {
               <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${progressPct}%`, background: tech.accent }} />
               <div className="absolute flex items-center justify-center rounded-full"
                 style={{ left: `calc(${progressPct}% - 8px)`, top: -6.5, width: 16, height: 16, background: tech.lemon, border: `2px solid ${tech.card}` }}>
-                <Zap size={9} style={{ color: '#0B0B0B' }} fill="#0B0B0B" />
+                <Zap size={9} style={{ color: '#0B0B0B' }} />
               </div>
               <div className="absolute rounded-full" style={{ right: -3, top: -2.5, width: 8, height: 8, background: tech.danger }} />
             </div>

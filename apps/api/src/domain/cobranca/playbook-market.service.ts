@@ -10,7 +10,7 @@
  * Desbloqueio: ≥10 tenants + D-02 rodando com dados reais.
  */
 import supabase from '../../infrastructure/database/supabase.client';
-import { runBacktest, type CobrancaPolicy } from './policy-backtest.service';
+import { backtestPolicy, type CobrancaPolicy } from './policy-backtest.service';
 import { infraLogger } from '../../infrastructure/logging/logger';
 
 export interface PlaybookResult {
@@ -108,12 +108,12 @@ export async function installPlaybook(
   if (!opts.skipBacktest) {
     try {
       const policy = (pb as any).policy as CobrancaPolicy;
-      const bt = await runBacktest(tenantId, policy, { db: ports.db });
+      const bt = await backtestPolicy(tenantId, policy, {}, ports.db);
       backtestResult = {
-        baseProjection: bt.scenarios.base,
-        pessimisticProjection: bt.scenarios.pessimistic,
-        optimisticProjection: bt.scenarios.optimistic,
-        invoiceCount: bt.invoiceCount,
+        baseProjection: bt.projectedGainCents.base,
+        pessimisticProjection: bt.projectedGainCents.pessimista,
+        optimisticProjection: bt.projectedGainCents.otimista,
+        invoiceCount: bt.baseline.invoicesTotal,
         disclaimer: bt.disclaimer,
       };
     } catch (e: any) {

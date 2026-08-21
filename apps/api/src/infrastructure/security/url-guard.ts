@@ -10,12 +10,12 @@
  * Aqui é a barreira de CONFIG (input do usuário), a primeira e mais importante.
  */
 
-function ipv4ToParts(host: string): number[] | null {
+function ipv4ToParts(host: string): [number, number, number, number] | null {
   const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
   if (!m) return null;
   const parts = m.slice(1, 5).map(Number);
   if (parts.some((p) => p < 0 || p > 255)) return null;
-  return parts;
+  return [parts[0]!, parts[1]!, parts[2]!, parts[3]!];
 }
 
 function isPrivateOrReservedIpv4(host: string): boolean {

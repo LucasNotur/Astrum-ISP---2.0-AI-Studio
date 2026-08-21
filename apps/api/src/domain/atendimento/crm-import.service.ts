@@ -73,11 +73,11 @@ export async function importBatch(
   const result: ImportResult = { total: rows.length, imported: 0, skipped: 0, duplicates: 0, errors: [] };
 
   for (let i = 0; i < rows.length; i++) {
-    const mapped = mapRow(rows[i], config.fieldMapping);
+    const mapped = mapRow(rows[i]!, config.fieldMapping);
     const missing = validateRow(mapped, requiredFields);
 
     if (missing.length > 0) {
-      result.errors.push({ row: i + 1, field: missing[0], message: `Campo obrigatório ausente: ${missing[0]}` });
+      result.errors.push({ row: i + 1, field: missing[0]!, message: `Campo obrigatório ausente: ${missing[0]}` });
       result.skipped++;
       continue;
     }

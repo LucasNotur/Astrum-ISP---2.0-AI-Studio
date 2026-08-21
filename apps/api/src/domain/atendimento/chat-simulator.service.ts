@@ -46,7 +46,7 @@ export async function runSimulation(
   let totalLatency = 0;
 
   for (let i = 0; i < Math.min(userMessages.length, config.maxTurns); i++) {
-    const userMsg = userMessages[i];
+    const userMsg = userMessages[i]!;
     history.push({ role: 'user', content: userMsg });
     turns.push({ role: 'user', content: userMsg, tokensUsed: 0, latencyMs: 0 });
 

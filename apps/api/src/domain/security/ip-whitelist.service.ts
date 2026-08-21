@@ -26,14 +26,14 @@ function ipToNumber(ip: string): number {
 export function isValidCidr(cidr: string): boolean {
   const match = cidr.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(?:\/(\d{1,2}))?$/);
   if (!match) return false;
-  const octets = match[1].split('.').map(Number);
+  const octets = match[1]!.split('.').map(Number);
   if (octets.some((o) => o < 0 || o > 255)) return false;
   const prefix = match[2] ? parseInt(match[2], 10) : 32;
   return prefix >= 0 && prefix <= 32;
 }
 
 export function ipMatchesCidr(ip: string, cidr: string): boolean {
-  const [network, prefixStr] = cidr.split('/');
+  const [network = '', prefixStr] = cidr.split('/');
   const prefix = prefixStr ? parseInt(prefixStr, 10) : 32;
   const mask = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0;
   return (ipToNumber(ip) & mask) === (ipToNumber(network) & mask);

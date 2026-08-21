@@ -85,7 +85,7 @@ export async function handleRegression(
       escalate_sentiment: 'Sentimento negativo detectado',
       escalate_loop: 'Loop de intenções detectado',
     };
-    await ports.escalateToHuman(state.tenantId, state.conversationId, reasons[decision]);
+    await ports.escalateToHuman(state.tenantId, state.conversationId, reasons[decision] ?? 'Escalação automática');
   }
 
   await ports.logRegression(state.tenantId, state.conversationId, decision);
