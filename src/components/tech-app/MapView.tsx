@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { Navigation, Crosshair, Search, Zap, X, Hexagon } from 'lucide-react';
+import { Hexagon } from 'lucide-react';
+import { IcSend, IcTarget, IcSearch, IcBolt, IcClose } from './TechIcons';
 import { useTechAppStore } from '../../store/techAppStore';
 import { fetchOsrmRoute } from '../../lib/osrm';
 import { fetchNearbyCtos, occupancyColor } from '../../lib/ctoAvailability';
@@ -384,7 +385,7 @@ export function MapView() {
           style={{ background: '#D64045', color: '#fff', borderRadius: 14 }}>
           <span className="flex-1">{mapError}</span>
           <button onClick={() => setMapError(null)} className="flex-shrink-0 active:scale-90 transition-transform" aria-label="Fechar">
-            <X size={16} style={{ color: '#fff' }} />
+            <IcClose size={16} color="#fff" />
           </button>
         </div>
       )}
@@ -397,7 +398,7 @@ export function MapView() {
         className="absolute top-3 left-3 z-10 flex items-center justify-center backdrop-blur-lg shadow-xl active:scale-95 transition-transform"
         style={{ width: 46, height: 46, borderRadius: '50%', background: `${tech.card}e6`, border: `1px solid ${tech.border}` }}
       >
-        <Crosshair size={19} style={{ color: '#fff' }} />
+        <IcTarget size={20} color="#fff" />
       </button>
 
       {/* Cobertura da rede — polígono das CTOs + área km² (mancha de expansão) */}
@@ -437,7 +438,7 @@ export function MapView() {
             border: `1px solid ${showPoiLayer ? tech.lemon : tech.border}`,
           }}
         >
-          <Zap size={19} style={{ color: showPoiLayer ? '#0B0B0B' : tech.lemon }} fill={showPoiLayer ? '#0B0B0B' : 'none'} />
+          <IcBolt size={19} color={showPoiLayer ? '#0B0B0B' : tech.lemon} />
         </button>
         {/* Busca — lupa branca (clone do botão central da tela "Карта") */}
         <button
@@ -445,7 +446,7 @@ export function MapView() {
           className="flex items-center justify-center shadow-xl active:scale-95 transition-transform"
           style={{ width: 46, height: 46, borderRadius: '50%', background: '#fff' }}
         >
-          <Search size={19} style={{ color: '#111' }} />
+          <IcSearch size={19} color="#111" />
         </button>
       </div>
 
@@ -461,7 +462,7 @@ export function MapView() {
             fontWeight: 700,
           }}
         >
-          <Navigation size={18} />
+          <IcSend size={18} color="#fff" />
           <span className="text-sm">Navegar</span>
         </button>
       )}

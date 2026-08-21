@@ -1,7 +1,11 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { X, Navigation2, Plus, Minus, MapPin, ChevronUp, ChevronDown, Grip, Layers, Zap, Fuel } from 'lucide-react';
+import {
+  IcClose as X, IcTarget as Navigation2, IcPlus as Plus, IcMinus as Minus, IcPin as MapPin,
+  IcChevronUp as ChevronUp, IcChevronDown as ChevronDown, IcGrid as Grip, IcLayers as Layers,
+  IcBolt as Zap, IcFuel as Fuel,
+} from './TechIcons';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTechAppStore } from '../../store/techAppStore';
 import { findNearestStep, formatDistance, formatDuration, maneuverText, fetchOsrmAlternatives } from '../../lib/osrm';

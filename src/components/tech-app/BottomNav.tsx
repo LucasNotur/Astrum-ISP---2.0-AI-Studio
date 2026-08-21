@@ -1,7 +1,9 @@
 import React from 'react';
-import { Home, ClipboardList, Map, Route, User } from 'lucide-react';
 import { useTechAppStore, type TechView } from '../../store/techAppStore';
+import { IcHome, IcClients, IcMap, IcRoute, IcUser, type IconProps } from './TechIcons';
 import { tech } from './theme';
+
+const Home = IcHome, ClipboardList = IcClients, Map = IcMap, Route = IcRoute, User = IcUser;
 
 /**
  * Barra inferior orientada à tarefa do técnico. Navegar e OS saíram da barra

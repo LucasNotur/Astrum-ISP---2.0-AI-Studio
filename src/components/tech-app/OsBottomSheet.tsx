@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronUp, ChevronDown, MapPin, Clock, Phone, User, Wrench } from 'lucide-react';
+import {
+  IcChevronUp as ChevronUp, IcChevronDown as ChevronDown, IcPin as MapPin,
+  IcClock as Clock, IcPhone as Phone, IcUser as User, IcWrench as Wrench,
+} from './TechIcons';
 import { useTechAppStore } from '../../store/techAppStore';
 import { formatDuration } from '../../lib/osrm';
 import { tech } from './theme';

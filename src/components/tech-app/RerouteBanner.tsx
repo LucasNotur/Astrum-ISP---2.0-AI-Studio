@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Car, Clock } from 'lucide-react';
+import { IcCar as Car, IcClock as Clock } from './TechIcons';
 // Overlay sobre o mapa (sempre escuro) — token DARK fixo.
 import { DARK as tech } from './theme';
 
