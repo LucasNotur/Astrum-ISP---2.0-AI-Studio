@@ -1,6 +1,9 @@
 @echo off
 setlocal enabledelayedexpansion
-chcp 65001 >nul 2>nul
+
+:: NOTA: sem "chcp 65001" de proposito — combinado com saida redirecionada
+:: (como no runner do GitHub Actions, sem console real) o chcp 65001 corrompe
+:: o parsing de "call" com %~dp0 no cmd.exe. Log fica em ASCII simples.
 
 :: ========================================================
 ::  deploy_restart_backend.bat - Reinicio nao-interativo do backend
