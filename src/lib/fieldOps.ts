@@ -342,6 +342,23 @@ export async function optimizeRoute(date?: string): Promise<OptimizedRouteResult
   };
 }
 
+/** Salva em campo a coordenada (e endereço) exata do cliente na OS. */
+export async function saveOsLocation(
+  osId: string,
+  lat: number,
+  lng: number,
+  address?: string,
+): Promise<{ ok: boolean; latitude?: number; longitude?: number }> {
+  const res = await fetch(`/api/v2/field/os/${osId}/location`, {
+    method: 'PATCH',
+    headers: await authHeaders(),
+    body: JSON.stringify({ lat, lng, address }),
+  });
+  if (!res.ok) return { ok: false };
+  const data = await res.json();
+  return { ok: true, latitude: data.latitude, longitude: data.longitude };
+}
+
 export interface FleetVehicle {
   model: string | null;
   plate: string | null;

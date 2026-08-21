@@ -17,6 +17,8 @@ import { SignaturePad } from '../SignaturePad';
 import { uploadTenantFile } from '../../lib/storage';
 import { processSignatureAndPdf } from '../../lib/signaturePad';
 import { fetchOsrmRoute } from '../../lib/osrm';
+import { saveOsLocation } from '../../lib/fieldOps';
+import { IcPin } from './TechIcons';
 import {
   startServiceOrder, completeServiceOrder, fetchChecklist, markChecklistItem,
   registerMedia, validatePhoto, generateSummary, fetchDossie,
@@ -276,6 +278,22 @@ export function ActiveOsView() {
     setActiveOs({ ...activeOs, status: status as any });
   };
 
+  // Salva EM CAMPO a coordenada exata do cliente (GPS atual do técnico) na OS —
+  // as próximas rotas passam a levar ao ponto certo (caixa/porta real, não o pin
+  // aproximado do cadastro). Atualiza também a lista local pro marcador mover.
+  const handleSaveClientLocation = async () => {
+    if (!gps) { toast.error('Sem GPS agora. Tente de novo em instantes.'); return; }
+    const applyLocal = () => {
+      const upd = osList.map((o) => o.id === activeOs.id ? { ...o, latitude: gps.lat, longitude: gps.lng } : o);
+      setOsList(upd as any);
+      setActiveOs({ ...activeOs, latitude: gps.lat, longitude: gps.lng });
+    };
+    if (demoMode) { applyLocal(); toast.success('Local do cliente salvo (demo).'); return; }
+    const r = await saveOsLocation(activeOs.id, gps.lat, gps.lng, activeOs.address);
+    if (r.ok) { applyLocal(); toast.success('Local do cliente salvo no cadastro!'); }
+    else toast.error('Não foi possível salvar o local agora.');
+  };
+
   const handleNavigate = async () => {
     if (!activeOs.latitude || !activeOs.longitude) {
       toast.error('Esta OS não tem endereço localizado no mapa.');
@@ -336,6 +354,14 @@ export function ActiveOsView() {
                 }}
               >
                 <Navigation size={16} /> Ir para o cliente
+              </button>
+              {/* Salvar o local exato do cliente (GPS atual) no cadastro da OS */}
+              <button
+                onClick={handleSaveClientLocation}
+                className="w-full flex items-center justify-center gap-2 py-3 text-sm font-bold active:scale-[0.98] transition-transform"
+                style={{ background: tech.elevated, color: tech.text, borderRadius: 14, border: `1px solid ${tech.border}` }}
+              >
+                <IcPin size={16} color={tech.accentLight} /> Salvar local do cliente (GPS)
               </button>
               {/* Check-in por deslizar — evita toque acidental */}
               <SlideToConfirm

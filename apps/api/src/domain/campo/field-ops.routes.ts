@@ -62,6 +62,12 @@ const agendaQuerySchema = z.object({
   date: z.string().optional(),
 });
 
+const saveLocationSchema = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  address: z.string().max(300).optional(),
+});
+
 const optimizeBodySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
@@ -469,6 +475,34 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     }
 
     return { vehicle };
+  });
+
+  /**
+   * PATCH /api/v2/field/os/:id/location — o técnico salva EM CAMPO a coordenada
+   * (e opcionalmente o endereço) exata do cliente, pra as próximas rotas levarem
+   * ao ponto certo. Ex.: a caixa fica nos fundos, o pin cadastrado estava na rua.
+   */
+  fastify.patch('/api/v2/field/os/:id/location', {
+    onRequest: [fastify.authenticate],
+    preHandler: [requirePermission('service_orders', 'write'), validateBody(saveLocationSchema)],
+  }, async (request, reply) => {
+    const { tenantId } = (request as any).user;
+    const serviceOrderId = (request.params as any).id as string;
+    const body = (request as any).validatedBody as z.infer<typeof saveLocationSchema>;
+
+    const patch: Record<string, unknown> = { latitude: body.lat, longitude: body.lng, updated_at: new Date().toISOString() };
+    if (body.address) patch.address = body.address;
+
+    const { data, error } = await supabase
+      .from('service_orders')
+      .update(patch)
+      .eq('tenant_id', tenantId)
+      .eq('id', serviceOrderId)
+      .select('id, latitude, longitude, address')
+      .single();
+
+    if (error || !data) return reply.code(500).send({ code: 'SAVE_LOCATION_ERROR', message: 'Falha ao salvar o local.' });
+    return reply.code(200).send({ id: data.id, latitude: data.latitude, longitude: data.longitude, address: data.address });
   });
 
   // ─── Jornada (shift) ───────────────────────────────────────────────────────
