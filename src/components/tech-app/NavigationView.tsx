@@ -186,35 +186,13 @@ export function NavigationView() {
       .addTo(map);
   }, [navigation?.destinationOs]);
 
-  // Cria a SETA de posição uma vez (mesmo padrão do pino de destino, que é
-  // confiável): no início da rota, independente do timing do gps. Seta estilo
-  // Waze/case: triângulo AZUL com pontas arredondadas (round join) + borda branca.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !navigation) return;
-    if (techMarkerRef.current) return;
-    const g = navigation.route.geometry;
-    const startLngLat: [number, number] = gps ? [gps.lng, gps.lat] : (g[0] ? [g[0][1], g[0][0]] : [0, 0]);
-
-    const el = document.createElement('div');
-    el.innerHTML = `
-      <div style="position:relative;width:54px;height:54px;display:flex;align-items:center;justify-content:center;">
-        <div style="position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle, rgba(0,117,242,0.42) 0%, rgba(0,117,242,0.10) 50%, transparent 72%);"></div>
-        <svg width="38" height="38" viewBox="0 0 40 40" style="filter:drop-shadow(0 3px 8px rgba(0,0,0,0.5));">
-          <path d="M20 11 L29.5 29 L10.5 29 Z" fill="#0075F2" stroke="#ffffff" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round" paint-order="stroke"/>
-        </svg>
-      </div>`;
-    techMarkerRef.current = new maplibregl.Marker({ element: el, rotationAlignment: 'viewport' })
-      .setLngLat(startLngLat)
-      .addTo(map);
-  }, [navigation?.route]);
-
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !gps || !navigation) return;
 
-    if (techMarkerRef.current) techMarkerRef.current.setLngLat([gps.lng, gps.lat]);
-
+    // A seta de posição NÃO é um marcador maplibre (tinha bug de timing/HMR): é um
+    // overlay fixo no centro da tela (ver JSX). A câmera segue o gps → o centro da
+    // tela É a posição atual. Waze/Google fazem exatamente assim.
     const bearing = gps.heading ?? 0;
     map.easeTo({
       center: [gps.lng, gps.lat],
@@ -312,6 +290,16 @@ export function NavigationView() {
           o mapa nunca pede tile (tela preta). Largura/altura fixas resolvem contra
           o pai independentemente do position. */}
       <div ref={containerRef} className="absolute inset-0 w-full h-full" />
+
+      {/* Seta de posição — overlay fixo no centro (a câmera segue o gps, então o
+          centro da tela É a posição). Aponta pra cima = direção (mapa heading-up).
+          Triângulo azul com pontas arredondadas + borda branca (estilo Waze/case). */}
+      <div className="absolute left-1/2 top-1/2 z-[5] pointer-events-none" style={{ transform: 'translate(-50%, -50%)', width: 56, height: 56 }}>
+        <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,117,242,0.42) 0%, rgba(0,117,242,0.10) 50%, transparent 72%)' }} />
+        <svg width="56" height="56" viewBox="0 0 40 40" style={{ filter: 'drop-shadow(0 3px 8px rgba(0,0,0,0.5))' }}>
+          <path d="M20 11 L29.5 29 L10.5 29 Z" fill="#0075F2" stroke="#ffffff" strokeWidth={4.5} strokeLinejoin="round" strokeLinecap="round" paintOrder="stroke" />
+        </svg>
+      </div>
 
       {/* Velocidade + limite — borda ESQUERDA, empilhado (case dprofile.ru — imgs 1/9).
           Esconde enquanto o banner de trânsito ocupa o topo (como no case). */}
