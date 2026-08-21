@@ -179,9 +179,30 @@ if !errorlevel! equ 0 (
 :tunnel_ready_auto
 
 :: --------------------------------------------------------
-::  ETAPA 7: Verificacao final
+::  ETAPA 7: GitHub Actions Runner (self-hosted, deploy CI/CD)
 :: --------------------------------------------------------
-call :log "[7/7] Verificacao final..."
+call :log "[7/8] Verificando GitHub Actions Runner..."
+
+if not exist "E:\actions-runner\run.cmd" (
+    call :log "  AVISO: runner nao instalado, pulando"
+    goto :runner_ready_auto
+)
+
+tasklist /fi "imagename eq Runner.Listener.exe" /nh 2>nul | findstr "Runner.Listener" >nul 2>nul
+if !errorlevel! equ 0 (
+    call :log "  OK: Runner ja esta ativo"
+    goto :runner_ready_auto
+)
+
+wscript "%~dp0launch_hidden.vbs" "gha-runner" "%~dp0run_gha_runner.bat"
+call :log "  OK: Runner iniciado"
+
+:runner_ready_auto
+
+:: --------------------------------------------------------
+::  ETAPA 8: Verificacao final
+:: --------------------------------------------------------
+call :log "[8/8] Verificacao final..."
 
 set "BACKEND_OK=0"
 curl -sf %HEALTH_BACKEND% >nul 2>nul && set "BACKEND_OK=1"

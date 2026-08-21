@@ -26,7 +26,11 @@ concurrency:
 jobs:
   deploy:
     name: 🚀 Deploy ${{ github.event.inputs.environment || 'production' }}
-    runs-on: ubuntu-latest
+    # Self-hosted: o "servidor de produção" é a própria máquina do Lucas
+    # (Windows, iniciada via scripts\infra\*.bat + Cloudflare Tunnel — sem
+    # VPS separado). O runner GHA roda nela e puxa jobs por conexão de saída
+    # (sem abrir porta nenhuma). Ver scripts/infra/run_gha_runner.bat.
+    runs-on: [self-hosted, windows, astrum-home]
     timeout-minutes: 20
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     # NOTA: `environment.url` NÃO aceita o contexto `secrets` (só env/vars/github…).
@@ -40,40 +44,40 @@ jobs:
     # Mapeamos a presença de cada secret aqui (env de job pode usar secrets) e os
     # steps checam via `env.HAS_*`.
     env:
-      HAS_DEPLOY_SSH: ${{ secrets.DEPLOY_SSH_HOST != '' }}
       HAS_SENTRY: ${{ secrets.SENTRY_AUTH_TOKEN != '' }}
       HAS_PRODUCTION_URL: ${{ secrets.PRODUCTION_URL != '' }}
       # Commit exato que passou no CI (evento workflow_run) — o servidor faz checkout dele.
       DEPLOY_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      # Caminho fixo do checkout "vivo" nesta máquina (o mesmo que start_astrum.bat usa).
+      DEPLOY_PATH: E:\Saas\AstrumISP
 
     steps:
-      # Histórico completo p/ o Sentry `set-commits --auto` (quando habilitado).
+      # Checkout no workspace do runner (_work\...) — só para o Sentry
+      # `set-commits --auto` ler o histórico git. NÃO é o diretório servido;
+      # esse é o DEPLOY_PATH abaixo.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # Deploy self-hosted: SSH no servidor Docker → rebuilda o astrum-api a partir
-      # do commit que passou no CI (git checkout + docker compose build + up -d).
-      # Requer o repo clonado em DEPLOY_PATH no servidor, com acesso de leitura ao
-      # GitHub (o build acontece no próprio servidor). Enquanto DEPLOY_SSH_HOST não
-      # estiver setado, o passo é pulado (não derruba o deploy).
-      - name: Deploy backend (SSH → docker compose)
-        if: ${{ env.HAS_DEPLOY_SSH == 'true' }}
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.DEPLOY_SSH_HOST }}
-          username: ${{ secrets.DEPLOY_SSH_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_SSH_PORT || 22 }}
-          script_stop: true
-          script: |
-            set -e
-            cd "${{ secrets.DEPLOY_PATH }}"
-            git fetch --all --prune
-            git checkout ${{ env.DEPLOY_SHA }}
-            docker compose build astrum-api
-            docker compose up -d astrum-api
-            docker image prune -f
+      # Deploy local: atualiza o checkout "vivo" em E:\Saas\AstrumISP pro commit
+      # que passou no CI e reinicia só o backend Fastify (Docker/Redis/Qdrant e
+      # o tunnel Cloudflare continuam rodando sem interrupção).
+      - name: Atualizar código (git checkout local)
+        shell: cmd
+        run: |
+          cd /d "%DEPLOY_PATH%"
+          git fetch --all --prune
+          git checkout %DEPLOY_SHA%
+
+      - name: Instalar dependências (workspaces)
+        shell: cmd
+        run: |
+          cd /d "%DEPLOY_PATH%"
+          npm install
+
+      - name: Reiniciar backend (Fastify)
+        shell: cmd
+        run: call "%DEPLOY_PATH%\scripts\infra\deploy_restart_backend.bat"
 
       # DESATIVADO: o frontend é publicado pela integração Git do próprio Vercel,
       # não por este pipeline. Este passo apontava para apps/web/dist (removido no S78).
@@ -100,10 +104,11 @@ jobs:
 
       - name: Health check pós-deploy
         if: ${{ env.HAS_PRODUCTION_URL == 'true' }}
+        shell: cmd
         run: |
-          sleep 10
-          curl -f ${{ secrets.PRODUCTION_URL }}/api/v2/health || exit 1
-          echo "✅ Health check passou"
+          timeout /t 10 /nobreak >nul
+          curl -f "${{ secrets.PRODUCTION_URL }}/api/v2/health" || exit /b 1
+          echo Health check passou
 
       - name: Notificar sucesso
         if: success()
