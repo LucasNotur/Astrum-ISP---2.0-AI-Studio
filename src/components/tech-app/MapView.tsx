@@ -338,16 +338,15 @@ export function MapView() {
     const pending = osList.filter(
       (os) => os.status !== 'completed' && os.latitude && os.longitude,
     );
-    if (pending.length === 0) return;
+    if (pending.length === 0) { setOsrmRoute(null); return; }
 
-    const coords: [number, number][] = [
-      [gps.lat, gps.lng],
-      ...pending.map((os) => [os.latitude!, os.longitude!] as [number, number]),
-    ];
-    fetchOsrmRoute(coords).then((route) => {
+    // Rota LIMPA até o PRÓXIMO destino (OS ativa, ou a primeira pendente) — não
+    // mais o zigue-zague por todas as OS do dia (isso deixava o traçado sujo).
+    const target = (activeOs && activeOs.latitude && activeOs.longitude) ? activeOs : pending[0]!;
+    fetchOsrmRoute([[gps.lat, gps.lng], [target.latitude!, target.longitude!]]).then((route) => {
       if (route) setOsrmRoute(route);
     });
-  }, [gps, osList.length]);
+  }, [gps, osList.length, activeOs?.id]);
 
   const handleRecenter = useCallback(() => {
     if (!mapRef.current || !gps) return;
