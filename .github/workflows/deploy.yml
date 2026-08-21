@@ -46,8 +46,9 @@ jobs:
 
       - name: Restauração de workspaces
         run: |
-          mkdir -p apps/web/dist apps/api/dist
-          cp -r ./dist-artifacts/apps/web/dist/* apps/web/dist/ || true
+          # Frontend = Vite na raiz (dist/); apps/web foi removido no S78.
+          mkdir -p dist apps/api/dist
+          cp -r ./dist-artifacts/dist/* dist/ || true
           cp -r ./dist-artifacts/apps/api/dist/* apps/api/dist/ || true
 
       - name: Deploy Backend (Railway)
@@ -58,11 +59,13 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
+      # DESATIVADO: o frontend é publicado pela integração Git do próprio Vercel,
+      # não por este pipeline. Este passo apontava para apps/web/dist (removido no S78).
       - name: Deploy Frontend (Vercel)
-        if: ${{ secrets.VERCEL_TOKEN != '' }}
+        if: false
         run: |
           npm install -g vercel
-          vercel --prod --token=${{ secrets.VERCEL_TOKEN }} apps/web/dist
+          vercel --prod --token=${{ secrets.VERCEL_TOKEN }} dist
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
