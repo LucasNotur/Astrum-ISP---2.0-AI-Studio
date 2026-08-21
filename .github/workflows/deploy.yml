@@ -62,12 +62,16 @@ jobs:
       # Deploy local: atualiza o checkout "vivo" em E:\Saas\AstrumISP pro commit
       # que passou no CI e reinicia só o backend Fastify (Docker/Redis/Qdrant e
       # o tunnel Cloudflare continuam rodando sem interrupção).
+      # IMPORTANTE: fica em "git checkout main" (nunca detached HEAD) — esse
+      # mesmo diretório é o working dir de desenvolvimento; um "git checkout
+      # <SHA>" solto quebra qualquer commit feito ali depois (cai fora da main).
       - name: Atualizar código (git checkout local)
         shell: cmd
         run: |
           cd /d "%DEPLOY_PATH%"
           git fetch --all --prune
-          git checkout %DEPLOY_SHA%
+          git checkout main
+          git reset --hard %DEPLOY_SHA%
 
       - name: Instalar dependências (workspaces)
         shell: cmd
