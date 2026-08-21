@@ -13,7 +13,8 @@ color 0A
 ::    4. Verifica saude dos containers
 ::    5. Inicia backend Node.js (Fastify)
 ::    6. Abre tunnel Cloudflare
-::    7. Exibe painel de status final
+::    7. Sobe o runner do GitHub Actions (deploy CI/CD), se instalado
+::    8. Exibe painel de status final
 ::
 ::  Idempotente: pode ser executado varias vezes sem duplicar.
 :: ========================================================
@@ -35,7 +36,7 @@ call :log "Inicio: %date% %time%"
 :: --------------------------------------------------------
 ::  ETAPA 1: Pre-requisitos
 :: --------------------------------------------------------
-call :step "1/7" "Verificando pre-requisitos"
+call :step "1/8" "Verificando pre-requisitos"
 
 where docker >nul 2>nul || (
     call :error "Docker nao encontrado! Instale o Docker Desktop."
@@ -54,7 +55,7 @@ call :ok "Docker, Node.js e cloudflared instalados"
 :: --------------------------------------------------------
 ::  ETAPA 2: Docker Desktop
 :: --------------------------------------------------------
-call :step "2/7" "Verificando Docker Desktop"
+call :step "2/8" "Verificando Docker Desktop"
 
 docker info >nul 2>nul
 if !errorlevel! equ 0 (
@@ -92,7 +93,7 @@ goto :wait_docker
 :: --------------------------------------------------------
 ::  ETAPA 3: Docker Compose
 :: --------------------------------------------------------
-call :step "3/7" "Subindo containers Docker"
+call :step "3/8" "Subindo containers Docker"
 
 set "ALL_RUNNING=1"
 for %%c in (%EXPECTED_CONTAINERS%) do (
@@ -115,7 +116,7 @@ if !errorlevel! neq 0 (
 :: --------------------------------------------------------
 ::  ETAPA 4: Saude dos containers
 :: --------------------------------------------------------
-call :step "4/7" "Verificando saude dos containers"
+call :step "4/8" "Verificando saude dos containers"
 
 set /a "REDIS_WAIT=0"
 :wait_redis
@@ -156,7 +157,7 @@ call :ok "Todos os containers saudaveis"
 :: --------------------------------------------------------
 ::  ETAPA 5: Backend Node.js
 :: --------------------------------------------------------
-call :step "5/7" "Iniciando backend Node.js"
+call :step "5/8" "Iniciando backend Node.js"
 
 curl -sf %HEALTH_BACKEND% >nul 2>nul
 if !errorlevel! equ 0 (
@@ -192,7 +193,7 @@ if "!BACKEND_OK!"=="1" (call :ok "Fastify :%BACKEND_PORT%") else (call :warn "Fa
 :: --------------------------------------------------------
 ::  ETAPA 6: Cloudflare Tunnel
 :: --------------------------------------------------------
-call :step "6/7" "Configurando Cloudflare Tunnel"
+call :step "6/8" "Configurando Cloudflare Tunnel"
 
 tasklist /fi "imagename eq cloudflared.exe" /nh 2>nul | findstr "cloudflared" >nul 2>nul
 if !errorlevel! equ 0 (
@@ -208,9 +209,31 @@ call :ok "Tunnel iniciado (astrum-api -> localhost:%BACKEND_PORT%)"
 :tunnels_ready
 
 :: --------------------------------------------------------
-::  ETAPA 7: Painel final
+::  ETAPA 7: GitHub Actions Runner (self-hosted, deploy CI/CD)
 :: --------------------------------------------------------
-call :step "7/7" "Verificacao final"
+call :step "7/8" "Verificando GitHub Actions Runner"
+
+if not exist "E:\actions-runner\run.cmd" (
+    call :warn "Runner nao instalado em E:\actions-runner - pulando"
+    goto :runner_ready
+)
+
+tasklist /fi "imagename eq Runner.Listener.exe" /nh 2>nul | findstr "Runner.Listener" >nul 2>nul
+if !errorlevel! equ 0 (
+    call :ok "Runner ja esta ativo"
+    goto :runner_ready
+)
+
+wscript "%~dp0launch_hidden.vbs" "gha-runner" "%~dp0run_gha_runner.bat"
+timeout /t 3 /nobreak >nul
+call :ok "Runner iniciado"
+
+:runner_ready
+
+:: --------------------------------------------------------
+::  ETAPA 8: Painel final
+:: --------------------------------------------------------
+call :step "8/8" "Verificacao final"
 
 echo.
 echo  ===================================
@@ -247,6 +270,15 @@ if !errorlevel! equ 0 (
     echo     + Tunnel online: %URL_API%
 ) else (
     echo     X Tunnel offline
+)
+
+echo.
+echo   GitHub Actions Runner:
+tasklist /fi "imagename eq Runner.Listener.exe" /nh 2>nul | findstr "Runner.Listener" >nul 2>nul
+if !errorlevel! equ 0 (
+    echo     + Runner online (astrum-home)
+) else (
+    echo     X Runner offline
 )
 
 echo.
