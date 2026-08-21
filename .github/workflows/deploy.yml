@@ -40,35 +40,40 @@ jobs:
     # Mapeamos a presença de cada secret aqui (env de job pode usar secrets) e os
     # steps checam via `env.HAS_*`.
     env:
-      HAS_RAILWAY: ${{ secrets.RAILWAY_TOKEN != '' }}
+      HAS_DEPLOY_SSH: ${{ secrets.DEPLOY_SSH_HOST != '' }}
       HAS_SENTRY: ${{ secrets.SENTRY_AUTH_TOKEN != '' }}
       HAS_PRODUCTION_URL: ${{ secrets.PRODUCTION_URL != '' }}
+      # Commit exato que passou no CI (evento workflow_run) — o servidor faz checkout dele.
+      DEPLOY_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
     steps:
+      # Histórico completo p/ o Sentry `set-commits --auto` (quando habilitado).
       - uses: actions/checkout@v4
-
-      - name: Download artefato do build
-        uses: actions/download-artifact@v4
         with:
-          name: build-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
-          run-id: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || github.run_id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          path: ./dist-artifacts
+          fetch-depth: 0
 
-      - name: Restauração de workspaces
-        run: |
-          # Frontend = Vite na raiz (dist/); apps/web foi removido no S78.
-          mkdir -p dist apps/api/dist
-          cp -r ./dist-artifacts/dist/* dist/ || true
-          cp -r ./dist-artifacts/apps/api/dist/* apps/api/dist/ || true
-
-      - name: Deploy Backend (Railway)
-        if: ${{ env.HAS_RAILWAY == 'true' }}
-        run: |
-          npm install -g @railway/cli
-          railway up --service astrum-api
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      # Deploy self-hosted: SSH no servidor Docker → rebuilda o astrum-api a partir
+      # do commit que passou no CI (git checkout + docker compose build + up -d).
+      # Requer o repo clonado em DEPLOY_PATH no servidor, com acesso de leitura ao
+      # GitHub (o build acontece no próprio servidor). Enquanto DEPLOY_SSH_HOST não
+      # estiver setado, o passo é pulado (não derruba o deploy).
+      - name: Deploy backend (SSH → docker compose)
+        if: ${{ env.HAS_DEPLOY_SSH == 'true' }}
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_SSH_HOST }}
+          username: ${{ secrets.DEPLOY_SSH_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_SSH_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -e
+            cd "${{ secrets.DEPLOY_PATH }}"
+            git fetch --all --prune
+            git checkout ${{ env.DEPLOY_SHA }}
+            docker compose build astrum-api
+            docker compose up -d astrum-api
+            docker image prune -f
 
       # DESATIVADO: o frontend é publicado pela integração Git do próprio Vercel,
       # não por este pipeline. Este passo apontava para apps/web/dist (removido no S78).
