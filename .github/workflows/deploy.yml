@@ -29,9 +29,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
+    # NOTA: `environment.url` NÃO aceita o contexto `secrets` (só env/vars/github…).
+    # Usar `${{ secrets.PRODUCTION_URL }}` aqui invalidava o workflow inteiro
+    # (startup failure em todo push, workflow_run nunca disparava). Removido — o
+    # health-check pós-deploy já usa a URL via `run:` (onde secrets é permitido).
     environment:
       name: ${{ github.event.inputs.environment || 'production' }}
-      url: ${{ secrets.PRODUCTION_URL }}
 
     # O contexto `secrets` NÃO é permitido em `if:` de step (causa startup failure).
     # Mapeamos a presença de cada secret aqui (env de job pode usar secrets) e os
