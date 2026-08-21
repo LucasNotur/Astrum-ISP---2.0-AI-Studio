@@ -186,33 +186,34 @@ export function NavigationView() {
       .addTo(map);
   }, [navigation?.destinationOs]);
 
+  // Cria a SETA de posição uma vez (mesmo padrão do pino de destino, que é
+  // confiável): no início da rota, independente do timing do gps. Seta estilo
+  // Waze/case: triângulo AZUL com pontas arredondadas (round join) + borda branca.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !navigation) return;
+    if (techMarkerRef.current) return;
+    const g = navigation.route.geometry;
+    const startLngLat: [number, number] = gps ? [gps.lng, gps.lat] : (g[0] ? [g[0][1], g[0][0]] : [0, 0]);
+
+    const el = document.createElement('div');
+    el.innerHTML = `
+      <div style="position:relative;width:54px;height:54px;display:flex;align-items:center;justify-content:center;">
+        <div style="position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle, rgba(0,117,242,0.42) 0%, rgba(0,117,242,0.10) 50%, transparent 72%);"></div>
+        <svg width="38" height="38" viewBox="0 0 40 40" style="filter:drop-shadow(0 3px 8px rgba(0,0,0,0.5));">
+          <path d="M20 11 L29.5 29 L10.5 29 Z" fill="#0075F2" stroke="#ffffff" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round" paint-order="stroke"/>
+        </svg>
+      </div>`;
+    techMarkerRef.current = new maplibregl.Marker({ element: el, rotationAlignment: 'viewport' })
+      .setLngLat(startLngLat)
+      .addTo(map);
+  }, [navigation?.route]);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !gps || !navigation) return;
 
-    if (!techMarkerRef.current) {
-      // Seta direcional branca (case dprofile — imgs 3/4/5): arrowhead com glow
-      // azul. O mapa é heading-up (gira p/ o bearing), então a seta fica fixa na
-      // tela apontando pra cima = direção do movimento.
-      const el = document.createElement('div');
-      // Seta estilo Waze/case: triângulo AZUL com PONTAS ARREDONDADAS (round join),
-      // borda branca e glow. Aponta pra cima = direção do movimento (mapa heading-up).
-      el.innerHTML = `
-        <div style="position:relative;width:54px;height:54px;display:flex;align-items:center;justify-content:center;">
-          <div style="position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle, rgba(0,117,242,0.42) 0%, rgba(0,117,242,0.10) 50%, transparent 72%);"></div>
-          <svg width="38" height="38" viewBox="0 0 40 40" style="filter:drop-shadow(0 3px 8px rgba(0,0,0,0.5));">
-            <path d="M20 11 L29.5 29 L10.5 29 Z"
-                  fill="#0075F2" stroke="#ffffff" stroke-width="4.5"
-                  stroke-linejoin="round" stroke-linecap="round"
-                  paint-order="stroke"/>
-          </svg>
-        </div>`;
-      techMarkerRef.current = new maplibregl.Marker({ element: el, rotationAlignment: 'viewport' })
-        .setLngLat([gps.lng, gps.lat])
-        .addTo(map);
-    } else {
-      techMarkerRef.current.setLngLat([gps.lng, gps.lat]);
-    }
+    if (techMarkerRef.current) techMarkerRef.current.setLngLat([gps.lng, gps.lat]);
 
     const bearing = gps.heading ?? 0;
     map.easeTo({
@@ -247,8 +248,8 @@ export function NavigationView() {
     const totalM = cum[cum.length - 1]!;
     if (totalM < 1) return;
 
-    // Ritmo agradável: percorre a rota inteira em 35–90s conforme o tamanho.
-    const durationMs = Math.min(90000, Math.max(35000, totalM / 8 * 1000 / 11));
+    // Ritmo agradável (~45 km/h): dá pra VER a seta percorrendo a rua. 45–120s.
+    const durationMs = Math.min(120000, Math.max(45000, totalM * 80));
     let startTs = 0;
     let raf = 0;
     const tick = (ts: number) => {

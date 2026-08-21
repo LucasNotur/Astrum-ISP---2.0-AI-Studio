@@ -18,20 +18,20 @@ const FALLBACK = { lat: -23.5505, lng: -46.6333 };
 // OS demo como OFFSETS (graus) em torno da posição REAL do técnico — assim a
 // simulação de rota funciona onde quer que ele esteja, não fixa em SP.
 const OS_TEMPLATES = [
-  { id: 'OS-PREVIEW-1', client: 'João da Silva', address: 'Cliente residencial · Instalação', type: 'Instalação', status: 'pending' as const, scheduledTime: '08:30', dLat: 0.0065, dLng: 0.0042,
+  { id: 'OS-PREVIEW-1', client: 'João da Silva', address: 'Cliente residencial · Instalação', type: 'Instalação', status: 'pending' as const, scheduledTime: '08:30', dLat: 0.022, dLng: 0.016,
     checklist: [
       { id: 'c1', text: 'Verificar sinal na CTO', done: false },
       { id: 'c2', text: 'Passar cabo até cliente', done: false },
       { id: 'c3', text: 'Configurar ONU', done: false },
       { id: 'c4', text: 'Testar velocidade', done: false },
     ] },
-  { id: 'OS-PREVIEW-2', client: 'Maria Oliveira', address: 'Cliente comercial · Reparo', type: 'Reparo', status: 'in_progress' as const, scheduledTime: '10:00', dLat: -0.0048, dLng: 0.0085,
+  { id: 'OS-PREVIEW-2', client: 'Maria Oliveira', address: 'Cliente comercial · Reparo', type: 'Reparo', status: 'in_progress' as const, scheduledTime: '10:00', dLat: -0.018, dLng: 0.028,
     checklist: [
       { id: 'c5', text: 'Verificar ONU do cliente', done: true },
       { id: 'c6', text: 'Trocar conector', done: false },
     ] },
-  { id: 'OS-PREVIEW-3', client: 'Pedro Santos', address: 'Cliente residencial · Manutenção', type: 'Manutenção preventiva', status: 'completed' as const, scheduledTime: '07:00', dLat: -0.0082, dLng: -0.0031, checklist: [] },
-  { id: 'OS-PREVIEW-4', client: 'Ana Costa', address: 'Cliente residencial · Troca de equipamento', type: 'Troca de equipamento', status: 'pending' as const, scheduledTime: '14:00', dLat: 0.0034, dLng: -0.0092,
+  { id: 'OS-PREVIEW-3', client: 'Pedro Santos', address: 'Cliente residencial · Manutenção', type: 'Manutenção preventiva', status: 'completed' as const, scheduledTime: '07:00', dLat: -0.026, dLng: -0.012, checklist: [] },
+  { id: 'OS-PREVIEW-4', client: 'Ana Costa', address: 'Cliente residencial · Troca de equipamento', type: 'Troca de equipamento', status: 'pending' as const, scheduledTime: '14:00', dLat: 0.012, dLng: -0.03,
     checklist: [
       { id: 'c7', text: 'Retirar equipamento antigo', done: false },
       { id: 'c8', text: 'Instalar novo roteador', done: false },
@@ -41,12 +41,12 @@ const OS_TEMPLATES = [
 
 // CTOs demo (offsets) — postos/caixas espalhados p/ a mancha de cobertura km².
 const CTO_TEMPLATES = [
-  { id: 'cto-1', name: 'CTO-01', dLat: 0.001, dLng: 0.001, totalPorts: 16, usedPorts: 11 },
-  { id: 'cto-2', name: 'CTO-02', dLat: 0.008, dLng: 0.006, totalPorts: 16, usedPorts: 4 },
-  { id: 'cto-3', name: 'CTO-03', dLat: 0.003, dLng: -0.011, totalPorts: 8, usedPorts: 8 },
-  { id: 'cto-4', name: 'CTO-04', dLat: -0.009, dLng: -0.002, totalPorts: 16, usedPorts: 7 },
-  { id: 'cto-5', name: 'CTO-05', dLat: -0.006, dLng: 0.009, totalPorts: 8, usedPorts: 2 },
-  { id: 'cto-6', name: 'CTO-06', dLat: 0.006, dLng: -0.007, totalPorts: 16, usedPorts: 13 },
+  { id: 'cto-1', name: 'CTO-01', dLat: 0.004, dLng: 0.003, totalPorts: 16, usedPorts: 11 },
+  { id: 'cto-2', name: 'CTO-02', dLat: 0.02, dLng: 0.016, totalPorts: 16, usedPorts: 4 },
+  { id: 'cto-3', name: 'CTO-03', dLat: 0.009, dLng: -0.026, totalPorts: 8, usedPorts: 8 },
+  { id: 'cto-4', name: 'CTO-04', dLat: -0.024, dLng: -0.006, totalPorts: 16, usedPorts: 7 },
+  { id: 'cto-5', name: 'CTO-05', dLat: -0.016, dLng: 0.022, totalPorts: 8, usedPorts: 2 },
+  { id: 'cto-6', name: 'CTO-06', dLat: 0.014, dLng: -0.018, totalPorts: 16, usedPorts: 13 },
 ];
 
 const buildOss = (lat: number, lng: number) =>
