@@ -68,7 +68,7 @@ goto :wait_port_free
 :port_free
 
 echo  [2/3] Subindo backend novo...
-wscript "%~dp0launch_hidden.vbs" "server" "%~dp0run_backend.bat"
+wscript "%~dp0launch_hidden.vbs" "server" "%~dp0deploy_run_backend.bat"
 
 set /a "WAIT=0"
 :wait_loop
