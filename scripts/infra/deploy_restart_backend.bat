@@ -68,12 +68,11 @@ goto :wait_port_free
 :port_free
 
 echo  [2/3] Subindo backend novo...
-:: NOTA: tentei trocar isso por Agendador de Tarefas (schtasks) pra escapar
-:: da arvore de processos do runner - piorou: schtasks roda em Sessao 0
-:: (sem desktop/console), e "npm run dev < NUL" falha igual (falta console
-:: por completo, nao so stdin). Voltei pro wscript, que roda na sessao
-:: interativa de verdade e (confirmado em teste real >150s) sobrevive ao
-:: fim do step sem ser morto como "processo orfao".
+:: A causa real da instabilidade era o "tsx watch" (ver deploy_run_backend.bat),
+:: nao o mecanismo de lancamento - varias tentativas com schtasks/PowerShell
+:: Start-Process nao ajudaram sozinhas. Com deploy_run_backend.bat agora
+:: rodando "tsx" sem watch, o wscript simples (mesmo padrao usado por
+:: start_astrum.bat) e suficiente.
 wscript "%~dp0launch_hidden.vbs" "server" "%~dp0deploy_run_backend.bat"
 
 set /a "WAIT=0"
