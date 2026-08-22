@@ -68,12 +68,25 @@ goto :wait_port_free
 :port_free
 
 echo  [2/3] Subindo backend novo...
-:: A causa real da instabilidade era o "tsx watch" (ver deploy_run_backend.bat),
-:: nao o mecanismo de lancamento - varias tentativas com schtasks/PowerShell
-:: Start-Process nao ajudaram sozinhas. Com deploy_run_backend.bat agora
-:: rodando "tsx" sem watch, o wscript simples (mesmo padrao usado por
-:: start_astrum.bat) e suficiente.
-wscript "%~dp0launch_hidden.vbs" "server" "%~dp0deploy_run_backend.bat"
+:: Historico (nesta ordem, cada um testado ao vivo e descartado):
+::   1. wscript direto - instavel especificamente quando lancado de dentro
+::      de um step do runner do GHA (nao reproduz lancado manualmente nem
+::      no uso normal via start_astrum.bat). Log do Actions mostrou
+::      "Cleaning up orphan processes... Terminate orphan process: pid node"
+::      - o processo pertence ao Job Object do step e e morto quando ele
+::      termina, mesmo lancado "hidden"/desanexado.
+::   2. Agendador de Tarefas sem /it - roda em Sessao 0 (sem console),
+::      pior ainda.
+::   3. PowerShell Start-Process - nao testado a fundo isolado do resto.
+:: Fix: Agendador de Tarefas COM /it (token interativo - roda na sessao
+:: real do usuario, com console) via a tarefa "AstrumBackendRun" (criada
+:: abaixo se nao existir). O processo passa a ser filho do servico do
+:: Task Scheduler, nao do runner - escapa do Job Object por completo.
+schtasks /query /tn "AstrumBackendRun" >nul 2>nul
+if !errorlevel! neq 0 (
+    schtasks /create /tn "AstrumBackendRun" /tr "%~dp0deploy_run_backend.bat" /sc once /st 23:59 /ru "%USERDOMAIN%\%USERNAME%" /it /f >nul
+)
+schtasks /run /tn "AstrumBackendRun" >nul
 
 set /a "WAIT=0"
 :wait_loop
