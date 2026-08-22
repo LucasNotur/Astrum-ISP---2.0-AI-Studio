@@ -68,7 +68,16 @@ goto :wait_port_free
 :port_free
 
 echo  [2/3] Subindo backend novo...
-wscript "%~dp0launch_hidden.vbs" "server" "%~dp0deploy_run_backend.bat"
+:: NAO usar wscript/launch_hidden.vbs aqui: um processo lancado assim ainda
+:: pertence a arvore do Job Object do runner do GitHub Actions e e MORTO
+:: junto quando o step termina ("Cleaning up orphan processes" no log do
+:: Actions) - matamos o backend na cara dura mais de uma vez assim. Uma
+:: tarefa do Agendador do Windows roda fora dessa arvore inteiramente.
+schtasks /query /tn "AstrumDeployBackend" >nul 2>nul
+if !errorlevel! neq 0 (
+    schtasks /create /tn "AstrumDeployBackend" /tr "%~dp0deploy_run_backend.bat" /sc once /st 23:59 /f >nul
+)
+schtasks /run /tn "AstrumDeployBackend" >nul
 
 set /a "WAIT=0"
 :wait_loop
