@@ -276,7 +276,7 @@ echo.
 echo   GitHub Actions Runner:
 tasklist /fi "imagename eq Runner.Listener.exe" /nh 2>nul | findstr "Runner.Listener" >nul 2>nul
 if !errorlevel! equ 0 (
-    echo     + Runner online (astrum-home)
+    echo     + Runner online astrum-home
 ) else (
     echo     X Runner offline
 )
