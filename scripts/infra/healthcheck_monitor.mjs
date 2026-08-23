@@ -121,9 +121,10 @@ async function main() {
   if (state.consecutiveFails === FAILS_BEFORE_ACTION) {
     log('Confirmado: backend fora do ar por 2 checagens seguidas. Tentando self-heal...');
     tryRestart();
-    // Histórico real (logs/deploy.log) mostra subidas levando até ~90s —
-    // 45s dava falso "self-heal não funcionou" num teste ao vivo (2026-08-23).
-    await sleep(90000);
+    // Achado ao vivo em 2026-08-23 (2x no mesmo dia): o boot real do backend às
+    // vezes leva 40-90s só nas reconexões do Redis (ETIMEDOUT+retry, ioredis) —
+    // 45s e depois 90s ainda deram falso "self-heal não funcionou" em testes reais.
+    await sleep(150000);
     selfHealed = await checkHealth(LOCAL_HEALTH_URL);
     log(`Self-heal ${selfHealed ? 'funcionou' : 'NÃO funcionou'}.`);
   }

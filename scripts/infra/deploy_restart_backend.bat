@@ -94,15 +94,20 @@ if !errorlevel! neq 0 (
 )
 schtasks /run /tn "AstrumBackendRun" >nul
 
+:: Orcamento 180s (nao 90s) - achado ao vivo em 2026-08-23: o boot real as vezes
+:: leva 40-90s sozinho so nas reconexoes do Redis (ETIMEDOUT + retry, ioredis).
+:: O timeout.exe quebrado mascarava isso ha semanas (virava retry quase instantaneo,
+:: "funcionava" so quando o boot calhava de ser rapido); agora que o ping espera de
+:: verdade, o orcamento antigo de 90s se mostrou apertado demais e gerou falso-negativo.
 set /a "WAIT=0"
 :wait_loop
 ping -n 4 127.0.0.1 >nul
 set /a "WAIT+=3"
 curl -sf %HEALTH_BACKEND% >nul 2>nul
 if !errorlevel! equ 0 goto :health_ok
-if !WAIT! geq 90 (
-    echo [%date% %time%] ERRO: backend nao respondeu em 90s >> "%LOG_FILE%"
-    echo  X Backend nao respondeu em 90s - veja %LOG_FILE%
+if !WAIT! geq 180 (
+    echo [%date% %time%] ERRO: backend nao respondeu em 180s >> "%LOG_FILE%"
+    echo  X Backend nao respondeu em 180s - veja %LOG_FILE%
     endlocal
     exit /b 1
 )
