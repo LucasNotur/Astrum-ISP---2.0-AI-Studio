@@ -1,11 +1,11 @@
 {
-  "name": "@astrum/shared",
+  "name": "@astrum/db",
   "version": "2.0.0",
   "private": true,
   "main": "./src/index.ts",
   "scripts": {
     "build": "tsc --noEmit",
-    "test": "vitest run packages/shared --passWithNoTests",
+    "test": "vitest run packages/db --passWithNoTests",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

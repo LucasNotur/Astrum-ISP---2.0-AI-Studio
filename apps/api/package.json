@@ -7,7 +7,7 @@
     "start": "node dist/cluster.js",
     "start:single": "node dist/server.js",
     "build": "tsc",
-    "test": "vitest run",
+    "test": "vitest run apps/api --passWithNoTests",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "eval:agent": "tsx eval/run-eval.ts"

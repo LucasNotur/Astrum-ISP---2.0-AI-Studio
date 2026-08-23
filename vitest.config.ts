@@ -5,6 +5,10 @@ import path from 'path';
 // packages/**. O SDK da OpenAI recusa rodar em ambiente browser-like — os
 // testes de apps/api precisam de node puro.
 export default defineConfig({
+  // Fixo pro diretorio do repo: sem isso, `vitest run` disparado de dentro de
+  // um subpacote (turbo run test em packages/*) usa cwd como root e os globs
+  // de include abaixo (relativos ao repo) nunca batem com nada.
+  root: __dirname,
   resolve: {
     alias: [
       { find: /^@\/(.*)/, replacement: path.resolve(__dirname, '$1') }
