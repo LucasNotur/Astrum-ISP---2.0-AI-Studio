@@ -63,7 +63,13 @@ if !FREE_WAIT! geq 20 (
     endlocal
     exit /b 1
 )
-timeout /t 1 /nobreak >nul
+:: ping em vez de timeout.exe - timeout recusa rodar sem stdin redirecionavel
+:: ("nao ha suporte para o redirecionamento de entrada"), o que acontece tanto
+:: em ferramentas de agente quanto, achado ao vivo em 2026-08-23, no PROPRIO
+:: runner do GHA (silenciosamente ha sessoes - o loop abaixo virava um retry
+:: quase instantaneo em vez de esperar de verdade, encurtando o orcamento real
+:: de espera bem abaixo do pretendido). ping nao exige console interativo.
+ping -n 2 127.0.0.1 >nul
 goto :wait_port_free
 :port_free
 
@@ -90,7 +96,7 @@ schtasks /run /tn "AstrumBackendRun" >nul
 
 set /a "WAIT=0"
 :wait_loop
-timeout /t 3 /nobreak >nul
+ping -n 4 127.0.0.1 >nul
 set /a "WAIT+=3"
 curl -sf %HEALTH_BACKEND% >nul 2>nul
 if !errorlevel! equ 0 goto :health_ok

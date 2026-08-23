@@ -312,6 +312,11 @@ export async function buildServer() {
   const { evolutionProxyRoutes } = await import('./domain/atendimento/evolution-proxy.routes');
   await app.register(evolutionProxyRoutes);
 
+  // Freio de emergência do atendimento IA (kill switch de verdade, pós Fase 4 — ver
+  // emergency-stop.service.ts e migration 108). Checado por message.worker.ts em toda mensagem.
+  const { emergencyStopRoutes } = await import('./domain/atendimento/emergency-stop.routes');
+  await app.register(emergencyStopRoutes);
+
   // Fase 3 — templates HSM (port de /api/hsm-templates, nunca montado no Express — bug pré-existente).
   const { hsmTemplatesRoutes } = await import('./domain/atendimento/hsm-templates.routes');
   await app.register(hsmTemplatesRoutes);

@@ -37,6 +37,7 @@ import { SettingsPage } from '../pages/SettingsPage';
 const ChatPage   = lazy(() => import('../pages/ChatPage').then((m) => ({ default: m.ChatPage })));
 const BIPage     = lazy(() => import('../pages/BIPage').then((m) => ({ default: m.BIPage })));
 const DesignPage = lazy(() => import('../pages/DesignPage').then((m) => ({ default: m.DesignPage })));
+const EmergencyStopPage = lazy(() => import('../pages/EmergencyStopPage'));
 
 const fallback = <div className="p-10 text-center text-muted-foreground">Carregando...</div>;
 function L({ children }: { children: React.ReactNode }) {
@@ -70,6 +71,15 @@ export function mainRoutes(currentUserRole: string) {
         element={
           <SuperAdminRoute>
             <L><DesignPage /></L>
+          </SuperAdminRoute>
+        }
+      />
+      {/* Freio de emergência do atendimento IA (kill switch pós Fase 4), gated super_admin */}
+      <Route
+        path="/atendimento-emergencia"
+        element={
+          <SuperAdminRoute>
+            <L><EmergencyStopPage /></L>
           </SuperAdminRoute>
         }
       />

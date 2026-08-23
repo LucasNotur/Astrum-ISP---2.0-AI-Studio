@@ -3,7 +3,7 @@ import {
   Bot, ChevronLeft, ChevronRight, LayoutDashboard, Users,
   Ticket, MessageSquare, Map, Settings, ShieldCheck,
   CreditCard, Briefcase, Package, LogOut, Phone, BookOpen, Activity, BarChart2, Sparkles, HelpCircle, ShoppingBag, Award, Route,
-  DollarSign, Plug, Link2, Shield, HeartPulse, Smartphone
+  DollarSign, Plug, Link2, Shield, HeartPulse, Smartphone, ShieldAlert
 } from 'lucide-react';
 import { HelpCenter } from '@/src/components/HelpCenter';
 import { cn } from '@/src/lib/utils';
@@ -515,6 +515,13 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
                   onClick={() => navigate('/design')}
                   icon={<Sparkles size={24} />}
                   label="Design System"
+                  collapsed={isSidebarCollapsed}
+                />
+                <NavItem
+                  active={currentPath === 'atendimento-emergencia'}
+                  onClick={() => navigate('/atendimento-emergencia')}
+                  icon={<ShieldAlert size={24} />}
+                  label="Freio de Emergência"
                   collapsed={isSidebarCollapsed}
                 />
               </>

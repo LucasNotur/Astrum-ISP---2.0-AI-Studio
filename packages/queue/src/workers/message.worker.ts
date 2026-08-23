@@ -12,6 +12,7 @@ import { addSentryToWorker } from '../../../../apps/api/src/infrastructure/obser
 import { processInboundMedia, type MediaDeps } from '../../../../apps/api/src/adapters/whatsapp/media-processor.service';
 import { isVisionStructuredEnabled, extractBoleto, classifyFieldPhoto } from '../../../../apps/api/src/infrastructure/vision/vision.service';
 import { decideSend, buildShadowRecord } from '../../../../apps/api/src/domain/atendimento/shadow-mode';
+import { isEmergencyStopped } from '../../../../apps/api/src/domain/atendimento/emergency-stop.service';
 
 export interface MessageJobData {
   tenantId: string;
@@ -75,7 +76,48 @@ async function processShadowMessage(job: Job<MessageJobData>): Promise<void> {
   }
 }
 
+/**
+ * Freio de emergência (ver emergency-stop.service.ts): checado ANTES de qualquer
+ * outra coisa. Ativo → salva a mensagem do cliente na conversa real (pra um
+ * humano assumir, diferente do shadow mode que usa conversa efêmera) e NUNCA
+ * chama LLM/tools/envia. Fail-open documentado no service: erro na checagem
+ * em si não trava o atendimento.
+ */
+async function handleEmergencyStoppedMessage(job: Job<MessageJobData>): Promise<void> {
+  const { tenantId, customerId, channel, messageContent } = job.data;
+  try {
+    const conversationId = await getOrCreateConversation({ tenantId, customerId, channel });
+    await saveMessage({ tenantId, conversationId, role: 'user', content: messageContent });
+    atendimentoLogger.warn(
+      { tenantId, conversationId, messageId: job.data.messageId },
+      '[emergency-stop] IA suspensa — mensagem salva sem resposta automática',
+    );
+  } catch (err) {
+    atendimentoLogger.error(
+      { tenantId, messageId: job.data.messageId, err: (err as Error).message },
+      '[emergency-stop] falha ao salvar mensagem durante parada de emergência',
+    );
+  }
+}
+
 async function processMessage(job: Job<MessageJobData>): Promise<void> {
+  const stopped = await isEmergencyStopped({
+    findActive: async () => {
+      const { data, error } = await supabaseAdmin
+        .from('atendimento_emergency_stops')
+        .select('id, reason, activated_at, activated_by')
+        .is('deactivated_at', null)
+        .order('activated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return data as any;
+    },
+  });
+  if (stopped) {
+    return handleEmergencyStoppedMessage(job);
+  }
+
   // S74 — jobs marcados como shadow saem aqui: processam mas nunca enviam.
   const decision = decideSend({ isShadowRequest: job.data.isShadow ?? false });
   if (decision.recordShadow && !decision.sendReal) {
