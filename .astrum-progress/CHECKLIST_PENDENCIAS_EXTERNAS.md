@@ -112,7 +112,13 @@
 
 - [ ] **`customers.cpf`** — popular campo `cpf` e `legacy_id` nos registros de clientes para tenants piloto (lookupSubscriberByCpf depende disso)
 - [ ] **`customers.legacy_id`** — mapear nº contrato ERP para todos os clientes ativos (pode ser exportado do IXC/Voalle)
-- [ ] Decidir domínio/URL do PWA portal do assinante (P4-01 frontend — coordenado com Onda 4)
+- [x] **Domínio do PWA portal do assinante — DECIDIDO 2026-08-23:** `portal.astrumlabs.online`
+  (consistente com o padrão já em uso — `astrumlabs.online` é o app, `api.astrumlabs.online`
+  é a API, ambos via Cloudflare Tunnel + Vercel). "Onda 4" que bloqueava isso já fechou
+  (Plano C UIUX Operacional, 2026-07-12). **Falta:** configurar o subdomínio no Cloudflare
+  DNS + adicionar como domínio no projeto Vercel — ação do Lucas (acesso aos painéis
+  externos, fora do alcance das minhas ferramentas hoje). Depois disso, é só apontar o
+  build do PWA (P4-01 frontend, ainda não construído) pra esse domínio.
 
 ---
 
@@ -120,7 +126,12 @@
 
 - [ ] **P6 — OZmap** — contrato de API para integração de planta (grafo de rede)
 - [ ] **P6 — Anlix/Flashman** — contrato para telemetria CPE
-- [ ] **P5-05 — Landing trial** — decisão de Lucas sobre domínio/hospedagem do trial self-service
+- [x] **P5-05 — Landing trial — DECIDIDO 2026-08-23:** vai morar dentro do app atual
+  (`astrumlabs.online/trial`), reusando o deploy Vercel já no ar — sem infra nova.
+  Backend já existe (`trial.service.ts`/`trial.routes.ts`: signup self-service, JWT
+  role:'trial' 14d, connect-erp, GET /trial/insight). **Falta:** construir a página
+  `/trial` em si (frontend legado, página nova — R1 permite). Não fiz ainda nesta
+  sessão; é trabalho de tela real, avisar se quiser que eu comece.
 
 ---
 
@@ -264,4 +275,6 @@
 *Última atualização: 2026-08-23 (fix real do failover multi-provider — RetryError não era
 desembrulhado, cross-provider failover não funcionava pra nenhuma chamada; getModel()
 agora é circuit-aware; wizard de onboarding confirmado já resolvido via
-Signup+OnboardingWizardPage, sem passar pelo wizard.ts morto).*
+Signup+OnboardingWizardPage, sem passar pelo wizard.ts morto; domínios de trial e
+portal do assinante decididos com o Lucas — `astrumlabs.online/trial` e
+`portal.astrumlabs.online`).*
