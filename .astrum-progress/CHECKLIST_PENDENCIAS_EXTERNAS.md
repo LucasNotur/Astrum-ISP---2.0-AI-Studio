@@ -74,7 +74,26 @@
 
 ## WIZARD DE ONBOARDING (UX)
 
-- [ ] **P0 — Wizard "conecte em 15 minutos"** — reusa `onboarding/wizard.ts`; UX coordenada com Onda 4
+- [x] **P0 — Wizard "conecte em 15 minutos" — CONFIRMADO já resolvido (2026-08-23).**
+  Investigado a fundo: existem TRÊS coisas diferentes chamadas "wizard" no repo, e a
+  redação original deste item confundia elas:
+  1. `onboarding/wizard.ts` (a que este item pedia pra "reusar") é uma máquina de
+     estados de 6 etapas (dados_provedor → plano_saas → integracao_erp → whatsapp →
+     base_conhecimento → revisao) que **é código morto** — só o próprio teste chama
+     `nextStep`/`wizardProgress`/`canActivate`; nenhuma rota HTTP nem tela usa.
+  2. `src/pages/OnboardingWizardPage.tsx` (F6-05) — página REAL, já roteada em
+     `/onboarding`, com fluxo próprio de 5 passos (conectar WhatsApp → importar
+     histórico → rodar análise → conectar ERP → ver relatório "dinheiro vazando").
+     Não usa `wizard.ts`, tem estado local próprio.
+  3. Wizard de credenciais ERP (P0-01, `erp-admin.routes.ts`) — API já implementada
+     e consumida em `SettingsPage.tsx` → Configurações → Integrações.
+  Juntando `SignupPage.tsx` (cadastro + escolha de plano) com o
+  `OnboardingWizardPage.tsx`, a experiência "conecte em 15 minutos" **já existe e
+  funciona em produção hoje** — só não passa pela máquina de estados `wizard.ts`
+  que o texto original deste item citava. A "UX coordenada com Onda 4" que
+  bloqueava isso também já foi fechada (Plano C UIUX Operacional, 2026-07-12).
+  **Decisão do Lucas:** fechar como resolvido; `wizard.ts` fica como código morto
+  pequeno e inofensivo (sem custo de manutenção real), sem deletar por ora.
 
 ---
 
@@ -244,4 +263,5 @@
 
 *Última atualização: 2026-08-23 (fix real do failover multi-provider — RetryError não era
 desembrulhado, cross-provider failover não funcionava pra nenhuma chamada; getModel()
-agora é circuit-aware).*
+agora é circuit-aware; wizard de onboarding confirmado já resolvido via
+Signup+OnboardingWizardPage, sem passar pelo wizard.ts morto).*
