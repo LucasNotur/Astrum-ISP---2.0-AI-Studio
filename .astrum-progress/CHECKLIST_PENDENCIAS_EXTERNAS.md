@@ -171,17 +171,16 @@
   `npx tsx -r dotenv/config scripts/replay/run-replay-smoke.ts` de novo (não precisa
   reiniciar nada, é script avulso) contra o histórico real de `messages` (2 tenants, ~20
   pares user→assistant cada) **antes de qualquer tráfego real de cliente**.
-- [ ] **Gap técnico (não bloqueia, mas fica registrado):** a fila BullMQ `astrum-replay`
-  (`replay.routes.ts`) não tem nenhum Worker consumidor implementado — hoje uma run enfileirada
-  via `POST /api/v2/ia/replay` fica em `queued` pra sempre. O script acima contorna isso
-  chamando `executeReplayRun(runId)` direto. Precisa de um worker de verdade eventualmente.
-- [ ] **⚠️ Importante para o backend de produção (não só o replay):** o processo padrão
-  (`apps/api`, PID atual servindo `api.astrumlabs.online`) ainda está rodando com as chaves
-  ANTIGAS (placeholder) — as novas só valem para processos novos iniciados depois de hoje
-  (o `.env` foi atualizado, mas o processo já vivo não recarrega env em quente). Precisa
-  reiniciar o backend (`stop_astrum_nopause.bat` + `start_astrum.bat`, ou via Gerenciador de
-  Tarefas se o taskkill der "Acesso negado" de novo) para o Supabase real + IA real valerem
-  em produção.
+- [x] **Gap técnico RESOLVIDO (verificado 2026-08-23):** `createReplayWorker()`
+  (`packages/queue/src/workers/replay.worker.ts`) já está importado e chamado
+  incondicionalmente no boot (`apps/api/src/server.ts:749-750`), com `setupDLQ`+Sentry, gate
+  próprio por `REPLAY_ENGINE_ENABLED` (=`true` no `.env` local). Consumidor real existe — a
+  fila `astrum-replay` não fica mais presa em `queued` pra sempre. Não achei o commit exato
+  (provavelmente entrou na sessão-maré de 17-18/08), só o registro aqui estava desatualizado.
+- [x] **Chaves antigas no processo — RESOLVIDO por efeito colateral (2026-08-23):** o backend
+  foi reiniciado várias vezes hoje (restart manual + teste ao vivo do healthcheck monitor, ver
+  `astrum-backend-caiu-sem-monitoramento` na memória) — todo processo novo carrega o `.env`
+  atual, então as chaves reais (Supabase/OpenAI/Gemini) já valem em produção agora.
 
 ### Realidade de tráfego (por que o risco de ter virado cedo é baixo)
 
@@ -197,12 +196,27 @@
   tráfego real nem chave de LLM).
 - [ ] Rodar o smoke-test de replay assim que houver chave (ver acima) — não bloqueia nada,
   é validação, não gate.
-- [ ] **Testar rollback** — trocar `ATENDIMENTO_ENGINE` de volta pra `legacy` e confirmar
-  que o caminho legado ainda responde (relevante só depois que a Fase 4 apagar o Express —
-  ver `PLANO_MIGRACAO_EXPRESS_FASTIFY.md`, o rollback muda de forma).
-- [x] Não há `messageWorker` legado a desligar — ele já não bootava (gate `shouldBootWorker`
-  respeita o flag desde que foi setado em 12/08).
+- [x] **🔴 Testado — rollback está QUEBRADO (achado 2026-08-23, pós Fase 4).** A Fase 4
+  (17-18/08) apagou `server.ts` raiz e `src/routes/evolutionWebhook.ts` (Express) por completo.
+  Isso destruiu o caminho de rollback sem ninguém perceber: `resolveEvolutionWebhookMode()`
+  (`engine-flags.ts`) — a função que decidia "processa local + espelha" vs "repassa pro v2" —
+  **não tem mais nenhum caller em código de produção** (só aparece no próprio teste unitário
+  do engine-flags; `evolution-webhook.routes.ts`, a rota v2 real, nunca a chama). Da mesma
+  forma, `shouldBootWorker('atendimento', 'legacy')` também só existe no teste — nenhum lugar
+  do `server.ts` chama isso pra decidir se sobe o `messageWorker.ts` legado. **Na prática, hoje
+  `ATENDIMENTO_ENGINE=legacy` não restaura o atendimento antigo — só põe o worker v2 em modo
+  sombra (processa mas não envia nada).** Ou seja: setar essa env de volta pra `legacy` hoje
+  = desligar as respostas automáticas, não reverter pro comportamento antigo. `src/workers/
+  messageWorker.ts` (67KB) ainda existe no disco mas está órfão — nada mais o invoca.
+  **Risco real:** baixo hoje (0 instâncias Evolution conectadas, nenhum tenant real usa
+  WhatsApp ainda — ver "Realidade de tráfego" acima), mas isso precisa ficar resolvido
+  ANTES do primeiro tenant real ir pro ar, porque a rede de segurança "rollback = trocar a
+  env" que o plano original prometia não existe mais. **Duas saídas, decisão do Lucas:**
+  (a) deletar `messageWorker.ts` + a lógica `legacy`/shadow morta em `engine-flags.ts` de vez
+  (R5 já permite — v2 é quem recebe tráfego de produção hoje, não sobra "legado" de verdade
+  pra reverter); ou (b) se ele quiser MANTER um rollback de verdade, seria preciso reconstruir
+  um caminho de emergência (não é reativar o antigo — ele já não existe fisicamente).
 
 ---
 
-*Última atualização: 2026-08-17 (sessão de execução S74 + achados de infra).*
+*Última atualização: 2026-08-23 (verificação do balde B — replay worker, chaves e rollback).*
