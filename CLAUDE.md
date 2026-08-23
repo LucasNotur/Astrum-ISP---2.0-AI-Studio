@@ -2,7 +2,12 @@
 
 > Este arquivo é lido pela IA (Claude Code) no início do trabalho. As regras abaixo
 > são decisões do dono do produto (Lucas) e **têm precedência sobre qualquer inferência**.
-> A execução das sessões segue `.astrum-progress/PLANO_MESTRE_V2__EM_ANDAMENTO.md` (protocolo §0 obrigatório).
+> Pendências reais e atuais: `.astrum-progress/CHECKLIST_PENDENCIAS_EXTERNAS.md` (mantido
+> atualizado). `.astrum-progress/PLANO_MESTRE_V2__EM_ANDAMENTO.md` documenta o plano
+> original (S68–S98, protocolo §0) mas está **desatualizado nas fases iniciais** — foi
+> escrito assumindo Firestore vivo até a S82; o Firestore foi removido por completo já em
+> 2026-07-03, e o Express foi aposentado em 2026-08-17/18, ambos por planos separados fora
+> dessa numeração. Ver aviso no topo daquele arquivo antes de tratá-lo como fonte da verdade.
 
 ## Regras invioláveis (R1–R6)
 
@@ -40,19 +45,27 @@
 
 | Env | Valores | Default | Efeito |
 |---|---|---|---|
-| `COBRAI_ENGINE` | `legacy` \| `v2` | `legacy` | Qual worker de cobrança sobe (R6) |
-| `ATENDIMENTO_ENGINE` | `legacy` \| `v2` | `legacy` | Qual fluxo de atendimento envia respostas (cutover S74) |
+| `COBRAI_ENGINE` | `legacy` \| `v2` | `legacy` | Qual worker de cobrança sobe (R6). Rollback = trocar a env (o worker legado ainda existe e é bootado condicionalmente). |
+| `ATENDIMENTO_ENGINE` | `legacy` \| `v2` | `legacy` no código; `v2` em produção desde 2026-08-17 | Liga/desliga o ENVIO real do motor v2 (`shadow-mode.ts`). **NÃO é mais um rollback pro legado** — a Fase 4 apagou o webhook/worker Express por completo (2026-08-17/18) e o código morto foi limpo em 2026-08-23. Setar `legacy` só põe o v2 em modo sombra (processa, não envia) — não restaura nada antigo. |
 
-Rollback de cutover = trocar a env de volta. Nenhuma das duas engines de um domínio sobe junto com a outra.
+Nenhuma das duas engines de um domínio sobe junto com a outra. **Para parar o atendimento
+IA de responder de verdade em produção** (incidente real, não teste), use o freio de
+emergência: `POST /api/v2/atendimento/emergency-stop` ou o painel `/atendimento-emergencia`
+(super_admin) — ver `astrum-rollback-atendimento-quebrado` na memória do Claude Code.
 
-## Estado das frentes de backend (2026-07-03)
+## Estado das frentes de backend (2026-08-23)
 
-- `/src` + `server.ts` raiz (Express + **Supabase via db-compat**) — **em produção hoje**.
-  Desde o Plano FZ (2026-07-03) NÃO usa mais Firestore: `adminDb` é servido por
-  `src/lib/db-compat/` e a auth verifica JWT Supabase (`src/lib/authVerify.ts`).
-- `apps/api` (Fastify + Supabase) — fundação nova, alta qualidade, ainda sem tráfego real.
-- `apps/backend` — **removido** na S68 (órfão; preservado em `graveyard/billing-enterprise`).
+- `apps/api` (Fastify + Supabase) — **é o único backend em produção**, desde a Fase 4 do
+  Plano Migração Express→Fastify (2026-08-17/18). Recebe 100% do tráfego real: login,
+  atendimento IA, cobrança, dashboards, tudo.
+- `/src` + `server.ts` raiz (Express) — **removido por completo** na mesma Fase 4
+  (`server.ts` e `src/routes/*` apagados; não existe mais nenhum Express rodando).
+  `src/workers/messageWorker.ts` (worker legado de atendimento, órfão desde a Fase 4)
+  também foi removido em 2026-08-23.
+- `apps/backend` — removido na S68 (órfão; preservado em `graveyard/billing-enterprise`).
 - `apps/frontend` — billing/subscriptions **em uso** por `src/pages/SettingsPage.tsx` (UI viva, mantido).
 
-Fontes da verdade: `.astrum-progress/PLANO_FIRESTORE_ZERO__CONCLUIDO.md` (remoção do Firestore),
-`docs/LEGACY_RETIREMENT_PLAN.md`, `docs/DB_MIGRATION_GAP_REPORT.md`, `.astrum-progress/PLANO_MESTRE_V2__EM_ANDAMENTO.md`.
+Fontes da verdade: `.astrum-progress/PLANO_MIGRACAO_EXPRESS_FASTIFY.md` (retirada do
+Express), `.astrum-progress/PLANO_FIRESTORE_ZERO__CONCLUIDO.md` (remoção do Firestore),
+`.astrum-progress/CHECKLIST_PENDENCIAS_EXTERNAS.md` (pendências reais — mais confiável
+que o `PLANO_MESTRE_V2` pra saber "o que falta", ver aviso no topo daquele arquivo).

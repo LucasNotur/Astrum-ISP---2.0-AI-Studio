@@ -4,6 +4,20 @@
 > Criado em 2026-07-01 a partir da auditoria completa do repositório.
 > É o guia passo a passo para a IA executora. Uma sessão por vez, sem pular etapas.
 
+> ⚠️ **AVISO DE DESATUALIZAÇÃO (adicionado 2026-08-23):** as Fases 0–1 (S68–S70) abaixo
+> assumem que o Firestore continuaria vivo até a S82. Na prática, o Firestore foi
+> **removido por completo em 2026-07-03** — só 2 dias depois deste plano ser escrito —
+> por um plano diferente e mais agressivo (`PLANO_FIRESTORE_ZERO__CONCLUIDO.md`), que
+> pulou o ETL gradual descrito na Fase 1. Da mesma forma, a Fase 6 (S82, "adeus Express")
+> já aconteceu de verdade em 2026-08-17/18, via um plano separado
+> (`PLANO_MIGRACAO_EXPRESS_FASTIFY.md`), fora da numeração S68–S98 daqui. **Os checkboxes
+> ⬜/🔶 abaixo NÃO refletem o estado real do backend** — antes de assumir que uma sessão
+> deve "retomar na primeira ⬜" (ritual §0.1.4), confira `CHECKLIST_PENDENCIAS_EXTERNAS.md`
+> (mantido atualizado) e a seção "Estado das frentes de backend" do `CLAUDE.md` primeiro.
+> Este documento continua útil como registro de arquitetura das Fases 2–5 (atendimento,
+> ERP, cobrança, workers) — em boa parte foi construído como descrito, só a ordem/timeline
+> real divergiu.
+
 ---
 
 ## §0 — PROTOCOLO DE EXECUÇÃO (a IA DEVE ler isto no início de TODA sessão)
@@ -23,7 +37,9 @@
 
 ### 0.3 Regras invioláveis (decididas pelo Lucas — NÃO rediscutir)
 - **R1 — Frontend:** o frontend oficial é o legado (`src/pages/*`, 22 páginas, Vite na raiz). **NUNCA migrar telas para `apps/web`.** `apps/web` será canibalizado (hooks) e deletado na S78. Mudanças no frontend legado são permitidas APENAS em: camada de dados (repositories), auth, hooks de rede e correções de bug.
-- **R2 — Dados:** Supabase é o único banco de destino. Redis para cache/filas. Firestore só existe até a S82 (cutover) — proibido criar coleção/campo novo no Firestore.
+- **R2 — Dados:** Supabase é o único banco de destino. Redis para cache/filas. **O Firestore
+  foi removido por completo em 2026-07-03** (não "até a S82" como este parágrafo dizia
+  originalmente — ver aviso no topo deste arquivo) — proibido reintroduzir Firestore/Firebase.
 - **R3 — LLMs:** GPT-4o-mini para conversação, GPT-4o para orquestração/raciocínio. O sistema de fallback multi-provider **já existe** em `src/ai-provider/` (adapters openai/anthropic/gemini) — deve ser PORTADO para o motor novo, nunca reimplementado do zero.
 - **R4 — Backend:** toda lógica nova vai em `apps/api` (Fastify/DDD). Proibido criar feature nova em `/src` (backend) — lá só se corrige bug crítico de produção.
 - **R5 — Portar, não apagar:** código legado só é deletado quando o comportamento equivalente estiver no `apps/api`, testado, E recebendo o tráfego de produção.
