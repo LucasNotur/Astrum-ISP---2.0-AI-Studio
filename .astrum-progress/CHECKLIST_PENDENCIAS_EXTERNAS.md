@@ -158,19 +158,42 @@
 - [x] **Geração de resposta do motor v2 confirmada funcionando de ponta a ponta via Gemini**
   (2026-08-18) — rodei o smoke-test 3 vezes até esgotar os bugs de credencial/schema/model-id
   acima; a última rodada teve **zero erros de schema/chave/modelo** nas 20 mensagens reais.
-- [ ] **BLOQUEIO RESTANTE: o juiz do replay (`judgeOnePair`, em `replay.service.ts`) é
-  hardcoded pro OpenAI** (`openai('gpt-4o-mini')` direto, não passa pelo `model-router`/
-  failover) — e a `OPENAI_API_KEY` fornecida está sem crédito (`"You have no credits
-  remaining"`). Isso NÃO bloqueia mais a geração de resposta em si (já comprovada via
-  Gemini), só a métrica de equivalência do replay (`pass_rate`). **Ação do Lucas:** adicionar
-  crédito em https://platform.openai.com/settings/organization/billing — depois disso o
-  replay dá o `pass_rate` real. (Alternativa mais barata: portar o judge pra usar
-  `withFailover`/Gemini também, já que ele já está pago — fica de sugestão, não fiz porque é
-  mudança de comportamento do juiz, não só de credencial, prefiro seu aval antes.)
-- [ ] **Depois de ter crédito (ou decidir mover o judge pro Gemini):** rodar
-  `npx tsx -r dotenv/config scripts/replay/run-replay-smoke.ts` de novo (não precisa
-  reiniciar nada, é script avulso) contra o histórico real de `messages` (2 tenants, ~20
-  pares user→assistant cada) **antes de qualquer tráfego real de cliente**.
+- [x] **Judge do replay portado pro failover — CONFIRMADO 2026-08-23.** `judgeOnePair()`
+  já usava `withFailover('mini', ...)` desde o commit `6ac5033` (2026-08-18); este item
+  do checklist tinha ficado desatualizado (a limpeza de 2026-08-23 não pegou esse texto).
+  `.env` já tem `PROVIDER_FAILOVER_ENABLED=true` + `PROVIDER_ORDER=openai,google`.
+- [x] **🔴 P0 REAL achado e corrigido rodando o smoke-test pra validar o item acima
+  (2026-08-23):** o failover cross-provider **não funcionava de verdade pra NENHUMA
+  chamada** (`classifyIntent`, `judgeOnePair`, geração de resposta), mesmo com
+  `withFailover` no código certo. Causa: `generateObject`/`streamText` do AI SDK
+  esgotam as PRÓPRIAS tentativas internas e embrulham o erro original num `RetryError`
+  (`.lastError`) antes de propagar — `isRetryableError()` só reconhecia `APICallError`
+  direto, então um `RetryError` (que é o que sempre chega até nós, na prática) caía como
+  "não-retryable" e o `withFailover` nunca tentava o próximo provider. Corrigido
+  desembrulhando `RetryError.lastError` recursivamente em
+  `model-router.ts::isRetryableError`. Corrigido também um segundo problema: o
+  `streamWithTools()` (geração de resposta real do chat) usa `getModel()`, não
+  `withFailover()` — por design, pra não trocar de modelo no meio de um stream já
+  iniciado — mas `getModel()` só checava "essa key existe?", nunca o circuit breaker;
+  uma key presente mas sem crédito nunca era pulada. Corrigido: `getModel()` agora
+  consulta o circuit breaker (mesmo Redis do `withFailover`) e pula provider com
+  circuito aberto, mantendo a escolha ANTES do 1º token (não quebra a regra de UX).
+  6 testes novos em `model-router.test.ts` (68 total no arquivo), 42/42 verdes,
+  typecheck limpo.
+- [x] **Validado com dado real (2026-08-23):** rodei
+  `npx tsx -r dotenv/config scripts/replay/run-replay-smoke.ts` duas vezes. ANTES do
+  fix: 20/20 pares morriam com `candidate_response: null`, erro OpenAI puro, nunca
+  tentava o Gemini. DEPOIS do fix: logs mostram `model-router: skip (circuito aberto)`
+  pro `openai`, failover tentando `google`, 11/20 pares geraram resposta candidata real
+  via Gemini. O restante falhou porque o **Gemini também bateu em quota** (`"You
+  exceeded your current quota"`) — esperado, o smoke-test disparou ~60 chamadas reais
+  em poucos segundos contra o tier gratuito. Não é mais bug de código, é limite de
+  conta: **hoje nenhum dos dois providers tem capacidade sobrando** (OpenAI: zero
+  crédito; Google: rate-limit do próprio teste, deve resetar). `pass_rate` real só sai
+  quando pelo menos um provider tiver fôlego — **ação do Lucas:** crédito OpenAI
+  (`platform.openai.com/settings/organization/billing`) resolve de vez; sem isso, só
+  rodar o smoke-test fora de rajada (poucos pares, espaçados) já deve passar pelo
+  Gemini sozinho.
 - [x] **Gap técnico RESOLVIDO (verificado 2026-08-23):** `createReplayWorker()`
   (`packages/queue/src/workers/replay.worker.ts`) já está importado e chamado
   incondicionalmente no boot (`apps/api/src/server.ts:749-750`), com `setupDLQ`+Sentry, gate
@@ -219,4 +242,6 @@
 
 ---
 
-*Última atualização: 2026-08-23 (verificação do balde B — replay worker, chaves e rollback).*
+*Última atualização: 2026-08-23 (fix real do failover multi-provider — RetryError não era
+desembrulhado, cross-provider failover não funcionava pra nenhuma chamada; getModel()
+agora é circuit-aware).*

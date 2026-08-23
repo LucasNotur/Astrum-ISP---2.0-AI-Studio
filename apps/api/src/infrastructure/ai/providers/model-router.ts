@@ -17,7 +17,7 @@
  * rollout cutover não reintroduza duplicidade de estado.
  */
 
-import { APICallError } from 'ai';
+import { APICallError, RetryError } from 'ai';
 import type { LanguageModel } from 'ai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
@@ -149,6 +149,26 @@ export async function recordCircuitSuccess(provider: ProviderName): Promise<void
 export function isRetryableError(err: unknown): boolean {
   if (!err) return false;
 
+  // 0) RetryError do AI SDK ('ai' package): generateObject/generateText/streamText
+  //    já tentam algumas vezes DENTRO do mesmo provider antes de desistir, e
+  //    embrulham o erro original em `.lastError` ao lançar RetryError. Sem
+  //    desembrulhar, `APICallError.isInstance(err)` dá false pra um RetryError e
+  //    o erro cai no regex de rede (que não bate com "insufficient_quota"/429) →
+  //    classificado como NÃO-retryable, e o failover pro próximo provider nunca
+  //    dispara.
+  //    Achado real (2026-08-23, smoke-test do replay pós-fix do getModel): com
+  //    OPENAI_API_KEY presente mas sem crédito, TODA chamada (classifyIntent,
+  //    judgeOnePair, geração de resposta) morria "Failed after 3 attempts" —
+  //    exatamente o formato de mensagem do RetryError — e nunca caía pro Gemini,
+  //    mesmo com PROVIDER_ORDER=openai,google e withFailover em uso. `reason`
+  //    'maxRetriesExceeded' → o erro de baixo já era retryable (é por isso que a
+  //    SDK tentou de novo), então delega a classificação pro erro original.
+  //    'abort' → respeita o cancelamento, não tenta outro provider.
+  if (RetryError.isInstance(err)) {
+    if (err.reason === 'abort') return false;
+    return isRetryableError(err.lastError);
+  }
+
   // 1) APIError do AI SDK v6 (cobre 4xx/5xx dos providers)
   if (APICallError.isInstance(err)) {
     if (err.isRetryable) return true; // hint do provider
@@ -180,19 +200,38 @@ export function isRetryableError(err: unknown): boolean {
  * Resolve um LanguageModel para o tier pedido.
  *
  * Flag off → openai direto (comportamento atual, sem mudança).
- * Flag on  → 1º provider da PROVIDER_ORDER com key presente (checagem
- *            síncrona; circuito é checado em withFailover, que é async).
+ * Flag on  → 1º provider da PROVIDER_ORDER com key presente E circuito
+ *            fechado/half-open (consulta o mesmo circuit breaker do
+ *            withFailover). Usado por chamadas que não podem trocar de
+ *            modelo em tempo real (ex.: streaming — trocar de modelo no
+ *            meio de um stream já iniciado quebraria a regra de UX "nunca
+ *            trocar depois do 1º token"), então a escolha precisa ser
+ *            acertada ANTES da chamada, não durante.
+ *
+ * Achado real (2026-08-23, smoke-test do replay): sem consultar o circuito,
+ * uma key presente mas sem crédito (ex.: OpenAI zerada) nunca era pulada —
+ * getModel() sempre devolvia openai primeiro, e toda geração de resposta
+ * (streamWithTools) falhava 100%, mesmo com Gemini saudável no PROVIDER_ORDER.
  */
-export function getModel(tier: Tier): LanguageModel {
+export async function getModel(tier: Tier): Promise<LanguageModel> {
   if (!isFailoverEnabled()) {
     return buildLanguageModel('openai', tier);
   }
   const order = resolveProviderOrder();
+  let firstWithKey: ProviderName | null = null;
   for (const p of order) {
     if (!getProviderApiKey(p)) continue;
+    if (firstWithKey === null) firstWithKey = p;
+    const state = await getCircuitState(p);
+    if (state === 'open') {
+      iaLogger.info({ event: 'provider_skipped_circuit_open_static', provider: p }, 'model-router: getModel pulando provider com circuito aberto');
+      continue;
+    }
     return buildLanguageModel(p, tier);
   }
-  // Fail-open: nenhum provider com key → cai no openai (comportamento legado)
+  // Fail-open: nenhum provider elegível (sem key, ou todos com circuito aberto)
+  // → primeiro que tinha key (ainda que com circuito aberto) ou openai puro.
+  if (firstWithKey) return buildLanguageModel(firstWithKey, tier);
   return buildLanguageModel('openai', tier);
 }
 
@@ -220,7 +259,7 @@ export async function withFailover<T>(
 
   if (!isFailoverEnabled()) {
     // Comportamento atual: openai fixo, sem custo de checagem de circuito.
-    const result = await fn(getModel(tier));
+    const result = await fn(await getModel(tier));
     await recordLlmUsage(tenantId, tokensOf(result));
     return result;
   }

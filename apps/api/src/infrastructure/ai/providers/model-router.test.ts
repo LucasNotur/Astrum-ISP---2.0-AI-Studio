@@ -110,7 +110,7 @@ import {
   type ProviderName,
   type Tier,
 } from './model-router';
-import { APICallError } from 'ai';
+import { APICallError, RetryError } from 'ai';
 
 const originalEnv = { ...process.env };
 
@@ -178,19 +178,19 @@ describe('getProviderApiKey', () => {
 });
 
 describe('getModel — flag off', () => {
-  it('sempre devolve openai, qualquer PROVIDER_ORDER', () => {
+  it('sempre devolve openai, qualquer PROVIDER_ORDER', async () => {
     process.env.PROVIDER_ORDER = 'anthropic,google,openai';
     process.env.OPENAI_API_KEY = 'sk-1';
     process.env.ANTHROPIC_API_KEY = 'ant-1';
     process.env.GOOGLE_API_KEY = 'goog-1';
-    const m = getModel('full');
+    const m = await getModel('full');
     expect(openaiModelFn).toHaveBeenCalledWith('gpt-4o');
     expect((m as any).provider).toBe('openai');
     expect((m as any).modelId).toBe('gpt-4o');
   });
-  it('respeita o tier', () => {
-    expect((getModel('mini') as any).modelId).toBe('gpt-4o-mini');
-    expect((getModel('full') as any).modelId).toBe('gpt-4o');
+  it('respeita o tier', async () => {
+    expect((await getModel('mini') as any).modelId).toBe('gpt-4o-mini');
+    expect((await getModel('full') as any).modelId).toBe('gpt-4o');
   });
 });
 
@@ -199,11 +199,11 @@ describe('getModel — flag on', () => {
     process.env.PROVIDER_FAILOVER_ENABLED = 'true';
   });
 
-  it('pega o 1º provider da ordem com key presente', () => {
+  it('pega o 1º provider da ordem com key presente', async () => {
     process.env.PROVIDER_ORDER = 'anthropic,openai';
     process.env.OPENAI_API_KEY = 'sk-1';
     process.env.ANTHROPIC_API_KEY = 'ant-1';
-    const m = getModel('full');
+    const m = await getModel('full');
     expect(anthropicModelFn).toHaveBeenCalledWith(TIER_MODELS.anthropic.full);
     expect((m as any).provider).toBe('anthropic');
   });
@@ -212,25 +212,57 @@ describe('getModel — flag on', () => {
   // mas o @ai-sdk/google só reconhece GOOGLE_GENERATIVE_AI_API_KEY por conta própria —
   // sem passar a key explicitamente pro createGoogleGenerativeAI(), o client falha
   // com LoadAPIKeyError mesmo com getProviderApiKey() dizendo que "tem key".
-  it('passa a key resolvida por getProviderApiKey() pro createXxx() de cada provider', () => {
+  it('passa a key resolvida por getProviderApiKey() pro createXxx() de cada provider', async () => {
     process.env.PROVIDER_ORDER = 'google';
     process.env.GEMINI_API_KEY = 'gem-key-123';
-    getModel('mini');
+    await getModel('mini');
     expect(createGoogleGenerativeAIMock).toHaveBeenCalledWith({ apiKey: 'gem-key-123' });
   });
 
-  it('pula provider sem key', () => {
+  it('pula provider sem key', async () => {
     process.env.PROVIDER_ORDER = 'anthropic,openai';
     process.env.OPENAI_API_KEY = 'sk-1';
     // sem ANTHROPIC_API_KEY
-    const m = getModel('mini');
+    const m = await getModel('mini');
     expect((m as any).provider).toBe('openai');
     expect((m as any).modelId).toBe('gpt-4o-mini');
   });
 
-  it('fail-open: se nenhum provider tem key, cai no openai', () => {
+  it('fail-open: se nenhum provider tem key, cai no openai', async () => {
     process.env.PROVIDER_ORDER = 'anthropic,google';
-    const m = getModel('full');
+    const m = await getModel('full');
+    expect((m as any).provider).toBe('openai');
+  });
+
+  // Regressão do achado real 2026-08-23 (smoke-test do replay): key presente
+  // mas provider com circuito aberto (ex.: OpenAI sem crédito, já detectado
+  // por outra chamada via withFailover) tem que ser pulado, senão getModel()
+  // volta a escolher um provider que sabidamente está quebrado.
+  it('pula provider com key presente mas circuito ABERTO', async () => {
+    process.env.PROVIDER_ORDER = 'openai,google';
+    process.env.OPENAI_API_KEY = 'sk-1';
+    process.env.GOOGLE_API_KEY = 'goog-1';
+    redisStore.set('llm_circuit:openai', { value: 'OPEN', expiresAt: null });
+    const m = await getModel('mini');
+    expect((m as any).provider).toBe('google');
+  });
+
+  it('fail-open: se TODOS os providers com key têm circuito aberto, usa o 1º com key mesmo assim', async () => {
+    process.env.PROVIDER_ORDER = 'openai,google';
+    process.env.OPENAI_API_KEY = 'sk-1';
+    process.env.GOOGLE_API_KEY = 'goog-1';
+    redisStore.set('llm_circuit:openai', { value: 'OPEN', expiresAt: null });
+    redisStore.set('llm_circuit:google', { value: 'OPEN', expiresAt: null });
+    const m = await getModel('mini');
+    expect((m as any).provider).toBe('openai');
+  });
+
+  it('circuito HALF_OPEN não é pulado (só OPEN é)', async () => {
+    process.env.PROVIDER_ORDER = 'openai,google';
+    process.env.OPENAI_API_KEY = 'sk-1';
+    process.env.GOOGLE_API_KEY = 'goog-1';
+    redisStore.set('llm_circuit:recent_open:openai', { value: '1', expiresAt: null });
+    const m = await getModel('mini');
     expect((m as any).provider).toBe('openai');
   });
 });
@@ -279,6 +311,29 @@ describe('isRetryableError — classificação portada do legado', () => {
   });
   it('erro de validação (AISDKError) NÃO é retryable', () => {
     expect(isRetryableError(new Error('Invalid argument: schema mismatch'))).toBe(false);
+  });
+
+  // Regressão do achado real 2026-08-23 (smoke-test do replay): generateObject/
+  // streamText do AI SDK embrulham o erro original em RetryError depois de
+  // esgotar as PRÓPRIAS tentativas — sem desembrulhar, esse erro nunca batia
+  // com APICallError.isInstance() e caía como "não-retryable", travando o
+  // failover cross-provider (OpenAI sem crédito nunca caía pro Gemini).
+  describe('RetryError (ai package) — desembrulha .lastError', () => {
+    it('maxRetriesExceeded com APICallError 429 por baixo → retryable', () => {
+      const inner = new APICallError({ message: 'insufficient_quota', statusCode: 429 });
+      const retry = new RetryError({ message: 'Failed after 3 attempts. Last error: insufficient_quota', reason: 'maxRetriesExceeded', errors: [inner, inner, inner] });
+      expect(isRetryableError(retry)).toBe(true);
+    });
+    it('maxRetriesExceeded com APICallError 400 por baixo → NÃO retryable', () => {
+      const inner = new APICallError({ message: 'bad schema', statusCode: 400 });
+      const retry = new RetryError({ message: 'Failed after 3 attempts. Last error: bad schema', reason: 'maxRetriesExceeded', errors: [inner, inner, inner] });
+      expect(isRetryableError(retry)).toBe(false);
+    });
+    it('reason abort → NÃO retryable, mesmo com erro retryable por baixo', () => {
+      const inner = new APICallError({ message: 'overloaded', statusCode: 503 });
+      const retry = new RetryError({ message: 'Aborted', reason: 'abort', errors: [inner] });
+      expect(isRetryableError(retry)).toBe(false);
+    });
   });
 });
 
