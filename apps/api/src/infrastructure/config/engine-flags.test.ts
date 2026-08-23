@@ -3,10 +3,7 @@ import {
   getCobraiEngine,
   getAtendimentoEngine,
   isCobraiEngineActive,
-  isAtendimentoEngineActive,
   shouldBootWorker,
-  resolveAtendimentoEngineForTenant,
-  resolveEvolutionWebhookMode,
   isMultiAgentEnabled,
 } from './engine-flags';
 
@@ -54,16 +51,11 @@ describe('engine-flags', () => {
     });
   });
 
-  describe('isCobraiEngineActive / isAtendimentoEngineActive', () => {
+  describe('isCobraiEngineActive', () => {
     it('reflete a engine ativa', () => {
       process.env.COBRAI_ENGINE = 'v2';
       expect(isCobraiEngineActive('v2')).toBe(true);
       expect(isCobraiEngineActive('legacy')).toBe(false);
-    });
-
-    it('default legacy para atendimento', () => {
-      expect(isAtendimentoEngineActive('legacy')).toBe(true);
-      expect(isAtendimentoEngineActive('v2')).toBe(false);
     });
   });
 
@@ -91,13 +83,6 @@ describe('engine-flags', () => {
         expect(legacyBoots || v2Boots).toBe(true);
       }
     });
-
-    it('atendimento usa ATENDIMENTO_ENGINE, não COBRAI_ENGINE', () => {
-      process.env.COBRAI_ENGINE = 'v2';
-      process.env.ATENDIMENTO_ENGINE = 'legacy';
-      expect(shouldBootWorker('atendimento', 'legacy')).toBe(true);
-      expect(shouldBootWorker('atendimento', 'v2')).toBe(false);
-    });
   });
 
   describe('isMultiAgentEnabled (IA-10)', () => {
@@ -114,56 +99,6 @@ describe('engine-flags', () => {
     it('qualquer outro valor é false (fail-safe)', () => {
       process.env.MULTI_AGENT_ENABLED = 'on';
       expect(isMultiAgentEnabled()).toBe(false);
-    });
-  });
-
-  describe('resolveAtendimentoEngineForTenant (cutover canário S74)', () => {
-    it('valor do tenant vence o default da env', () => {
-      expect(resolveAtendimentoEngineForTenant('v2', 'legacy')).toBe('v2');
-      expect(resolveAtendimentoEngineForTenant('legacy', 'v2')).toBe('legacy');
-    });
-
-    it('tenant sem valor (null) usa o default da env', () => {
-      expect(resolveAtendimentoEngineForTenant(null, 'legacy')).toBe('legacy');
-      expect(resolveAtendimentoEngineForTenant(undefined, 'v2')).toBe('v2');
-    });
-
-    it('valor inválido no tenant cai para o default (fail-safe)', () => {
-      expect(resolveAtendimentoEngineForTenant('banana', 'legacy')).toBe('legacy');
-    });
-
-    it('permite 1 ISP em v2 enquanto os demais seguem legacy (canário)', () => {
-      process.env.ATENDIMENTO_ENGINE = 'legacy'; // default global
-      expect(resolveAtendimentoEngineForTenant('v2')).toBe('v2');       // ISP piloto
-      expect(resolveAtendimentoEngineForTenant(null)).toBe('legacy');   // demais
-    });
-  });
-
-  describe('resolveEvolutionWebhookMode (S74 — webhook Evolution legado)', () => {
-    it('global legacy, tenant sem override -> legacy_and_shadow_mirror', () => {
-      expect(resolveEvolutionWebhookMode(null, 'legacy')).toBe('legacy_and_shadow_mirror');
-    });
-
-    it('global legacy, tenant com override v2 -> proxy_to_v2 (canário)', () => {
-      expect(resolveEvolutionWebhookMode('v2', 'legacy')).toBe('proxy_to_v2');
-    });
-
-    it('global v2, tenant sem override -> proxy_to_v2', () => {
-      expect(resolveEvolutionWebhookMode(null, 'v2')).toBe('proxy_to_v2');
-    });
-
-    it('global v2, tenant com override legacy -> legacy_and_shadow_mirror (rollback fino)', () => {
-      expect(resolveEvolutionWebhookMode('legacy', 'v2')).toBe('legacy_and_shadow_mirror');
-    });
-
-    it('override inválido no tenant cai pro default global (fail-safe)', () => {
-      expect(resolveEvolutionWebhookMode('banana', 'v2')).toBe('proxy_to_v2');
-      expect(resolveEvolutionWebhookMode('banana', 'legacy')).toBe('legacy_and_shadow_mirror');
-    });
-
-    it('sem 2º argumento, usa getAtendimentoEngine() (env real)', () => {
-      process.env.ATENDIMENTO_ENGINE = 'v2';
-      expect(resolveEvolutionWebhookMode(null)).toBe('proxy_to_v2');
     });
   });
 });

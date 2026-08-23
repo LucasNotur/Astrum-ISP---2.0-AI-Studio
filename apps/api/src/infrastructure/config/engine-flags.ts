@@ -44,51 +44,6 @@ export function isCobraiEngineActive(target: EngineTarget): boolean {
 }
 
 /**
- * Resolve a engine de atendimento POR TENANT (cutover canário — S74).
- * Se o tenant tem `atendimento_engine` definido, ele vence; senão usa o default da env.
- * Permite virar ISP por ISP (rollback por tenant = limpar a coluna ou setar 'legacy').
- */
-export function resolveAtendimentoEngineForTenant(
-  tenantEngineValue: string | null | undefined,
-  envDefault: EngineTarget = getAtendimentoEngine(),
-): EngineTarget {
-  const raw = (tenantEngineValue ?? '').trim().toLowerCase();
-  if ((VALID_TARGETS as string[]).includes(raw)) return raw as EngineTarget;
-  return envDefault;
-}
-
-/** True se a engine de atendimento ativa é a passada em `target`. */
-export function isAtendimentoEngineActive(target: EngineTarget): boolean {
-  return getAtendimentoEngine() === target;
-}
-
-export type EvolutionWebhookMode = 'legacy_and_shadow_mirror' | 'proxy_to_v2';
-
-/**
- * S74 — decide o que o webhook Evolution legado (`src/routes/evolutionWebhook.ts`) faz
- * com a mensagem de UM tenant. Respeita o cutover canário por tenant
- * (`resolveAtendimentoEngineForTenant`): um ISP pode estar em 'v2' com o resto da base
- * ainda em 'legacy' (rollout gradual), ou um ISP pode ficar preso em 'legacy' mesmo
- * depois do cutover global (rollback fino).
- *
- * 'legacy_and_shadow_mirror' → processa localmente (legado) e espelha uma cópia pro v2
- *   com `x-shadow:true` (processa mas NÃO envia — é só observação).
- * 'proxy_to_v2' → NÃO processa localmente; repassa pro v2 processar e enviar de verdade.
- */
-export function resolveEvolutionWebhookMode(
-  tenantEngineValue: string | null | undefined,
-  envDefault: EngineTarget = getAtendimentoEngine(),
-): EvolutionWebhookMode {
-  const engine = resolveAtendimentoEngineForTenant(tenantEngineValue, envDefault);
-  return engine === 'v2' ? 'proxy_to_v2' : 'legacy_and_shadow_mirror';
-}
-
-/**
- * Decide se um worker deve subir. Retorna true se a engine dele é a ativa.
- * Quando false, o chamador NÃO deve instanciar o worker (evita disparo duplo).
- * O `log` é injetável para não acoplar a nenhum logger específico.
- */
-/**
  * Multi-agente por domínio (IA-10).
  * Default: false — só ativa quando ATENDIMENTO_ENGINE=v2 estiver estável.
  */
@@ -96,17 +51,22 @@ export function isMultiAgentEnabled(): boolean {
   return (process.env.MULTI_AGENT_ENABLED ?? '').trim().toLowerCase() === 'true';
 }
 
+/**
+ * Decide se o worker de cobrança deve subir. Retorna true se a engine dele é a ativa.
+ * Quando false, o chamador NÃO deve instanciar o worker (evita disparo duplo — R6).
+ * O `log` é injetável para não acoplar a nenhum logger específico.
+ */
 export function shouldBootWorker(
-  domain: 'cobrai' | 'atendimento',
+  domain: 'cobrai',
   self: EngineTarget,
   log: (msg: string) => void = () => {},
 ): boolean {
-  const active = domain === 'cobrai' ? getCobraiEngine() : getAtendimentoEngine();
+  const active = getCobraiEngine();
   const boot = active === self;
   if (!boot) {
     log(
       `[engine-flags] Worker ${domain}/${self} NÃO iniciado: engine ativa é '${active}'. ` +
-        `Ajuste ${domain === 'cobrai' ? 'COBRAI_ENGINE' : 'ATENDIMENTO_ENGINE'} para '${self}' para ativá-lo.`,
+        `Ajuste COBRAI_ENGINE para '${self}' para ativá-lo.`,
     );
   }
   return boot;
