@@ -159,7 +159,19 @@ function createRealRedisClient(opts: { commandTimeout?: number; retryStrategy: R
   const client = new Redis(redisUrl, {
     maxRetriesPerRequest: null,
     enableReadyCheck: true,
-    connectTimeout: 5000,
+    // 15s, não 5s: investigado ao vivo em 2026-08-23 (ETIMEDOUT no boot). Teste
+    // direto de burst (25 conexões TCP simultâneas pro Redis) e de resolução
+    // localhost/IPv6 não reproduziram nenhum atraso real (tudo <15ms) — o
+    // gargalo não é o Redis nem a rede em si, é latência intermitente de
+    // cold-start do Docker Desktop/WSL2 no Windows (a VM precisa "acordar"
+    // quando ociosa; o boot do apps/api abre uma rajada de ~20-30 conexões de
+    // uma vez, uma por Queue/Worker BullMQ). ioredis já teria retry infinito
+    // (QUEUE_RETRY_STRATEGY) ou até 10x (CACHE_RETRY_STRATEGY) mesmo com
+    // 5s — só que cada timeout de 5s desperdiçado atrasa a convergência.
+    // 15s dá à VM tempo de acordar SEM precisar de um 2º ciclo de retry.
+    // Tende a desaparecer de vez quando migrar pra uma VPS Linux (Docker
+    // nativo, sem a camada de virtualização WSL2).
+    connectTimeout: 15000,
     ...(opts.commandTimeout ? { commandTimeout: opts.commandTimeout } : {}),
     retryStrategy: opts.retryStrategy,
     lazyConnect: false,
