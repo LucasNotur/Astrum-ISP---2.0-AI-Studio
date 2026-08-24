@@ -126,12 +126,22 @@
 
 - [ ] **P6 — OZmap** — contrato de API para integração de planta (grafo de rede)
 - [ ] **P6 — Anlix/Flashman** — contrato para telemetria CPE
-- [x] **P5-05 — Landing trial — DECIDIDO 2026-08-23:** vai morar dentro do app atual
-  (`astrumlabs.online/trial`), reusando o deploy Vercel já no ar — sem infra nova.
-  Backend já existe (`trial.service.ts`/`trial.routes.ts`: signup self-service, JWT
-  role:'trial' 14d, connect-erp, GET /trial/insight). **Falta:** construir a página
-  `/trial` em si (frontend legado, página nova — R1 permite). Não fiz ainda nesta
-  sessão; é trabalho de tela real, avisar se quiser que eu comece.
+- [x] **P5-05 — Landing trial — CONCLUÍDO 2026-08-23.** Página `/trial` construída
+  (também acessível em `/register`, mesmo componente — `src/pages/SignupPage.tsx`).
+  Descoberta no caminho: a página JÁ existia e já chamava `POST /api/v2/trial/signup`,
+  mas estava quebrada — descartava o JWT retornado (redirect pra `/dashboard` sem
+  sessão, bounce pro login) e 3 das 5 etapas do wizard coletavam dado que nunca era
+  enviado no payload (CNPJ/cidade, ERP/clientes, tom de voz da IA — fricção de graça).
+  Reescrita: formulário único (nome do provedor + e-mail + senha), sem etapas
+  fantasma; sessão real acontece no login normal pós-signup (não tenta reaproveitar
+  o JWT `role:'trial'`, que tem escopo próprio — só `GET /trial/insight` e
+  `POST /trial/connect-erp`); tokens semânticos do `LoginScreen.tsx` (D-010) em vez
+  de cores hardcoded. **Bug real achado e corrigido na verificação:** `AnimatePresence
+  mode="wait"` (framer-motion) deixava a UI travada pra sempre em "Criando conta…"
+  mesmo com o `setDone(true)` executando certo (confirmado via log de render) — o
+  commit no DOM nunca acontecia. Removido, virou renderização condicional direta.
+  4 testes novos (`SignupPage.test.tsx`, incluindo regressão do bug acima), suíte
+  completa do frontend 617/617 verde, typecheck limpo.
 
 ---
 
