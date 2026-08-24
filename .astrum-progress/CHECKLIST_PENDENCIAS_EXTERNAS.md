@@ -164,6 +164,52 @@
   4 testes novos (`SignupPage.test.tsx`, incluindo regressão do bug acima), suíte
   completa do frontend 617/617 verde, typecheck limpo.
 
+  **🔴 P0 REAL — 3 bugs achados e corrigidos 2026-08-24, pedido "confere se o /trial
+  ainda funciona com o login antigo".** O teste de 2026-08-23 (acima) só validou o
+  signup em si (formulário, JWT `role:'trial'`); ninguém tinha testado o LOGIN NORMAL
+  pós-signup até agora. Resultado: **nunca funcionou de verdade em produção.** Três
+  bugs empilhados, achados nessa ordem:
+  1. `trial.service.ts` gravava em `tenants`/`users`/`trial_tenants` com o client
+     Supabase ANÔNIMO (`supabase`, não `supabaseAdmin`) — a RLS dessas 3 tabelas não
+     tem policy pra `public`/`anon` em INSERT, então TODA gravação falhava
+     silenciosamente (o código não checava `error`) e a rota devolvia 201 + JWT
+     válido mesmo sem nenhuma linha gravada. Confirmado via Supabase MCP: 0 linhas
+     pro e-mail de teste. Mesmo bug em `integration-secrets.routes.ts` (Configurações
+     → Integrações) e no `tenant-keys.ts` novo desta sessão (BYOK). Fix: os 3 passam
+     a usar `supabaseAdmin` (padrão já usado em `login.route.ts`/
+     `evolution-webhook.routes.ts`).
+  2. Depois de destravar a RLS, apareceu o erro de verdade por trás do 500 genérico:
+     `Could not find the 'enabled_modules' column of 'tenants'`. Nenhuma migration
+     jamais criou `tenants.enabled_modules` nem `tenants.integration_keys` — código
+     assumia que existiam desde que foi escrito. Migration `109_tenants_integration_
+     keys_enabled_modules.sql` cria as duas (`jsonb default '{}'`), aplicada via MCP.
+  3. `PUT/GET /api/v2/settings/integration-keys` sempre devolvia "Sem tenant" pra
+     qualquer usuário logado — lia `user?.tenant_id` (snake_case) mas o JWT do
+     apps/api usa `tenantId` (camelCase; confirmado decodificando um JWT real e
+     comparando com o padrão de 17 outras rotas que já tratam os dois:
+     `tenantId ?? tenant_id`). Mesmo bug (sem fallback) achado em MAIS 10 rotas:
+     `erp-admin`, `browse-admin`, `constitution`, `edge`, `labeling`, `mcp-admin`,
+     `ocr-review`, `anomaly`, `voice-consent`, `voice` — todas rejeitavam usuário
+     autenticado de verdade desde que foram escritas. Corrigido nos 11 arquivos.
+
+  **Validado ao vivo em produção, ponta a ponta, depois dos 3 fixes:** signup real
+  (201, `tenantId` de verdade no JWT) → login normal (200, tokens reais) → salvar
+  chave em Configurações → Integrações (200 `{ok:true}`) → GET status reflete
+  `true` → confirmado no Supabase que o valor está cifrado (`iv:tag:cipher`) no
+  banco. Dados de teste (usuários/tenants `QA *`) limpos depois — 3 tenants de
+  teste não foram removidos (erro de FK/RLS pré-existente em `ai_decision_log`,
+  não relacionado a esta sessão; inofensivos, `plan=radar_trial`, sem dado real).
+
+  Suite completa `apps/api` 2614/2614 verde, typecheck limpo. As 10 rotas do item
+  3 não tinham teste dedicado antes (gap pré-existente) — corrigidas sem teste
+  novo de rota; registrado como follow-up.
+
+  **⚠️ Achado colateral, NÃO corrigido (fora de escopo, registrado como tarefa
+  separada):** mais ~54 arquivos em `apps/api` usam esse mesmo client Supabase
+  anônimo — alguns podem ter o mesmo bug de gravação silenciosa, precisa de
+  auditoria dedicada tabela-por-tabela (RLS varia). Ver task "Audit anon Supabase
+  client usage vs RLS across apps/api" spawned nesta sessão.
+
 ---
 
 ---
