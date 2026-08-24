@@ -9,7 +9,7 @@ export async function ocrReviewRoutes(app: FastifyInstance) {
   });
 
   app.get('/api/v2/ia/ocr/queue', async (req) => {
-    const tenantId = (req as any).user?.tenant_id;
+    const tenantId = (req as any).user?.tenantId;
     if (!tenantId) return { queue: [] };
 
     // MT-02(c): RLS por-tenant quando a flag está ligada (pós-096); senão service_role.
@@ -48,7 +48,7 @@ export async function ocrReviewRoutes(app: FastifyInstance) {
     Params: { id: string };
     Body: { action: 'approve' | 'correct'; corrected?: Record<string, unknown> };
   }>('/api/v2/ia/ocr/:id', async (req, reply) => {
-    const tenantId = (req as any).user?.tenant_id;
+    const tenantId = (req as any).user?.tenantId;
     if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });
 
     const { action, corrected } = req.body;

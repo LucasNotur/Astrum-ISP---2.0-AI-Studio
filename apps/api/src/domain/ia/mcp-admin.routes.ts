@@ -16,7 +16,7 @@ export async function mcpAdminRoutes(app: FastifyInstance) {
   app.get('/api/v2/ia/mcp/keys', {
     onRequest: [async (req, reply) => { await (app as any).authenticate(req, reply); }],
   }, async (req) => {
-    const tenantId = (req as any).user?.tenant_id;
+    const tenantId = (req as any).user?.tenantId;
     if (!tenantId) return { keys: [] };
     const keys = await listKeys(tenantId);
     return { keys, readOnlyTools: [...READ_ONLY_TOOLS] };
@@ -25,7 +25,7 @@ export async function mcpAdminRoutes(app: FastifyInstance) {
   app.post<{ Body: { name: string; tools: string[] } }>('/api/v2/ia/mcp/keys', {
     onRequest: [async (req, reply) => { await (app as any).authenticate(req, reply); }],
   }, async (req, reply) => {
-    const tenantId = (req as any).user?.tenant_id;
+    const tenantId = (req as any).user?.tenantId;
     if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });
     const { name, tools } = req.body;
     if (!name) return reply.code(400).send({ error: 'name obrigatório' });
@@ -42,7 +42,7 @@ export async function mcpAdminRoutes(app: FastifyInstance) {
     '/api/v2/ia/mcp/keys/:id',
     { onRequest: [async (req, reply) => { await (app as any).authenticate(req, reply); }] },
     async (req, reply) => {
-      const tenantId = (req as any).user?.tenant_id;
+      const tenantId = (req as any).user?.tenantId;
       if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });
       const ok = await updateKey(tenantId, req.params.id, req.body);
       if (!ok) return reply.code(500).send({ error: 'Falha ao atualizar' });
@@ -54,7 +54,7 @@ export async function mcpAdminRoutes(app: FastifyInstance) {
     '/api/v2/ia/mcp/keys/:id',
     { onRequest: [async (req, reply) => { await (app as any).authenticate(req, reply); }] },
     async (req, reply) => {
-      const tenantId = (req as any).user?.tenant_id;
+      const tenantId = (req as any).user?.tenantId;
       if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });
       const ok = await deleteKey(tenantId, req.params.id);
       if (!ok) return reply.code(500).send({ error: 'Falha ao revogar' });

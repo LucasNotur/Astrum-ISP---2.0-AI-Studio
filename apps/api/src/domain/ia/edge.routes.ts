@@ -8,7 +8,7 @@ export async function edgeRoutes(app: FastifyInstance) {
   });
 
   app.get('/api/v2/ia/edge/agreement', async (req) => {
-    const tenantId = (req as any).user?.tenant_id;
+    const tenantId = (req as any).user?.tenantId;
     if (!tenantId) return { agreement: null };
 
     // MT-02(c): RLS por-tenant quando a flag está ligada (pós-096); senão service_role.

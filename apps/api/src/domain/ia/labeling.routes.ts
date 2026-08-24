@@ -16,7 +16,7 @@ export async function labelingRoutes(app: FastifyInstance) {
     if (!isActiveLearningEnabled()) {
       return { queue: [], enabled: false };
     }
-    const tenantId = (req as any).user?.tenant_id;
+    const tenantId = (req as any).user?.tenantId;
     if (!tenantId) return { queue: [] };
     const limit = Number((req.query as any).limit) || 20;
     const queue = await getPendingExamples(tenantId, limit);
@@ -26,7 +26,7 @@ export async function labelingRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string }; Body: { label: string } }>(
     '/api/v2/ia/labeling/:id/label',
     async (req, reply) => {
-      const tenantId = (req as any).user?.tenant_id;
+      const tenantId = (req as any).user?.tenantId;
       if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });
       const { label } = req.body;
       if (!label) return reply.code(400).send({ error: 'label obrigatório' });
@@ -37,7 +37,7 @@ export async function labelingRoutes(app: FastifyInstance) {
   );
 
   app.get('/api/v2/ia/labeling/export', async (req, reply) => {
-    const tenantId = (req as any).user?.tenant_id;
+    const tenantId = (req as any).user?.tenantId;
     if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });
     const source = (req.query as any).source as ExampleSource | undefined;
     const since = (req.query as any).since as string | undefined;

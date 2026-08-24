@@ -8,7 +8,7 @@ export async function anomalyRoutes(app: FastifyInstance) {
   });
 
   app.get('/api/v2/ia/network/anomalies', async (req) => {
-    const tenantId = (req as any).user?.tenant_id;
+    const tenantId = (req as any).user?.tenantId;
     if (!tenantId) return { anomalies: [] };
     const days = Number((req.query as any).days) || 7;
     const since = new Date(Date.now() - days * 86400000).toISOString();
@@ -41,7 +41,7 @@ export async function anomalyRoutes(app: FastifyInstance) {
   });
 
   app.get('/api/v2/ia/network/health', async (req) => {
-    const tenantId = (req as any).user?.tenant_id;
+    const tenantId = (req as any).user?.tenantId;
     if (!tenantId) return { status: 'unknown' };
     const since = new Date(Date.now() - 24 * 3600000).toISOString();
 

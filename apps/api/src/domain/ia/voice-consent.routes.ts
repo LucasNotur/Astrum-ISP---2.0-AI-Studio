@@ -11,7 +11,7 @@ export async function voiceConsentRoutes(app: FastifyInstance) {
   });
 
   app.post('/api/v2/ia/voice/consent', async (req, reply) => {
-    const tenantId = (req as any).user?.tenant_id;
+    const tenantId = (req as any).user?.tenantId;
     const { customerId } = req.body as { customerId: string };
     if (!tenantId || !customerId) return reply.code(400).send({ error: 'customerId obrigatório' });
 

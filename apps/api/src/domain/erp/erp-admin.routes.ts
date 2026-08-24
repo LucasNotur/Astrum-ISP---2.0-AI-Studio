@@ -20,7 +20,7 @@ export async function erpAdminRoutes(app: FastifyInstance) {
   const auth = [async (req: any, reply: any) => { await (app as any).authenticate(req, reply); }];
 
   app.get('/api/v2/erp/credentials', { onRequest: auth }, async (req, reply) => {
-    const tenantId = (req as any).user?.tenant_id;
+    const tenantId = (req as any).user?.tenantId;
     if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });
 
     const { data, error } = await supabase
@@ -43,7 +43,7 @@ export async function erpAdminRoutes(app: FastifyInstance) {
     '/api/v2/erp/credentials',
     { onRequest: auth },
     async (req, reply) => {
-      const tenantId = (req as any).user?.tenant_id;
+      const tenantId = (req as any).user?.tenantId;
       if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });
 
       const { provider, credentials, active = true } = req.body;
@@ -79,7 +79,7 @@ export async function erpAdminRoutes(app: FastifyInstance) {
     '/api/v2/erp/credentials/:provider',
     { onRequest: auth },
     async (req, reply) => {
-      const tenantId = (req as any).user?.tenant_id;
+      const tenantId = (req as any).user?.tenantId;
       if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });
 
       const { error } = await supabase
@@ -97,7 +97,7 @@ export async function erpAdminRoutes(app: FastifyInstance) {
     '/api/v2/erp/credentials/:provider/test',
     { onRequest: auth },
     async (req, reply) => {
-      const tenantId = (req as any).user?.tenant_id;
+      const tenantId = (req as any).user?.tenantId;
       if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });
 
       const provider = req.params.provider as ERPProviderName;

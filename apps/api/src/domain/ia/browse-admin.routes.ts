@@ -8,7 +8,7 @@ export async function browseAdminRoutes(app: FastifyInstance) {
   });
 
   app.get('/api/v2/ia/browse/allowlist', async (req) => {
-    const tenantId = (req as any).user?.tenant_id;
+    const tenantId = (req as any).user?.tenantId;
     if (!tenantId) return { domains: [] };
 
     // MT-02(c): leitura via RLS por-tenant quando a flag está ligada (pós-096);
@@ -36,7 +36,7 @@ export async function browseAdminRoutes(app: FastifyInstance) {
   });
 
   app.post<{ Body: { domain: string } }>('/api/v2/ia/browse/allowlist', async (req, reply) => {
-    const tenantId = (req as any).user?.tenant_id;
+    const tenantId = (req as any).user?.tenantId;
     if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });
 
     const { domain } = req.body;
@@ -77,7 +77,7 @@ export async function browseAdminRoutes(app: FastifyInstance) {
   app.delete<{ Params: { domain: string } }>(
     '/api/v2/ia/browse/allowlist/:domain',
     async (req, reply) => {
-      const tenantId = (req as any).user?.tenant_id;
+      const tenantId = (req as any).user?.tenantId;
       if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });
 
       // MT-02(c): escrita RLS por-tenant quando a flag está ligada (pós-096); senão service_role.

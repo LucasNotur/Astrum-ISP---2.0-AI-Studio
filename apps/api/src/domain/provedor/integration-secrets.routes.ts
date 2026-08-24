@@ -12,7 +12,7 @@ export async function integrationSecretsRoutes(app: FastifyInstance) {
   const auth = [async (req: any, reply: any) => { await (app as any).authenticate(req, reply); }];
 
   app.get('/api/v2/settings/integration-keys/status', { onRequest: auth }, async (req, reply) => {
-    const tenantId = (req as any).user?.tenant_id;
+    const tenantId = (req as any).user?.tenantId;
     if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });
 
     const { data } = await supabase
@@ -24,7 +24,7 @@ export async function integrationSecretsRoutes(app: FastifyInstance) {
     '/api/v2/settings/integration-keys',
     { onRequest: auth },
     async (req, reply) => {
-      const tenantId = (req as any).user?.tenant_id;
+      const tenantId = (req as any).user?.tenantId;
       if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });
 
       const { keys } = req.body;

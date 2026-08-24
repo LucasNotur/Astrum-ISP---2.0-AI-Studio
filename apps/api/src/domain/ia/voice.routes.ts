@@ -8,7 +8,7 @@ export async function voiceQaRoutes(app: FastifyInstance) {
   });
 
   app.get('/api/v2/ia/voice/calls', async (req) => {
-    const tenantId = (req as any).user?.tenant_id;
+    const tenantId = (req as any).user?.tenantId;
     if (!tenantId) return { calls: [] };
     const limit = Math.min(Number((req.query as any).limit) || 50, 200);
 
@@ -57,7 +57,7 @@ export async function voiceQaRoutes(app: FastifyInstance) {
   });
 
   app.get('/api/v2/ia/voice/calls/:id', async (req, reply) => {
-    const tenantId = (req as any).user?.tenant_id;
+    const tenantId = (req as any).user?.tenantId;
     const callId = (req.params as any).id;
     if (!tenantId) return reply.code(401).send({ error: 'Unauthorized' });
 
