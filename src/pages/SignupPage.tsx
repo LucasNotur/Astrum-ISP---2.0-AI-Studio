@@ -1,374 +1,234 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '@/src/lib/supabase';
-import { Button } from "@/src/components/ui/button";
-import { Input } from "@/src/components/ui/input";
-import { Label } from "@/src/components/ui/label";
-import { Card, CardContent } from "@/src/components/ui/card";
-import { Badge } from "@/src/components/ui/badge";
+import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { CheckCircle, ChevronRight, ChevronLeft, Loader2, Building2, Users, Wifi, Bot } from 'lucide-react';
+import { Input } from '@/src/components/ui/input';
+import { Label } from '@/src/components/ui/label';
+import { GlowButton } from '@/src/components/ui/glow-button';
+import { IconTile } from '@/src/components/ui/icon-tile';
+import { BrandMark } from '@/src/components/LoginScreen';
+import { API_BASE_URL } from '@/src/lib/apiClient';
+import { CheckCircle, Loader2, Rocket, MessageSquare, Wallet, Users } from 'lucide-react';
 
-// ─── Wizard steps ─────────────────────────────────────────────────────────────
+/**
+ * P5-05 — Trial sem fricção, "conecte em 15 minutos".
+ * D-010 — mesma família visual do LoginScreen (duas colunas, tokens semânticos).
+ *
+ * Um único formulário (nome do provedor + e-mail + senha) chama
+ * POST /api/v2/trial/signup direto — sem etapas que não alimentam a API.
+ * Depois do sucesso, a sessão real acontece no login normal (email+senha
+ * recém-criados), não pelo JWT role:'trial' — evita misturar esse token
+ * (escopo próprio: só GET /trial/insight e POST /trial/connect-erp) com o
+ * resto do app autenticado.
+ */
 
-const STEPS = [
-  { id: 'account',    title: 'Sua conta',        icon: <Users size={20} />,    desc: 'Crie seu login' },
-  { id: 'company',    title: 'Seu provedor',      icon: <Building2 size={20} />, desc: 'Dados da empresa' },
-  { id: 'network',    title: 'Sua rede',          icon: <Wifi size={20} />,     desc: 'Configuração inicial' },
-  { id: 'ai',         title: 'Configure a IA',    icon: <Bot size={20} />,      desc: 'Tom e limites' },
-  { id: 'done',       title: 'Pronto!',           icon: <CheckCircle size={20} />, desc: 'Trial de 14 dias ativo' },
+const NEXT_STEPS = [
+  { icon: MessageSquare, tone: 'fiber' as const, text: 'Conecte seu WhatsApp Business' },
+  { icon: Wallet, tone: 'signal' as const, text: 'Vincule seu ERP para ver o primeiro insight' },
+  { icon: Users, tone: 'lemon' as const, text: 'Convide sua equipe de suporte' },
 ];
 
-interface FormData {
+interface FormState {
+  ispName: string;
   email: string;
   password: string;
-  companyName: string;
-  cnpj: string;
-  city: string;
-  state: string;
-  avgClients: string;
-  primaryERP: string;
-  aiTone: string;
-  aiScope: string;
 }
 
-const ERP_OPTIONS = ['IXC Provedor', 'MKAuth', 'SGP', 'Voalle', 'HubSoft', 'RadiusNet', 'RBX', 'Outro'];
-
 export function SignupPage() {
-  const [step, setStep] = useState(0);
+  const [form, setForm] = useState<FormState>({ ispName: '', email: '', password: '' });
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState<FormData>({
-    email: '', password: '',
-    companyName: '', cnpj: '', city: '', state: '',
-    avgClients: '', primaryERP: '',
-    aiTone: 'amigável e profissional',
-    aiScope: 'suporte técnico e financeiro',
-  });
-  const [tenantCreated, setTenantCreated] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
 
-  const set = (key: keyof FormData, value: string) =>
-    setForm(prev => ({ ...prev, [key]: value }));
+  const set = (key: keyof FormState, value: string) =>
+    setForm((prev) => ({ ...prev, [key]: value }));
 
-  const currentStep = STEPS[step];
+  async function handleSubmit(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (!form.ispName.trim()) { toast.error('Informe o nome do seu provedor'); return; }
+    if (!form.email.trim()) { toast.error('Informe seu e-mail'); return; }
+    if (form.password.length < 8) { toast.error('A senha precisa ter ao menos 8 caracteres'); return; }
 
-  async function handleNext() {
-    if (step === 0) {
-      // Validate email+password
-      if (!form.email || !form.password) { toast.error('Preencha e-mail e senha'); return; }
-      if (form.password.length < 8) { toast.error('Senha deve ter ao menos 8 caracteres'); return; }
-    }
-    if (step === 1) {
-      if (!form.companyName) { toast.error('Informe o nome do provedor'); return; }
-    }
-    if (step === 3) {
-      // Final submit
-      await createAccount();
-      return;
-    }
-    setStep(s => s + 1);
-  }
-
-  async function createAccount() {
     setLoading(true);
     try {
-      // v2 trial signup creates user + tenant with plan=radar_trial + enabled_modules
-      const res = await fetch('/api/v2/trial/signup', {
+      const res = await fetch(`${API_BASE_URL}/api/v2/trial/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ispName: form.companyName,
-          email: form.email,
+          ispName: form.ispName.trim(),
+          email: form.email.trim(),
           password: form.password,
         }),
       });
 
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        throw new Error(body?.error || 'Erro ao criar provedor');
+        throw new Error(body?.error || 'Erro ao criar o provedor. Tente novamente.');
       }
 
-      const { tenantId } = await res.json();
-      setTenantCreated(tenantId);
-      setStep(4); // Done
-    } catch (e: any) {
-      toast.error(e.message ?? 'Erro ao criar conta');
+      setDone(true);
+    } catch (err: any) {
+      toast.error(err.message ?? 'Erro ao criar conta');
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-lg">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-1">Astrum ISP</h1>
-          <p className="text-blue-300 text-sm">Atendimento inteligente para provedores</p>
-        </div>
+    <div className="min-h-screen bg-background text-foreground font-sans flex items-center justify-center p-6 md:p-10">
+      <div className="grid lg:grid-cols-2 gap-10 xl:gap-16 w-full max-w-6xl items-center">
+        {/* Coluna esquerda — formulário / confirmação */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-md mx-auto lg:mx-0 lg:justify-self-end"
+        >
+          <BrandMark />
 
-        {/* Step indicator */}
-        <div className="flex items-center justify-center gap-1 mb-6">
-          {STEPS.map((s, i) => (
-            <React.Fragment key={s.id}>
-              <div className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold transition-all ${
-                i < step ? 'bg-green-500 text-white' :
-                i === step ? 'bg-blue-500 text-white ring-2 ring-blue-300' :
-                'bg-slate-700 text-slate-400'
-              }`}>
-                {i < step ? <CheckCircle size={14} /> : i + 1}
-              </div>
-              {i < STEPS.length - 1 && (
-                <div className={`h-0.5 w-8 transition-all ${i < step ? 'bg-green-500' : 'bg-slate-700'}`} />
-              )}
-            </React.Fragment>
-          ))}
-        </div>
+          {!done ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.15 }}
+            >
+              <h1 className="font-display text-3xl font-bold tracking-tight mt-5">
+                Conecte em 15 minutos
+              </h1>
+              <p className="text-sm text-muted-foreground leading-relaxed mt-3 max-w-sm">
+                Crie sua conta e comece a operar com IA hoje — 14 dias grátis,
+                sem reunião de vendas e sem cartão.
+              </p>
 
-        <Card className="border-0 bg-white/5 backdrop-blur-md shadow-2xl">
-          <CardContent className="p-6">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={step}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.2 }}
-                className="space-y-4"
-              >
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400">{currentStep.icon}</div>
-                  <div>
-                    <h2 className="text-lg font-bold text-white">{currentStep.title}</h2>
-                    <p className="text-xs text-slate-400">{currentStep.desc}</p>
-                  </div>
+              <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="trial-isp" className="text-sm font-semibold">Nome do provedor</Label>
+                  <Input
+                    id="trial-isp"
+                    autoComplete="organization"
+                    placeholder="ISP Conecta Fibra Ltda"
+                    value={form.ispName}
+                    onChange={(e) => set('ispName', e.target.value)}
+                    className="h-11 rounded-stable-lg bg-input/60 border-border placeholder:text-muted-foreground/60"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="trial-email" className="text-sm font-semibold">E-mail</Label>
+                  <Input
+                    id="trial-email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="voce@seuisp.com.br"
+                    value={form.email}
+                    onChange={(e) => set('email', e.target.value)}
+                    className="h-11 rounded-stable-lg bg-input/60 border-border placeholder:text-muted-foreground/60"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="trial-password" className="text-sm font-semibold">Senha (mín. 8 caracteres)</Label>
+                  <Input
+                    id="trial-password"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="Crie uma senha"
+                    value={form.password}
+                    onChange={(e) => set('password', e.target.value)}
+                    className="h-11 rounded-stable-lg bg-input/60 border-border placeholder:text-muted-foreground/60"
+                  />
                 </div>
 
-                {/* Step 0: Account */}
-                {step === 0 && (
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs text-slate-300">E-mail</Label>
-                      <Input
-                        type="email"
-                        placeholder="voce@seuisp.com.br"
-                        value={form.email}
-                        onChange={e => set('email', e.target.value)}
-                        className="bg-white/10 border-white/20 text-white placeholder:text-slate-500"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-slate-300">Senha (mín. 8 caracteres)</Label>
-                      <Input
-                        type="password"
-                        placeholder="••••••••"
-                        value={form.password}
-                        onChange={e => set('password', e.target.value)}
-                        className="bg-white/10 border-white/20 text-white placeholder:text-slate-500"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Badge className="bg-green-500/20 text-green-300 border-green-500/30 text-[10px]">
-                        ✓ 14 dias grátis
-                      </Badge>
-                      <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30 text-[10px]">
-                        ✓ Sem cartão de crédito
-                      </Badge>
-                    </div>
-                  </div>
-                )}
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-1 rounded-stable-sm bg-astrum-signal/20 text-astrum-signal border border-astrum-signal/30 text-[11px] font-medium">
+                    14 dias grátis
+                  </span>
+                  <span className="px-2.5 py-1 rounded-stable-sm bg-astrum-fiber/20 text-astrum-fiber border border-astrum-fiber/30 text-[11px] font-medium">
+                    Sem cartão de crédito
+                  </span>
+                </div>
 
-                {/* Step 1: Company */}
-                {step === 1 && (
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs text-slate-300">Nome do provedor</Label>
-                      <Input
-                        placeholder="ISP Conecta Fibra Ltda"
-                        value={form.companyName}
-                        onChange={e => set('companyName', e.target.value)}
-                        className="bg-white/10 border-white/20 text-white placeholder:text-slate-500"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-slate-300">CNPJ (opcional)</Label>
-                      <Input
-                        placeholder="00.000.000/0001-00"
-                        value={form.cnpj}
-                        onChange={e => set('cnpj', e.target.value)}
-                        className="bg-white/10 border-white/20 text-white placeholder:text-slate-500"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <Label className="text-xs text-slate-300">Cidade</Label>
-                        <Input
-                          placeholder="São Paulo"
-                          value={form.city}
-                          onChange={e => set('city', e.target.value)}
-                          className="bg-white/10 border-white/20 text-white placeholder:text-slate-500"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-slate-300">Estado</Label>
-                        <Input
-                          placeholder="SP"
-                          maxLength={2}
-                          value={form.state}
-                          onChange={e => set('state', e.target.value.toUpperCase())}
-                          className="bg-white/10 border-white/20 text-white placeholder:text-slate-500"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Step 2: Network */}
-                {step === 2 && (
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs text-slate-300">Número aproximado de clientes</Label>
-                      <Input
-                        type="number"
-                        placeholder="500"
-                        value={form.avgClients}
-                        onChange={e => set('avgClients', e.target.value)}
-                        className="bg-white/10 border-white/20 text-white placeholder:text-slate-500"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-slate-300">Sistema de gestão (ERP)</Label>
-                      <div className="grid grid-cols-2 gap-1.5 mt-1">
-                        {ERP_OPTIONS.map(erp => (
-                          <button
-                            key={erp}
-                            onClick={() => set('primaryERP', erp)}
-                            className={`text-xs py-2 px-3 rounded-md border transition-all ${
-                              form.primaryERP === erp
-                                ? 'bg-blue-500 text-white border-blue-500'
-                                : 'border-white/20 text-slate-300 hover:bg-white/10'
-                            }`}
-                          >
-                            {erp}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Step 3: AI Config */}
-                {step === 3 && (
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs text-slate-300">Tom de voz da IA</Label>
-                      <div className="grid grid-cols-1 gap-1.5">
-                        {['amigável e profissional', 'formal e técnico', 'descontraído e próximo'].map(tone => (
-                          <button
-                            key={tone}
-                            onClick={() => set('aiTone', tone)}
-                            className={`text-xs py-2.5 px-3 rounded-md border text-left transition-all capitalize ${
-                              form.aiTone === tone
-                                ? 'bg-blue-500 text-white border-blue-500'
-                                : 'border-white/20 text-slate-300 hover:bg-white/10'
-                            }`}
-                          >
-                            {tone}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-slate-300">Escopo do atendimento IA</Label>
-                      <div className="grid grid-cols-1 gap-1.5">
-                        {[
-                          'suporte técnico e financeiro',
-                          'somente suporte técnico',
-                          'somente financeiro/cobrança',
-                        ].map(scope => (
-                          <button
-                            key={scope}
-                            onClick={() => set('aiScope', scope)}
-                            className={`text-xs py-2.5 px-3 rounded-md border text-left transition-all ${
-                              form.aiScope === scope
-                                ? 'bg-blue-500 text-white border-blue-500'
-                                : 'border-white/20 text-slate-300 hover:bg-white/10'
-                            }`}
-                          >
-                            {scope}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Step 4: Done */}
-                {step === 4 && (
-                  <div className="text-center space-y-4 py-4">
-                    <div className="flex justify-center">
-                      <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center">
-                        <CheckCircle size={32} className="text-green-400" />
-                      </div>
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-white mb-1">Bem-vindo ao Astrum!</h3>
-                      <p className="text-slate-400 text-sm">Sua conta foi criada. Você tem 14 dias de trial completo.</p>
-                    </div>
-                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 text-left space-y-2">
-                      <p className="text-xs text-blue-300 font-semibold">Próximos passos:</p>
-                      <ul className="text-xs text-slate-300 space-y-1">
-                        <li>✅ Confirme seu e-mail ({form.email})</li>
-                        <li>🔗 Configure a integração com {form.primaryERP || 'seu ERP'}</li>
-                        <li>📱 Conecte seu WhatsApp Business</li>
-                        <li>👥 Convide sua equipe de suporte</li>
-                      </ul>
-                    </div>
-                    <Button
-                      className="w-full"
-                      onClick={() => window.location.href = '/dashboard'}
-                    >
-                      Acessar o painel
-                    </Button>
-                  </div>
-                )}
-              </motion.div>
-            </AnimatePresence>
-
-            {/* Navigation */}
-            {step < 4 && (
-              <div className="flex justify-between mt-6">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setStep(s => s - 1)}
-                  disabled={step === 0}
-                  className="text-slate-400 hover:text-white"
-                >
-                  <ChevronLeft size={16} className="mr-1" /> Voltar
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleNext}
+                <GlowButton
+                  type="submit"
                   disabled={loading}
-                  className="gap-1"
+                  color="fiber"
+                  icon={loading ? <Loader2 size={16} className="animate-spin" /> : <Rocket size={16} />}
+                  className="w-full justify-center [&>button]:w-full [&>button]:justify-center"
                 >
-                  {loading ? (
-                    <><Loader2 size={14} className="animate-spin" /> Criando…</>
-                  ) : step === 3 ? (
-                    <>Criar conta <CheckCircle size={14} /></>
-                  ) : (
-                    <>Continuar <ChevronRight size={14} /></>
-                  )}
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  {loading ? 'Criando conta…' : 'Criar conta'}
+                </GlowButton>
+              </form>
 
-        <p className="text-center text-xs text-slate-500 mt-4">
-          Já tem uma conta?{' '}
-          <a href="/" className="text-blue-400 hover:underline">Fazer login</a>
-        </p>
+              <p className="text-center text-xs text-muted-foreground mt-6">
+                Já tem uma conta?{' '}
+                <Link to="/" className="text-astrum-lemon font-semibold hover:underline underline-offset-2">
+                  Fazer login
+                </Link>
+              </p>
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25 }}
+              className="mt-5"
+            >
+              <IconTile icon={<CheckCircle size={22} />} tone="signal" size="xl" />
+              <h1 className="font-display text-3xl font-bold tracking-tight mt-5">
+                Trial ativo, {form.ispName}!
+              </h1>
+              <p className="text-sm text-muted-foreground leading-relaxed mt-3 max-w-sm">
+                Sua conta foi criada com 14 dias de trial completo. Faça login com o
+                e-mail e a senha que você acabou de criar para continuar.
+              </p>
+
+              <div className="mt-6 space-y-2.5">
+                {NEXT_STEPS.map((s) => (
+                  <div key={s.text} className="flex items-center gap-3 rounded-stable-lg border border-border bg-secondary/40 p-3">
+                    <IconTile icon={<s.icon size={16} />} tone={s.tone} size="sm" />
+                    <span className="text-sm text-foreground">{s.text}</span>
+                  </div>
+                ))}
+              </div>
+
+              <GlowButton
+                color="lemon"
+                className="w-full justify-center mt-6 [&>button]:w-full [&>button]:justify-center"
+                onClick={() => { window.location.assign('/'); }}
+              >
+                Entrar agora
+              </GlowButton>
+            </motion.div>
+          )}
+        </motion.div>
+
+        {/* Coluna direita — painel de arte (mesma identidade do LoginScreen, D-010) */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.08 }}
+          className="hidden lg:block relative h-[560px] rounded-stable-xl overflow-hidden login-art"
+        >
+          <div aria-hidden className="absolute -top-10 right-10 h-48 w-40 rounded-3xl bg-black/25 border border-white/5 rotate-[24deg]" />
+          <div aria-hidden className="absolute -top-16 right-40 h-56 w-40 rounded-3xl bg-black/20 border border-white/5 rotate-[24deg]" />
+
+          <div className="absolute bottom-7 left-7 right-7 space-y-3">
+            <div className="flex gap-2">
+              <span className="px-2.5 py-1 rounded-md bg-black/45 border border-white/15 text-white text-xs font-medium backdrop-blur-sm">
+                Provedores de Internet
+              </span>
+              <span className="px-2.5 py-1 rounded-md bg-black/45 border border-white/15 text-white text-xs font-medium backdrop-blur-sm">
+                Trial de 14 dias
+              </span>
+            </div>
+            <figure className="rounded-stable-lg bg-black/40 border border-white/10 backdrop-blur-md p-5">
+              <blockquote className="text-sm text-white/95 font-medium leading-relaxed">
+                O CobrAI mudou completamente a nossa operação. O que tomava horas
+                da equipe toda semana hoje roda sozinho, do lembrete à baixa do pagamento.
+              </blockquote>
+              <figcaption className="mt-3 text-xs text-white/60">
+                Marina Duarte
+                <span className="block mt-0.5">Head de Operações, <strong className="text-white/80">Vela Telecom</strong></span>
+              </figcaption>
+            </figure>
+          </div>
+        </motion.div>
       </div>
     </div>
   );

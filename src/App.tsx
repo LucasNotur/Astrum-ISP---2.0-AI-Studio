@@ -290,10 +290,11 @@ export default function App() {
       );
   }
 
-  if (routerLocation.pathname === '/register') {
+  if (routerLocation.pathname === '/register' || routerLocation.pathname === '/trial') {
       return (
           <Routes>
               <Route path="/register" element={<SignupPage />} />
+              <Route path="/trial" element={<SignupPage />} />
           </Routes>
       );
   }

@@ -33,7 +33,7 @@ function AppleIcon() {
 }
 
 /** Glifo mínimo da marca (dois quadrados sobrepostos, como no print de referência). */
-function BrandMark() {
+export function BrandMark() {
   return (
     <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden className="text-foreground">
       <rect x="2" y="10" width="12" height="12" rx="3" fill="currentColor" />
