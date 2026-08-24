@@ -28,6 +28,6 @@ export interface IAIPort {
     systemContext: string,
     tenantId: string,
     onTool: IToolCallback,
-    opts?: { tier?: 'mini' | 'full'; tools?: Record<string, { description: string; parameters: any }> },
+    opts?: { tier?: 'mini' | 'full'; tools?: Record<string, { description: string; inputSchema: any }> },
   ): Promise<IStreamResult>;
 }

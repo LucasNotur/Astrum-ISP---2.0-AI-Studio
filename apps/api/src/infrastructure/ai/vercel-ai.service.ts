@@ -102,7 +102,7 @@ export type TicketReport = z.infer<typeof TicketReportSchema>;
 export const agentTools = {
   suspend_signal: {
     description: 'Suspende o sinal de internet de um cliente inadimplente. Use apenas quando a política de cobrança autorizar.',
-    parameters: z.object({
+    inputSchema: z.object({
       customer_id: z.string().describe('ID único do cliente no Supabase'),
       reason: z.string().describe('Motivo da suspensão para log de auditoria'),
       scheduled_for: z.string().datetime().optional().describe('Agendar para data futura (ISO 8601). Null = imediato.'),
@@ -110,14 +110,14 @@ export const agentTools = {
   },
   check_invoice: {
     description: 'Consulta o status de faturas de um cliente. Use para responder perguntas sobre pagamentos.',
-    parameters: z.object({
+    inputSchema: z.object({
       customer_id: z.string(),
       include_overdue_only: z.boolean().default(false),
     }),
   },
   create_ticket: {
     description: 'Cria um ticket de suporte no sistema quando não conseguir resolver automaticamente.',
-    parameters: z.object({
+    inputSchema: z.object({
       customer_id: z.string(),
       title: z.string().max(100),
       description: z.string().max(500),
@@ -127,7 +127,7 @@ export const agentTools = {
   },
   query_knowledge_base: {
     description: 'Busca informações nos manuais técnicos e documentos do ISP. Use para perguntas técnicas sobre equipamentos, configurações e procedimentos.',
-    parameters: z.object({
+    inputSchema: z.object({
       query: z.string().describe('Pergunta técnica para buscar na base de conhecimento'),
       max_results: z.number().min(1).max(5).default(3),
     }),
@@ -136,19 +136,19 @@ export const agentTools = {
   // descrições em pt-BR no mesmo padrão das demais. O executor já as implementa.
   check_coverage: {
     description: 'Consulta a ocupação de CTOs (rede) para identificar se há portas livres numa região. Use quando o cliente perguntar sobre viabilidade de instalação, cobertura ou expansão.',
-    parameters: z.object({
+    inputSchema: z.object({
       cto_id: z.string().optional().describe('ID específico de uma CTO. Se omitido, retorna as 10 primeiras do provedor.'),
     }),
   },
   run_diagnostics: {
     description: 'Executa um diagnóstico remoto de sinal/latência para um cliente. Use ao investigar queda de conexão, lentidão ou intermitência.',
-    parameters: z.object({
+    inputSchema: z.object({
       customer_id: z.string().describe('ID único do cliente no Supabase'),
     }),
   },
   schedule_technical_visit: {
     description: 'Abre uma ordem de serviço para visita técnica presencial. Use quando o problema não pode ser resolvido remotamente.',
-    parameters: z.object({
+    inputSchema: z.object({
       customer_id: z.string().describe('ID único do cliente no Supabase'),
       reason: z.string().min(5).max(500).describe('Motivo da visita (ex.: "sem sinal após reboot")'),
       address: z.string().optional().describe('Endereço de atendimento (se diferente do cadastro)'),
@@ -157,7 +157,7 @@ export const agentTools = {
   },
   get_billing_status: {
     description: 'Alias semântico de check_invoice. Consulta faturas em aberto, vencidas ou pagas. Retorna payment_url e pix_copy_paste para 2ª via.',
-    parameters: z.object({
+    inputSchema: z.object({
       customer_id: z.string(),
       include_overdue_only: z.boolean().default(false),
     }),
@@ -165,14 +165,14 @@ export const agentTools = {
   // IA-22 — Web browsing (allowlist + citação obrigatória).
   browse_url: {
     description: 'Consulta uma página web da lista de sites confiáveis do provedor. SEMPRE cite a URL da fonte na resposta ao cliente.',
-    parameters: z.object({
+    inputSchema: z.object({
       url: z.string().url().describe('URL completa (com http/https) para consultar'),
     }),
   },
   // IA-16 — GraphRAG leve (3 consultas nomeadas, sem banco de grafo novo).
   query_network_graph: {
     description: 'Consulta o grafo da rede física do provedor (clientes ↔ CTOs ↔ tickets). Use para perguntas sobre impacto de falha em CTO, reincidência de problemas por região ou capacidade de portas.',
-    parameters: z.object({
+    inputSchema: z.object({
       mode: z.enum(['impacto_cto', 'reincidencia', 'capacidade']),
       cto_id: z.string().optional().describe('Obrigatório para impacto_cto'),
       days: z.number().min(1).max(90).default(30).describe('Janela em dias para reincidencia'),

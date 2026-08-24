@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { vercelAIService, NetworkDiagnosticSchema, CustomerIntentSchema } from './vercel-ai.service';
+import { asSchema } from '@ai-sdk/provider-utils';
+import { vercelAIService, NetworkDiagnosticSchema, CustomerIntentSchema, agentTools } from './vercel-ai.service';
 
 // Mock do Vercel AI SDK
 vi.mock('ai', () => ({
@@ -243,5 +244,29 @@ describe('VercelAIService — Structured Outputs', () => {
       await onStepFinishCb({ toolCalls: [] });
       expect(cb).not.toHaveBeenCalled();
     });
+  });
+});
+
+// Regressão real (2026-08-23, achada rodando o smoke-test de replay contra o
+// backend de verdade): `agentTools` usava `parameters:` (nome de campo do AI
+// SDK v4/v5) em vez de `inputSchema:` (nome exigido pelo `ai@6`). Como o SDK
+// só lê `tool.inputSchema` em runtime, todo schema virava vazio/"None" — a
+// OpenAI (Responses API) rejeitava com 400 "schema must be a JSON Schema of
+// type object, got type None" assim que uma chamada real de tool-calling
+// chegava até ela. Gemini/outras chamadas sem tool nunca expuseram o bug.
+describe('agentTools — schema de cada tool é um JSON Schema de objeto válido', () => {
+  it('toda tool declara inputSchema (não parameters)', () => {
+    for (const [name, def] of Object.entries(agentTools)) {
+      expect((def as any).parameters, `${name} não deveria ter 'parameters'`).toBeUndefined();
+      expect((def as any).inputSchema, `${name} precisa de 'inputSchema'`).toBeDefined();
+    }
+  });
+
+  it('a conversão real do AI SDK (asSchema) produz type:"object" para toda tool', () => {
+    for (const [name, def] of Object.entries(agentTools)) {
+      const jsonSchema = asSchema((def as any).inputSchema).jsonSchema as any;
+      expect(jsonSchema?.type, `${name}: JSON Schema deveria ser type "object", não "${jsonSchema?.type}"`).toBe('object');
+      expect(jsonSchema?.properties, `${name}: JSON Schema precisa ter properties`).toBeDefined();
+    }
   });
 });
