@@ -257,8 +257,27 @@
 - [x] **`ATENDIMENTO_ENGINE=v2`** já em produção — decisão tomada 2026-08-17 sem o gate de
   equivalência ≥95% (aceito pelo Lucas, dado que não havia como gerar essa evidência sem
   tráfego real nem chave de LLM).
-- [ ] Rodar o smoke-test de replay assim que houver chave (ver acima) — não bloqueia nada,
-  é validação, não gate.
+- [x] **🔴 P0 REAL #2 achado e corrigido (2026-08-23) — rodando o smoke-test de novo, sem
+  esperar crédito OpenAI (decisão do Lucas: o failover já existe pra isso).** Dessa vez
+  a chamada chegou longe o suficiente na OpenAI pra revelar um bug DIFERENTE do de
+  failover: as 10 tools do agente (`agentTools` em `vercel-ai.service.ts` — suspend_signal,
+  check_invoice, create_ticket etc.) declaravam o schema em `parameters: z.object(...)`,
+  mas o `ai@6.0.197` (major version em uso) lê `tool.inputSchema` em runtime, não
+  `tool.parameters` — renomeado entre majors do AI SDK. Toda tool virava schema vazio.
+  A OpenAI Responses API validou estrito o suficiente pra rejeitar com 400 "schema must
+  be a JSON Schema of type object, got type None" assim que uma chamada real de
+  tool-calling chegou nela — nunca tinha acontecido antes porque toda chamada morria
+  mais cedo (sem crédito). Corrigido: `parameters` → `inputSchema` nas 10 tools + tipo em
+  `ai.port.ts`. 2 testes de regressão novos (verificam que a conversão REAL do AI SDK
+  produz `type:"object"` pra cada tool — não só que o campo existe). Suite completa do
+  apps/api: 2523/2523 verde.
+- [x] **Validado ao vivo em produção (2026-08-23):** testei o fluxo `/trial` de ponta a
+  ponta direto em `astrumlabs.online/trial` (não só local) — signup real, sucesso real,
+  sem erros de console. No caminho, achei e descartei um falso-alarme de CORS
+  (`www.astrumlabs.online` rejeitado) que era só o preflight cacheado numa aba de
+  navegador que já tinha testado contra um processo de backend antigo/reiniciando —
+  confirmado via curl direto que o CORS sempre esteve correto no processo atual
+  (`ALLOWED_ORIGINS` no `.env` já incluía a variante `www.`).
 - [x] **🔴 Testado — rollback está QUEBRADO (achado 2026-08-23, pós Fase 4).** A Fase 4
   (17-18/08) apagou `server.ts` raiz e `src/routes/evolutionWebhook.ts` (Express) por completo.
   Isso destruiu o caminho de rollback sem ninguém perceber: `resolveEvolutionWebhookMode()`
@@ -282,9 +301,6 @@
 
 ---
 
-*Última atualização: 2026-08-23 (fix real do failover multi-provider — RetryError não era
-desembrulhado, cross-provider failover não funcionava pra nenhuma chamada; getModel()
-agora é circuit-aware; wizard de onboarding confirmado já resolvido via
-Signup+OnboardingWizardPage, sem passar pelo wizard.ts morto; domínios de trial e
-portal do assinante decididos com o Lucas — `astrumlabs.online/trial` e
-`portal.astrumlabs.online`).*
+*Última atualização: 2026-08-23 (2º P0 real do dia: agentTools usava `parameters` em vez
+de `inputSchema` — ai@6 rejeitava toda tool-calling silenciosamente até a OpenAI validar
+estrito o suficiente pra revelar; corrigido + validado ao vivo em produção via /trial).*
