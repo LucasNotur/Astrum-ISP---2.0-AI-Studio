@@ -1,4 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+// MultiAgentService passa pelo withFailover real (model-router), que resolve a
+// chave de IA do tenant via tenant-keys.ts → Supabase. Sem mock aqui, cada
+// chamada bateria num cliente Supabase real/indisponível em CI — mockado pra
+// puro fallback no env global (mesmo comportamento de antes da SaaS BYOK).
+vi.mock('../../lib/tenant-keys', () => ({
+  resolveTenantAiKeys: vi.fn(async () => ({})),
+}));
+
 import { MultiAgentService, type MultiAgentDeps } from './multi-agent.supervisor';
 import type { AgentDomain } from './multi-agent.state';
 

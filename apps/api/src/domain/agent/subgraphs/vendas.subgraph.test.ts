@@ -1,4 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// runVendasSubgraph passa pelo withFailover real (model-router), que resolve a
+// chave de IA do tenant via tenant-keys.ts → Supabase. Sem mock aqui, cada
+// chamada bateria num cliente Supabase real/indisponível em CI — mockado pra
+// puro fallback no env global (mesmo comportamento de antes da SaaS BYOK).
+vi.mock('../../../lib/tenant-keys', () => ({
+  resolveTenantAiKeys: vi.fn(async () => ({})),
+}));
+
 import { runVendasSubgraph, type VendasSubgraphDeps } from './vendas.subgraph';
 import type { MultiAgentState } from '../multi-agent.state';
 import type { SalesLead, SalesFunnelDb } from '../../vendas/sales-funnel.service';

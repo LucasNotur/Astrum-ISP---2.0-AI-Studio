@@ -41,14 +41,27 @@ export async function resolveTenantKeys(tenantId: string): Promise<TenantKeys> {
   };
 }
 
-/** Lê `tenants.integration_keys` cru (sem decifrar). Fail-open: erro → objeto vazio. */
+// Timeout curto de propósito: model-router chama isto em TODA chamada de LLM
+// (withFailover/getModel, dezenas de call sites). Um Supabase lento/fora do ar
+// não pode travar o atendimento inteiro — fail-open de verdade significa nunca
+// pendurar, não só "captura rejeição". `.then(ok, fail)` sozinho não protege
+// contra uma Promise que nunca resolve nem rejeita (timeout de rede sem abort).
+const FETCH_INTEGRATION_KEYS_TIMEOUT_MS = 2000;
+
+/** Lê `tenants.integration_keys` cru (sem decifrar). Fail-open: erro OU timeout → objeto vazio. */
 async function fetchIntegrationKeys(tenantId: string): Promise<Record<string, string>> {
-  const { data } = await supabase
+  const query = supabase
     .from('tenants')
     .select('integration_keys')
     .eq('id', tenantId)
     .maybeSingle()
     .then((r) => r, () => ({ data: null }));
+
+  const timeout = new Promise<{ data: null }>((resolve) => {
+    setTimeout(() => resolve({ data: null }), FETCH_INTEGRATION_KEYS_TIMEOUT_MS);
+  });
+
+  const { data } = await Promise.race([query, timeout]);
   return ((data as any)?.integration_keys ?? {}) as Record<string, string>;
 }
 
