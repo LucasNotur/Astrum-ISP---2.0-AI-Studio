@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { mergeAndEncryptIntegrationKeys, computeSecretsStatus } from './integration-secrets.service';
 
 /**

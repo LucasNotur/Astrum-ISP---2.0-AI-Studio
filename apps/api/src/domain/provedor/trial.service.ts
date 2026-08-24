@@ -132,7 +132,7 @@ export function radarTrialEnabledModules(): Record<string, boolean> {
 
 // ── Implementação Supabase (default) ──────────────────────────────────────────
 
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 
 export const defaultTrialDb: TrialDb = {
   async createTrialTenant({ ispName, adminEmail, adminPasswordHash, signupIp }) {
@@ -143,7 +143,7 @@ export const defaultTrialDb: TrialDb = {
       .replace(/^-+|-+$/g, '')
       .slice(0, 40);
 
-    const { data: tenant } = await (supabase as any)
+    const { data: tenant, error: tenantErr } = await (supabase as any)
       .from('tenants')
       .insert({
         name: ispName,
@@ -154,10 +154,13 @@ export const defaultTrialDb: TrialDb = {
       })
       .select('id')
       .single();
+    if (tenantErr || !tenant?.id) {
+      throw new Error(`Falha ao criar tenant do trial: ${tenantErr?.message ?? 'sem id retornado'}`);
+    }
 
-    const tenantId = tenant?.id as string;
+    const tenantId = tenant.id as string;
 
-    await (supabase as any).from('users').insert({
+    const { error: userErr } = await (supabase as any).from('users').insert({
       name: adminEmail.split('@')[0],
       email: adminEmail.toLowerCase(),
       password_hash: adminPasswordHash,
@@ -165,14 +168,20 @@ export const defaultTrialDb: TrialDb = {
       tenant_id: tenantId,
       active: true,
     });
+    if (userErr) {
+      throw new Error(`Falha ao criar usuário admin do trial: ${userErr.message}`);
+    }
 
-    const { data: trial } = await (supabase as any)
+    const { data: trial, error: trialErr } = await (supabase as any)
       .from('trial_tenants')
       .insert({ tenant_id: tenantId, email: adminEmail, signup_ip: signupIp })
       .select('id')
       .single();
+    if (trialErr || !trial?.id) {
+      throw new Error(`Falha ao criar registro de trial: ${trialErr?.message ?? 'sem id retornado'}`);
+    }
 
-    return { tenantId, trialId: trial?.id as string };
+    return { tenantId, trialId: trial.id as string };
   },
 
   async getTrialByTenantId(tenantId) {

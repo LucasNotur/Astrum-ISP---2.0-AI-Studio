@@ -6,7 +6,7 @@ import { encryptString } from '../../adapters/erp/credential-cipher';
 // preserva o comportamento dos testes existentes, que testam só a env.
 let storedIntegrationKeys: Record<string, string> | null = null;
 vi.mock('../../infrastructure/database/supabase.client', () => ({
-  default: {
+  supabaseAdmin: {
     from: vi.fn(() => ({
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),

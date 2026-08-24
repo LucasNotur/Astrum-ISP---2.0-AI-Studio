@@ -6,7 +6,7 @@ const TEST_KEY = '0'.repeat(64);
 let storedIntegrationKeys: Record<string, string> | null = null;
 
 vi.mock('../infrastructure/database/supabase.client', () => ({
-  default: {
+  supabaseAdmin: {
     from: vi.fn(() => ({
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),

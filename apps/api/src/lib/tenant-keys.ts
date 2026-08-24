@@ -1,4 +1,4 @@
-import supabase from '../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../infrastructure/database/supabase.client';
 import { decryptString, looksEncrypted } from '../adapters/erp/credential-cipher';
 import { infraLogger } from '../infrastructure/logging/logger';
 
