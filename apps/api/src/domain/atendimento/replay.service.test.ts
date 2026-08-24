@@ -77,6 +77,13 @@ vi.mock('../../infrastructure/database/supabase.client', () => ({
   supabaseAdmin: { from: mocks.fromMock },
 }));
 
+// model-router (via withFailover) resolve chave própria do tenant pelo cliente
+// default de tenant-keys.ts — não faz parte do que este arquivo testa, mockado
+// pra puro fallback no env global (mesmo comportamento de antes da SaaS BYOK).
+vi.mock('../../lib/tenant-keys', () => ({
+  resolveTenantAiKeys: vi.fn(async () => ({})),
+}));
+
 vi.mock('../agent/agent.nodes', () => ({
   // NÃO usamos vi.importActual aqui — o agent.nodes real puxa o guardrails
   // pipeline → content-moderation → openai.adapter, que falha em jsdom. O

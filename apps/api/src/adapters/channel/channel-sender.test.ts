@@ -107,6 +107,7 @@ describe('sendChannelResponse', () => {
         from: 'suporte@isp.com',
         text: 'Resposta por e-mail',
       }),
+      'tenant-1',
     );
   });
 

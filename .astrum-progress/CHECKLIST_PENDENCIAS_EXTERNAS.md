@@ -32,16 +32,37 @@
 
 ## CREDENCIAIS / CONFIGURAÇÕES DE AMBIENTE
 
-### P2 — Omnichannel
-- [ ] **META_WEBHOOK_VERIFY_TOKEN** — token para verificação do webhook Meta (Instagram/Messenger)
-- [ ] **META_PAGE_ACCESS_TOKEN** — token de acesso à página Meta
-- [ ] **FACEBOOK_APP_SECRET** — para validação de assinatura dos webhooks Meta
-- [ ] **SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS** — para envio de e-mail via nodemailer
-- [ ] **EMAIL_WEBHOOK_SECRET** — bearer token para o webhook de e-mail inbound
+> **RECLASSIFICADO 2026-08-24 (correção de arquitetura do Lucas):** Astrum é SaaS
+> multi-tenant — cada ISP assinante configura as PRÓPRIAS credenciais (IA, SMTP,
+> assinatura digital) via Configurações → Integrações depois que assina, não é a
+> Astrum quem fornece/paga essas contas. Os itens abaixo deixam de ser "aguarda
+> Lucas conseguir a credencial" e viram "self-service, cada tenant resolve a sua".
+> As envs globais (`OPENAI_API_KEY`, `SMTP_*`, `CLICKSIGN_API_KEY` etc.) continuam
+> existindo só como FALLBACK (ex.: trial sem chave própria ainda, ou uso interno
+> da Astrum) — ver `astrum-saas-byok-multitenant` na memória do Claude Code.
 
-### P3 — Contrato digital
-- [ ] **CLICKSIGN_API_KEY** — para envio de contratos via Clicksign *(prioridade)*
-- [ ] **D4SIGN_API_KEY** — alternativa ao Clicksign (D4Sign)
+### P2 — Omnichannel
+- [x] **OpenAI/Gemini/Anthropic — BYOK por tenant CORRIGIDO (2026-08-24).** Achado:
+  a Settings UI já tinha campo pra cada tenant colar a própria chave (cifrada em
+  `tenants.integration_keys`), mas o motor de IA (`model-router.ts`) nunca lia
+  essa coluna — sempre usava a env global da Astrum, mesmo com o tenant
+  configurando a própria. Corrigido: `getModel`/`withFailover` resolvem a chave do
+  tenant 1x por chamada (`resolveTenantAiKeys`), prioridade sobre o env global.
+  Bônus: os botões Salvar Gemini/Anthropic também estavam gravando em texto puro
+  direto do browser na coluna errada (`tenants.integrations`, não
+  `tenants.integration_keys`) — corrigido pra usar a mesma rota cifrada do OpenAI.
+- [x] **SMTP — BYOK por tenant CONSTRUÍDO (2026-08-24).** Não existia UI nem
+  leitura por tenant — `email.adapter.ts` só lia `SMTP_*` global. Criado
+  `resolveTenantSmtpConfig` + card "E-mail (SMTP)" em Configurações →
+  Integrações (host/porta/usuário/senha/remetente, senha cifrada).
+- [x] **Clicksign/D4Sign — BYOK por tenant CONSTRUÍDO (2026-08-24).** Idem SMTP:
+  `contract.service.ts` só lia env global. Criado `resolveTenantContractKeys` +
+  cards Clicksign/D4Sign (categoria nova "Contrato").
+- [ ] **META_WEBHOOK_VERIFY_TOKEN** / **FACEBOOK_APP_SECRET** — ficam globais de
+  propósito (são do App Meta da própria Astrum, Tech Provider — não por tenant).
+  `page_access_token` (por página conectada) já é por tenant desde antes
+  (`tenant_meta_pages`), isso já estava certo.
+- [ ] **EMAIL_WEBHOOK_SECRET** — bearer token para o webhook de e-mail inbound (global, é do endpoint da Astrum, não por tenant)
 
 ---
 
@@ -233,7 +254,9 @@
   quando pelo menos um provider tiver fôlego — **ação do Lucas:** crédito OpenAI
   (`platform.openai.com/settings/organization/billing`) resolve de vez; sem isso, só
   rodar o smoke-test fora de rajada (poucos pares, espaçados) já deve passar pelo
-  Gemini sozinho.
+  Gemini sozinho. **Nota 2026-08-24:** isso vale pro smoke-test interno da Astrum
+  (conta própria de dev/teste); em produção, cada tenant paga a própria conta de
+  IA (BYOK, ver seção "Credenciais" acima) — não é mais um bloqueio de produto.
 - [x] **Gap técnico RESOLVIDO (verificado 2026-08-23):** `createReplayWorker()`
   (`packages/queue/src/workers/replay.worker.ts`) já está importado e chamado
   incondicionalmente no boot (`apps/api/src/server.ts:749-750`), com `setupDLQ`+Sentry, gate

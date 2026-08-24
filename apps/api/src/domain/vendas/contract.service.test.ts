@@ -1,4 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { encryptString } from '../../adapters/erp/credential-cipher';
+
+// sendContract resolve a chave via resolveTenantContractKeys → tenant-keys.ts →
+// Supabase. Sem tenant configurado (caso default aqui), cai pro env global —
+// preserva o comportamento dos testes existentes, que testam só a env.
+let storedIntegrationKeys: Record<string, string> | null = null;
+vi.mock('../../infrastructure/database/supabase.client', () => ({
+  default: {
+    from: vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn(async () => ({ data: storedIntegrationKeys ? { integration_keys: storedIntegrationKeys } : null })),
+    })),
+  },
+}));
+
 import { sendContract, type ContractRequest, type ContractHttpClient } from './contract.service';
 
 const BASE_REQ: ContractRequest = {
@@ -14,7 +30,27 @@ const BASE_REQ: ContractRequest = {
 };
 
 describe('sendContract', () => {
+  beforeEach(() => {
+    storedIntegrationKeys = null;
+    process.env.ERP_CRED_KEY = '0'.repeat(64);
+  });
   afterEach(() => vi.unstubAllEnvs());
+
+  it('SaaS multi-tenant: chave do tenant tem prioridade sobre o env global', async () => {
+    vi.stubEnv('CLICKSIGN_API_KEY', 'cs-global-astrum');
+    storedIntegrationKeys = { clicksignApiKey: encryptString('cs-proprio-do-tenant') };
+
+    const fakeHttp: ContractHttpClient = {
+      post: vi.fn().mockResolvedValue({ ok: true, data: { document: { key: 'doc-1' } } }),
+    };
+    await sendContract(BASE_REQ, fakeHttp);
+
+    expect(fakeHttp.post).toHaveBeenCalledWith(
+      expect.stringContaining('access_token=cs-proprio-do-tenant'),
+      expect.any(Object),
+      {},
+    );
+  });
 
   it('retorna pending_signature quando nenhuma chave configurada', async () => {
     vi.stubEnv('CLICKSIGN_API_KEY', '');

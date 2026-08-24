@@ -326,7 +326,7 @@ export class VercelAIService {
     // se o modelo cair no meio do stream, o cliente recebe o erro honesto
     // (regra de UX: nunca trocar de modelo depois do 1º token).
     const useMini = isModelCascadeEnabled() && opts?.tier === 'mini';
-    const selectedModel = await getModel(useMini ? 'mini' : 'full');
+    const selectedModel = await getModel(useMini ? 'mini' : 'full', tenantId);
     // IA-19: o caller (nodeGenerate) injeta o subconjunto habilitado por tenant
     // (default = catálogo completo se nenhum for passado).
     const tools = (opts?.tools ?? agentTools) as any;

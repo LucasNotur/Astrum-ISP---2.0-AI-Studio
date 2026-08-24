@@ -47,6 +47,21 @@ describe('mergeAndEncryptIntegrationKeys', () => {
     expect(looksEncrypted(merged.evolutionUrl)).toBe(false);
   });
 
+  it('(f) novos campos secretos (IA/SMTP/assinatura) também saem cifrados', () => {
+    const merged = mergeAndEncryptIntegrationKeys({}, {
+      geminiApiKey: 'AIza-1',
+      anthropicApiKey: 'sk-ant-1',
+      smtpPass: 'senha-smtp',
+      clicksignApiKey: 'ck-1',
+      d4signApiKey: 'd4-1',
+    });
+    for (const field of ['geminiApiKey', 'anthropicApiKey', 'smtpPass', 'clicksignApiKey', 'd4signApiKey'] as const) {
+      expect(looksEncrypted(merged[field])).toBe(true);
+    }
+    expect(decryptString(merged.geminiApiKey)).toBe('AIza-1');
+    expect(decryptString(merged.smtpPass)).toBe('senha-smtp');
+  });
+
   it('merge mantém os demais campos do existing', () => {
     const existing = { evolutionUrl: 'http://evo', whatsappInstances: '[]', evolutionApiKey: 'old-plain' };
     const merged = mergeAndEncryptIntegrationKeys(existing, { openaiApiKey: 'sk-new' });
@@ -58,23 +73,32 @@ describe('mergeAndEncryptIntegrationKeys', () => {
   });
 });
 
+const ALL_FALSE = {
+  openaiApiKey: false,
+  evolutionApiKey: false,
+  geminiApiKey: false,
+  anthropicApiKey: false,
+  smtpPass: false,
+  clicksignApiKey: false,
+  d4signApiKey: false,
+};
+
 describe('computeSecretsStatus', () => {
   it('(e) true quando o campo tem qualquer valor (cifrado ou não)', () => {
-    expect(computeSecretsStatus({ openaiApiKey: 'sk-123' })).toEqual({
-      openaiApiKey: true,
-      evolutionApiKey: false,
-    });
+    expect(computeSecretsStatus({ openaiApiKey: 'sk-123' })).toEqual({ ...ALL_FALSE, openaiApiKey: true });
     expect(computeSecretsStatus({ evolutionApiKey: 'iv==:tag==:data==' })).toEqual({
-      openaiApiKey: false,
+      ...ALL_FALSE,
       evolutionApiKey: true,
+    });
+    expect(computeSecretsStatus({ smtpPass: 'sk-smtp', clicksignApiKey: 'ck-1' })).toEqual({
+      ...ALL_FALSE,
+      smtpPass: true,
+      clicksignApiKey: true,
     });
   });
 
   it('(e) false quando ausente/vazio', () => {
-    expect(computeSecretsStatus({})).toEqual({ openaiApiKey: false, evolutionApiKey: false });
-    expect(computeSecretsStatus({ openaiApiKey: '', evolutionApiKey: '' })).toEqual({
-      openaiApiKey: false,
-      evolutionApiKey: false,
-    });
+    expect(computeSecretsStatus({})).toEqual(ALL_FALSE);
+    expect(computeSecretsStatus({ openaiApiKey: '', evolutionApiKey: '' })).toEqual(ALL_FALSE);
   });
 });

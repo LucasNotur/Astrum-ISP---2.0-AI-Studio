@@ -15,6 +15,13 @@ vi.mock('@ai-sdk/openai', () => ({
   createOpenAI: vi.fn(() => vi.fn(() => ({}))),
 }));
 
+// model-router resolve chave própria do tenant via tenant-keys.ts (Supabase) — sem
+// mock aqui, os testes deste arquivo cairiam num client real. Tenant sem chave própria
+// configurada → puro fallback pro env global (mesmo comportamento de antes da SaaS BYOK).
+vi.mock('../../lib/tenant-keys', () => ({
+  resolveTenantAiKeys: vi.fn(async () => ({})),
+}));
+
 describe('VercelAIService — Structured Outputs', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 

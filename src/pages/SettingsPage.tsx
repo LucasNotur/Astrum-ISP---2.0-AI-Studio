@@ -634,20 +634,28 @@ export function SettingsPage() {
   // SEC-R5 — status dos 2 segredos de integração (openaiApiKey/evolutionApiKey) sem
   // vazar o valor: o backend só diz se estão configurados. Os inputs não pré-preenchem
   // o segredo (que agora fica cifrado no banco); para trocar, digite um novo.
-  const [secretsConfigured, setSecretsConfigured] = useState<{ openaiApiKey: boolean; evolutionApiKey: boolean }>({
-    openaiApiKey: false,
-    evolutionApiKey: false,
-  });
+  type IntegrationSecretsStatus = {
+    openaiApiKey: boolean; evolutionApiKey: boolean; geminiApiKey: boolean; anthropicApiKey: boolean;
+    smtpPass: boolean; clicksignApiKey: boolean; d4signApiKey: boolean;
+  };
+  const SECRETS_STATUS_DEFAULT: IntegrationSecretsStatus = {
+    openaiApiKey: false, evolutionApiKey: false, geminiApiKey: false, anthropicApiKey: false,
+    smtpPass: false, clicksignApiKey: false, d4signApiKey: false,
+  };
+  const [secretsConfigured, setSecretsConfigured] = useState<IntegrationSecretsStatus>(SECRETS_STATUS_DEFAULT);
   const [openaiApiKeyInput, setOpenaiApiKeyInput] = useState('');
   const [evolutionApiKeyInput, setEvolutionApiKeyInput] = useState('');
+  const [geminiApiKeyInput, setGeminiApiKeyInput] = useState('');
+  const [anthropicApiKeyInput, setAnthropicApiKeyInput] = useState('');
+  const [smtpPassInput, setSmtpPassInput] = useState('');
+  const [clicksignApiKeyInput, setClicksignApiKeyInput] = useState('');
+  const [d4signApiKeyInput, setD4signApiKeyInput] = useState('');
 
   const fetchIntegrationSecretsStatus = async () => {
     try {
-      const data = await apiGet<{ openaiApiKey: boolean; evolutionApiKey: boolean }>(
-        '/api/v2/settings/integration-keys/status',
-      );
+      const data = await apiGet<IntegrationSecretsStatus>('/api/v2/settings/integration-keys/status');
       setSecretsConfigured(data);
-    } catch { /* sem permissão ou erro — deixa os dois false */ }
+    } catch { /* sem permissão ou erro — deixa tudo false */ }
   };
 
   useEffect(() => {
@@ -912,13 +920,16 @@ export function SettingsPage() {
       { id: 'hubspotcrm', name: 'HubSpot', category: 'CRM', desc: 'Integração de funil e pipeline HubSpot CRM.', status: integrationKeys.hubspotToken ? 'Conectado' : 'Disponível', logo: '🧡' },
       { id: 'asaas', name: 'Asaas', category: 'Pagamentos', desc: 'Geração de boletos e Pix Asaas.', status: integrationKeys.asaasToken ? 'Conectado' : 'Disponível', logo: '💸' },
       { id: 'gerencianet', name: 'Gerencianet', category: 'Pagamentos', desc: 'Emissão de cobranças (Efí).', status: integrationKeys.gerencianetClientId ? 'Conectado' : 'Disponível', logo: '💳' },
-      { id: 'openai', name: 'OpenAI', category: 'IA', desc: 'Modelos GPT-4 e processamento de linguagem.', status: integrationKeys.openaiApiKey ? 'Conectado' : 'Disponível', logo: '🧠' },
-      { id: 'gemini', name: 'Google Gemini', category: 'IA', desc: 'Integração nativa com IA Gemini.', status: integrationKeys.geminiApiKey ? 'Conectado' : 'Disponível', logo: '✨' },
-      { id: 'anthropic', name: 'Anthropic Claude', category: 'IA', desc: 'Integração com Claude 3.', status: integrationKeys.anthropicApiKey ? 'Conectado' : 'Disponível', logo: '🤖' },
+      { id: 'openai', name: 'OpenAI', category: 'IA', desc: 'Modelos GPT-4 e processamento de linguagem. Sua própria chave — sua própria conta, seu próprio custo.', status: secretsConfigured.openaiApiKey ? 'Conectado' : 'Disponível', logo: '🧠' },
+      { id: 'gemini', name: 'Google Gemini', category: 'IA', desc: 'Integração nativa com IA Gemini. Sua própria chave.', status: secretsConfigured.geminiApiKey ? 'Conectado' : 'Disponível', logo: '✨' },
+      { id: 'anthropic', name: 'Anthropic Claude', category: 'IA', desc: 'Integração com Claude. Sua própria chave.', status: secretsConfigured.anthropicApiKey ? 'Conectado' : 'Disponível', logo: '🤖' },
       { id: 'qdrant', name: 'Qdrant (Vector DB)', category: 'IA', desc: 'Banco de dados vetorial para Retrieval.', status: vectorConfig?.url ? 'Conectado' : 'Disponível', logo: '📊' },
       { id: 'evolution', name: 'Evolution API', category: 'Comunicação', desc: 'Gateway para comunicação WhatsApp.', status: integrationKeys.evolutionUrl ? 'Conectado' : 'Disponível', logo: '💬' },
       { id: 'instagram', name: 'Instagram', category: 'Comunicação', desc: 'Integração com Instagram Direct.', status: integrationKeys.instagramToken ? 'Conectado' : 'Disponível', logo: '📸' },
-      { id: 'facebook', name: 'Facebook', category: 'Comunicação', desc: 'Integração com Messenger.', status: integrationKeys.facebookToken ? 'Conectado' : 'Disponível', logo: '👍' }
+      { id: 'facebook', name: 'Facebook', category: 'Comunicação', desc: 'Integração com Messenger.', status: integrationKeys.facebookToken ? 'Conectado' : 'Disponível', logo: '👍' },
+      { id: 'smtp', name: 'E-mail (SMTP)', category: 'Comunicação', desc: 'Envio de e-mail (canal de atendimento e faturas) pelo seu próprio servidor SMTP.', status: secretsConfigured.smtpPass ? 'Conectado' : 'Disponível', logo: '✉️' },
+      { id: 'clicksign', name: 'Clicksign', category: 'Contrato', desc: 'Assinatura digital de contratos via Clicksign.', status: secretsConfigured.clicksignApiKey ? 'Conectado' : 'Disponível', logo: '✍️' },
+      { id: 'd4sign', name: 'D4Sign', category: 'Contrato', desc: 'Assinatura digital de contratos via D4Sign.', status: secretsConfigured.d4signApiKey ? 'Conectado' : 'Disponível', logo: '📝' }
     ];
 
     const getStatusBadge = (status: string) => {
@@ -935,6 +946,7 @@ export function SettingsPage() {
         case 'Pagamentos': return 'bg-astrum-signal/10 text-astrum-signal md:border md:border-astrum-signal/20';
         case 'IA': return 'bg-astrum-lemon/10 text-astrum-lemon md:border md:border-astrum-lemon/20';
         case 'Comunicação': return 'bg-pink-50 text-pink-600 dark:bg-pink-900/20 md:border md:border-pink-100 dark:border-pink-900/30';
+        case 'Contrato': return 'bg-violet-50 text-violet-600 dark:bg-violet-900/20 md:border md:border-violet-100 dark:border-violet-900/30';
         default: return 'bg-gray-100 text-gray-700';
       }
     };
@@ -1433,20 +1445,32 @@ export function SettingsPage() {
                   <div className="space-y-4">
                       <div className="grid gap-2">
                         <Label>Google Gemini API Key</Label>
-                        <Input 
-                           type="password" 
-                           placeholder="AIzaSy..." 
-                           value={integrationKeys.geminiApiKey || ''}
-                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, geminiApiKey: e.target.value }))}
+                        <Input
+                           type="password"
+                           placeholder={secretsConfigured.geminiApiKey ? '••••••••  (configurado — digite para trocar)' : 'Cole sua Gemini API Key (AIzaSy...)'}
+                           value={geminiApiKeyInput}
+                           onChange={(e) => setGeminiApiKeyInput(e.target.value)}
                         />
+                        {secretsConfigured.geminiApiKey && (
+                          <span className="text-xs text-emerald-500">✓ Configurado</span>
+                        )}
                       </div>
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
-                           toast.success('Configurações salvas!');
-                           setIsSavingKeys(false);
-                           setSelectedIntegrationMenu(null);
+                           try {
+                             const keys: Record<string, string> = {};
+                             if (geminiApiKeyInput.trim()) keys.geminiApiKey = geminiApiKeyInput.trim();
+                             await apiPut('/api/v2/settings/integration-keys', { keys });
+                             toast.success('Configurações salvas!');
+                             setGeminiApiKeyInput('');
+                             fetchIntegrationSecretsStatus();
+                           } catch (e: any) {
+                             toast.error(`Erro ao salvar: ${e.message}`);
+                           } finally {
+                             setIsSavingKeys(false);
+                             setSelectedIntegrationMenu(null);
+                           }
                         }}>Salvar Gemini</Button>
                       </div>
                   </div>
@@ -1456,21 +1480,177 @@ export function SettingsPage() {
                   <div className="space-y-4">
                       <div className="grid gap-2">
                         <Label>Anthropic API Key</Label>
-                        <Input 
-                           type="password" 
-                           placeholder="sk-ant-..." 
-                           value={integrationKeys.anthropicApiKey || ''}
-                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, anthropicApiKey: e.target.value }))}
+                        <Input
+                           type="password"
+                           placeholder={secretsConfigured.anthropicApiKey ? '••••••••  (configurado — digite para trocar)' : 'Cole sua Anthropic API Key (sk-ant-...)'}
+                           value={anthropicApiKeyInput}
+                           onChange={(e) => setAnthropicApiKeyInput(e.target.value)}
                         />
+                        {secretsConfigured.anthropicApiKey && (
+                          <span className="text-xs text-emerald-500">✓ Configurado</span>
+                        )}
                       </div>
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
-                           toast.success('Configurações salvas!');
-                           setIsSavingKeys(false);
-                           setSelectedIntegrationMenu(null);
+                           try {
+                             const keys: Record<string, string> = {};
+                             if (anthropicApiKeyInput.trim()) keys.anthropicApiKey = anthropicApiKeyInput.trim();
+                             await apiPut('/api/v2/settings/integration-keys', { keys });
+                             toast.success('Configurações salvas!');
+                             setAnthropicApiKeyInput('');
+                             fetchIntegrationSecretsStatus();
+                           } catch (e: any) {
+                             toast.error(`Erro ao salvar: ${e.message}`);
+                           } finally {
+                             setIsSavingKeys(false);
+                             setSelectedIntegrationMenu(null);
+                           }
                         }}>Salvar Anthropic</Button>
+                      </div>
+                  </div>
+              )}
+
+              {selectedIntegrationMenu === 'smtp' && (
+                  <div className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label>Host SMTP</Label>
+                        <Input
+                           placeholder="smtp.seudominio.com.br"
+                           value={integrationKeys.smtpHost || ''}
+                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, smtpHost: e.target.value }))}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                          <Label>Porta</Label>
+                          <Input
+                             placeholder="587"
+                             value={integrationKeys.smtpPort || ''}
+                             onChange={(e) => setIntegrationKeys(prev => ({ ...prev, smtpPort: e.target.value }))}
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>Remetente (From)</Label>
+                          <Input
+                             placeholder="contato@seudominio.com.br"
+                             value={integrationKeys.smtpFrom || ''}
+                             onChange={(e) => setIntegrationKeys(prev => ({ ...prev, smtpFrom: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>Usuário</Label>
+                        <Input
+                           placeholder="usuario@seudominio.com.br"
+                           value={integrationKeys.smtpUser || ''}
+                           onChange={(e) => setIntegrationKeys(prev => ({ ...prev, smtpUser: e.target.value }))}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>Senha</Label>
+                        <Input
+                           type="password"
+                           placeholder={secretsConfigured.smtpPass ? '••••••••  (configurado — digite para trocar)' : 'Senha ou app password do SMTP'}
+                           value={smtpPassInput}
+                           onChange={(e) => setSmtpPassInput(e.target.value)}
+                        />
+                        {secretsConfigured.smtpPass && (
+                          <span className="text-xs text-emerald-500">✓ Configurado</span>
+                        )}
+                      </div>
+                      <div className="pt-4 flex gap-2">
+                        <Button onClick={async () => {
+                           setIsSavingKeys(true);
+                           try {
+                             const keys: Record<string, string> = {
+                               smtpHost: integrationKeys.smtpHost || '',
+                               smtpPort: integrationKeys.smtpPort || '',
+                               smtpUser: integrationKeys.smtpUser || '',
+                               smtpFrom: integrationKeys.smtpFrom || '',
+                             };
+                             if (smtpPassInput.trim()) keys.smtpPass = smtpPassInput.trim();
+                             await apiPut('/api/v2/settings/integration-keys', { keys });
+                             toast.success('Configurações salvas!');
+                             setSmtpPassInput('');
+                             fetchIntegrationSecretsStatus();
+                           } catch (e: any) {
+                             toast.error(`Erro ao salvar: ${e.message}`);
+                           } finally {
+                             setIsSavingKeys(false);
+                             setSelectedIntegrationMenu(null);
+                           }
+                        }}>Salvar SMTP</Button>
+                      </div>
+                  </div>
+              )}
+
+              {selectedIntegrationMenu === 'clicksign' && (
+                  <div className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label>Clicksign API Key</Label>
+                        <Input
+                           type="password"
+                           placeholder={secretsConfigured.clicksignApiKey ? '••••••••  (configurado — digite para trocar)' : 'Cole sua API Key da Clicksign'}
+                           value={clicksignApiKeyInput}
+                           onChange={(e) => setClicksignApiKeyInput(e.target.value)}
+                        />
+                        {secretsConfigured.clicksignApiKey && (
+                          <span className="text-xs text-emerald-500">✓ Configurado</span>
+                        )}
+                      </div>
+                      <div className="pt-4 flex gap-2">
+                        <Button onClick={async () => {
+                           setIsSavingKeys(true);
+                           try {
+                             const keys: Record<string, string> = {};
+                             if (clicksignApiKeyInput.trim()) keys.clicksignApiKey = clicksignApiKeyInput.trim();
+                             await apiPut('/api/v2/settings/integration-keys', { keys });
+                             toast.success('Configurações salvas!');
+                             setClicksignApiKeyInput('');
+                             fetchIntegrationSecretsStatus();
+                           } catch (e: any) {
+                             toast.error(`Erro ao salvar: ${e.message}`);
+                           } finally {
+                             setIsSavingKeys(false);
+                             setSelectedIntegrationMenu(null);
+                           }
+                        }}>Salvar Clicksign</Button>
+                      </div>
+                  </div>
+              )}
+
+              {selectedIntegrationMenu === 'd4sign' && (
+                  <div className="space-y-4">
+                      <div className="grid gap-2">
+                        <Label>D4Sign API Key</Label>
+                        <Input
+                           type="password"
+                           placeholder={secretsConfigured.d4signApiKey ? '••••••••  (configurado — digite para trocar)' : 'Cole sua API Key da D4Sign'}
+                           value={d4signApiKeyInput}
+                           onChange={(e) => setD4signApiKeyInput(e.target.value)}
+                        />
+                        {secretsConfigured.d4signApiKey && (
+                          <span className="text-xs text-emerald-500">✓ Configurado</span>
+                        )}
+                      </div>
+                      <div className="pt-4 flex gap-2">
+                        <Button onClick={async () => {
+                           setIsSavingKeys(true);
+                           try {
+                             const keys: Record<string, string> = {};
+                             if (d4signApiKeyInput.trim()) keys.d4signApiKey = d4signApiKeyInput.trim();
+                             await apiPut('/api/v2/settings/integration-keys', { keys });
+                             toast.success('Configurações salvas!');
+                             setD4signApiKeyInput('');
+                             fetchIntegrationSecretsStatus();
+                           } catch (e: any) {
+                             toast.error(`Erro ao salvar: ${e.message}`);
+                           } finally {
+                             setIsSavingKeys(false);
+                             setSelectedIntegrationMenu(null);
+                           }
+                        }}>Salvar D4Sign</Button>
                       </div>
                   </div>
               )}

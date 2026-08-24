@@ -98,6 +98,14 @@ vi.mock('../../../infrastructure/logging/logger', () => ({
   },
 }));
 
+// Default: tenant não configurou chave própria → puro fallback pro env global
+// (comportamento pré-existente, preservado). Testes de prioridade tenant>env
+// sobrescrevem este mock pontualmente.
+const resolveTenantAiKeysMock = vi.fn(async () => ({}));
+vi.mock('../../../lib/tenant-keys', () => ({
+  resolveTenantAiKeys: (...args: unknown[]) => resolveTenantAiKeysMock(...args),
+}));
+
 import {
   getModel,
   withFailover,
@@ -264,6 +272,66 @@ describe('getModel — flag on', () => {
     redisStore.set('llm_circuit:recent_open:openai', { value: '1', expiresAt: null });
     const m = await getModel('mini');
     expect((m as any).provider).toBe('openai');
+  });
+});
+
+describe('getModel — chave própria do tenant (SaaS multi-tenant)', () => {
+  it('flag off: tenant com chave própria usa a chave do tenant, não a global', async () => {
+    process.env.OPENAI_API_KEY = 'sk-astrum-global';
+    resolveTenantAiKeysMock.mockResolvedValueOnce({ openai: 'sk-tenant-proprio' });
+    await getModel('full', 'tenant-42');
+    expect(createOpenAIMock).toHaveBeenCalledWith({ apiKey: 'sk-tenant-proprio' });
+  });
+
+  it('flag off: tenant sem chave própria cai para a global (comportamento anterior)', async () => {
+    process.env.OPENAI_API_KEY = 'sk-astrum-global';
+    resolveTenantAiKeysMock.mockResolvedValueOnce({});
+    await getModel('full', 'tenant-42');
+    expect(createOpenAIMock).toHaveBeenCalledWith({ apiKey: 'sk-astrum-global' });
+  });
+
+  it('tenantId="unknown" (default) nunca consulta o resolver — só env global', async () => {
+    process.env.OPENAI_API_KEY = 'sk-astrum-global';
+    await getModel('full');
+    expect(resolveTenantAiKeysMock).not.toHaveBeenCalled();
+    expect(createOpenAIMock).toHaveBeenCalledWith({ apiKey: 'sk-astrum-global' });
+  });
+
+  it('flag on: chave do tenant participa da escolha de ordem (provider que só o tenant tem key)', async () => {
+    process.env.PROVIDER_FAILOVER_ENABLED = 'true';
+    process.env.PROVIDER_ORDER = 'anthropic,openai';
+    process.env.OPENAI_API_KEY = 'sk-astrum-global';
+    // sem ANTHROPIC_API_KEY global — só o tenant tem
+    resolveTenantAiKeysMock.mockResolvedValueOnce({ anthropic: 'sk-ant-tenant' });
+    const m = await getModel('full', 'tenant-42');
+    expect((m as any).provider).toBe('anthropic');
+    expect(createAnthropicMock).toHaveBeenCalledWith({ apiKey: 'sk-ant-tenant' });
+  });
+});
+
+describe('withFailover — chave própria do tenant (SaaS multi-tenant)', () => {
+  beforeEach(() => {
+    process.env.PROVIDER_FAILOVER_ENABLED = 'true';
+  });
+
+  it('usa a chave do tenant em vez da global quando o tenant configurou a própria', async () => {
+    process.env.PROVIDER_ORDER = 'openai';
+    process.env.OPENAI_API_KEY = 'sk-astrum-global';
+    resolveTenantAiKeysMock.mockResolvedValueOnce({ openai: 'sk-tenant-proprio' });
+    const fn = vi.fn(async () => 'ok');
+    await withFailover('full', fn, 'tenant-42');
+    expect(createOpenAIMock).toHaveBeenCalledWith({ apiKey: 'sk-tenant-proprio' });
+  });
+
+  it('resolve a chave do tenant 1x só (não 1x por provider testado no loop)', async () => {
+    process.env.PROVIDER_ORDER = 'openai,anthropic,google';
+    process.env.OPENAI_API_KEY = 'sk-1';
+    process.env.ANTHROPIC_API_KEY = 'ant-1';
+    process.env.GOOGLE_API_KEY = 'goog-1';
+    resolveTenantAiKeysMock.mockResolvedValueOnce({});
+    const fn = vi.fn(async (m: any) => m.provider);
+    await withFailover('full', fn, 'tenant-42');
+    expect(resolveTenantAiKeysMock).toHaveBeenCalledTimes(1);
   });
 });
 

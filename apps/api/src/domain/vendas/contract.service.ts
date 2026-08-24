@@ -2,10 +2,14 @@
  * P3-03 — Contrato digital.
  *
  * Envia o contrato para assinatura via Clicksign ou D4Sign.
- * Fail-open: sem CLICKSIGN_API_KEY/D4SIGN_API_KEY configura `contract_status = 'pending_signature'`
+ * SaaS multi-tenant: prioriza a chave que o próprio ISP configurar em
+ * Configurações → Integrações (`resolveTenantContractKeys`); sem chave própria,
+ * cai para CLICKSIGN_API_KEY/D4SIGN_API_KEY (env global da Astrum).
+ * Fail-open: sem nenhuma das duas, configura `contract_status = 'pending_signature'`
  * e retorna sem erro — o operador acompanha pelo painel do provedor de assinatura.
  */
 import { infraLogger } from '../../infrastructure/logging/logger';
+import { resolveTenantContractKeys } from '../../lib/tenant-keys';
 
 export type ContractProvider = 'clicksign' | 'd4sign' | 'none';
 
@@ -52,8 +56,9 @@ export async function sendContract(
   req: ContractRequest,
   http: ContractHttpClient = defaultHttp,
 ): Promise<ContractResult> {
-  const clicksignKey = process.env.CLICKSIGN_API_KEY;
-  const d4signKey = process.env.D4SIGN_API_KEY;
+  const tenantKeys = await resolveTenantContractKeys(req.tenantId);
+  const clicksignKey = tenantKeys.clicksignApiKey;
+  const d4signKey = tenantKeys.d4signApiKey;
 
   if (clicksignKey) return sendViaClicksign(req, clicksignKey, http);
   if (d4signKey) return sendViaD4sign(req, d4signKey, http);

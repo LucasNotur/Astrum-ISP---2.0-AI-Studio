@@ -73,7 +73,7 @@ export async function sendChannelResponse(opts: SendChannelResponseOpts): Promis
         subject: opts.subject ?? 'Resposta da Astrum',
         text: content,
         inReplyTo: opts.inReplyTo,
-      });
+      }, tenantId);
       atendimentoLogger.info({ tenantId, conversationId, to: recipientId }, 'Resposta e-mail enviada');
       break;
     }

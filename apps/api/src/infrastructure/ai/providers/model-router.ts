@@ -25,6 +25,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { redis } from '../../cache/redis.client';
 import { iaLogger } from '../../logging/logger';
 import { assertLlmBudget, recordLlmUsage } from '../llm-budget.service';
+import { resolveTenantAiKeys, type TenantAiKeys } from '../../../lib/tenant-keys';
 
 /** Extrai o total de tokens de um resultado do AI SDK (v6 ou legado), 0 se ausente. */
 function tokensOf(result: unknown): number {
@@ -49,12 +50,19 @@ export const TIER_MODELS: Record<ProviderName, Record<Tier, string>> = {
   google:    { mini: 'gemini-3.6-flash',          full: 'gemini-3.6-pro' },
 };
 
-// portado de src/ai-provider/ai-provider.service.ts:21 (key resolution)
-export function getProviderApiKey(provider: ProviderName): string | undefined {
-  if (provider === 'openai') return process.env.OPENAI_API_KEY;
-  if (provider === 'anthropic') return process.env.ANTHROPIC_API_KEY;
+/**
+ * portado de src/ai-provider/ai-provider.service.ts:21 (key resolution)
+ *
+ * SaaS multi-tenant: cada ISP é responsável pela própria conta/custo de IA.
+ * `tenantKeys` (resolvido 1x por chamada via `resolveTenantAiKeys`, ver
+ * `withFailover`/`getModel`) tem prioridade; sem chave própria do tenant,
+ * cai para a env global da Astrum (comportamento anterior, preservado).
+ */
+export function getProviderApiKey(provider: ProviderName, tenantKeys?: TenantAiKeys): string | undefined {
+  if (provider === 'openai') return tenantKeys?.openai || process.env.OPENAI_API_KEY;
+  if (provider === 'anthropic') return tenantKeys?.anthropic || process.env.ANTHROPIC_API_KEY;
   // google e gemini compartilham o mesmo cliente AI SDK
-  return process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+  return tenantKeys?.google || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
 }
 
 export function isFailoverEnabled(): boolean {
@@ -72,9 +80,9 @@ export function resolveProviderOrder(): ProviderName[] {
     .filter((p): p is ProviderName => all.includes(p as ProviderName));
 }
 
-function buildLanguageModel(provider: ProviderName, tier: Tier): LanguageModel {
+function buildLanguageModel(provider: ProviderName, tier: Tier, tenantKeys?: TenantAiKeys): LanguageModel {
   const modelId = TIER_MODELS[provider][tier];
-  const apiKey = getProviderApiKey(provider);
+  const apiKey = getProviderApiKey(provider, tenantKeys);
   // Cria o provider explicitamente com a key resolvida por getProviderApiKey() em vez
   // de usar a instância default (openai/anthropic/google) e confiar no lookup implícito
   // de env var de cada SDK — cada pacote usa seu próprio nome por convenção (ex.:
@@ -85,6 +93,17 @@ function buildLanguageModel(provider: ProviderName, tier: Tier): LanguageModel {
   if (provider === 'openai') return createOpenAI({ apiKey })(modelId);
   if (provider === 'anthropic') return createAnthropic({ apiKey })(modelId);
   return createGoogleGenerativeAI({ apiKey })(modelId);
+}
+
+/**
+ * Resolve as chaves de IA do tenant 1x por chamada (evita 1 query por provider
+ * testado no loop de failover). `tenantId==='unknown'` (callers que não passam
+ * tenant, ex.: contexto de teste/sistema) pula a query — sempre env global.
+ * Fail-open: `resolveTenantAiKeys` já não lança (ver tenant-keys.ts).
+ */
+async function resolveTenantKeysForRouter(tenantId: string): Promise<TenantAiKeys> {
+  if (tenantId === 'unknown') return {};
+  return resolveTenantAiKeys(tenantId);
 }
 
 // portado de src/ai-provider/ai-provider.service.ts:56-64
@@ -212,27 +231,31 @@ export function isRetryableError(err: unknown): boolean {
  * uma key presente mas sem crédito (ex.: OpenAI zerada) nunca era pulada —
  * getModel() sempre devolvia openai primeiro, e toda geração de resposta
  * (streamWithTools) falhava 100%, mesmo com Gemini saudável no PROVIDER_ORDER.
+ *
+ * `tenantId`: chave própria do tenant (Configurações → Integrações) tem
+ * prioridade sobre a env global da Astrum — cada ISP paga a própria conta de IA.
  */
-export async function getModel(tier: Tier): Promise<LanguageModel> {
+export async function getModel(tier: Tier, tenantId: string = 'unknown'): Promise<LanguageModel> {
+  const tenantKeys = await resolveTenantKeysForRouter(tenantId);
   if (!isFailoverEnabled()) {
-    return buildLanguageModel('openai', tier);
+    return buildLanguageModel('openai', tier, tenantKeys);
   }
   const order = resolveProviderOrder();
   let firstWithKey: ProviderName | null = null;
   for (const p of order) {
-    if (!getProviderApiKey(p)) continue;
+    if (!getProviderApiKey(p, tenantKeys)) continue;
     if (firstWithKey === null) firstWithKey = p;
     const state = await getCircuitState(p);
     if (state === 'open') {
       iaLogger.info({ event: 'provider_skipped_circuit_open_static', provider: p }, 'model-router: getModel pulando provider com circuito aberto');
       continue;
     }
-    return buildLanguageModel(p, tier);
+    return buildLanguageModel(p, tier, tenantKeys);
   }
   // Fail-open: nenhum provider elegível (sem key, ou todos com circuito aberto)
   // → primeiro que tinha key (ainda que com circuito aberto) ou openai puro.
-  if (firstWithKey) return buildLanguageModel(firstWithKey, tier);
-  return buildLanguageModel('openai', tier);
+  if (firstWithKey) return buildLanguageModel(firstWithKey, tier, tenantKeys);
+  return buildLanguageModel('openai', tier, tenantKeys);
 }
 
 /**
@@ -259,17 +282,18 @@ export async function withFailover<T>(
 
   if (!isFailoverEnabled()) {
     // Comportamento atual: openai fixo, sem custo de checagem de circuito.
-    const result = await fn(await getModel(tier));
+    const result = await fn(await getModel(tier, tenantId));
     await recordLlmUsage(tenantId, tokensOf(result));
     return result;
   }
 
+  const tenantKeys = await resolveTenantKeysForRouter(tenantId);
   const order = resolveProviderOrder();
   let lastError: unknown = null;
 
   for (let i = 0; i < order.length; i++) {
     const provider = order[i]!;
-    if (!getProviderApiKey(provider)) {
+    if (!getProviderApiKey(provider, tenantKeys)) {
       iaLogger.info({ event: 'provider_skipped_no_key', provider, tenantId }, 'model-router: skip (sem key)');
       continue;
     }
@@ -278,7 +302,7 @@ export async function withFailover<T>(
       iaLogger.info({ event: 'provider_skipped_circuit_open', provider, tenantId }, 'model-router: skip (circuito aberto)');
       continue;
     }
-    const model = buildLanguageModel(provider, tier);
+    const model = buildLanguageModel(provider, tier, tenantKeys);
     try {
       const result = await fn(model);
       await recordCircuitSuccess(provider);
