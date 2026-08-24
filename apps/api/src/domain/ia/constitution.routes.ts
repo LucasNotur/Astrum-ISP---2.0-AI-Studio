@@ -26,7 +26,7 @@ export async function constitutionRoutes(app: FastifyInstance) {
       if (!Array.isArray(principles)) {
         return reply.code(400).send({ error: 'principles deve ser um array' });
       }
-      const userId = (req as any).user?.sub ?? (req as any).user?.id;
+      const userId = (req as any).user?.userId;
       const result = await saveConstitution(tenantId, principles, userId);
       if (!result.ok) return reply.code(400).send({ error: result.error });
       return { ok: true };

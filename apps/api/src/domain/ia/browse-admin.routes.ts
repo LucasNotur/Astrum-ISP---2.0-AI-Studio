@@ -44,7 +44,7 @@ export async function browseAdminRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'Domínio inválido' });
     }
 
-    const userId = (req as any).user?.sub ?? (req as any).user?.id ?? 'unknown';
+    const userId = (req as any).user?.userId ?? 'unknown';
 
     // MT-02(c): escrita RLS por-tenant quando a flag está ligada (pós-096); senão service_role.
     try {

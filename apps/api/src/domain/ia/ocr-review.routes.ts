@@ -56,7 +56,7 @@ export async function ocrReviewRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'action deve ser approve ou correct' });
     }
 
-    const userId = (req as any).user?.sub ?? (req as any).user?.id ?? 'unknown';
+    const userId = (req as any).user?.userId ?? 'unknown';
 
     const update: Record<string, unknown> = {
       review_status: action === 'approve' ? 'approved' : 'corrected',
