@@ -46,12 +46,17 @@
 | Env | Valores | Default | Efeito |
 |---|---|---|---|
 | `COBRAI_ENGINE` | `legacy` \| `v2` | `legacy` | Qual worker de cobrança sobe (R6). Rollback = trocar a env (o worker legado ainda existe e é bootado condicionalmente). |
-| `ATENDIMENTO_ENGINE` | `legacy` \| `v2` | `legacy` no código; `v2` em produção desde 2026-08-17 | Liga/desliga o ENVIO real do motor v2 (`shadow-mode.ts`). **NÃO é mais um rollback pro legado** — a Fase 4 apagou o webhook/worker Express por completo (2026-08-17/18) e o código morto foi limpo em 2026-08-23. Setar `legacy` só põe o v2 em modo sombra (processa, não envia) — não restaura nada antigo. |
 
-Nenhuma das duas engines de um domínio sobe junto com a outra. **Para parar o atendimento
-IA de responder de verdade em produção** (incidente real, não teste), use o freio de
-emergência: `POST /api/v2/atendimento/emergency-stop` ou o painel `/atendimento-emergencia`
-(super_admin) — ver `astrum-rollback-atendimento-quebrado` na memória do Claude Code.
+`ATENDIMENTO_ENGINE` foi **removida do código em 2026-08-23** (Option A da decisão sobre
+o rollback quebrado — ver abaixo): a Fase 4 já tinha apagado o webhook/worker Express por
+completo (2026-08-17/18), então não sobrava uma segunda engine real para a env escolher —
+só um modo-sombra que fingia ser rollback. `getAtendimentoEngine()`/`decideSend()`
+(`engine-flags.ts`, `shadow-mode.ts`) e o campo `isShadow` no job de mensagem foram
+deletados; `message.worker.ts` agora só processa e envia (R5 — sem "legado" de verdade pra
+reverter). **Para parar o atendimento IA de responder de verdade em produção** (incidente
+real, não teste), use o freio de emergência de verdade: `POST
+/api/v2/atendimento/emergency-stop` ou o painel `/atendimento-emergencia` (super_admin) —
+ver `astrum-rollback-atendimento-quebrado` na memória do Claude Code.
 
 ## Estado das frentes de backend (2026-08-23)
 

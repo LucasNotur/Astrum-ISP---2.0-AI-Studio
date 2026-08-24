@@ -2,12 +2,17 @@
  * Engine Flags — controle de qual implementação (legado vs v2) está ativa por domínio.
  *
  * Contexto (Plano Mestre V2, S68 — Contenção):
- * Durante a migração Strangler Fig, o mesmo domínio (cobrança, atendimento) existe
- * em duas frentes que NÃO se enxergam. Se ambas subirem, há risco de disparo duplo
- * (ex.: cobrança dupla). Estas flags garantem que apenas UMA engine por domínio
- * esteja ativa em produção, de forma reversível (rollback = trocar a env).
+ * Durante a migração Strangler Fig, o mesmo domínio pode existir em duas frentes
+ * que NÃO se enxergam. Se ambas subirem, há risco de disparo duplo (ex.: cobrança
+ * dupla). Estas flags garantem que apenas UMA engine por domínio esteja ativa em
+ * produção, de forma reversível (rollback = trocar a env).
  *
  * Regra R6 do plano: até a S76, apenas UMA engine CobrAI pode estar ativa.
+ *
+ * O par equivalente para atendimento (`getAtendimentoEngine`/`ATENDIMENTO_ENGINE`)
+ * foi removido em 2026-08-23: a Fase 4 apagou o Express legado por completo, então
+ * não há mais uma segunda engine real para escolher — v2 é a única. O freio de
+ * emergência de verdade é `emergency-stop.service.ts` (Supabase, não env).
  *
  * Sem dependências externas de propósito — lê apenas process.env, para poder ser
  * importado tanto pelo backend novo (apps/api) quanto pelo legado (/src) no load.
@@ -28,14 +33,6 @@ function normalize(raw: string | undefined, fallback: EngineTarget): EngineTarge
  */
 export function getCobraiEngine(): EngineTarget {
   return normalize(process.env.COBRAI_ENGINE, 'legacy');
-}
-
-/**
- * Engine ativa para o fluxo de atendimento (webhook + messageWorker).
- * Default: 'legacy' — cutover acontece na S74.
- */
-export function getAtendimentoEngine(): EngineTarget {
-  return normalize(process.env.ATENDIMENTO_ENGINE, 'legacy');
 }
 
 /** True se a engine de cobrança ativa é a passada em `target`. */

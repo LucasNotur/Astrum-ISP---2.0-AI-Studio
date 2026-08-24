@@ -637,11 +637,12 @@ export async function startFastifyServer() {
     const { startOutboxPoller } = await import('../../../packages/queue/src/workers/outbox.worker');
     await startOutboxPoller();
 
-    // S74 — Worker v2 de mensagens (shadow mode quando ATENDIMENTO_ENGINE=legacy).
+    // Worker de mensagens — único motor de atendimento (v2). Freio de emergência
+    // é o kill switch real (emergency-stop.service.ts), não uma env de engine.
     // @ts-ignore
     const { createMessageWorker } = await import('../../../packages/queue/src/workers/message.worker');
     const msgWorker = createMessageWorker();
-    app.log.info('[message-worker] v2 iniciado (shadow mode ativo enquanto ATENDIMENTO_ENGINE=legacy)');
+    app.log.info('[message-worker] iniciado');
 
     // R6 — Worker v2 da régua CobrAI. Auto-guardado por COBRAI_ENGINE=v2 (shouldBootWorker);
     // nunca era chamado antes (bug — descoberto na Fase 2/TAREFA 1, ver commit da fila 'cobrai').

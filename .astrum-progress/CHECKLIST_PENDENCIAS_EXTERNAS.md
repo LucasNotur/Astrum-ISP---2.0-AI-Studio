@@ -293,11 +293,21 @@
   **Risco real:** baixo hoje (0 instâncias Evolution conectadas, nenhum tenant real usa
   WhatsApp ainda — ver "Realidade de tráfego" acima), mas isso precisa ficar resolvido
   ANTES do primeiro tenant real ir pro ar, porque a rede de segurança "rollback = trocar a
-  env" que o plano original prometia não existe mais. **Duas saídas, decisão do Lucas:**
-  (a) deletar `messageWorker.ts` + a lógica `legacy`/shadow morta em `engine-flags.ts` de vez
-  (R5 já permite — v2 é quem recebe tráfego de produção hoje, não sobra "legado" de verdade
-  pra reverter); ou (b) se ele quiser MANTER um rollback de verdade, seria preciso reconstruir
-  um caminho de emergência (não é reativar o antigo — ele já não existe fisicamente).
+  env" que o plano original prometia não existe mais.
+  **RESOLVIDO 2026-08-23 — decisão do Lucas: opção (a).** Deletado de vez, R5 permite (v2 é
+  quem recebe tráfego de produção hoje, não sobrava "legado" de verdade pra reverter):
+  `decideSend`/`SendDecisionInput`/`SendDecision` (`shadow-mode.ts`), `getAtendimentoEngine`
+  (`engine-flags.ts`), `buildShadowRecord` + `processShadowMessage` (`message.worker.ts`,
+  órfão sem `decideSend`), campo `isShadow` no `MessageJobData` e o handling de header
+  `x-shadow` em `evolution-webhook.routes.ts` (nada mais o envia — o espelho era o Express,
+  já apagado). `computeEquivalenceRate` (usado por `replay.service.ts`) foi mantido —
+  não fazia parte do roteamento real-vs-shadow, é só a métrica do replay histórico.
+  `message.worker.shadow.test.ts` removido; `engine-flags.test.ts`, `shadow-mode.test.ts`,
+  `evolution-webhook.test.ts` atualizados. `CLAUDE.md` e `.env.example` atualizados pra não
+  citar mais `ATENDIMENTO_ENGINE` como flag de engine — o freio de emergência real
+  (`emergency-stop.service.ts`) já é quem cumpre esse papel. Suíte completa `apps/api`
+  (2514/2514) + `packages/queue` (77/77) verdes, typecheck limpo. `messageWorker.ts`
+  (`src/workers/`, Express legado) já tinha sido removido em sessão anterior no mesmo dia.
 
 ---
 

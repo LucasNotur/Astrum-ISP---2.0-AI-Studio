@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   getCobraiEngine,
-  getAtendimentoEngine,
   isCobraiEngineActive,
   shouldBootWorker,
   isMultiAgentEnabled,
@@ -12,7 +11,6 @@ describe('engine-flags', () => {
 
   beforeEach(() => {
     delete process.env.COBRAI_ENGINE;
-    delete process.env.ATENDIMENTO_ENGINE;
   });
 
   afterEach(() => {
@@ -37,17 +35,6 @@ describe('engine-flags', () => {
     it('cai para legacy quando o valor é inválido (fail-safe)', () => {
       process.env.COBRAI_ENGINE = 'banana';
       expect(getCobraiEngine()).toBe('legacy');
-    });
-  });
-
-  describe('getAtendimentoEngine', () => {
-    it('default é legacy', () => {
-      expect(getAtendimentoEngine()).toBe('legacy');
-    });
-
-    it('retorna v2 quando ATENDIMENTO_ENGINE=v2', () => {
-      process.env.ATENDIMENTO_ENGINE = 'v2';
-      expect(getAtendimentoEngine()).toBe('v2');
     });
   });
 

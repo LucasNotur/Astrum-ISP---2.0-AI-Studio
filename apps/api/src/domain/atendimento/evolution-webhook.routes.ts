@@ -8,17 +8,14 @@ import type { MessageJobData } from '../../../../../packages/queue/src/workers/m
 /**
  * Webhook Evolution API no Fastify (apps/api) — S71.
  *
- * Réplica funcional de src/routes/evolutionWebhook.ts, mas sobre Supabase e
- * publicando na fila astrum:messages (motor novo). Registrado como
- * POST /api/v2/webhook/evolution. NÃO recebe tráfego real até o cutover (S74).
+ * Registrado como POST /api/v2/webhook/evolution (alias legado:
+ * POST /api/webhook/evolution). É o único caminho de entrada de mensagens
+ * WhatsApp em produção — publica na fila astrum-messages, consumida por
+ * `message.worker.ts`.
  */
 
 /** Monta o job da fila a partir da mensagem parseada. Função pura (testável). */
-export function buildMessageJob(
-  tenantId: string,
-  msg: ParsedEvolutionMessage,
-  opts: { isShadow?: boolean } = {},
-): MessageJobData {
+export function buildMessageJob(tenantId: string, msg: ParsedEvolutionMessage): MessageJobData {
   return {
     tenantId,
     senderPhone: msg.senderPhone,
@@ -32,7 +29,6 @@ export function buildMessageJob(
     isDocument: msg.isDocument,
     base64Media: msg.base64Media,
     mediaMimeType: msg.mediaMimeType,
-    isShadow: opts.isShadow ?? false,
   };
 }
 
@@ -92,15 +88,12 @@ const handleEvolutionWebhook = async (request: FastifyRequest, reply: FastifyRep
   }
 
   // 5. Mensagem → enfileira em astrum-messages (consumida pelo message.worker)
-  // x-shadow: true → job marcado como shadow (processa mas não envia)
-  const isShadow = request.headers['x-shadow'] === 'true';
-  const job = buildMessageJob(tenantId, parsed.message, { isShadow });
+  const job = buildMessageJob(tenantId, parsed.message);
   const { messageQueue } = await import('../../../../../packages/queue/src/queues');
-  // jobId evita duplicata real (D1). Shadow usa prefixo diferente para não bloquear o job real.
-  const jobId = isShadow ? `shadow:${job.messageId}` : `evo:${job.messageId}`;
+  const jobId = `evo:${job.messageId}`; // evita duplicata real (D1)
   await messageQueue.add('inbound', job, { jobId });
 
-  return reply.code(200).send({ status: isShadow ? 'shadow_queued' : 'queued', messageId: job.messageId });
+  return reply.code(200).send({ status: 'queued', messageId: job.messageId });
 };
 
 export async function evolutionWebhookRoutes(app: FastifyInstance): Promise<void> {
