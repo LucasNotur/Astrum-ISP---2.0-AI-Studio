@@ -377,6 +377,10 @@ export async function buildServer() {
   const { valorGeradoRoutes } = await import('./domain/provedor/valor-gerado.routes');
   await app.register(valorGeradoRoutes);
 
+  // F1-A — DashboardPage: upsell events + CSAT ratings (antes iam direto ao Supabase anônimo).
+  const { dashboardRoutes } = await import('./domain/provedor/dashboard.routes');
+  await app.register(dashboardRoutes);
+
   // P5-03 — Kit de compliance (DPA/LGPD + due diligence)
   const { complianceRoutes } = await import('./domain/provedor/compliance.routes');
   await app.register(complianceRoutes);
@@ -456,9 +460,19 @@ export async function buildServer() {
   const { cobraiDispatchRoutes } = await import('./domain/cobranca/cobrai-dispatch.routes');
   await app.register(cobraiDispatchRoutes);
 
+  // F1-A — CobrAIPage: métricas do card, histórico de disparos, config do tenant e
+  // toggle de opt-out por cliente (antes iam direto ao Supabase anônimo).
+  const { cobraiPageRoutes } = await import('./domain/cobranca/cobrai-page.routes');
+  await app.register(cobraiPageRoutes);
+
   // F6-02 — Sync gateway Asaas → invoices (cobranças aparecem no CobrAI)
   const { gatewaySyncRoutes } = await import('./domain/cobranca/gateway-sync.routes');
   await app.register(gatewaySyncRoutes);
+
+  // F1-A — BillingPage: resumo de assinatura do ISP + marcar fatura(s) como paga (antes
+  // iam direto ao Supabase anônimo).
+  const { billingPageRoutes } = await import('./domain/cobranca/billing-page.routes');
+  await app.register(billingPageRoutes);
 
   // Fase 2 — TAREFA 1: webhook de entrada do Asaas (push; complementa o pull do F6-02).
   const { asaasWebhookRoutes } = await import('./domain/cobranca/asaas-webhook.routes');

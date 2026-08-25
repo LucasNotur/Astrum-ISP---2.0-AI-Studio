@@ -33,7 +33,7 @@ import {
 } from 'recharts';
 import { cn } from '@/src/lib/utils';
 import { useAppStore } from '../store/useAppStore';
-import { supabase } from '@/src/lib/supabase';
+import { apiGet, apiPost } from '@/src/lib/apiClient';
 import { monthlyPriceCents } from '@/src/lib/plans';
 import { toast } from 'sonner';
 
@@ -60,11 +60,9 @@ export function BillingPage() {
     const fetchIspBilling = async () => {
       try {
         setIspLoading(true);
-        const { data: t } = await supabase
-          .from('tenants')
-          .select('plan,active,trial_ends_at,subscriber_count')
-          .eq('id', tenantId)
-          .maybeSingle();
+        const t = await apiGet<{ plan: string; active: boolean; trial_ends_at: string | null; subscriber_count: number } | null>(
+          '/api/v2/cobranca/isp-subscription',
+        );
 
         if (t) {
           // Escada Astrum: regra única R$2,50 × assinantes (plans.ts é a fonte).
@@ -90,7 +88,7 @@ export function BillingPage() {
 
   const simulatePayment = async (id: string) => {
      try {
-       await supabase.from('invoices').update({ status: 'paid' }).eq('id', id);
+       await apiPost('/api/v2/cobranca/invoices/mark-paid', { ids: [id] });
        toast.success("Fatura marcada como paga.");
      } catch (error) {
        toast.error("Erro ao atualizar fatura.");
@@ -516,10 +514,7 @@ export function BillingPage() {
                           message: `Deseja marcar as ${selectedInvoices.length} faturas selecionadas como pagas?`,
                           onConfirm: async () => {
                             try {
-                              const promises = selectedInvoices.map(id =>
-                                supabase.from('invoices').update({ status: 'paid' }).eq('id', id)
-                              );
-                              await Promise.all(promises);
+                              await apiPost('/api/v2/cobranca/invoices/mark-paid', { ids: selectedInvoices });
                               setSelectedInvoices([]);
                               toast.success(`${selectedInvoices.length} faturas marcadas como pagas.`);
                             } catch (error) {

@@ -21,6 +21,16 @@
   `TeamPage.tsx` (6).
 - `src/hooks` teve **zero** ocorrências.
 
+### Correção pós-F1-A (2026-08-24)
+
+O grep do passo 1 (`supabase\.from\(`) só casa quando `supabase` e `.from(` estão na
+**mesma linha**. Ao migrar de fato (tarefa F1-A), apareceram 2 ocorrências reais que o
+grep não pegou por estarem quebradas em duas linhas (`await supabase\n  .from(...)`):
+`BillingPage.tsx:63` (`tenants` select) e `CobrAIPage.tsx:127` (`cobrai_jobs` select,
+antiga linha 128 do `.from(`). Ambas foram migradas normalmente na F1-A. **Atenção para
+F1-B/C/D:** rodar também `grep -n "supabase$" <arquivo>` (ou revisar visualmente) além do
+grep de uma linha só, pra não deixar ocorrências passarem batido.
+
 ### Achado colateral (fora do escopo desta tarefa — não corrigido, só registrado)
 
 O grep pedido pela spec cobre só `src/pages`, `src/components`, `src/hooks`. Rodando o

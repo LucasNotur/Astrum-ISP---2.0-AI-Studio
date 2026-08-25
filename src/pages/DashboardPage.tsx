@@ -78,7 +78,7 @@ import {
 } from "recharts";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { supabase } from "@/src/lib/supabase";
+import { apiGet } from "@/src/lib/apiClient";
 import { getApiAccessToken } from "@/src/lib/apiAuth";
 
 export function DashboardPage() {
@@ -113,10 +113,10 @@ export function DashboardPage() {
       try {
         const tenantId = companySettings?.tenant_id || "default";
 
-        // S99 — Upsells e CSAT via Supabase
-        const [{ data: upsells }, { data: csats }] = await Promise.all([
-          supabase.from('upsell_events').select('*').eq('tenant_id', tenantId),
-          supabase.from('tickets').select('csat_score,created_at').eq('tenant_id', tenantId).not('csat_score', 'is', null),
+        // F1-A — Upsells e CSAT via apps/api (antes iam direto ao Supabase anônimo, RLS bloqueava)
+        const [upsells, csats] = await Promise.all([
+          apiGet<any[]>('/api/v2/dashboard/upsell-events'),
+          apiGet<any[]>('/api/v2/dashboard/csat-ratings'),
         ]);
         setUpsellEvents(upsells ?? []);
         setCsatRatings((csats ?? []).map((r: any) => ({ id: r.id, rating: r.csat_score, tenantId })));

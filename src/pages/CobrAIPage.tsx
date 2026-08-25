@@ -20,7 +20,6 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/src/components/ui/table";
 import { toast } from 'sonner';
-import { supabase } from '@/src/lib/supabase';
 import { apiGet, apiPost, apiDelete } from '@/src/lib/apiClient';
 import { useAppStore } from '@/src/store/useAppStore';
 import {
@@ -86,25 +85,16 @@ export function CobrAIPage() {
   const fetchMetrics = async () => {
     setMetricsErr(null);
     try {
-      const today = new Date(); today.setHours(0, 0, 0, 0);
-      const [
-        { count: countInadimplentes },
-        { data: jobsHoje, error: jobsErr },
-      ] = await Promise.all([
-        supabase.from('customers').select('*', { count: 'exact', head: true })
-          .eq('financial_status', 'inadimplente').eq('tenant_id', tenantId),
-        supabase.from('cobrai_jobs').select('status').eq('tenant_id', tenantId)
-          .gte('created_at', today.toISOString()),
+      const [{ inadimplentesCount, jobsHoje }, stats] = await Promise.all([
+        apiGet<{ inadimplentesCount: number; jobsHoje: Array<{ status: string }> }>('/api/v2/cobranca/dashboard-metrics'),
+        apiGet<QueueStats>('/api/v2/cobranca/queue-stats'),
       ]);
 
-      if (jobsErr) throw new Error(jobsErr.message);
-      setInadimplentes(countInadimplentes ?? 0);
+      setInadimplentes(inadimplentesCount ?? 0);
       const jobs = jobsHoje ?? [];
       setMensagensHoje(jobs.length);
-      const delivered = jobs.filter((j: any) => j.status === 'completed').length;
+      const delivered = jobs.filter((j) => j.status === 'completed').length;
       setTaxaEntrega(jobs.length > 0 ? `${Math.round((delivered / jobs.length) * 100)}%` : '0%');
-
-      const stats = await apiGet<QueueStats>('/api/v2/cobranca/queue-stats');
       setQueueStats(stats);
     } catch (e: any) {
       setMetricsErr(e.message ?? 'Erro ao carregar métricas');
@@ -124,13 +114,7 @@ export function CobrAIPage() {
   const fetchLogs = async () => {
     setLogsErr(null);
     try {
-      const { data, error } = await supabase
-        .from('cobrai_jobs')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false })
-        .limit(100);
-      if (error) throw new Error(error.message);
+      const data = await apiGet<CobraiLog[]>('/api/v2/cobranca/jobs/history');
       setLogs(data ?? []);
     } catch (e: any) {
       setLogsErr(e.message ?? 'Erro ao carregar histórico');
@@ -138,7 +122,7 @@ export function CobrAIPage() {
   };
 
   const fetchTenant = async () => {
-    const { data } = await supabase.from('tenants').select('*').eq('id', tenantId).maybeSingle();
+    const data = await apiGet<{ cobrai_paused_customers: string[] }>('/api/v2/cobranca/tenant-config');
     if (data) setTenantData(data);
   };
 
@@ -161,10 +145,10 @@ export function CobrAIPage() {
   const pauseCustomer = async (customerId?: string) => {
     if (!customerId) return;
     try {
-      const { data: c } = await supabase.from('customers').select('cobrai_opted_out').eq('id', customerId).maybeSingle();
-      const isOptedOut = c?.cobrai_opted_out ?? false;
-      await supabase.from('customers').update({ cobrai_opted_out: !isOptedOut }).eq('id', customerId);
-      toast.success(isOptedOut ? 'Cliente retomado' : 'Cliente pausado');
+      const { cobrai_opted_out: isOptedOutNow } = await apiPost<{ cobrai_opted_out: boolean }>(
+        `/api/v2/cobranca/customers/${customerId}/toggle-pause`,
+      );
+      toast.success(isOptedOutNow ? 'Cliente pausado' : 'Cliente retomado');
     } catch {
       toast.error('Erro ao alterar cliente');
     }

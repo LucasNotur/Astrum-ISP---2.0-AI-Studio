@@ -109,8 +109,23 @@ colaterais (fora do escopo, não corrigidos): ~85 ocorrências extras em `src/li
 o total), e cada linha tem classificação.
 **DoD:** inventário commitado; nenhuma outra mudança no repo.
 
-## [ ] F1-A — Migrar Dashboard + CobrAI + Billing
-**Modelo:** DeepSeek V4 Pro
+## [x] F1-A — Migrar Dashboard + CobrAI + Billing
+**Modelo:** Claude Sonnet 5 (2026-08-24)
+**Resumo:** 9 ocorrências do inventário + 2 achadas na migração (multi-linha, ver
+correção em [INVENTARIO_SUPABASE_DIRETO.md](INVENTARIO_SUPABASE_DIRETO.md)) migradas
+para 7 rotas novas em 3 arquivos: `apps/api/src/domain/provedor/dashboard.routes.ts`
+(upsell-events, csat-ratings), `apps/api/src/domain/cobranca/cobrai-page.routes.ts`
+(dashboard-metrics, jobs/history, tenant-config, customers/:id/toggle-pause) e
+`apps/api/src/domain/cobranca/billing-page.routes.ts` (isp-subscription,
+invoices/mark-paid). Todas com `supabaseAdmin` + `.eq('tenant_id', ...)` do JWT
+(`tenantId ?? tenant_id`), gates `billing:read`/`billing:write` onde fazia sentido
+(CobrAIPage GET fica só em `authenticate`, mesmo padrão do `queue-monitor.routes.ts`
+sibling). 25 testes Vitest novos (401 + sucesso + filtro de tenant). `grep -c
+"supabase.from(" ` retorna 0 nas 3 páginas. Suites verdes: frontend 3404 passed/5
+failed (falhas pré-existentes, timeout sob carga, confirmadas não-relacionadas por
+re-run isolado 63/63 verde) / 7 skipped; backend 2618 passed/4 failed (mesmo padrão de
+timeout pré-existente, confirmado por re-run isolado 55/55 verde) / 7 skipped.
+Typecheck frontend e backend limpos. Commit local, SEM push (aguarda F1-AUD).
 **Pré-requisito:** F1-INV concluída (use o inventário como fonte).
 **Objetivo:** zero chamadas `supabase.from(`/`supabase.rpc(` em
 `src/pages/DashboardPage.tsx`, `src/pages/CobrAIPage.tsx`, `src/pages/BillingPage.tsx`.
