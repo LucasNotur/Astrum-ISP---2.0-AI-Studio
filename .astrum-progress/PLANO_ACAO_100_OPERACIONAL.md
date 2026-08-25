@@ -543,7 +543,85 @@ bloqueando silenciosamente. Já corrigidos: `trial.service.ts`,
 **DoD:** 5 arquivos auditados com veredito escrito aqui, correções testadas, suite
 backend verde, commit + push (tarefa Claude, auto-revisão).
 
-## [ ] S2 — [MCP] Funções SECURITY DEFINER + tabelas deny-all
+## [x] S2 — [MCP] Funções SECURITY DEFINER + tabelas deny-all
+**Modelo:** Claude Opus 5 no Claude Code (2026-08-25)
+
+**Resumo/DECISÃO:** advisors de segurança: **3 WARN → 2** e **5 INFO → 0**. Migration
+`113_s2_secdef_rpc_surface_e_denyall.sql` aplicada via MCP (idempotente).
+
+*Funções SECURITY DEFINER — o mapeamento do passo 1 mudou a resposta óbvia:*
+- **`get_tenant_id()` — EXECUTE MANTIDO para `authenticated` (WARN aceito).** É chamada
+  por ~120 policies `{public}` + 4 policies `{authenticated}` de `storage.objects` (bucket
+  privado `uploads`) e, sobretudo, é o alicerce do **caminho vivo MT-02(c)**:
+  `withTenantRLS()` (`apps/api/src/infrastructure/database/tenant-rls.ts`) faz `SET LOCAL
+  ROLE authenticated` + `set_config('app.current_tenant', ...)` de propósito — usado hoje
+  por LGPD, DLQ, voice, OCR-review, anomaly, metrics-ingest e HSM. Revogar não endureceria
+  nada: **quebraria a própria defesa em profundidade + o Storage**, e silenciosamente (a
+  query inteira falha por permissão dentro da policy). Exposição via RPC é inócua: devolve
+  o tenant do PRÓPRIO chamador; o fallback por GUC não é setável pelo cliente PostgREST.
+- **`is_super_admin()` — EXECUTE MANTIDO para `authenticated` (WARN aceito).** 12+ policies
+  `{public}` a chamam, OR'd com a policy de tenant, em tabelas alcançadas pelo caminho
+  `authenticated` (`hsm_templates`, `hsm_send_logs`, `departments`, `daily_metrics`,
+  `users`...). Via RPC devolve booleano sobre o próprio chamador e ainda exige AAL2 quando
+  há MFA (migration 106).
+- **`has_permission(text,text)` — EXECUTE REVOGADO de `authenticated`.** Única das 3 sem
+  NENHUM uso: zero policies a referenciam (varredura em `pg_policies`), zero
+  views/funções/triggers/defaults/checks dependem dela (consulta de dependências) e zero
+  chamadas no código (só migrations e docs a citam). Existia só como endpoint RPC — e como
+  oráculo sobre `role_permissions`, tabela deny-all que o usuário não lê direto.
+  `service_role`/`postgres` mantêm EXECUTE (confirmado), então uso futuro pelo backend
+  segue funcionando.
+- `anon` **já não tinha** EXECUTE em nenhuma das 3 (revogado na 092) — o passo 3 da spec
+  sobrava só para `authenticated`.
+
+*Tabelas deny-all (passo 4) — deny-all é intencional, mas não estava sendo entregue:*
+as 5 (`legacy_docs`, `node_latency_daily`, `outbox`, `role_permissions`,
+`schema_migrations`) são acessadas só por `service_role`/owner — confirmado por grep:
+`personas.routes.ts` + `src/lib/db-compat/firestore.ts` (supabaseAdmin), `ia/latency.routes.ts`
+(supabaseAdmin), `outbox.service.ts` (client de servidor — ver achado colateral),
+`has_permission()` (SECURITY DEFINER, roda como owner) e `packages/db/src/migrate.ts`
+(conexão pg direta). **Porém**: todas ainda tinham GRANT de SELECT/INSERT/UPDATE/DELETE **e
+TRUNCATE** para `authenticated`, herdado de `ALTER DEFAULT PRIVILEGES` (mesmo achado da C1,
+agora confirmado como sistêmico). **TRUNCATE não é row-scoped — a RLS não o cobre**, então
+o "deny-all" era só aparente. Provado no banco antes da migration:
+`has_table_privilege('authenticated','public.outbox','TRUNCATE')` = **true**. A 113 fecha no
+nível de GRANT (`REVOKE ALL ... FROM anon, authenticated`) e registra o deny-all como policy
+explícita `deny_all_non_service` (`USING (false)`), encerrando os 5 INFO do advisor.
+
+**Verificação (SQL contra o banco real, antes e depois — não é mock):**
+| Checagem (role `authenticated`) | antes | depois |
+|---|---|---|
+| `get_tenant_id()` resolvido via GUC | tenant ok | **tenant ok** |
+| customers do tenant / de outro tenant | 60 / **0** | 60 / **0** |
+| `hsm_templates` (exercita `is_super_admin()` na policy) | ok | **ok** |
+| `TRUNCATE outbox` / `TRUNCATE schema_migrations` | **true** | **false** |
+| `SELECT role_permissions` | true | **false** |
+| EXECUTE `has_permission` (authenticated / service_role) | true / true | **false** / true |
+| EXECUTE `get_tenant_id`, `is_super_admin` | true | **true** (intencional) |
+
+`service_role` mantém SELECT/INSERT nas 5 tabelas (verificado). Advisors re-rodados via MCP:
+`rls_enabled_no_policy` **0** (era 5), `authenticated_security_definer_function_executable`
+**2** (era 3). Sobra 1 WARN não relacionado (`auth_leaked_password_protection` — toggle do
+painel Auth, fora do escopo, anotado nos achados). Nenhum código TypeScript mudou, então não
+há suíte aplicável — a prova de não-regressão é o teste ao vivo acima (mais forte que os
+mocks: bate no schema/policies reais).
+
+**Divergência da spec (regra global 2, reportada não improvisada):** a spec pedia
+"numeração sequencial — próxima livre após a 112", mas o maior número no repo E no banco era
+**110** (111/112 nunca existiram). Usei **113** como a spec manda literalmente, deixando
+111/112 livres; o runner (`migrate.ts`) ordena por nome de arquivo e rastreia por filename,
+então o buraco é inofensivo.
+
+**Push NÃO feito (decisão do Lucas, 2026-08-25).** A DoD da S2 pedia "commit + push", mas o
+`main` local tinha 3 commits não pushados de outras tarefas — entre eles o `5c1acc1` (D1,
+bumps de dependência) que diz explicitamente "SEM push (aguarda AUD-G)". `git push` levaria
+todos junto, furando a auditoria que a própria D1 pediu. Reportado antes de agir (regra
+global 2); o Lucas escolheu segurar. **A migration 113 já está aplicada no banco de produção**
+(via MCP, como a spec autoriza) — só o arquivo `.sql` + este resumo aguardam o push do AUD-G;
+nada fica inconsistente. Commit local: `06517f1`.
+
+<!-- Spec original abaixo, mantida para referência -->
+
 **Modelo:** Claude Opus 5 ou Fable 5 no Claude Code *(análise delicada de RLS em produção)*
 **Contexto:** o advisor do Supabase aponta 3 funções SECURITY DEFINER executáveis por
 `authenticated` via PostgREST RPC: `get_tenant_id()`, `has_permission()`,
@@ -919,3 +997,43 @@ Tudo o mais é independente entre si.
   GHSA-337j-9hxr-rhxg) exige `react-router-dom@7.18.2` — major 6→7 com breaking no
   frontend legado inteiro (todas as rotas usam API v6). Fora do escopo de D1; exige tarefa
   de migração dedicada. `npm audit --omit=dev` final: **2 moderate, 0 high, 0 critical**.
+- **[S2, 2026-08-25 — ⚠️ P0 achado ao auditar a tabela `outbox`: o Outbox Pattern inteiro
+  está morto em produção]** `apps/api/src/infrastructure/queue/outbox.service.ts` importa
+  `import supabase from '../database/supabase.client'` — o **default export** desse módulo é
+  `supabaseClient`, o client **ANÔNIMO** (linhas 8/9/47 do `supabase.client.ts`:
+  `export const supabase = supabaseClient` e `export default supabaseClient`; o admin é o
+  named export `supabaseAdmin`). Como `anon` tem zero grants desde a 092, TODO
+  `outboxService.publish()` falha (o insert loga erro, então é QUEBRADO_COM_ERRO_VISIVEL, não
+  silencioso) e `processPending()` sempre lê lista vazia → o worker `outbox-poller`
+  (`packages/queue/src/workers/outbox.worker.ts`, bootado em `server.ts:710`) roda em vazio.
+  Consequência: eventos que dependem do outbox (ex.: `document.uploaded` em
+  `domain/ia/documents.routes.ts`) nunca chegam ao BullMQ por esse caminho. **Este arquivo
+  NÃO estava na lista dos 5 da S1** porque o grep daquela tarefa procurou o import nomeado
+  (`{ supabase }`) e este usa import default — vale reauditar o `apps/api` com
+  `grep -rn "from '.*supabase.client'" apps/api/src | grep -v supabaseAdmin` antes de dar a
+  frente de client anônimo por encerrada. Não corrigido aqui (regra global 1 — escopo da S2 é
+  RLS/grants, e a correção é troca de client + checagem de `error`, escopo da S1).
+- **[S2, 2026-08-25 — grants TRUNCATE/TRIGGER/REFERENCES para `authenticated` são
+  sistêmicos]** Confirmação e generalização do achado colateral da C1: o `ALTER DEFAULT
+  PRIVILEGES` do projeto dá a `authenticated` também `TRUNCATE`, `TRIGGER` e `REFERENCES`
+  além de SELECT/INSERT/UPDATE/DELETE — em praticamente todas as tabelas, não só nas duas de
+  emergency-stop. **RLS não cobre TRUNCATE** (não é row-scoped), então a RLS por tenant não
+  protege contra um `TRUNCATE` vindo de um contexto `authenticated`. A S2 fechou isso apenas
+  nas 5 tabelas deny-all (onde `authenticated` não precisa de grant nenhum). Nas demais o
+  grant DML é **necessário** (o caminho MT-02c `withTenantRLS` roda como `authenticated`), mas
+  `TRUNCATE`/`TRIGGER`/`REFERENCES` não são usados por nada — cabe uma tarefa dedicada de
+  `REVOKE TRUNCATE, TRIGGER, REFERENCES ON ALL TABLES IN SCHEMA public FROM anon, authenticated`
+  + ajuste do `ALTER DEFAULT PRIVILEGES` para não reintroduzir em tabela nova. Mitigador atual
+  (não é solução): `authenticated` é NOLOGIN — só se chega nele via PostgREST (que não expõe
+  TRUNCATE) ou via `SET ROLE` numa conexão de servidor confiável.
+- **[S2, 2026-08-25 — `node_latency_daily` não tem dimensão de tenant]** A tabela é
+  `(node, day, p50, p95, count)` — sem `tenant_id` — e `GET /api/v2/ia/latency/report`
+  (`apps/api/src/domain/ia/latency.routes.ts`) a serve a qualquer usuário autenticado, sem
+  filtro possível. Ou seja: qualquer tenant vê a latência agregada global dos nós do grafo de
+  IA. Não é PII e o dado é de infraestrutura, mas é observabilidade cross-tenant por desenho —
+  decidir se a rota vira super_admin-only ou se a tabela ganha `tenant_id`. Fora do escopo da S2.
+- **[S2, 2026-08-25 — WARN de Auth fora do escopo]** O advisor de segurança tem 1 WARN não
+  relacionado às funções: `auth_leaked_password_protection` (checagem de senha vazada contra o
+  HaveIBeenPwned desligada). É um toggle do painel Supabase (Auth → Password), não DDL — não dá
+  pra resolver por migration. Ligar leva ~1 min e vale, ainda mais com o `/trial` aberto ao
+  público.
