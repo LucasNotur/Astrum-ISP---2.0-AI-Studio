@@ -669,8 +669,8 @@ Fica registrado para não se perder.
 
 # FASE 7 — Infraestrutura (gargalo nº 1)
 
-## [ ] I1 — Plano de migração para VPS
-**Modelo:** Claude (Sonnet 5 para o doc; decisões com o Lucas)
+## [x] I1 — Plano de migração para VPS
+**Modelo:** Claude Sonnet 5, 2026-08-25
 **Contexto:** produção inteira (Fastify + Redis em Docker Desktop/WSL2 + Cloudflare
 Tunnel + runner de deploy) roda numa única máquina Windows 10 local. Healthcheck de 5min
 mitiga processo morto; não mitiga energia/rede/Windows Update. Redis `ETIMEDOUT` no boot
@@ -681,6 +681,13 @@ de provedor com preço (2–3 opções BR/latência), passo a passo de cutover c
 (DNS de volta pro tunnel local), checklist de smoke-test pós-cutover (login, /trial,
 health, worker de fila processando), e adaptação do healthcheck monitor atual para a VPS.
 **Não executa a migração** — só o plano; a execução é do Lucas + Claude em sessão dedicada.
+
+**Resumo do que foi feito:** documento criado cobrindo os 5 pontos pedidos. Achado chave:
+`api.astrumlabs.online` já é uma rota de Cloudflare Tunnel (não A record fixo), então o
+cutover não precisa esperar propagação de DNS — é só decidir qual máquina roda o
+`cloudflared` conectado ao tunnel ID existente, o que torna o rollback quase instantâneo.
+`docker-compose.yml` de produção já existe no repo e pronto pra VPS (só faltava o plano em
+volta dele). Recomendação de provedor: Vultr São Paulo (preço previsível, região BR).
 
 ## [ ] I2 — Separar workers da API (pós-VPS — não executar agora)
 Hoje `apps/api/src/server.ts` (861 linhas) sobe a API + 20+ workers no mesmo processo
