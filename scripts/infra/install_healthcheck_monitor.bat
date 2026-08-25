@@ -5,10 +5,21 @@ setlocal enabledelayedexpansion
 ::  install_healthcheck_monitor.bat - Registra a tarefa agendada
 ::  que roda healthcheck_monitor.mjs a cada 5 minutos.
 ::
-::  Diferente de AstrumBackendRun, esta tarefa NAO precisa de /it:
-::  so faz fetch() (fora do backend) e schtasks/run (chamada de
-::  servico, nao depende de sessao) - roda de boa em Sessao 0.
-::  Rode este .bat uma vez (duplo-clique ou terminal normal).
+::  ATUALIZADO 2026-08-24 (astrum-terminal-popup-healthcheck): a versao
+::  anterior deste script chamava node.exe DIRETO no /tr. Como schtasks
+::  sem /ru cai em logon "Interativo" por padrao (mudar pra S4U/"executar
+::  sem estar conectado" exige elevacao de administrador - testado e deu
+::  Acesso Negado sem admin), rodar node.exe (um app de console) nesse modo
+::  abre uma janela de terminal visivel NA TELA a cada disparo - ou seja,
+::  a cada 5 minutos, o dia todo. Confirmado ao vivo: reclamacao do usuario
+::  de "terminal abrindo toda hora" + processo node.exe batendo exatamente
+::  com o horario de disparo da tarefa.
+::
+::  Fix: em vez de chamar node.exe direto, chama wscript.exe (app GUI
+::  subsystem, NUNCA aloca console) rodando run_healthcheck_hidden.vbs, que
+::  por sua vez lanca o node.exe com WshShell.Run(..., 0, True) - o "0" pede
+::  janela oculta pro processo filho. Zero elevacao necessaria, mesmo logon
+::  Interativo de antes, so sem janela.
 :: ========================================================
 
 set "SCRIPT_DIR=%~dp0"
@@ -17,21 +28,15 @@ pushd "%PROJECT_ROOT%" >nul
 set "PROJECT_ROOT=%CD%"
 popd >nul
 
-set "MONITOR_SCRIPT=%PROJECT_ROOT%\scripts\infra\healthcheck_monitor.mjs"
+set "HIDDEN_LAUNCHER=%PROJECT_ROOT%\scripts\infra\run_healthcheck_hidden.vbs"
 
-for /f "delims=" %%n in ('where node') do (
-    set "NODE_EXE=%%n"
-    goto :found_node
-)
-:found_node
-
-if not defined NODE_EXE (
-    echo X node.exe nao encontrado no PATH.
+if not exist "%HIDDEN_LAUNCHER%" (
+    echo X %HIDDEN_LAUNCHER% nao encontrado.
     exit /b 1
 )
 
 schtasks /create /tn "AstrumHealthMonitor" ^
-    /tr "\"%NODE_EXE%\" \"%MONITOR_SCRIPT%\"" ^
+    /tr "wscript.exe //B \"%HIDDEN_LAUNCHER%\"" ^
     /sc minute /mo 5 ^
     /f
 
