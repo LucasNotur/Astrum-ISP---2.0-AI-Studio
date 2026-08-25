@@ -84,8 +84,16 @@ com `service_role` e filtra por tenant via JWT. O padrão já existe dos dois la
 - Toda rota nova tem teste Vitest colocado (`*.routes.test.ts`) cobrindo: (a) 401 sem
   token; (b) resposta correta com token válido; (c) que o filtro de tenant é aplicado.
 
-## [ ] F1-INV — Inventário completo das queries diretas
-**Modelo:** DeepSeek V4 Pro *(ou Sonnet 5 — ambos capazes)*
+## [x] F1-INV — Inventário completo das queries diretas
+**Modelo:** Claude Sonnet 5 (2026-08-24, com 3 subagentes de pesquisa em paralelo)
+**Resumo:** 91 ocorrências de `supabase.from(`/`supabase.rpc(` mapeadas em
+`src/pages`+`src/components`+`src/hooks` (0 no rpc, 0 em hooks). 90 são chamadas reais
+(1 é comentário em teste): 4 `JA_EXISTE_ROTA`, 86 `PRECISA_ROTA_NOVA`, 0 `CODIGO_MORTO`.
+Maior arquivo: `SettingsPage.tsx` (31). Detalhe completo em
+[.astrum-progress/INVENTARIO_SUPABASE_DIRETO.md](INVENTARIO_SUPABASE_DIRETO.md). Achados
+colaterais (fora do escopo, não corrigidos): ~85 ocorrências extras em `src/lib/*` e
+`src/App.tsx` (fora do escopo pedido) e rotas com barra invertida quebrada em
+`field-ops.routes.ts` — ambos anotados na seção "Achados colaterais" abaixo.
 **Objetivo:** mapear TODAS as chamadas diretas ao Supabase no frontend antes de migrar.
 **Passos:**
 1. Liste todas as ocorrências: `grep -rn "supabase\.from(\|supabase\.rpc(" --include="*.tsx" --include="*.ts" src/pages src/components src/hooks`
@@ -438,4 +446,26 @@ Tudo o mais é independente entre si.
 
 # ACHADOS COLATERAIS (executores anotam aqui, NÃO consertam)
 
-- (vazio)
+- **[F1-INV, 2026-08-24]** Fora do escopo do grep pedido (`src/pages`+`src/components`+
+  `src/hooks`), existem mais ~85 ocorrências de `supabase.from(`/`supabase.rpc(` em
+  `src/lib/db.ts` (~35), `src/lib/supabaseDb.ts` (~18), `src/App.tsx` (~15),
+  `src/lib/seedAstrum.ts` (2), `src/test-supabase.ts` (1) — mesmo bug de RLS, não
+  inventariado linha a linha nesta tarefa.
+- **[F1-INV, 2026-08-24]** `apps/api/src/domain/campo/field-ops.routes.ts` tem várias
+  rotas registradas com barra invertida em vez de `/` no path (ex.: linha 216
+  `fastify.post('\api\v2\field\os:id/transition', ...)`, e mais nas linhas 485, 594, 615,
+  692, 744, 817, 851, 871, 892) — parece bug de find/replace no Windows; provavelmente
+  quebra essas rotas em runtime. Impacto real não investigado.
+- **[F1-INV, 2026-08-24]** `SettingsPage.tsx` linhas 1040–1726: 10 integrações (MK-Auth,
+  RD Station, Pipedrive, HubSpot, RadiusNet, Asaas, Gerencianet, Qdrant, Instagram,
+  Facebook) ainda gravam em `tenants.integrations` (coluna plaintext antiga) via client
+  anônimo, enquanto a rota já migrada (`PUT /api/v2/settings/integration-keys`) grava em
+  `tenants.integration_keys` (cifrada). Migrar essas 10 exige decidir se vão pro schema
+  cifrado novo e migrar dados já salvos na coluna antiga — não é só trocar a chamada.
+- **[F1-INV, 2026-08-24]** `MonitoringPage.tsx:33` (lista da DLQ) não filtra por
+  `tenant_id` na query direta — vaza jobs de outros tenants na tela hoje (a rota
+  `GET /api/v2/dlq` já existente corrige isso ao migrar).
+- **[F1-INV, 2026-08-24]** `OnboardingWizardPage.tsx` (step Report) usa
+  `supabase.auth.getSession()` — uma trilha de autenticação Supabase Auth separada do JWT
+  próprio do `apps/api`, logada em `src/App.tsx:1936` via `supabase.auth.signInWithPassword`.
+  Vale investigar se é intencional ou resquício de uma migração incompleta.
