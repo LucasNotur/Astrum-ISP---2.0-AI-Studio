@@ -786,8 +786,23 @@ commit local SEM push (aguarda AUD-G).
 
 # FASE 5 — Faxina de código morto (~15–20k linhas)
 
-## [ ] L1 — Deletar código morto verificado
-**Modelo:** DeepSeek V4 Pro
+## [x] L1 — Deletar código morto verificado
+**Modelo:** DeepSeek V4 Pro (2026-08-25, via OpenCode — executado pelo Lucas)
+**Resumo:** Alvos 1, 2, 4 e 5 deletados após re-verificação com grep de cada nome:
+`src/lib/gemini.server.ts` (4.033 linhas) + `toolRegistry.ts` + `tenantGuard.ts`;
+`src/workers/` inteiro (9 workers; a C1 já tinha removido o cobraiWorker);
+`Supabase_Assinaturas/` (7 SQLs soltos); testes órfãos — `tenantGuard.test.ts` + 10 dos
+11 testes de `src/__tests__/workers/` (`lockout.test.ts` MANTIDO: testa o
+`tenantStatusMiddleware`, código vivo). Total: **6.357 linhas removidas**. Alvo 3
+(`src/ai-provider/`) **NÃO deletado**: a re-verificação achou importador vivo
+(`embeddingProvider.ts` ← `dbAdmin.ts` ← whatsappSender/erpAdapter) — alvo parado
+conforme regra (b), anotado nos achados colaterais. Verificação: `npm run
+typecheck:legacy` exit 0 (cobre todo o `src/`); `npm run test:unit` = 3442 passed / 28
+failed (2 SignupPage = flakiness documentada, 4/4 verde isolado; 26 = WIP da S3, ver
+achados); `cd apps/api && npm test` = 2693 passed / 26 failed (mesmas 26, todos com
+título "JWT shape antigo" em arquivos do WIP da S3); `cd apps/api && npm run typecheck`
+= 44 erros, todos em arquivos do WIP da S3 — nenhum dos 26 falhas/44 erros referencia
+arquivo deletado na L1. Commit local, SEM push (aguarda AUD-G).
 **Contexto:** cada item abaixo já foi verificado (2026-08-24) como sem NENHUM importer
 vivo. Ainda assim, a spec exige re-verificação antes de cada deleção (o repo anda rápido).
 **Alvos e evidência:**
@@ -1191,3 +1206,28 @@ Tudo o mais é independente entre si.
   só `apps/api/package.json`) em qualquer tarefa futura que mexer em `package.json` da raiz —
   o mesmo padrão provavelmente existe ao contrário (dep declarada só no `apps/api/package.json`
   mas nunca usada nem lá, se algum dia alguém rodar depcheck lá dentro).
+- **[L1, 2026-08-25 — alvo 3 (`src/ai-provider/`) parado por importador vivo]** A
+  re-verificação da L1 achou `src/lib/embeddingProvider.ts:2` importando
+  `../ai-provider/ai-provider.setup` — import real de código vivo, não comentário. Cadeia:
+  `src/lib/whatsappSender.ts` e `src/lib/integrations/erpAdapter.ts` importam
+  `src/lib/dbAdmin.ts`, que importa `embeddingProvider.ts`, que importa o ai-provider na
+  inicialização do módulo (`createProviderFromEnv()`). A verificação de 2026-08-24 que
+  classificou o item como sem importadores não pegou essa cadeia. Regra (b) da spec seguida:
+  alvo parado, sem deleção; os testes `src/__tests__/ai-provider/*` também ficaram. Para
+  deletar o ai-provider no futuro, decidir antes o destino de `embeddingProvider.ts`/
+  `dbAdmin.ts` (ex.: migrar o embed para o provider do `apps/api` ou manter o ai-provider).
+- **[L1, 2026-08-25 — verificação rodou com WIP não commitado da S3 na árvore]** As suites
+  não fecharam verdes por trabalho em andamento de OUTRA tarefa na mesma pasta (S3,
+  getTenantId — `apps/api/src/lib/jwt-claims.ts` untracked + ~90 rotas modificadas):
+  26 testes de `*.routes.test.ts` com título "JWT shape antigo (tenant_id)" falham porque as
+  rotas do WIP agora aceitam snake_case via `getTenantId()` e os testes (não tocados pelo WIP
+  ainda) esperam 401; `cd apps/api && npm run typecheck` acusa 44 erros TS2345 também em
+  arquivos do WIP (tipagem `JwtUserLike` do `jwt-claims.ts`). Evidência de que NÃO é a L1:
+  `git diff` das rotas mostra só mudanças de `getTenantId`; nenhuma das falhas/erros
+  referencia os arquivos deletados na L1; `npm run typecheck:legacy` (cobre `src/`) sai com
+  exit 0. A S3 precisa terminar (incluindo atualizar esses 26 testes) para as suites voltarem
+  ao verde — AUD-G deve considerar isso ao auditar a L1.
+- **[L1, 2026-08-25 — doc órfã não tocada (escopo)]** `src/lib/MIGRATION_GUIDE.md` descreve
+  o motor legado (`gemini.server.ts`, `ai-provider.service.ts`) agora deletado. É
+  documentação, não código — fora do escopo da L1; a L2 (ou uma tarefa de docs) pode decidir
+  se o guia é atualizado ou removido.
