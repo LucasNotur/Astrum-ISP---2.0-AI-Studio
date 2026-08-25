@@ -78,19 +78,22 @@ describe('dashboard.routes', () => {
       expect(res.statusCode).toBe(401);
     });
 
-    it('retorna tickets com csat_score preenchido, filtrado por tenant', async () => {
-      const rows = [{ id: 't1', csat_score: 5, created_at: '2026-08-01T00:00:00Z' }];
-      mockFrom({ data: rows, error: null });
+    it('retorna CSAT de ai_performance_logs.extra, filtrado por tenant', async () => {
+      const raw = [
+        { id: 'l1', extra: { csat_score: 5 }, created_at: '2026-08-01T00:00:00Z' },
+        { id: 'l2', extra: {}, created_at: '2026-08-02T00:00:00Z' }, // sem csat_score -> descartado
+        { id: 'l3', extra: null, created_at: '2026-08-03T00:00:00Z' }, // extra nulo -> descartado
+      ];
+      mockFrom({ data: raw, error: null });
       const app = await buildApp();
 
       const res = await app.inject({ method: 'GET', url: '/api/v2/dashboard/csat-ratings' });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json()).toEqual(rows);
-      expect(supabaseAdmin.from).toHaveBeenCalledWith('tickets');
+      expect(res.json()).toEqual([{ id: 'l1', csat_score: 5, created_at: '2026-08-01T00:00:00Z' }]);
+      expect(supabaseAdmin.from).toHaveBeenCalledWith('ai_performance_logs');
       const chain = (supabaseAdmin.from as any).mock.results[0].value;
       expect(chain.eq).toHaveBeenCalledWith('tenant_id', 'tenant-1');
-      expect(chain.not).toHaveBeenCalledWith('csat_score', 'is', null);
     });
 
     it('erro do Supabase -> 500', async () => {

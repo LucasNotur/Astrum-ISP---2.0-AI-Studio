@@ -50,9 +50,10 @@ describe('cobrai-page.routes', () => {
       expect(res.statusCode).toBe(401);
     });
 
-    it('agrega contagem de inadimplentes + jobs de hoje, filtrado por tenant', async () => {
+    it('agrega contagem de inadimplentes (clientes distintos c/ invoice overdue) + jobs de hoje, filtrado por tenant', async () => {
       mockFromSequence([
-        { data: null, error: null, count: 3 }, // customers (head/count)
+        // invoices overdue — 3 linhas, 2 clientes distintos (c1 repete)
+        { data: [{ customer_id: 'c1' }, { customer_id: 'c2' }, { customer_id: 'c1' }], error: null },
         { data: [{ status: 'completed' }, { status: 'failed' }], error: null }, // cobrai_jobs hoje
       ]);
       const app = await buildApp();
@@ -61,13 +62,14 @@ describe('cobrai-page.routes', () => {
 
       expect(res.statusCode).toBe(200);
       expect(res.json()).toEqual({
-        inadimplentesCount: 3,
+        inadimplentesCount: 2,
         jobsHoje: [{ status: 'completed' }, { status: 'failed' }],
       });
-      expect(supabaseAdmin.from).toHaveBeenNthCalledWith(1, 'customers');
+      expect(supabaseAdmin.from).toHaveBeenNthCalledWith(1, 'invoices');
       expect(supabaseAdmin.from).toHaveBeenNthCalledWith(2, 'cobrai_jobs');
-      const customersChain = (supabaseAdmin.from as any).mock.results[0].value;
-      expect(customersChain.eq).toHaveBeenCalledWith('tenant_id', 'tenant-1');
+      const invoicesChain = (supabaseAdmin.from as any).mock.results[0].value;
+      expect(invoicesChain.eq).toHaveBeenCalledWith('tenant_id', 'tenant-1');
+      expect(invoicesChain.eq).toHaveBeenCalledWith('status', 'overdue');
       const jobsChain = (supabaseAdmin.from as any).mock.results[1].value;
       expect(jobsChain.eq).toHaveBeenCalledWith('tenant_id', 'tenant-1');
     });
@@ -80,15 +82,49 @@ describe('cobrai-page.routes', () => {
       expect(res.statusCode).toBe(401);
     });
 
-    it('lista os jobs do tenant, filtrado por tenant_id', async () => {
-      const rows = [{ id: 'j1', status: 'sent' }];
+    it('lista os jobs do tenant, mapeando stage/sent_at da fonte real', async () => {
+      const rows = [
+        {
+          id: 'j1',
+          customer_id: 'c1',
+          status: 'sent',
+          created_at: '2026-08-25T10:00:00Z',
+          executed_at: '2026-08-25T10:05:00Z',
+          cobrai_rules: { name: 'Aviso D+3' },
+        },
+        {
+          id: 'j2',
+          customer_id: 'c2',
+          status: 'scheduled',
+          created_at: '2026-08-25T09:00:00Z',
+          executed_at: null,
+          cobrai_rules: null,
+        },
+      ];
       mockFromSequence([{ data: rows, error: null }]);
       const app = await buildApp();
 
       const res = await app.inject({ method: 'GET', url: '/api/v2/cobranca/jobs/history' });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json()).toEqual(rows);
+      expect(res.json()).toEqual([
+        {
+          id: 'j1',
+          customer_id: 'c1',
+          stage: 'Aviso D+3',
+          status: 'sent',
+          created_at: '2026-08-25T10:00:00Z',
+          sent_at: '2026-08-25T10:05:00Z',
+        },
+        {
+          id: 'j2',
+          customer_id: 'c2',
+          stage: null,
+          status: 'scheduled',
+          created_at: '2026-08-25T09:00:00Z',
+          sent_at: null,
+        },
+      ]);
       const chain = (supabaseAdmin.from as any).mock.results[0].value;
       expect(chain.eq).toHaveBeenCalledWith('tenant_id', 'tenant-1');
     });
@@ -101,20 +137,21 @@ describe('cobrai-page.routes', () => {
       expect(res.statusCode).toBe(401);
     });
 
-    it('retorna a lista de clientes pausados do tenant certo', async () => {
-      mockFromSequence([{ data: { cobrai_paused_customers: ['c1'] }, error: null }]);
+    it('retorna a lista de clientes com cobrai_opted_out=true no tenant certo', async () => {
+      mockFromSequence([{ data: [{ id: 'c1' }, { id: 'c2' }], error: null }]);
       const app = await buildApp();
 
       const res = await app.inject({ method: 'GET', url: '/api/v2/cobranca/tenant-config' });
 
       expect(res.statusCode).toBe(200);
-      expect(res.json()).toEqual({ cobrai_paused_customers: ['c1'] });
+      expect(res.json()).toEqual({ cobrai_paused_customers: ['c1', 'c2'] });
       const chain = (supabaseAdmin.from as any).mock.results[0].value;
-      expect(chain.eq).toHaveBeenCalledWith('id', 'tenant-1');
+      expect(chain.eq).toHaveBeenCalledWith('tenant_id', 'tenant-1');
+      expect(chain.eq).toHaveBeenCalledWith('cobrai_opted_out', true);
     });
 
-    it('sem linha ainda -> lista vazia (não quebra)', async () => {
-      mockFromSequence([{ data: null, error: null }]);
+    it('nenhum cliente pausado -> lista vazia (não quebra)', async () => {
+      mockFromSequence([{ data: [], error: null }]);
       const app = await buildApp();
 
       const res = await app.inject({ method: 'GET', url: '/api/v2/cobranca/tenant-config' });

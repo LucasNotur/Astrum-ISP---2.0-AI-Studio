@@ -26,17 +26,25 @@ export async function dashboardRoutes(app: FastifyInstance) {
     return reply.send(data ?? []);
   });
 
-  // GET /api/v2/dashboard/csat-ratings — tickets com csat_score preenchido, p/ gráfico de NPS.
+  // GET /api/v2/dashboard/csat-ratings — CSAT preenchido, p/ gráfico de NPS.
+  // AUD-G (2026-08-25): `tickets.csat_score` não existe no schema real (achado da F1-D,
+  // confirmado também pelo comentário de quality-stats.service.ts). A fonte real é
+  // `ai_performance_logs.extra->csat_score` — mesmo campo que nightly-brain.service.ts já
+  // usa pra calcular CSAT médio (`gatherDailyMetrics`). Hoje nenhuma linha popula esse
+  // campo em produção, então a lista vem vazia (sem 500) até algo começar a gravar.
   app.get('/api/v2/dashboard/csat-ratings', { onRequest: auth }, async (req: any, reply: any) => {
     const tenantId = tenantOf(req);
     if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
 
     const { data, error } = await supabaseAdmin
-      .from('tickets')
-      .select('id, csat_score, created_at')
-      .eq('tenant_id', tenantId)
-      .not('csat_score', 'is', null);
+      .from('ai_performance_logs')
+      .select('id, extra, created_at')
+      .eq('tenant_id', tenantId);
     if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
-    return reply.send(data ?? []);
+
+    const ratings = (data ?? [])
+      .map((r: any) => ({ id: r.id, csat_score: Number(r.extra?.csat_score), created_at: r.created_at }))
+      .filter((r: any) => Number.isFinite(r.csat_score));
+    return reply.send(ratings);
   });
 }
