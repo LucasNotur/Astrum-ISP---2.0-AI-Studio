@@ -2,7 +2,18 @@ import { describe, it, expect, vi } from 'vitest';
 
 vi.stubEnv('OPENAI_API_KEY', 'test-openai-key-for-vitest');
 
-import { ChurnPredictionSchema, TicketClassificationSchema } from './batch.service';
+const supabaseFrom = vi.fn(() => ({
+  select: vi.fn().mockReturnThis(),
+  eq: vi.fn().mockReturnThis(),
+  is: vi.fn().mockReturnThis(),
+  limit: vi.fn(async () => ({ data: [] })),
+}));
+
+vi.mock('../database/supabase.client', () => ({
+  supabaseAdmin: { from: supabaseFrom },
+}));
+
+import { ChurnPredictionSchema, TicketClassificationSchema, batchService } from './batch.service';
 
 describe('BatchService — Schemas de Validação', () => {
   it('ChurnPrediction válida passa no schema', () => {
@@ -65,5 +76,17 @@ describe('BatchService — Schemas de Validação', () => {
       tags: ['t1', 't2', 't3', 't4', 't5', 't6'], // máx 5
     };
     expect(() => TicketClassificationSchema.parse(invalid)).toThrow();
+  });
+});
+
+describe('BatchService — regressão S1 (client anônimo tinha zero grants, usava silenciosamente supabase.from)', () => {
+  it('runTicketClassification consulta tickets via supabaseAdmin', async () => {
+    await batchService.runTicketClassification('tenant-1');
+    expect(supabaseFrom).toHaveBeenCalledWith('tickets');
+  });
+
+  it('runChurnAnalysis consulta customers via supabaseAdmin', async () => {
+    await batchService.runChurnAnalysis('tenant-1');
+    expect(supabaseFrom).toHaveBeenCalledWith('customers');
   });
 });

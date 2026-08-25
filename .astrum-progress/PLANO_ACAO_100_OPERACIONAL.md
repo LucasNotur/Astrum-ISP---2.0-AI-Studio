@@ -425,8 +425,52 @@ teste enfraquecido, push se ok). Checklist extra: (a) nenhum bump de major sem r
 
 # FASE 4 — Segurança fina
 
-## [ ] S1 — [MCP] Auditoria dos 5 arquivos com client Supabase anônimo no apps/api
-**Modelo:** Claude Sonnet 5 no Claude Code *(precisa do Supabase MCP)*
+## [x] S1 — [MCP] Auditoria dos 5 arquivos com client Supabase anônimo no apps/api
+**Modelo:** Claude Sonnet 5 no Claude Code (2026-08-25)
+**Resumo:** Confirmado via MCP (`information_schema.role_table_grants`) que `anon` tem
+**zero grants** nas 7 tabelas tocadas pelos 5 arquivos (`webhook_deliveries`, `tenants`,
+`customers`, `tickets`, `safety_vetoes`, `ai_batch_jobs`, `churn_predictions` — só
+`authenticated` tem grant; `anon`, nenhum). **4 dos 5 arquivos usavam de fato o client
+anônimo** e foram corrigidos (troca de import para `supabaseAdmin`, diff de 1 linha por
+arquivo, mesmo padrão de `trial.service.ts`/`tenant-keys.ts`):
+- `svix.service.ts` — **QUEBRADO_SILENCIOSO**. `send()` insere em `webhook_deliveries` sem
+  checar `error`; `_getOrCreateApp()` falha ao ler `tenants.svix_app_id` (trata como "sem
+  app" e recria um app novo no Svix a cada chamada — duplicação de recurso externo) e falha
+  ao persistir o `app_id` novo (idem, silencioso). Só `resendDelivery()` já checava `error`
+  (mas lançava "entrega não encontrada" quando na verdade era erro de permissão).
+- `agent-db.adapter.ts` — **QUEBRADO_SILENCIOSO**. É a implementação de `IDatabasePort`
+  usada pelo grafo do agente de IA (`domain/agent/agent.nodes.ts`, caminho vivo de
+  produção). `fetchCustomer`/`createTicket`/`recordSafetyVeto` não checavam `error`: cliente
+  sempre voltava `null` pro agente, tickets criados pela IA nunca eram gravados, e vetos de
+  segurança (IA-21 — fila de revisão humana quando o classificador bloqueia uma resposta)
+  nunca eram registrados.
+- `batch.service.ts` — **QUEBRADO_SILENCIOSO**. Chamado de verdade pelo worker BullMQ
+  (`packages/queue/src/workers/batch.worker.ts`, não é código morto). Toda leitura
+  (`customers`, `tickets`) e escrita (`ai_batch_jobs`, `churn_predictions`) sem checar
+  `error`: a análise de churn e a classificação de tickets agendadas às 02h nunca rodavam de
+  fato (lista sempre vazia) e o audit log de jobs nunca era persistido.
+- `zep.service.ts` — **QUEBRADO_SILENCIOSO**, impacto menor. `_ensureSession()` lê
+  `customers.name/email` sem checar erro; ao falhar, a sessão Zep é criada sem nome/email
+  do cliente nos metadados (degrada qualidade da memória de longo prazo, não quebra o fluxo
+  — Zep é fail-open por design).
+
+O 5º arquivo, `vendas-dashboard.routes.ts`, é **INOFENSIVO**: o import é
+`supabaseAdmin as supabase` (alias local) — bateu no grep por causa do nome da variável,
+mas nunca usou o client anônimo de fato; nenhuma mudança necessária.
+
+15 testes Vitest novos/atualizados mockando `supabaseAdmin` (mesmo padrão de
+`tenant-keys.test.ts`): 2 arquivos novos (`svix.service.test.ts`,
+`agent-db.adapter.test.ts`) + testes adicionados em `batch.service.test.ts` e
+`zep.service.test.ts` (mock existente ali trocado de `supabase` para `supabaseAdmin`, já
+que a chave mockada tinha o nome errado desde antes). Suite backend completa: **2687
+passed / 3 failed / 7 skipped** — as 3 falhas são em `cobrai-dispatch.service.test.ts`,
+arquivo **não tocado por esta tarefa**: já estava modificado (não commitado) no início desta
+sessão, junto com `engine-flags.ts`, `cobrai-page.routes.ts`, `cobrai.worker.ts`,
+`dashboard.routes.ts`, `graph.routes.ts`, `knowledge-reindex.routes.ts`, `server.ts` e a
+deleção de `src/workers/cobraiWorker.ts` — trabalho em andamento de outra tarefa (padrão
+bate com a C1, Fase 2), não desta S1. Ver "Achados colaterais". Commit + push feitos **só
+dos arquivos do escopo S1** (4 arquivos corrigidos + 2 testes novos + este plano); o resto
+da árvore de trabalho ficou intocado, como estava antes desta sessão.
 **Contexto:** o bug do /trial (2026-08-24) era o client anônimo gravando com RLS
 bloqueando silenciosamente. Já corrigidos: `trial.service.ts`,
 `integration-secrets.routes.ts`, `tenant-keys.ts`. Restam 5 arquivos não-teste importando
@@ -765,3 +809,20 @@ Tudo o mais é independente entre si.
   `SentimentMetricsCard.tsx`, `IntelligenceHubPage.tsx`, `NetworkTwinPage.tsx`,
   `SandboxPage.tsx`) não apareceram no inventário original por causa do grep de uma linha só.
   Ficam para a F1-D2 (task nova criada acima).
+- **[S1, 2026-08-25]** No início desta sessão, a árvore de trabalho já tinha um lote grande
+  de arquivos modificados/não commitados sem relação com a S1 — padrão bate com a C1 (Fase
+  2, rollback do CobrAI): `apps/api/src/domain/cobranca/cobrai-dispatch.routes.ts`,
+  `cobrai-dispatch.service.ts`, `cobrai-page.routes.ts`+teste,
+  `apps/api/src/infrastructure/config/engine-flags.ts`+teste,
+  `packages/queue/src/workers/cobrai.worker.ts`, deleção de `src/workers/cobraiWorker.ts`
+  (+ teste) e mudança em `src/__tests__/workers/lockout.test.ts`, uma migration nova não
+  commitada (`packages/db/src/migrations/110_cobranca_emergency_stop.sql`), e também
+  `apps/api/src/domain/provedor/dashboard.routes.ts`+teste,
+  `apps/api/src/domain/rede/graph.routes.ts`+teste,
+  `apps/api/src/domain/conhecimento/knowledge-reindex.routes.ts`+teste e `server.ts`. Esse
+  lote está **incompleto**: `cobrai-dispatch.service.test.ts` falha 3 testes (mismatch de
+  shape em `buildCobraiEnqueue`, engines legacy/v2) rodando a suite completa do backend.
+  Não mexi em nenhum desses arquivos (fora do escopo da S1) nem os incluí no commit da S1.
+  Quem retomar a C1 (ou o que quer que seja esse lote) precisa terminar/corrigir antes de
+  rodar a suite completa de novo — hoje ela sempre vai reportar 3 falhas por causa disso,
+  não por regressão da S1.

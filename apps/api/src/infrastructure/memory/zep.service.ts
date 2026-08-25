@@ -3,7 +3,7 @@ type Memory = any;
 type Message = any;
 type Session = any;
 import { infraLogger } from '../logging/logger';
-import { supabase } from '../database/supabase.client';
+import { supabaseAdmin as supabase } from '../database/supabase.client';
 
 /**
  * Zep Memory Service — Memória de Longo Prazo

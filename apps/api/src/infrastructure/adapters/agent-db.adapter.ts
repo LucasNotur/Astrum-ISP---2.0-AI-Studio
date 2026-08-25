@@ -1,4 +1,4 @@
-import { supabase } from '../database/supabase.client';
+import { supabaseAdmin as supabase } from '../database/supabase.client';
 import { IDatabasePort, ICustomerData, ITicketInput, ISafetyVetoInput } from '../../domain/ports/database.port';
 
 export const agentDbAdapter: IDatabasePort = {

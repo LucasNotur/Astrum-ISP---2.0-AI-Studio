@@ -1,6 +1,6 @@
 import { Webhook, WebhookRequiredHeaders } from 'svix';
 import { Svix } from 'svix';
-import { supabase } from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
 
 /**

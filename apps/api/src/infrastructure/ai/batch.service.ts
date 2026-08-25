@@ -3,7 +3,7 @@ import { z } from 'zod';
 import fs from 'fs';
 import path from 'path';
 import { infraLogger } from '../logging/logger';
-import { supabase } from '../database/supabase.client';
+import { supabaseAdmin as supabase } from '../database/supabase.client';
 import { getRedisClient } from '../cache/redis.client';
 import { resolveOpenAIKey } from '../config/openai-key';
 

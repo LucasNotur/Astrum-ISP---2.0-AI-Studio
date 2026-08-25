@@ -15,15 +15,17 @@ vi.mock('@getzep/zep-js', () => {
   };
 });
 
-vi.mock('../database/supabase.client', () => ({
-  supabase: {
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          single: vi.fn(() => ({ data: { name: 'João Silva', email: 'joao@test.com' } })),
-        })),
-      })),
+const supabaseFrom = vi.fn(() => ({
+  select: vi.fn(() => ({
+    eq: vi.fn(() => ({
+      single: vi.fn(() => ({ data: { name: 'João Silva', email: 'joao@test.com' } })),
     })),
+  })),
+}));
+
+vi.mock('../database/supabase.client', () => ({
+  supabaseAdmin: {
+    from: supabaseFrom,
   },
 }));
 
@@ -108,6 +110,26 @@ describe('ZepMemoryService', () => {
     await expect(service.addMessages('cust-1', 'tenant-1', [
       { role: 'user', content: 'Olá' },
     ])).resolves.not.toThrow();
+  });
+
+  it('regressão S1 — _ensureSession consulta customers via supabaseAdmin (client anônimo tinha zero grants)', async () => {
+    const { ZepMemoryService } = await import('./zep.service');
+    const service = new ZepMemoryService();
+    const client = (service as any).client;
+
+    client.memory.getSession.mockRejectedValueOnce(new Error('session not found'));
+    client.memory.addSession.mockResolvedValueOnce(undefined);
+    client.memory.get.mockResolvedValueOnce({ summary: { content: '' }, facts: [] });
+    client.memory.searchSessions.mockResolvedValueOnce({ results: [] });
+
+    await service.getMemoryContext('cust-1', 'tenant-1', 'internet caiu');
+
+    expect(supabaseFrom).toHaveBeenCalledWith('customers');
+    expect(client.memory.addSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ customerName: 'João Silva', customerEmail: 'joao@test.com' }),
+      }),
+    );
   });
 });
 
