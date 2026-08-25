@@ -450,8 +450,49 @@ HTTP/2), `fast-uri`, `axios`, `undici`, `ws`, `form-data`, `socket.io-parser`,
 **DoD:** vulnerabilidades critical/high zeradas ou justificadas uma a uma, suites + build
 verdes, commits locais SEM push (aguarda AUD-G).
 
-## [ ] D2 — Enxugar as 84 dependências da raiz
-**Modelo:** DeepSeek V4 Pro
+## [x] D2 — Enxugar as 84 dependências da raiz
+**Modelo:** Claude Sonnet 5 (2026-08-25 — executado direto pelo Lucas em vez do DeepSeek,
+mesma decisão da F1-B/C/D, ver nota de escopo abaixo)
+**Resumo:** `npx depcheck` na raiz apontou 36 candidatas (28 `dependencies` + 8
+`devDependencies`). Cruzei cada uma com uso real em `apps/api/src` (dependência hoisted
+pelo workspace npm, consumida mesmo sem estar declarada no `apps/api/package.json`) e com
+o próprio `apps/api/package.json` — achado: **9 das 36 apontadas como "unused" pelo
+depcheck no root eram usadas de verdade pelo `apps/api`**: `@ai-sdk/openai` (5 arquivos),
+`@aws-sdk/client-s3`/`@aws-sdk/s3-request-presigner` (`r2.adapter.ts`), `@fastify/etag`
+(`server.ts`), `@sentry/profiling-node` (`sentry.service.ts`), `duckdb-async`
+(`duckdb.service.ts`), `langsmith` (`langsmith.service.ts`), `pino-pretty` (transport do
+`logger.ts`), `wrangler` (`wrangler.toml` real na raiz). Removê-las teria quebrado o build
+do `apps/api` silenciosamente — ver "Achado colateral" abaixo. Restaram **13 candidatas
+reais** com zero hits em código (só apareciam em `package.json`/lockfile/docs), resíduo do
+backend Express morto desde a Fase 4 (2026-08-17/18): `@fastify/type-provider-typebox`,
+`axios`, `cors`, `express-rate-limit`, `http-proxy-middleware`, `pino-http`,
+`react-hook-form`, `swagger-jsdoc`, `swagger-ui-express` (9 `dependencies`) +
+`@tanstack/react-query-devtools`, `@types/cors`, `@types/swagger-jsdoc`,
+`@types/swagger-ui-express` (4 `devDependencies`). Removidas em 2 lotes (deps → devDeps),
+com `npm install` + `npm run build` + `npm run test:unit` + `npm run typecheck:legacy` +
+`cd apps/api && npm run typecheck` após cada lote — todos verdes. 46 pacotes removidos do
+`node_modules` no lote 1, 5 no lote 2 (`npm install` sem erro nos dois). Build Vite ok nos
+dois lotes; `typecheck:legacy` e `apps/api typecheck` limpos. Suítes: lote 1 bateu
+exatamente a baseline conhecida do D1 (3483 passed/7 skipped, única falha pré-existente
+`batch.service.test.ts`, bug de hoisting do S1); lote 2 teve 4 timeouts sob carga
+(`SignupPage`, `langgraph.service`, `owasp-audit`, `bullmq.client`/`prompt-cache` — mesmo
+padrão de flakiness já documentado desde a F1-A), confirmados não-relacionados por re-run
+isolado (63/63 verde). Nenhuma dep citada em `apps/api/package.json` removida; nenhuma dep
+de Vite/React/Tailwind tocada. Commit local, SEM push (aguarda AUD-G).
+
+**Nota de escopo — grep ampliado além do prescrito na spec (regra global 2: divergência
+reportada, não improvisada):** o passo 1 pedia
+`grep -rn "<pacote>" --include="*.ts" --include="*.tsx" src scripts vite.config.ts vite.preview.config.mts`
+— esse escopo não cobre `apps/api/src`. Como o monorepo usa npm workspaces com um único
+`node_modules` hoisted, uma dependência pode estar declarada só no `package.json` da raiz e
+ser consumida de verdade pelo `apps/api` sem aparecer no `apps/api/package.json` — foi
+exatamente o caso das 9 dependências listadas acima. Segui o grep literal primeiro, mas
+antes de editar qualquer coisa ampliei a busca pro repo inteiro (incluindo `apps/api/src`)
+porque a regra "Proibido: remover dep citada em `apps/api/package.json`" só cobre metade do
+risco real — a outra metade é dependência hoisted não declarada. Sem isso, o lote 1 teria
+quebrado o build do `apps/api` (imports de `@aws-sdk/*`, `@ai-sdk/openai`, `langsmith`,
+`duckdb-async`, etc. deixariam de resolver).
+
 **Contexto:** o `package.json` da raiz tem 84 deps de produção — muitas eram do backend
 Express, morto desde 2026-08-17/18 (ex. prováveis: socket.io, cheerio, nodemailer na
 raiz — nodemailer vivo existe no `apps/api`). Dep morta = superfície de ataque e npm
@@ -1037,3 +1078,17 @@ Tudo o mais é independente entre si.
   HaveIBeenPwned desligada). É um toggle do painel Supabase (Auth → Password), não DDL — não dá
   pra resolver por migration. Ligar leva ~1 min e vale, ainda mais com o `/trial` aberto ao
   público.
+- **[D2, 2026-08-25 — grep prescrito na spec não cobre dependência hoisted consumida só pelo
+  `apps/api`]** O passo 1 da D2 pedia grep restrito a
+  `src scripts vite.config.ts vite.preview.config.mts`. Nesse monorepo (npm workspaces, um
+  `node_modules` só), uma dependência declarada apenas no `package.json` da raiz pode ser
+  importada de verdade pelo `apps/api/src` sem nunca aparecer no `apps/api/package.json` —
+  achei 9 casos assim (`@ai-sdk/openai`, `@aws-sdk/client-s3`, `@aws-sdk/s3-request-presigner`,
+  `@fastify/etag`, `@sentry/profiling-node`, `duckdb-async`, `langsmith`, `pino-pretty`,
+  `wrangler`). A regra "Proibido: remover dep citada em `apps/api/package.json`" não cobre esse
+  caso porque a dependência não está citada lá — só é importada de lá. Segui o grep literal
+  primeiro, mas ampliei pro repo inteiro antes de decidir o que remover (ver nota de escopo na
+  seção da D2 acima). **Vale generalizar essa checagem** (grep contra `apps/api/src` também, não
+  só `apps/api/package.json`) em qualquer tarefa futura que mexer em `package.json` da raiz —
+  o mesmo padrão provavelmente existe ao contrário (dep declarada só no `apps/api/package.json`
+  mas nunca usada nem lá, se algum dia alguém rodar depcheck lá dentro).
