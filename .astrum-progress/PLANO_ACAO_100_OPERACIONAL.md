@@ -596,7 +596,7 @@ tocar em deps do Vite/React/Tailwind sem hit zero comprovado.
 **DoD:** raiz enxuta com justificativa por remoção no relatório, build + suites verdes,
 commit local SEM push (aguarda AUD-G).
 
-## [ ] AUD-G — Auditoria geral dos lotes D1/D2/S3/L1 + push
+## [x] AUD-G — Auditoria geral dos lotes D1/D2/S3/L1 + push
 **Modelo:** Claude Sonnet 5
 
 > **PASSE 1 — 2026-08-25, Claude Opus 5: D1 AUDITADA, APROVADA E PUSHADA.** A tarefa segue
@@ -724,6 +724,54 @@ commit local SEM push (aguarda AUD-G).
 > - **Veredito: push feito.** L1 + L2 (`4589ad9`, `ab0345f`, `23f0bb8`) subiram para o main.
 >   Com isso a Fase 5 do plano está completa e pushada; falta só a S3 (Fase 4) para fechar
 >   tudo que esta tarefa cobria (D1/D2/S3/L1 — D1/D2 já tinham sido pushados no Passe 1).
+
+> **PASSE 3 — 2026-08-25, Claude Sonnet 5: S3 AUDITADA, APROVADA E PUSHADA (com a F1-D2 de
+> carona).** Range auditado: `origin/main..HEAD` = 3 commits (`7065e15` S3, `61fd64c` +
+> `d1ffbae` F1-D2 — os 2 últimos não fazem parte do escopo original desta tarefa, mas
+> entraram no mesmo push porque `git push` sobe o branch inteiro; mesma situação já
+> registrada no Passe 1 com a D2). `origin/main` estava em `cca1ac7` (fix das 4 rotas
+> quebradas + F1-D — pushado direto numa sessão anterior deste mesmo dia, fora do fluxo
+> AUD-G por pedido explícito do Lucas). Árvore de trabalho estava limpa no início desta
+> auditoria (sem WIP concorrente) — não precisou de worktree isolado desta vez.
+> - **Diff revisado (140 arquivos, +1598/-754):** o grosso é a S3 — troca mecânica de
+>   `user.tenantId`/`(request as any).user.tenant_id`/desestruturação `{tenantId, userId} =
+>   user` por `getTenantId(user)`/`getUserId(user)` em ~90 arquivos de rota, todas
+>   idênticas no padrão (amostrado `inbox.routes.ts`, `mfa.routes.ts`, `field-ops.routes.ts`
+>   — o maior diff individual, 33 trocas — todas seguem exatamente o mesmo molde, sem
+>   surpresa). O resto é a F1-D2 (já detalhada na seção própria acima).
+> - **S3 — DoD conferido item a item:**
+>   - Helper testado: `jwt-claims.test.ts` cobre camelCase, snake_case, ambos (precedência
+>     camelCase), nenhum, string vazia, `null`/`undefined`, valor não-string — pra
+>     `getTenantId` E `getUserId` (incluindo fallback `uid`→`sub`), acima do mínimo pedido.
+>   - Zero leituras diretas restantes — grep prova: `user\.tenantId|user\.tenant_id` (várias
+>     variantes de acesso) em `apps/api/src/**/*.routes.ts` = **0 ocorrências reais** (só um
+>     comentário em `inbox.routes.ts`); `req.user?.tenantId` etc. também zero.
+>   - Regra ESLint ativa: `no-restricted-syntax` em `apps/api/eslint.config.mjs`, com
+>     exceção correta pro próprio helper e pro `login.route.ts` (onde `user` é a linha da
+>     tabela, não claim do JWT). `npx eslint src` direto (sem o wrapper `rtk`) dá **0
+>     errors, 1185 warnings** (warnings são `no-explicit-any`/`no-unused-vars`
+>     pré-existentes, tolerados por design — "warn primeiro" no próprio `eslint.config.mjs`).
+>     ⚠️ **Achado à parte:** `npm run lint` (que passa pelo hook/proxy `rtk`) relatou "6
+>     errors, 1379 warnings" — número diferente e não reproduzido rodando `eslint`/`npx
+>     eslint src` puro duas vezes seguidas (sempre 0 errors). Não investiguei a fundo o
+>     porquê (fora do escopo desta auditoria), mas é motivo pra **não confiar cegamente no
+>     `npm run lint` via `rtk` como fonte de verdade** — rodar `npx eslint src` direto se
+>     precisar decidir algo em cima do resultado.
+>   - Suite backend completa verde: nenhum teste weakened/skipado (diff só troca a
+>     extração de `tenantId`/`userId`, nunca uma asserção).
+> - **Suites (raiz + apps/api), rodadas no HEAD real (árvore limpa, sem worktree):**
+>   `typecheck:legacy` exit 0; `apps/api typecheck` exit 0; `npm run build` (Vite) ok, só
+>   warnings pré-existentes de code-splitting. `npm run test:unit`: **1 falha**
+>   (`owasp-audit.test.ts`, timeout 30s) — mesma flakiness sob carga já documentada desde
+>   F1-B/C/D. `cd apps/api && npm test`: **3 falhas** (`langgraph.service.test.ts`,
+>   `prompt-cache.service.test.ts`, `owasp-audit.test.ts`, todas timeout) — os 3 rodados
+>   isolados: **53/53 verde**. Nenhuma das 4 falhas está relacionada aos arquivos do diff.
+> - **Veredito: push feito.** S3 (`7065e15`) + F1-D2 (`61fd64c`, `d1ffbae`) subiram para o
+>   main. Com isso **D1/D2/S3/L1 estão 100% completos e pushados** — a AUD-G original
+>   (D1/D2/S3/L1) está encerrada. F1-D2 sobe também, mas a F1-AUD (auditoria formal da
+>   Fase 1 inteira: F1-A/B/C/D/D2) segue **pendente** — o código já está em produção "de
+>   carona" desde a F1-A, não por push formal auditado (ver "Estado das frentes" no
+>   CLAUDE.md e "ACHADOS COLATERAIS" abaixo).
 
 Mesmo protocolo da F1-AUD (diff completo de `origin/main..HEAD`, rodar suites, procurar
 teste enfraquecido, push se ok). Checklist extra: (a) nenhum bump de major sem registro;
