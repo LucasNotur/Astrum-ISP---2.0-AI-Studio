@@ -164,8 +164,7 @@ export function SettingsPage() {
   const handleDeleteTeamMember = async (id: string) => {
     if (!window.confirm('Tem certeza que deseja remover este membro?')) return;
     try {
-      const { error } = await supabase.from('team_members').delete().eq('id', id);
-      if (error) throw error;
+      await apiDelete(`/api/v2/team/members/${id}`);
       setTeamMembers((prev) => prev.filter((m) => m.id !== id));
       toast.success('Membro removido com sucesso!');
     } catch { toast.error('Erro ao remover membro.'); }
@@ -177,15 +176,23 @@ export function SettingsPage() {
     try {
       const activeTenant = tenantId;
       if (selectedTeamMember.id) {
-        const { error } = await supabase.from('team_members').update({ name: selectedTeamMember.name, email: selectedTeamMember.email, role: selectedTeamMember.role, status: selectedTeamMember.status, tenant_id: activeTenant }).eq('id', selectedTeamMember.id);
-        if (error) throw error;
+        await apiPut(`/api/v2/team/members/${selectedTeamMember.id}`, {
+          name: selectedTeamMember.name,
+          email: selectedTeamMember.email,
+          role: selectedTeamMember.role,
+          status: selectedTeamMember.status,
+        });
         if (selectedTeamMember.role === 'support' || selectedTeamMember.role === 'admin' || selectedTeamMember.role === 'owner') {
           await upsertTenantOperator(activeTenant, selectedTeamMember.email, { name: selectedTeamMember.name, role: selectedTeamMember.role });
         }
         toast.success('Membro atualizado!');
       } else {
-        const { error } = await supabase.from('team_members').insert({ name: selectedTeamMember.name, email: selectedTeamMember.email, role: selectedTeamMember.role, status: selectedTeamMember.status || 'active', tenant_id: activeTenant });
-        if (error) throw error;
+        await apiPost('/api/v2/team/members', {
+          name: selectedTeamMember.name,
+          email: selectedTeamMember.email,
+          role: selectedTeamMember.role,
+          status: selectedTeamMember.status || 'active',
+        });
         toast.success('Membro adicionado!');
       }
       setIsTeamMemberDialogOpen(false);
@@ -416,16 +423,19 @@ export function SettingsPage() {
 
   useEffect(() => {
     if (!tenantId || tenantId === 'DEFAULT_TENANT') return;
-    supabase.from('tenants').select('enabled_modules').eq('id', tenantId).maybeSingle()
-      .then(({ data }) => { if (data?.enabled_modules) setModulesConfig(data.enabled_modules); });
+    apiGet<{ enabled_modules: Record<string, boolean> }>('/api/v2/settings/modules')
+      .then((data) => { if (data?.enabled_modules) setModulesConfig(data.enabled_modules); })
+      .catch(() => {});
   }, [tenantId]);
 
   const saveModulesConfig = async () => {
     setIsSavingModules(true);
-    const { error } = await supabase.from('tenants').update({ enabled_modules: modulesConfig }).eq('id', tenantId);
-    if (error) toast.error("Erro ao salvar módulos."); else {
+    try {
+      await apiPut('/api/v2/settings/modules', { modules: modulesConfig });
       toast.success("Módulos atualizados!");
       useAppStore.getState().setEnabledModules(modulesConfig);
+    } catch {
+      toast.error("Erro ao salvar módulos.");
     }
     setIsSavingModules(false);
   };

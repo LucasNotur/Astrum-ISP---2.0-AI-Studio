@@ -175,14 +175,45 @@ sai de fato pelo WhatsApp). Reportei o achado ao Lucas antes de prosseguir (regr
 "Achados colaterais" pra uma tarefa futura de schema (decisão de produto, não só
 engenharia — precisa decidir se cria coluna nova ou remove a feature morta).
 
-## [ ] F1-C — Migrar SettingsPage (a maior: ~31 chamadas)
-**Modelo:** DeepSeek V4 Pro
-Idêntica à F1-A, para `src/pages/SettingsPage.tsx` (2.780 linhas — cuidado extra).
-**Atenção:** a seção Configurações → Integrações JÁ usa a API
-(`/api/v2/settings/integration-keys`, corrigida 2026-08-24) — não mexa nela. Migre apenas
-as chamadas diretas restantes. Se alguma gravação (insert/update) direta ainda existir
-nesta página, ela está silenciosamente quebrada em produção — migre para rota `apps/api`
-com a mesma prioridade das leituras.
+## [x] F1-C — Migrar SettingsPage (a maior: ~31 chamadas)
+**Modelo:** Claude Sonnet 5 (2026-08-25 — executado direto pelo Lucas em vez do
+DeepSeek, mesma decisão da F1-B, ver nota de escopo abaixo)
+**Resumo:** Antes de escrever qualquer rota, auditei via MCP (`information_schema.columns`)
+TODAS as tabelas/colunas que as 31 ocorrências do inventário tocam. Achado: só **5 das 31**
+miram schema real — as 3 de `team_members` (delete/update/insert, linhas 167/180/187) e as
+2 de `tenants.enabled_modules` (select/update, linhas 419/425). As outras **26** (+ 1 não
+capturada pelo grep, ver nota) gravam/leem colunas e tabelas que **não existem** no banco —
+mesmo padrão de bug já achado na F1-B (ChatPage/WhatsAppPage), só que aqui é a maioria da
+página, não a minoria. Migradas as 5 seguras: `team_members` reaproveita as rotas já
+existentes de `team-page.routes.ts` (F1-B, mesma tabela/shape) e `enabled_modules` ganhou
+rota nova `GET/PUT /api/v2/settings/modules` em
+`apps/api/src/domain/provedor/settings-page.routes.ts` (`supabaseAdmin` + `.eq('id',
+tenantId)` do JWT). `grep -c "supabase.from("` em SettingsPage.tsx: 31 → 26 (as 26
+restantes documentadas no achado colateral abaixo, não migradas — decisão de produto/schema
+pendente, mesmo protocolo da F1-B). 8 testes Vitest novos (`settings-page.routes.test.ts`:
+401 + 200/400 + filtro de tenant no GET e no PUT). Suítes verdes: backend 2646 passed/0
+failed/7 skipped, typecheck limpo; frontend suite completa (com backend embutido) 3433
+passed/0 failed/7 skipped — numa execução anterior sob carga total 3 testes deram timeout
+(SignupPage, langgraph, owasp-audit, o mesmo padrão de flakiness já documentado na F1-B),
+confirmados pré-existentes e sem relação por re-run isolado 53/53 verde (inclui
+`SettingsPage.test.tsx` isolado); typecheck frontend limpo. Commit local, SEM push (aguarda
+F1-AUD).
+
+**Nota de escopo — F1-C ficou parcial por decisão do Lucas (repete o padrão da F1-B, agora
+em escala maior):** a auditoria de schema via MCP mostrou que a tabela `tenants` real só
+tem `active, ai_budget_hard_stop, ai_budget_usd_monthly, atendimento_engine,
+cobrai_daily_limit, cobrai_hourly_limit, cobrai_stages, cobrai_window, created_at,
+enabled_modules, escalation_rules, evolution_instance, extra, fcr_target, id,
+integration_keys, is_sandbox, name, onboarding_done, onboarding_step, operators, plan,
+settings, slug, subscriber_count, svix_app_id, trial_ends_at` — **nenhuma** das colunas
+`sso_config`, `theme`, `vector_store_config`, `monthly_token_limit`, `worker_concurrency`,
+`backup_*` (7 campos), `holidays` ou `integrations` (plaintext antiga) existe. A tabela
+`role_permissions` real é `(id, role, resource, action)` — RBAC global estático, não tem
+`tenant_id`/`role_name`/`permissions` (JSONB por tenant) como o código assume. Reportei ao
+Lucas antes de escrever qualquer rota (regra global 2) e ele escolheu o mesmo caminho da
+F1-B: migrar só a fração com schema real agora, documentar o resto pra uma tarefa futura de
+desenho de schema (não é "portar query pra rota" — colunas/tabelas precisam ser criadas ou
+a feature correspondente decidida como morta, caso a caso).
 Mesma verificação e DoD da F1-A.
 
 ## [ ] F1-D — Migrar as páginas restantes do inventário
@@ -538,3 +569,57 @@ Tudo o mais é independente entre si.
   Antes de migrar essas 7, alguém (produto + engenharia) precisa decidir, por caso: criar
   migration com a coluna/tabela que falta, ou tratar como feature morta e remover da UI.
   Não é uma tarefa "portar query pra rota" — é desenho de schema.
+- **[F1-C, 2026-08-25 — schema real ≠ o que o código assume, verificado via MCP
+  `execute_sql` contra `information_schema.columns` ANTES de escrever qualquer rota]**
+  26 das 31 ocorrências de `SettingsPage.tsx` (+ 1 fora do grep, ver linha 148 abaixo)
+  gravam/leem colunas ou tabelas que **não existem** — bug pré-existente, não é RLS. Não
+  migradas nesta tarefa (decisão do Lucas: só migrar o seguro agora, mesmo protocolo da
+  F1-B). Agrupadas por causa raiz:
+  - **`tenants.sso_config`** (linhas 375, 402, 409, 460) — coluna não existe. SSO/domínio
+    customizado fica sem persistência real.
+  - **`tenants.theme`** (linhas 402, 409) — coluna não existe. Branding (cores/logo/fonte)
+    nunca é salvo de fato.
+  - **`tenants.vector_store_config`** (linhas 460, 488) — coluna não existe. Config do
+    banco vetorial (Qdrant/provider/url/apiKey) não persiste.
+  - **`knowledge_articles.vector_indexed`** (linha 463) — coluna não existe na tabela real
+    (`id, tenant_id, document_id, title, content, category, tags, ingest_status,
+    legacy_id, extra, created_at, updated_at`); contagem de artigos indexados sempre falha.
+  - **`tenants.monthly_token_limit` / `worker_concurrency` / 7 campos `backup_*`**
+    (linhas 511, 531, 784) — nenhuma dessas 9 colunas existe. Limites de IA e config de
+    backup (bucket/projeto GCP/hora/retenção/status) não persistem.
+  - **`tenants.holidays`** (linhas 545, 559, 576, 588) — coluna não existe. Lista de
+    feriados (nacional + manual) nunca é salva; `holidays.routes.ts` já reconhecia isso
+    num comentário próprio (citado na F1-INV), agora confirmado que a causa não é só RLS —
+    a coluna nunca existiu.
+  - **`role_permissions`** (linha 303) — schema real é `(id, role, resource, action)`
+    (RBAC global estático, tabela deny-all mencionada na S2 do plano), não
+    `(tenant_id, role_name, permissions jsonb)` como o código assume. O upsert falharia
+    mesmo com grants de `anon` restaurados — é tabela errada pro conceito, não coluna
+    faltando. Matriz de permissões por role/tenant não tem onde ser persistida hoje.
+  - **`tenants.integrations`** (linhas 1040, 1217, 1242, 1267, 1345, 1368, 1400, 1680,
+    1703, 1726 — os 10 provedores não portados pra `integration-keys` cifrada) — coluna
+    não existe (só `integration_keys`, a nova/cifrada, existe). Já era achado colateral da
+    F1-INV como "grava em coluna plaintext antiga"; agora confirmado que nem a coluna
+    antiga existe mais — o `update` falha por completo, não é um problema de cifra/schema
+    novo vs. antigo, é ausência total de destino.
+  - **`saveCompanySettings`** (linha 858) — `supabase.from('tenants').update(cleanSettings)`
+    espalha as chaves de `companySettings` (`name, logoUrl, supportEmail, supportPhone,
+    workingHours, timezone` — default em `useAppStore.ts:227`) como nomes de coluna
+    direto. Só `name` existe na tabela real; as outras 5 fariam o update inteiro falhar
+    (Postgres rejeita update com coluna inexistente). Padrão perigoso à parte do bug de
+    schema: se algum dia a coluna existir, esse handler aceita gravar QUALQUER chave que
+    estiver no estado do Zustand sem allowlist — vale revisitar quando for desenhado.
+  - **`seedTicketsAndLogs`** (linha 153, mais a ocorrência em 148 não capturada pelo grep
+    de uma linha só — `await supabase\n  .from('tickets')...`, mesmo padrão de quebra de
+    linha já avisado na correção pós-F1-A) — ferramenta de dev/seed atrás de
+    `role==='admin'`. `tickets.insert` usa `subject` (coluna real é `title`) e
+    `messages.insert` usa `ticket_id, sender_type, body` (nenhuma existe; schema real é
+    `conversation_id, role, content`). Ambos os inserts sempre falham silenciosamente
+    (erro não checado). Não é prioridade — é ferramenta de dev, mas ilustra o mesmo padrão.
+  Antes de migrar qualquer uma dessas, produto + engenharia precisam decidir caso a caso:
+  criar a coluna/tabela que falta (migration), redirecionar pro JSONB `tenants.settings`/
+  `tenants.extra` (existem e estão livres — nenhuma rota os usa hoje), ou tratar como
+  feature morta e remover da UI. Recomendação de quem executou a F1-C: SSO/theme/vector
+  store/token-limits/backup/holidays são candidatos naturais a virar sub-chaves de
+  `tenants.settings` (JSONB) numa migration só, em vez de 9+ colunas novas — mas é decisão
+  de produto, não foi aplicada aqui.

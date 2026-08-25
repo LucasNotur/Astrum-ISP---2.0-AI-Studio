@@ -391,6 +391,12 @@ export async function buildServer() {
   const { teamPageRoutes } = await import('./domain/provedor/team-page.routes');
   await app.register(teamPageRoutes);
 
+  // F1-C — SettingsPage: toggles de módulos habilitados (antes ia direto ao Supabase
+  // anônimo). Só enabled_modules — o resto da página mira colunas/tabelas que não
+  // existem no schema real, ver settings-page.routes.ts.
+  const { settingsPageRoutes } = await import('./domain/provedor/settings-page.routes');
+  await app.register(settingsPageRoutes);
+
   // P5-03 — Kit de compliance (DPA/LGPD + due diligence)
   const { complianceRoutes } = await import('./domain/provedor/compliance.routes');
   await app.register(complianceRoutes);
