@@ -6,6 +6,7 @@
  * POST /api/v2/trial/connect-erp      Conecta ERP durante trial (token trial)
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { z } from 'zod';
 import {
   buildFirstInsight,
@@ -100,7 +101,7 @@ export async function trialRoutes(
   app.get('/api/v2/trial/insight', {
     preHandler: verifyTrialToken,
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user as { tenantId: string };
+    const tenantId = getTenantId((request as any).user) ?? '';
 
     const trial = await trialDb.getTrialByTenantId(tenantId);
     if (!trial) return reply.code(404).send({ error: 'Trial não encontrado' });
@@ -144,7 +145,7 @@ export async function trialRoutes(
   app.post('/api/v2/trial/upgrade', {
     preHandler: verifyTrialToken,
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user as { tenantId: string };
+    const tenantId = getTenantId((request as any).user) ?? '';
     await trialDb.upgradeTenant(tenantId);
     return reply.send({
       ok: true,
@@ -162,7 +163,7 @@ export async function trialRoutes(
       return reply.code(400).send({ error: 'Dados de ERP inválidos', details: body.error.flatten() });
     }
 
-    const { tenantId } = (request as any).user as { tenantId: string };
+    const tenantId = getTenantId((request as any).user) ?? '';
     const { provider } = body.data;
 
     // Persistir provider (credenciais serão salvas via erp-admin.routes.ts existente)

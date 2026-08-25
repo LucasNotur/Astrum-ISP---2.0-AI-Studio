@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { z } from 'zod';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { validateBody, validateParams } from '../../infrastructure/validation/zod-validator';
@@ -20,7 +21,7 @@ export async function knowledgeReindexRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('ai_config', 'read')],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const { data, error } = await supabaseAdmin
       .from('knowledge_articles')
       .select('*')
@@ -33,7 +34,7 @@ export async function knowledgeReindexRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('ai_config', 'write')],
   }, async (request) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     return reindexAllArticles(tenantId);
   });
 
@@ -41,7 +42,7 @@ export async function knowledgeReindexRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('ai_config', 'read')],
   }, async (request) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     return getReindexStatus(tenantId);
   });
 
@@ -49,7 +50,7 @@ export async function knowledgeReindexRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('ai_config', 'write'), validateParams(articleParams)],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const { id } = (request as any).validatedParams as { id: string };
     const ok = await reindexOneArticle(tenantId, id);
     if (!ok) {
@@ -62,7 +63,7 @@ export async function knowledgeReindexRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('ai_config', 'read'), validateBody(searchBody)],
   }, async (request) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const { query } = (request as any).validatedBody as { query: string };
     return runSearchTest(tenantId, query);
   });

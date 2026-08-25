@@ -3,6 +3,7 @@
  * POST /api/v2/owner/ask  — fazer pergunta em NL e receber resposta + ação
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { askCopilot, defaultPorts } from './owner-copilot.service';
 
 export async function ownerCopilotRoutes(app: FastifyInstance) {
@@ -19,7 +20,7 @@ export async function ownerCopilotRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'question deve ter pelo menos 5 caracteres.' });
     }
 
-    const answer = await askCopilot(user.tenantId, question.trim(), defaultPorts);
+    const answer = await askCopilot(getTenantId(user) ?? '', question.trim(), defaultPorts);
     return reply.send(answer);
   });
 }

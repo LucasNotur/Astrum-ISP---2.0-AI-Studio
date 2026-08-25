@@ -9,6 +9,7 @@
  * Gate: WIND_TUNNEL_ENABLED=true (staging). RBAC: ai_config.
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../../lib/jwt-claims';
 import supabase from '../../../infrastructure/database/supabase.client';
 import { iaLogger } from '../../../infrastructure/logging/logger';
 import { requirePermission } from '../../../infrastructure/auth/rbac.middleware';
@@ -37,7 +38,7 @@ export async function windTunnelRoutes(app: FastifyInstance) {
       });
     }
 
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     const body = (request.body ?? {}) as { persona_ids?: string[]; dificuldade_min?: number };
 
     // Fire-and-forget: a rodada leva minutos (LLM multi-turn). O run_id sai na
@@ -73,7 +74,7 @@ export async function windTunnelRoutes(app: FastifyInstance) {
   app.get('/api/v2/ia/wind-tunnel/runs', {
     preHandler: [app.authenticate, requirePermission('ai_config', 'read')],
   }, async (request) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     const { data } = await supabase
       .from('wind_tunnel_runs')
       .select('*')
@@ -86,7 +87,7 @@ export async function windTunnelRoutes(app: FastifyInstance) {
   app.get('/api/v2/ia/wind-tunnel/runs/:id', {
     preHandler: [app.authenticate, requirePermission('ai_config', 'read')],
   }, async (request, reply) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     const { id } = request.params as { id: string };
 
     const { data: run } = await supabase

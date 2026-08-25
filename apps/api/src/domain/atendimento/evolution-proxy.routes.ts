@@ -1,9 +1,10 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { resolveTenantKeys } from '../../lib/tenant-keys';
 import { buildEvolutionTarget, normalizeMethod, EvolutionProxyError } from './evolution-proxy.service';
 
-function tenantOf(req: any): string | undefined {
-  return req.user?.tenantId ?? req.user?.tenant_id;
+function tenantOf(req: any): string | null {
+  return getTenantId(req.user);
 }
 
 /**

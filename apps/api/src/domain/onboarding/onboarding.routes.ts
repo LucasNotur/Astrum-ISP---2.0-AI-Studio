@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { onboardNewTenant, isSlugAvailable } from './onboarding.service';
 import { getTenantPlanLimits, checkPlanLimit, PLAN_LIMITS } from './plan-limits.service';
 import { validateBody } from '../../infrastructure/validation/zod-validator';
@@ -71,7 +72,7 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
   fastify.post('/api/v2/onboarding/provision-whatsapp', {
     onRequest: [fastify.authenticate],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const { slug } = request.body as { slug?: string };
 
     const { provisionEvolutionInstance, makeDefaultPorts } = await import(
@@ -92,7 +93,7 @@ export async function onboardingRoutes(fastify: FastifyInstance) {
   fastify.get('/api/v2/billing/plan', {
     onRequest: [fastify.authenticate],
   }, async (request) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const limits = await getTenantPlanLimits(tenantId);
 
     const [customers, operators, documents] = await Promise.all([

@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId, getUserId } from '../../lib/jwt-claims';
 import { queryRAG } from '../../infrastructure/rag/rag-query.service';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { validateBody } from '../../infrastructure/validation/zod-validator';
@@ -21,7 +22,8 @@ export async function ragRoutes(fastify: FastifyInstance) {
       validateBody(ragQuerySchema),
     ],
   }, async (request) => {
-    const { tenantId, userId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
+    const userId = getUserId((request as any).user) ?? '';
     const body = (request as any).validatedBody;
 
     const result = await queryRAG({

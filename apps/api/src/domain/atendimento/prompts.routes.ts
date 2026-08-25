@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { validatePrompt } from './prompt-validation.service';
 
 /**
@@ -13,7 +14,7 @@ export async function promptsRoutes(app: FastifyInstance) {
 
   app.post('/api/v2/prompts/validate', { onRequest: auth }, async (req, reply) => {
     const u = (req as any).user;
-    const tenantId = u?.tenantId ?? u?.tenant_id;
+    const tenantId = getTenantId(u);
     if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
 
     const body = (req.body ?? {}) as any;

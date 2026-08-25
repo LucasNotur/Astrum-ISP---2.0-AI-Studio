@@ -44,10 +44,18 @@ describe('edge.routes', () => {
     expect(res.json()).toMatchObject({ total: 2, agreementRate: 50, avgEdgeMs: 150 });
   });
 
-  it('GET com JWT shape antigo (tenant_id) -> agreement null, não cai em outro tenant', async () => {
+  it('GET com JWT tenant_id (fallback snake_case do helper) -> agrega os resultados do tenant resolvido', async () => {
+    (supabaseAdmin.from as any).mockReturnValue(makeChain({
+      data: [
+        { agree: true, edge_ms: 100, central_intent: 'billing', edge_intent: 'billing' },
+        { agree: false, edge_ms: 200, central_intent: 'billing', edge_intent: 'support' },
+      ],
+      error: null,
+    }));
     const app = await buildApp({ userId: 'op-1', tenant_id: 'tenant-1', role: 'admin' });
     const res = await app.inject({ method: 'GET', url: '/api/v2/ia/edge/agreement' });
-    expect(res.json()).toEqual({ agreement: null });
-    expect(supabaseAdmin.from).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ total: 2, agreementRate: 50, avgEdgeMs: 150 });
+    expect(supabaseAdmin.from).toHaveBeenCalled();
   });
 });

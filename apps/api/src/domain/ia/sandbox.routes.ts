@@ -23,6 +23,7 @@
  *  - 503 — SANDBOX_DB_URL ausente (fail-open)
  */
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { getTenantId, getUserId } from '../../lib/jwt-claims';
 import { validateSql, SqlGuardError } from '../../infrastructure/sandbox/sql-guard';
 import {
   executeQuery,
@@ -47,7 +48,7 @@ async function requireSuperAdmin(
   reply: FastifyReply,
 ): Promise<{ userId: string; tenantId: string } | null> {
   const user = (request as unknown as { user?: JwtUserPayload }).user;
-  const userId = user?.userId;
+  const userId = getUserId(user);
   if (!userId) {
     await reply.status(401).send({
       code: 'UNAUTHORIZED',
@@ -74,7 +75,7 @@ async function requireSuperAdmin(
     return null;
   }
 
-  return { userId, tenantId: user.tenantId ?? '' };
+  return { userId, tenantId: getTenantId(user) ?? '' };
 }
 
 export async function sandboxRoutes(fastify: FastifyInstance) {

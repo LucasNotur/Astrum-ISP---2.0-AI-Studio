@@ -1,11 +1,12 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { resolveTenantKeys } from '../../lib/tenant-keys';
 import { buildEvolutionTarget } from './evolution-proxy.service';
 import { checkWhatsAppConnectionHealth } from './whatsapp-connection-health.service';
 
-function tenantOf(req: any): string | undefined {
-  return req.user?.tenantId ?? req.user?.tenant_id;
+function tenantOf(req: any): string | null {
+  return getTenantId(req.user);
 }
 
 /** tenant_evolution_instances (1ª linha) → tenants.evolution_instance (single legado). */

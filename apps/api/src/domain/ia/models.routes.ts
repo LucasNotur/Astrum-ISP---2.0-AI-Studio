@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { z } from 'zod';
 import { validateBody } from '../../infrastructure/validation/zod-validator';
@@ -18,7 +19,7 @@ export async function modelsRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('ai_config', 'read')],
   }, async (request) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     return { ranking: await getRanking(tenantId) };
   });
 
@@ -26,7 +27,7 @@ export async function modelsRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('ai_config', 'read')],
   }, async (request) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     return { pending: await getPending(tenantId) };
   });
 
@@ -37,7 +38,7 @@ export async function modelsRoutes(fastify: FastifyInstance) {
       validateBody(resolveBodySchema),
     ],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const { itemId } = request.params as { itemId: string };
     const { winner } = (request as any).validatedBody as z.infer<typeof resolveBodySchema>;
 

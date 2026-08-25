@@ -1,8 +1,9 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { enqueueMessage } from '../../infrastructure/queue/bullmq.client';
 import { buildCsatJob, JobValidationError } from './jobs.service';
 
-function tenantOf(req: any): string | undefined { return req.user?.tenantId ?? req.user?.tenant_id; }
+function tenantOf(req: any): string | null { return getTenantId(req.user); }
 
 export async function jobsRoutes(app: FastifyInstance) {
   const auth = [async (req: any, reply: any) => { await (app as any).authenticate(req, reply); }];

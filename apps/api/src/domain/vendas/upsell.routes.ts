@@ -5,15 +5,16 @@
  * `upsell_events` (migration 100). Tenant e operador vêm do JWT — nunca do body.
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId, getUserId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { sanitizeUpsellInput, UpsellValidationError } from './upsell.service';
 
-function tenantOf(req: any): string | undefined {
-  return req.user?.tenantId ?? req.user?.tenant_id;
+function tenantOf(req: any): string | null {
+  return getTenantId(req.user);
 }
 
 function operatorOf(req: any): string | null {
-  return req.user?.userId ?? req.user?.uid ?? req.user?.sub ?? null;
+  return getUserId(req.user);
 }
 
 export async function upsellRoutes(app: FastifyInstance) {

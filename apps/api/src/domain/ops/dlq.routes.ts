@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId, getUserId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { readTenantScoped, writeTenantScoped } from '../../infrastructure/database/tenant-rls';
 import { queues } from '../../infrastructure/queue/priority-queues';
@@ -6,7 +7,7 @@ import { enqueueMessage } from '../../infrastructure/queue/bullmq.client';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { resolveRetryTarget } from './dlq.service';
 
-function tenantOf(req: any): string | undefined { return req.user?.tenantId ?? req.user?.tenant_id; }
+function tenantOf(req: any): string | null { return getTenantId(req.user); }
 
 export async function dlqRoutes(app: FastifyInstance) {
   const auth = [async (req: any, reply: any) => { await (app as any).authenticate(req, reply); }];
@@ -73,7 +74,7 @@ export async function dlqRoutes(app: FastifyInstance) {
     if (t.queue === 'cobrai') await (queues.cobrai as any).add(t.jobName, t.payload);
     else await enqueueMessage(t.tenantId ?? tenantId, t.payload, {}, t.jobName);
 
-    const userId = (req as any).user?.userId ?? (req as any).user?.sub ?? null;
+    const userId = getUserId((req as any).user);
     // MT-02(c): escrita RLS por-tenant quando a flag está ligada (pós-096); senão service_role.
     await writeTenantScoped(tenantId, {
       rls: async (db) => {
@@ -99,7 +100,7 @@ export async function dlqRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const { reason } = (req.body as { reason?: string }) ?? {};
 
-    const userId = (req as any).user?.userId ?? (req as any).user?.sub ?? null;
+    const userId = getUserId((req as any).user);
     const { data, error } = await supabaseAdmin
       .from('dead_letter_queue')
       .update({ resolved: true, resolved_at: new Date().toISOString(), resolved_by: userId, notes: reason ?? 'descartado' })

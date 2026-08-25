@@ -9,10 +9,11 @@
  * PLANO_ACAO_100_OPERACIONAL.md (F1-B) antes de migrá-las.
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 
-function tenantOf(req: any): string | undefined {
-  return req.user?.tenantId ?? req.user?.tenant_id;
+function tenantOf(req: any): string | null {
+  return getTenantId(req.user);
 }
 
 export async function whatsappPageRoutes(app: FastifyInstance) {

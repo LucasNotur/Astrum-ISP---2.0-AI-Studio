@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId, getUserId } from '../../lib/jwt-claims';
 import { r2Adapter } from '../../adapters/storage/r2.adapter';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { requirePlanCapacity } from '../onboarding/plan-limits.service';
@@ -25,7 +26,8 @@ export async function documentRoutes(fastify: FastifyInstance) {
       requirePlanCapacity('documents'),
     ],
   }, async (request, reply) => {
-    const { tenantId, userId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
+    const userId = getUserId((request as any).user) ?? '';
 
     const data = await request.file();
     if (!data) {
@@ -114,7 +116,7 @@ export async function documentRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('ai_config', 'read')],
   }, async (request) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
 
     // MT-02(c): RLS por-tenant quando a flag está ligada (pós-096); senão service_role.
     const documents = await readTenantScoped(tenantId, {
@@ -145,7 +147,7 @@ export async function documentRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('ai_config', 'read')],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const { id } = request.params as { id: string };
 
     // MT-02(c): RLS por-tenant quando a flag está ligada (pós-096); senão service_role.

@@ -4,6 +4,7 @@
  * POST /api/v2/ia/reflections/run    → roda a reflexão de uma data sob demanda
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../../lib/jwt-claims';
 import supabase from '../../../infrastructure/database/supabase.client';
 import { requirePermission } from '../../../infrastructure/auth/rbac.middleware';
 import { runNightlyReflection } from './nightly-brain.service';
@@ -16,7 +17,7 @@ export async function nightlyBrainRoutes(app: FastifyInstance) {
   app.get('/api/v2/ia/reflections', {
     preHandler: [app.authenticate, requirePermission('ai_config', 'read')],
   }, async (request) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     const { data } = await supabase
       .from('ai_reflections').select('*')
       .eq('tenant_id', tenantId)
@@ -28,7 +29,7 @@ export async function nightlyBrainRoutes(app: FastifyInstance) {
   app.post('/api/v2/ia/reflections/run', {
     preHandler: [app.authenticate, requirePermission('ai_config', 'write')],
   }, async (request, reply) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     const { date } = (request.body ?? {}) as { date?: string };
     const target = date ?? new Date(Date.now() - 86400000).toISOString().slice(0, 10); // ontem
 
@@ -65,7 +66,7 @@ export async function nightlyBrainRoutes(app: FastifyInstance) {
   app.get('/api/v2/ia/autoevolucao/report', {
     preHandler: [app.authenticate, requirePermission('reports', 'read')],
   }, async (request, reply) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     const { month } = request.query as { month?: string };
     const target = month ?? new Date().toISOString().slice(0, 7);
     if (!/^\d{4}-\d{2}$/.test(target)) {

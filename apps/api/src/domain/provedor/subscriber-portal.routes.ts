@@ -12,6 +12,7 @@
  *   POST   /api/v2/portal/diagnostic      P4-02 — diagnóstico self-service
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId as getJwtTenantId, getUserId as getJwtUserId } from '../../lib/jwt-claims';
 import { z } from 'zod';
 import {
   lookupSubscriberByCpf,
@@ -103,17 +104,18 @@ export async function subscriberPortalRoutes(
 
   // ── GET /api/v2/portal/dashboard ─────────────────────────────────────────────
   app.get('/api/v2/portal/dashboard', { preHandler: verifyPortalToken }, async (request, reply) => {
-    const payload = (request as any).user as { sub: string; tenantId: string };
+    const tenantId = getJwtTenantId((request as any).user) ?? '';
+    const customerId = getJwtUserId((request as any).user) ?? '';
     const [invoices, serviceOrders] = await Promise.all([
-      getCustomerInvoices(db, payload.tenantId, payload.sub, 3),
-      getCustomerServiceOrders(db, payload.tenantId, payload.sub, 3),
+      getCustomerInvoices(db, tenantId, customerId, 3),
+      getCustomerServiceOrders(db, tenantId, customerId, 3),
     ]);
 
     const overdueCount = invoices.filter((i: any) => i.status === 'overdue').length;
     const openOsCount = serviceOrders.filter((os: any) => os.status === 'open').length;
 
     return reply.send({
-      customerId: payload.sub,
+      customerId: customerId,
       overdueInvoices: overdueCount,
       openServiceOrders: openOsCount,
       recentInvoices: invoices,
@@ -123,25 +125,28 @@ export async function subscriberPortalRoutes(
 
   // ── GET /api/v2/portal/invoices ───────────────────────────────────────────────
   app.get('/api/v2/portal/invoices', { preHandler: verifyPortalToken }, async (request, reply) => {
-    const payload = (request as any).user as { sub: string; tenantId: string };
-    const invoices = await getCustomerInvoices(db, payload.tenantId, payload.sub, 10);
+    const tenantId = getJwtTenantId((request as any).user) ?? '';
+    const customerId = getJwtUserId((request as any).user) ?? '';
+    const invoices = await getCustomerInvoices(db, tenantId, customerId, 10);
     return reply.send({ invoices });
   });
 
   // ── GET /api/v2/portal/service-orders ────────────────────────────────────────
   app.get('/api/v2/portal/service-orders', { preHandler: verifyPortalToken }, async (request, reply) => {
-    const payload = (request as any).user as { sub: string; tenantId: string };
-    const serviceOrders = await getCustomerServiceOrders(db, payload.tenantId, payload.sub, 10);
+    const tenantId = getJwtTenantId((request as any).user) ?? '';
+    const customerId = getJwtUserId((request as any).user) ?? '';
+    const serviceOrders = await getCustomerServiceOrders(db, tenantId, customerId, 10);
     return reply.send({ serviceOrders });
   });
 
   // ── POST /api/v2/portal/diagnostic (P4-02) ───────────────────────────────────
   app.post('/api/v2/portal/diagnostic', { preHandler: verifyPortalToken }, async (request, reply) => {
-    const payload = (request as any).user as { sub: string; tenantId: string };
+    const tenantId = getJwtTenantId((request as any).user) ?? '';
+    const customerId = getJwtUserId((request as any).user) ?? '';
     const body = DiagnosticBodySchema.safeParse(request.body);
     const address = body.success ? body.data.address : undefined;
 
-    const result = await doRunDiagnostic(payload.tenantId, payload.sub, address);
+    const result = await doRunDiagnostic(tenantId, customerId, address);
     return reply.send(result);
   });
 }

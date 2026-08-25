@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import supabase from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
@@ -66,7 +67,7 @@ export async function gatewaySyncRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('billing', 'write')],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     try {
       const result = await syncAsaasInvoices(tenantId, makeAsaasSyncPorts());
       infraLogger.info({ tenantId, ...result }, 'F6-02: Asaas sync concluído');

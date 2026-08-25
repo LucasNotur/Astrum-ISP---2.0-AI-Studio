@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { validateBody } from '../../infrastructure/validation/zod-validator';
 import { classifyFieldPhoto, isVisionStructuredEnabled } from '../../infrastructure/vision/vision.service';
@@ -27,7 +28,7 @@ export async function visionRoutes(fastify: FastifyInstance) {
       return reply.code(404).send({ error: 'Vision structured analysis is disabled (VISION_STRUCTURED_ENABLED=false)' });
     }
 
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const body = (request as any).validatedBody as z.infer<typeof diagnoseSchema>;
 
     const result = await classifyFieldPhoto(body.image_url, tenantId);

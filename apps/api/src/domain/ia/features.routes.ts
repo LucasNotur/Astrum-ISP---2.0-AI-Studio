@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { getFreshness } from '../../domain/ml/feature-store.service';
 import { FEATURE_DEFS, type FeatureName } from '../../domain/ml/feature-registry';
@@ -19,7 +20,7 @@ export async function featuresRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('ai_config', 'read')],
   }, async (request) => {
-    const tenantId = (request as any).user.tenantId as string;
+    const tenantId = getTenantId((request as any).user) as string;
     const freshness = await getFreshness(tenantId);
 
     // getFreshness pode devolver uma linha por feature, mas blindamos

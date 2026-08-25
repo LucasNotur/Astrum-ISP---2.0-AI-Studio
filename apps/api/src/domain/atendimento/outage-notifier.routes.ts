@@ -4,6 +4,7 @@
  * POST /api/v2/outages/notify
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { notifyMassOutage, defaultOutageNotifierDb, defaultSendFn } from './outage-notifier.service';
 
 export async function outageNotifierRoutes(app: FastifyInstance) {
@@ -22,7 +23,7 @@ export async function outageNotifierRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     const { cto_id, message } = request.body;
 
     try {

@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { computeNationalHolidays, mergeHolidays } from './holidays.service';
 
@@ -11,8 +12,8 @@ import { computeNationalHolidays, mergeHolidays } from './holidays.service';
  * Computa os nacionais do ano corrente localmente e mescla sem sobrescrever
  * feriados manuais. Tenant vem do JWT (dropado o `?tenantId` do body).
  */
-function tenantOf(req: any): string | undefined {
-  return req.user?.tenantId ?? req.user?.tenant_id;
+function tenantOf(req: any): string | null {
+  return getTenantId(req.user);
 }
 
 export async function holidaysRoutes(app: FastifyInstance) {

@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { isSafeExternalUrl } from '../../infrastructure/security/url-guard';
 import { buildArticleFromHtml } from './scrape-url.service';
@@ -13,8 +14,8 @@ import { buildArticleFromHtml } from './scrape-url.service';
  * metadata/localhost). ⚠️ o guard valida o LITERAL do host — não resolve DNS, então
  * não cobre DNS-rebinding (limitação herdada do url-guard; barreira de config).
  */
-function tenantOf(req: any): string | undefined {
-  return req.user?.tenantId ?? req.user?.tenant_id;
+function tenantOf(req: any): string | null {
+  return getTenantId(req.user);
 }
 
 const MAX_BYTES = 2_000_000; // 2 MB de HTML — além disso, aborta

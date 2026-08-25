@@ -5,6 +5,7 @@
  *          GET  /api/v2/valor/case/:token  Lê case pelo share_token (público).
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { z } from 'zod';
 import {
   computeValorGerado,
@@ -46,7 +47,7 @@ export async function valorGeradoRoutes(
   }, async (request, reply) => {
     const query = PeriodSchema.safeParse((request as any).query);
     const period = query.success ? query.data.period : '30d';
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
 
     const kpis = await computeValorGerado(db, tenantId, periodDays(period));
     return reply.send(kpis);
@@ -92,7 +93,7 @@ export async function valorGeradoRoutes(
     const body = z.object({ periodDays: z.number().int().min(1).max(365).default(30) })
       .safeParse(request.body);
     const days = body.success ? body.data.periodDays : 30;
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
 
     const { kpis, shareToken } = await generateCase(db, tenantId, days);
     const shareUrl = `/api/v2/valor/case/${shareToken}`;

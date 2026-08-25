@@ -3,6 +3,7 @@
  * POST /api/v2/genesis/import-sheet (multipart text/csv no body).
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { parseCSV, importSheet, type ColumnMapping } from './sheet-import.service';
 
@@ -10,7 +11,7 @@ export async function sheetImportRoutes(app: FastifyInstance) {
   app.post('/api/v2/genesis/import-sheet', {
     preHandler: [app.authenticate, requirePermission('ai_config', 'write')],
   }, async (request, reply) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     const body = (request.body ?? {}) as { csv?: string; mapping?: Partial<ColumnMapping> };
 
     if (!body.csv || typeof body.csv !== 'string') {

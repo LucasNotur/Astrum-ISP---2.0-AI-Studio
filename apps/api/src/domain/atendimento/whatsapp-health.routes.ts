@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { redis } from '../../infrastructure/cache/redis.client';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { computeHealthStats } from './whatsapp-health.service';
@@ -13,8 +14,8 @@ import { computeHealthStats } from './whatsapp-health.service';
  * ao tenant (`tenant_evolution_instances`) antes de ler os sinais — impede que um
  * operador sonde `ban_signals`/pausas de instâncias de outro tenant.
  */
-function tenantOf(req: any): string | undefined {
-  return req.user?.tenantId ?? req.user?.tenant_id;
+function tenantOf(req: any): string | null {
+  return getTenantId(req.user);
 }
 
 export async function whatsappHealthRoutes(app: FastifyInstance) {

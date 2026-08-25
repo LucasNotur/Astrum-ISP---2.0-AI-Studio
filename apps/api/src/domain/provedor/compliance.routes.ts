@@ -11,6 +11,7 @@
  *   GET /api/v2/compliance/policy            Política de dados por tenant (auth)
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 
 const DPA_VERSION = '1.0.0';
 const DPA_DATE = '2026-07-11';
@@ -154,7 +155,7 @@ export async function complianceRoutes(app: FastifyInstance) {
   app.get('/api/v2/compliance/policy', {
     onRequest: [(app as any).authenticate],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     return reply.send({
       tenantId,
       generatedAt: new Date().toISOString(),

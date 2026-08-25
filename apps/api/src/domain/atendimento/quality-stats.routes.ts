@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { computeQualityLiveStats, pickTopAgentId } from './quality-stats.service';
 
@@ -11,8 +12,8 @@ import { computeQualityLiveStats, pickTopAgentId } from './quality-stats.service
  *
  * Tenant vem do JWT. Semântica/limitações de cada métrica: ver quality-stats.service.
  */
-function tenantOf(req: any): string | undefined {
-  return req.user?.tenantId ?? req.user?.tenant_id;
+function tenantOf(req: any): string | null {
+  return getTenantId(req.user);
 }
 
 export async function qualityStatsRoutes(app: FastifyInstance) {

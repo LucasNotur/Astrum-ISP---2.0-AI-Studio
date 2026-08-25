@@ -1,4 +1,5 @@
 import fp from 'fastify-plugin';
+import { getTenantId } from '../../lib/jwt-claims';
 import { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { checkRateLimit, getRouteGroup } from './token-bucket.service';
 
@@ -8,7 +9,7 @@ const rateLimitPlugin: FastifyPluginAsync = async (fastify) => {
     if (!path.startsWith('/api/')) return;
     if (path === '/api/health') return;
 
-    const tenantId = (request as any).user?.tenantId ?? request.ips?.[request.ips.length - 1] ?? request.ip;
+    const tenantId = getTenantId((request as any).user) ?? request.ips?.[request.ips.length - 1] ?? request.ip;
     const routeGroup = getRouteGroup(request.url || '');
 
     const result = await checkRateLimit(tenantId, routeGroup);

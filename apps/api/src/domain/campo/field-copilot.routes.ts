@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { z } from 'zod';
 import { validateBody, validateQuery } from '../../infrastructure/validation/zod-validator';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
@@ -30,7 +31,7 @@ export async function fieldCopilotRoutes(fastify: FastifyInstance) {
       validateBody(diagnoseBodySchema),
     ],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const body = (request as any).validatedBody as z.infer<typeof diagnoseBodySchema>;
 
     const result = await diagnosePlusAttach({
@@ -55,7 +56,7 @@ export async function fieldCopilotRoutes(fastify: FastifyInstance) {
       validateQuery(listQuerySchema),
     ],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const query = (request as any).validatedQuery as z.infer<typeof listQuerySchema>;
 
     const diagnoses = await listDiagnoses({

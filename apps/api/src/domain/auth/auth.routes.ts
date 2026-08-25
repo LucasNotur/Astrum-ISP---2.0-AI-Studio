@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId, getUserId } from '../../lib/jwt-claims';
 import { generateTokenPair, rotateTokens, revokeAllTokens } from '../../infrastructure/auth/jwt.service';
 import { validateBody } from '../../infrastructure/validation/zod-validator';
 import { refreshBodySchema } from '../../../../../packages/shared/src/schemas';
@@ -25,8 +26,8 @@ export async function authRoutes(fastify: FastifyInstance) {
   fastify.post('/api/v2/auth/logout',
     { onRequest: [(fastify as any).authenticate] },
     async (request, reply) => {
-      const user = (request as any).user as { userId: string };
-      await revokeAllTokens(user.userId);
+      const userId = getUserId((request as any).user) ?? '';
+      await revokeAllTokens(userId);
       return reply.send({ message: 'Logout realizado com sucesso.' });
     }
   );
@@ -38,8 +39,8 @@ export async function authRoutes(fastify: FastifyInstance) {
   fastify.get('/api/v2/auth/me',
     { onRequest: [(fastify as any).authenticate] },
     async (request, reply) => {
-      const user = (request as any).user as { role?: string; tenantId?: string; tenant_id?: string };
-      return reply.send({ role: user.role ?? null, tenantId: user.tenantId ?? user.tenant_id ?? null });
+      const user = (request as any).user as { role?: string };
+      return reply.send({ role: user.role ?? null, tenantId: getTenantId((request as any).user) });
     }
   );
 }

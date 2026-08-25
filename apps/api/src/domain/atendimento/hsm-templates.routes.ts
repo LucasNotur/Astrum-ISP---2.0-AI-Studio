@@ -1,11 +1,12 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { readTenantScoped, writeTenantScoped } from '../../infrastructure/database/tenant-rls';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { buildHsmTemplateRow, canDeleteTemplate, HsmTemplateValidationError } from './hsm-templates.service';
 
-function tenantOf(req: any): string | undefined {
-  return req.user?.tenantId ?? req.user?.tenant_id;
+function tenantOf(req: any): string | null {
+  return getTenantId(req.user);
 }
 
 export async function hsmTemplatesRoutes(app: FastifyInstance) {

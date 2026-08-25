@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { mergeAndEncryptIntegrationKeys, computeSecretsStatus } from './integration-secrets.service';
 
@@ -12,7 +13,7 @@ export async function integrationSecretsRoutes(app: FastifyInstance) {
   const auth = [async (req: any, reply: any) => { await (app as any).authenticate(req, reply); }];
 
   app.get('/api/v2/settings/integration-keys/status', { onRequest: auth }, async (req, reply) => {
-    const tenantId = (req as any).user?.tenantId;
+    const tenantId = getTenantId((req as any).user);
     if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });
 
     const { data } = await supabase
@@ -24,7 +25,7 @@ export async function integrationSecretsRoutes(app: FastifyInstance) {
     '/api/v2/settings/integration-keys',
     { onRequest: auth },
     async (req, reply) => {
-      const tenantId = (req as any).user?.tenantId;
+      const tenantId = getTenantId((req as any).user);
       if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });
 
       const { keys } = req.body;

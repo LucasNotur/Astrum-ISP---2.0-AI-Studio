@@ -3,6 +3,7 @@
  * POST /api/v2/cobranca/backtest  { policy, window_days? } → comparação projetada.
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { backtestPolicy, type CobrancaPolicy } from './policy-backtest.service';
 
@@ -10,7 +11,7 @@ export async function policyBacktestRoutes(app: FastifyInstance) {
   app.post('/api/v2/cobranca/backtest', {
     preHandler: [app.authenticate, requirePermission('billing', 'read')],
   }, async (request, reply) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     const body = (request.body ?? {}) as { policy?: Partial<CobrancaPolicy>; window_days?: number };
     const p = body.policy ?? {};
 

@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { readTenantScoped } from '../../infrastructure/database/tenant-rls';
 
@@ -36,8 +37,7 @@ export async function inboxRoutes(app: FastifyInstance): Promise<void> {
     '/api/v2/conversations/inbox',
     { preHandler: [(app as any).authenticate] },
     async (request, reply) => {
-      const user = (request as any).user as { tenantId: string };
-      const tenantId = user?.tenantId;
+      const tenantId = getTenantId((request as any).user);
       if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
 
       const q = request.query as Record<string, string>;
@@ -104,8 +104,7 @@ export async function inboxRoutes(app: FastifyInstance): Promise<void> {
     '/api/v2/conversations/inbox/metrics',
     { preHandler: [(app as any).authenticate] },
     async (request, reply) => {
-      const user = (request as any).user as { tenantId: string };
-      const tenantId = user?.tenantId;
+      const tenantId = getTenantId((request as any).user);
       if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
 
       // MT-02(c): RLS por-tenant quando a flag está ligada (pós-096); senão service_role.

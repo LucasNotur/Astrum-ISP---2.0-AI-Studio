@@ -4,6 +4,7 @@
  * POST /api/v2/financeiro/cashflow/act            → executar ação sugerida (criar campanha de recuperação).
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { forecastCashflow } from './cashflow-forecast.service';
 import supabase from '../../infrastructure/database/supabase.client';
@@ -12,7 +13,7 @@ export async function cashflowRoutes(app: FastifyInstance) {
   app.get('/api/v2/financeiro/cashflow', {
     preHandler: [app.authenticate, requirePermission('billing', 'read')],
   }, async (request, reply) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     const { window_days } = request.query as { window_days?: string };
     try {
       return await forecastCashflow(tenantId, { windowDays: window_days ? Number(window_days) : undefined });
@@ -25,7 +26,7 @@ export async function cashflowRoutes(app: FastifyInstance) {
   app.post('/api/v2/financeiro/cashflow/act', {
     preHandler: [app.authenticate, requirePermission('billing', 'write')],
   }, async (request, reply) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     const body = (request.body ?? {}) as {
       type?: string;
       payload?: { targetSegment?: string; expectedRecoveryCents?: number };

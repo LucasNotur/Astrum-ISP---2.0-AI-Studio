@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { z } from 'zod';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { writeTenantScoped } from '../../infrastructure/database/tenant-rls';
@@ -28,7 +29,7 @@ export async function metricsIngestRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [validateBody(batchSchema)],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const body = (request as any).validatedBody as z.infer<typeof batchSchema>;
 
     const rows = body.points.map(p => ({

@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { z } from 'zod';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { validateParams, validateQuery } from '../../infrastructure/validation/zod-validator';
@@ -28,7 +29,7 @@ export async function graphRoutes(fastify: FastifyInstance) {
     preHandler: [requirePermission('reports', 'read'), validateParams(ctoIdParam)],
   }, async (request, reply) => {
     const { ctoId } = (request as any).validatedParams;
-    const tenantId = (request as any).user.tenantId as string;
+    const tenantId = getTenantId((request as any).user) as string;
     const result = await impactoCto(defaultDb, tenantId, ctoId);
     if ('error' in result) {
       return reply.code(404).send({ code: 'NOT_FOUND', message: result.error });
@@ -41,7 +42,7 @@ export async function graphRoutes(fastify: FastifyInstance) {
     preHandler: [requirePermission('reports', 'read'), validateQuery(daysQuery)],
   }, async (request) => {
     const { days } = (request as any).validatedQuery;
-    const tenantId = (request as any).user.tenantId as string;
+    const tenantId = getTenantId((request as any).user) as string;
     return await reincidencia(defaultDb, tenantId, days);
   });
 
@@ -49,7 +50,7 @@ export async function graphRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('reports', 'read')],
   }, async (request) => {
-    const tenantId = (request as any).user.tenantId as string;
+    const tenantId = getTenantId((request as any).user) as string;
     return await capacidade(defaultDb, tenantId);
   });
 
@@ -60,7 +61,7 @@ export async function graphRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('reports', 'read')],
   }, async (request, reply) => {
-    const tenantId = (request as any).user.tenantId as string;
+    const tenantId = getTenantId((request as any).user) as string;
     const { data, error } = await supabaseAdmin
       .from('network_ctos')
       .select('id, name')

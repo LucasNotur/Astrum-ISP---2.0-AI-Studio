@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { getDuckDB } from '../../infrastructure/analytics/duckdb.service';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { validateQuery } from '../../infrastructure/validation/zod-validator';
@@ -23,7 +24,7 @@ export async function analyticsRoutes(fastify: FastifyInstance) {
       cacheResponse(15 * 60),
     ],
   }, async (request) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const { period } = (request as any).validatedQuery;
     const days = periodToDays(period);
 
@@ -88,7 +89,7 @@ export async function analyticsRoutes(fastify: FastifyInstance) {
       cacheResponse(30 * 60),
     ],
   }, async (request) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const db = await getDuckDB();
     const conn = await db.connect();
 

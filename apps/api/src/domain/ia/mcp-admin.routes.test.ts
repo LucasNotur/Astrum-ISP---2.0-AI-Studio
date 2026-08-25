@@ -42,11 +42,12 @@ describe('mcp-admin.routes', () => {
     expect(listKeys).toHaveBeenCalledWith('tenant-1');
   });
 
-  it('GET keys com JWT shape antigo (tenant_id) -> lista vazia', async () => {
+  it('GET keys com JWT tenant_id (fallback snake_case do helper) -> lista chaves do tenant resolvido', async () => {
+    (listKeys as any).mockResolvedValue([{ id: 'k1' }]);
     const app = await buildApp({ userId: 'op-1', tenant_id: 'tenant-1', role: 'admin' });
     const res = await app.inject({ method: 'GET', url: '/api/v2/ia/mcp/keys' });
-    expect(res.json()).toEqual({ keys: [] });
-    expect(listKeys).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
+    expect(listKeys).toHaveBeenCalledWith('tenant-1');
   });
 
   it('POST keys com tenantId -> 201 e cria a chave no tenant certo', async () => {
@@ -57,24 +58,27 @@ describe('mcp-admin.routes', () => {
     expect(createKey).toHaveBeenCalledWith('tenant-1', 'n8n', ['check_invoice']);
   });
 
-  it('POST keys com JWT shape antigo (tenant_id) -> 401', async () => {
+  it('POST keys com JWT tenant_id (fallback snake_case do helper) -> 201 no tenant resolvido', async () => {
+    (createKey as any).mockResolvedValue({ id: 'k1', apiKey: 'sk-xxx' });
     const app = await buildApp({ userId: 'op-1', tenant_id: 'tenant-1', role: 'admin' });
     const res = await app.inject({ method: 'POST', url: '/api/v2/ia/mcp/keys', payload: { name: 'n8n', tools: ['check_invoice'] } });
-    expect(res.statusCode).toBe(401);
-    expect(createKey).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(201);
+    expect(createKey).toHaveBeenCalledWith('tenant-1', 'n8n', ['check_invoice']);
   });
 
-  it('PATCH keys/:id com JWT shape antigo (tenant_id) -> 401', async () => {
+  it('PATCH keys/:id com JWT tenant_id (fallback snake_case do helper) -> ok', async () => {
+    (updateKey as any).mockResolvedValue(true);
     const app = await buildApp({ userId: 'op-1', tenant_id: 'tenant-1', role: 'admin' });
     const res = await app.inject({ method: 'PATCH', url: '/api/v2/ia/mcp/keys/k1', payload: { enabled: false } });
-    expect(res.statusCode).toBe(401);
-    expect(updateKey).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
+    expect(updateKey).toHaveBeenCalledWith('tenant-1', 'k1', { enabled: false });
   });
 
-  it('DELETE keys/:id com JWT shape antigo (tenant_id) -> 401', async () => {
+  it('DELETE keys/:id com JWT tenant_id (fallback snake_case do helper) -> ok', async () => {
+    (deleteKey as any).mockResolvedValue(true);
     const app = await buildApp({ userId: 'op-1', tenant_id: 'tenant-1', role: 'admin' });
     const res = await app.inject({ method: 'DELETE', url: '/api/v2/ia/mcp/keys/k1' });
-    expect(res.statusCode).toBe(401);
-    expect(deleteKey).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
+    expect(deleteKey).toHaveBeenCalledWith('tenant-1', 'k1');
   });
 });

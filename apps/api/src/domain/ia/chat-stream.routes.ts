@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId, getUserId } from '../../lib/jwt-claims';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { runGuardrails } from '../../infrastructure/guardrails/guardrails.pipeline';
 import { buildSystemPrompt } from '../../infrastructure/rag/system-prompt-builder.service';
@@ -28,7 +29,8 @@ export async function chatStreamRoutes(fastify: FastifyInstance) {
       validateBody(chatSchema),
     ],
   }, async (request, reply) => {
-    const { tenantId, userId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
+    const userId = getUserId((request as any).user) ?? '';
     const { message, conversationId, customerId } = (request as any).validatedBody;
 
     // 1. Guardrails

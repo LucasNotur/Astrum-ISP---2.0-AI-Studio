@@ -11,6 +11,7 @@
  * invoice.paid, reactivate, notify_human) — ver cobrai.worker.ts.
  */
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { getUserId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { securityLogger } from '../../infrastructure/logging/logger';
 import { captureWarning } from '../../infrastructure/observability/sentry.service';
@@ -32,7 +33,7 @@ async function requireSuperAdmin(
   reply: FastifyReply,
 ): Promise<{ userId: string } | null> {
   const user = (request as unknown as { user?: JwtUserPayload }).user;
-  const userId = user?.userId;
+  const userId = getUserId(user);
   if (!userId) {
     await reply.status(401).send({ code: 'UNAUTHORIZED', message: 'Autenticação necessária.' });
     return null;

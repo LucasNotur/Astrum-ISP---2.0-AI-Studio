@@ -1,4 +1,5 @@
 import { FastifyInstance } from 'fastify';
+import { getTenantId, getUserId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { readTenantScoped, writeTenantScoped } from '../../infrastructure/database/tenant-rls';
 
@@ -8,7 +9,7 @@ export async function browseAdminRoutes(app: FastifyInstance) {
   });
 
   app.get('/api/v2/ia/browse/allowlist', async (req) => {
-    const tenantId = (req as any).user?.tenantId;
+    const tenantId = getTenantId((req as any).user);
     if (!tenantId) return { domains: [] };
 
     // MT-02(c): leitura via RLS por-tenant quando a flag está ligada (pós-096);
@@ -36,7 +37,7 @@ export async function browseAdminRoutes(app: FastifyInstance) {
   });
 
   app.post<{ Body: { domain: string } }>('/api/v2/ia/browse/allowlist', async (req, reply) => {
-    const tenantId = (req as any).user?.tenantId;
+    const tenantId = getTenantId((req as any).user);
     if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });
 
     const { domain } = req.body;
@@ -44,7 +45,7 @@ export async function browseAdminRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'Domínio inválido' });
     }
 
-    const userId = (req as any).user?.userId ?? 'unknown';
+    const userId = getUserId((req as any).user) ?? 'unknown';
 
     // MT-02(c): escrita RLS por-tenant quando a flag está ligada (pós-096); senão service_role.
     try {
@@ -77,7 +78,7 @@ export async function browseAdminRoutes(app: FastifyInstance) {
   app.delete<{ Params: { domain: string } }>(
     '/api/v2/ia/browse/allowlist/:domain',
     async (req, reply) => {
-      const tenantId = (req as any).user?.tenantId;
+      const tenantId = getTenantId((req as any).user);
       if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });
 
       // MT-02(c): escrita RLS por-tenant quando a flag está ligada (pós-096); senão service_role.

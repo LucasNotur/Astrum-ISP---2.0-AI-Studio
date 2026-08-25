@@ -4,6 +4,7 @@
  * GET  /api/v2/onboarding/ai/:id     — status do job
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { createOnboardingJob, runOnboarding, defaultPorts } from './ai-onboarding-orchestrator.service';
 
 export async function aiOnboardingRoutes(app: FastifyInstance) {
@@ -18,10 +19,10 @@ export async function aiOnboardingRoutes(app: FastifyInstance) {
     }
     const { erpConnector } = (req.body as any) ?? {};
 
-    const jobId = await createOnboardingJob(user.tenantId, erpConnector, defaultPorts);
+    const jobId = await createOnboardingJob(getTenantId(user) ?? '', erpConnector, defaultPorts);
 
     // Rodar em background
-    runOnboarding(user.tenantId, jobId, erpConnector, defaultPorts)
+    runOnboarding(getTenantId(user) ?? '', jobId, erpConnector, defaultPorts)
       .catch(err => app.log.error({ err, jobId }, 'D-21: onboarding falhou'));
 
     return reply.code(202).send({
@@ -39,7 +40,7 @@ export async function aiOnboardingRoutes(app: FastifyInstance) {
       .from('ai_onboarding_jobs')
       .select('*')
       .eq('id', id)
-      .eq('tenant_id', user.tenantId)
+      .eq('tenant_id', getTenantId(user) ?? '')
       .maybeSingle();
     if (error) return reply.code(500).send({ error: error.message });
     if (!data) return reply.code(404).send({ error: 'Job não encontrado.' });
@@ -53,7 +54,7 @@ export async function aiOnboardingRoutes(app: FastifyInstance) {
     const { data, error } = await defaultPorts.db
       .from('ai_onboarding_jobs')
       .select('id,status,started_at,completed_at,summary')
-      .eq('tenant_id', user.tenantId)
+      .eq('tenant_id', getTenantId(user) ?? '')
       .order('started_at', { ascending: false })
       .limit(10);
     if (error) return reply.code(500).send({ error: error.message });

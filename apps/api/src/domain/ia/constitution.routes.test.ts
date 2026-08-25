@@ -31,11 +31,14 @@ describe('constitution.routes', () => {
     expect(getConstitution).toHaveBeenCalledWith('tenant-1');
   });
 
-  it('GET com JWT shape antigo (tenant_id) -> vazio, não vaza dado de outro tenant', async () => {
+  it('GET com JWT tenant_id (fallback snake_case do helper) -> devolve princípios do tenant resolvido', async () => {
+    (getConstitution as any).mockResolvedValue(['p1']);
+    (isConstitutionalLoopEnabled as any).mockReturnValue(true);
     const app = await buildApp({ userId: 'op-1', tenant_id: 'tenant-1', role: 'admin' });
     const res = await app.inject({ method: 'GET', url: '/api/v2/ia/constitution' });
-    expect(res.json()).toEqual({ principles: [], enabled: false });
-    expect(getConstitution).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ principles: ['p1'], enabled: true });
+    expect(getConstitution).toHaveBeenCalledWith('tenant-1');
   });
 
   it('PUT com tenantId -> repassa o userId real (não mais undefined) pro service', async () => {
@@ -46,11 +49,12 @@ describe('constitution.routes', () => {
     expect(saveConstitution).toHaveBeenCalledWith('tenant-1', ['a'], 'op-1');
   });
 
-  it('PUT com JWT shape antigo (tenant_id) -> 401', async () => {
+  it('PUT com JWT tenant_id (fallback snake_case do helper) -> resolve tenant e userId', async () => {
+    (saveConstitution as any).mockResolvedValue({ ok: true });
     const app = await buildApp({ userId: 'op-1', tenant_id: 'tenant-1', role: 'admin' });
     const res = await app.inject({ method: 'PUT', url: '/api/v2/ia/constitution', payload: { principles: ['a'] } });
-    expect(res.statusCode).toBe(401);
-    expect(saveConstitution).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
+    expect(saveConstitution).toHaveBeenCalledWith('tenant-1', ['a'], 'op-1');
   });
 
   it('PUT com principles não-array -> 400', async () => {

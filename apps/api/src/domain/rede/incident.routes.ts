@@ -7,6 +7,7 @@
  * PATCH /api/v2/rede/incidents/:id/normalize | /cancel
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import supabase from '../../infrastructure/database/supabase.client';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import {
@@ -52,7 +53,7 @@ export async function incidentRoutes(app: FastifyInstance) {
   app.get('/api/v2/rede/incidents', {
     preHandler: [app.authenticate, requirePermission('reports', 'read')],
   }, async (request) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     const { data } = await supabase
       .from('incidents').select('*')
       .eq('tenant_id', tenantId)
@@ -67,7 +68,7 @@ export async function incidentRoutes(app: FastifyInstance) {
     if (!isNocAutonomoEnabled()) {
       return reply.code(409).send({ error: 'NOC autônomo desabilitado (NOC_AUTONOMO_ENABLED=true para ligar).' });
     }
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     try {
       return await scanForIncidents(tenantId);
     } catch (err) {
@@ -77,7 +78,7 @@ export async function incidentRoutes(app: FastifyInstance) {
 
   const transition = (to: 'confirmada' | 'normalizada' | 'cancelada') =>
     async (request: any, reply: any) => {
-      const { tenantId } = request.user as { tenantId: string };
+      const tenantId = getTenantId(request.user) ?? '';
       const { id } = request.params as { id: string };
       try {
         await transitionIncident(tenantId, id, to);
@@ -95,7 +96,7 @@ export async function incidentRoutes(app: FastifyInstance) {
   app.patch('/api/v2/rede/incidents/:id/normalize', {
     preHandler: [app.authenticate, requirePermission('ai_config', 'write')],
   }, async (request, reply) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     const { id } = request.params as { id: string };
     const { message } = (request.body ?? {}) as { message?: string };
     try {
@@ -114,7 +115,7 @@ export async function incidentRoutes(app: FastifyInstance) {
   app.patch('/api/v2/rede/incidents/:id/communicate', {
     preHandler: [app.authenticate, requirePermission('ai_config', 'write')],
   }, async (request, reply) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     const { id } = request.params as { id: string };
     const { message } = (request.body ?? {}) as { message?: string };
     try {
@@ -132,7 +133,7 @@ export async function incidentRoutes(app: FastifyInstance) {
   app.post('/api/v2/rede/tickets/:id/correlate', {
     preHandler: [app.authenticate, requirePermission('tickets', 'write')],
   }, async (request, reply) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     const { id } = request.params as { id: string };
     const { data: ticket } = await supabase
       .from('tickets').select('id, customer_id').eq('tenant_id', tenantId).eq('id', id).maybeSingle();

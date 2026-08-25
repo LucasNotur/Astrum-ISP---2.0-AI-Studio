@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { aggregateTimeQuality, parsePeriodDays, type DailyTimeRow } from './metrics.service';
 
@@ -12,8 +13,8 @@ import { aggregateTimeQuality, parsePeriodDays, type DailyTimeRow } from './metr
  *
  * Antes: front batia em /api/metrics/* (404) e a tabela nem existia. Tenant do JWT.
  */
-function tenantOf(req: any): string | undefined {
-  return req.user?.tenantId ?? req.user?.tenant_id;
+function tenantOf(req: any): string | null {
+  return getTenantId(req.user);
 }
 
 export async function metricsRoutes(app: FastifyInstance) {

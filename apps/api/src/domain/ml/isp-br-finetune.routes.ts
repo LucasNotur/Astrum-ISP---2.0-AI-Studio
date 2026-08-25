@@ -5,6 +5,7 @@
  * GET  /api/v2/ia/fine-tune/export — preview JSONL (count + amostra)
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { exportLabeledExamples, runFineTunePipeline, defaultPorts } from './isp-br-finetune.service';
 
 export async function fineTuneRoutes(app: FastifyInstance) {
@@ -21,7 +22,7 @@ export async function fineTuneRoutes(app: FastifyInstance) {
     const { baseModel = 'gpt-4o-mini', minExamples = 5000 } = body;
 
     // Roda em background (processo longo)
-    const runPromise = runFineTunePipeline(user.tenantId ?? null, { baseModel, minExamples }, defaultPorts);
+    const runPromise = runFineTunePipeline(getTenantId(user), { baseModel, minExamples }, defaultPorts);
     runPromise.catch(err => app.log.error({ err }, 'D-10: fine-tune falhou'));
 
     return reply.code(202).send({
@@ -53,7 +54,7 @@ export async function fineTuneRoutes(app: FastifyInstance) {
     if (!['super_admin'].includes(user?.role)) {
       return reply.code(403).send({ error: 'FORBIDDEN' });
     }
-    const { count } = await exportLabeledExamples(user.tenantId ?? null, defaultPorts.db, { limit: 100 });
+    const { count } = await exportLabeledExamples(getTenantId(user), defaultPorts.db, { limit: 100 });
     return reply.send({ count, note: 'Passe limit=all para ver o JSONL completo (somente CLI).' });
   });
 }

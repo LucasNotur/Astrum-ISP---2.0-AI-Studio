@@ -5,6 +5,7 @@
  * GET  /api/v2/threats/:id/immunized — checar se tenant está imunizado
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { broadcastThreatSignal, listThreatSignals, isImmunized, defaultPorts, isThreatNetworkEnabled } from './threat-network.service';
 
 export async function threatNetworkRoutes(app: FastifyInstance) {
@@ -24,7 +25,7 @@ export async function threatNetworkRoutes(app: FastifyInstance) {
     if (!signalType || !description) {
       return reply.code(400).send({ error: 'signalType e description são obrigatórios.' });
     }
-    const result = await broadcastThreatSignal(user.tenantId, { signalType, description, evidence, severity }, defaultPorts);
+    const result = await broadcastThreatSignal(getTenantId(user) ?? '', { signalType, description, evidence, severity }, defaultPorts);
     return reply.code(201).send(result);
   });
 
@@ -45,7 +46,7 @@ export async function threatNetworkRoutes(app: FastifyInstance) {
   }, async (req, reply) => {
     const user = (req as any).user;
     const { id } = req.params as any;
-    const immunized = await isImmunized(user.tenantId, id, defaultPorts);
-    return reply.send({ immunized, signalId: id, tenantId: user.tenantId });
+    const immunized = await isImmunized(getTenantId(user) ?? '', id, defaultPorts);
+    return reply.send({ immunized, signalId: id, tenantId: getTenantId(user) ?? '' });
   });
 }

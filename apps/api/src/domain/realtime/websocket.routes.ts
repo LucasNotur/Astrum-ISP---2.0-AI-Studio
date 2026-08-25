@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+import { getTenantId, getUserId } from '../../lib/jwt-claims';
 import fp from 'fastify-plugin';
 import websocket from '@fastify/websocket';
 import { infraLogger } from '../../infrastructure/logging/logger';
@@ -52,17 +53,19 @@ const websocketRoutes: FastifyPluginAsync = async (fastify) => {
     preHandler: [wsAuthenticate],
   }, (socket, request) => {
     const { conversationId } = request.params as { conversationId: string };
-    const user = (request as any).user as { userId: string; tenantId: string; role: string };
+    const tenantId = getTenantId((request as any).user) ?? '';
+    const userId = getUserId((request as any).user) ?? '';
+    const role = ((request as any).user as any)?.role as string;
 
-    const connId = `${user.tenantId}:${user.userId}:${Date.now()}`;
-    const channel = `conversation:${user.tenantId}:${conversationId}`;
+    const connId = `${tenantId}:${userId}:${Date.now()}`;
+    const channel = `conversation:${tenantId}:${conversationId}`;
 
     // Registrar conexão
     connections.set(connId, {
       ws: socket,
-      tenantId: user.tenantId,
-      userId: user.userId,
-      role: user.role,
+      tenantId,
+      userId,
+      role,
       channels: new Set([channel]),
     });
 
@@ -84,8 +87,8 @@ const websocketRoutes: FastifyPluginAsync = async (fastify) => {
         if (data.type === 'typing') {
           await publishToChannel(channel, {
             type: 'typing',
-            userId: user.userId,
-            tenantId: user.tenantId,
+            userId,
+            tenantId,
             timestamp: new Date().toISOString(),
           });
         }
@@ -111,16 +114,18 @@ const websocketRoutes: FastifyPluginAsync = async (fastify) => {
     websocket: true,
     preHandler: [wsAuthenticate],
   }, (socket, request) => {
-    const user = (request as any).user as { userId: string; tenantId: string; role: string };
+    const tenantId = getTenantId((request as any).user) ?? '';
+    const userId = getUserId((request as any).user) ?? '';
+    const role = ((request as any).user as any)?.role as string;
 
-    const connId = `notif:${user.tenantId}:${user.userId}:${Date.now()}`;
-    const channel = `notifications:${user.tenantId}`;
+    const connId = `notif:${tenantId}:${userId}:${Date.now()}`;
+    const channel = `notifications:${tenantId}`;
 
     connections.set(connId, {
       ws: socket,
-      tenantId: user.tenantId,
-      userId: user.userId,
-      role: user.role,
+      tenantId,
+      userId,
+      role,
       channels: new Set([channel]),
     });
 
@@ -131,7 +136,7 @@ const websocketRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     // Enviar notificações pendentes ao conectar
-    sendPendingNotifications(socket, user.tenantId, user.userId);
+    sendPendingNotifications(socket, tenantId, userId);
 
     socket.on('close', () => {
       connections.delete(connId);
@@ -146,18 +151,19 @@ const websocketRoutes: FastifyPluginAsync = async (fastify) => {
     websocket: true,
     preHandler: [wsAuthenticate, wsRequireRole(['admin', 'operator'])],
   }, (socket, request) => {
-    const user = (request as any).user as { userId: string; tenantId: string };
-    const connId = `panel:${user.tenantId}:${user.userId}`;
+    const tenantId = getTenantId((request as any).user) ?? '';
+    const userId = getUserId((request as any).user) ?? '';
+    const connId = `panel:${tenantId}:${userId}`;
 
     const channels = [
-      `ticket_queue:${user.tenantId}`,
-      `sla_alerts:${user.tenantId}`,
+      `ticket_queue:${tenantId}`,
+      `sla_alerts:${tenantId}`,
     ];
 
     connections.set(connId, {
       ws: socket,
-      tenantId: user.tenantId,
-      userId: user.userId,
+      tenantId,
+      userId,
       role: 'operator',
       channels: new Set(channels),
     });

@@ -844,8 +844,28 @@ faz a query INTEIRA falhar para aquele role. Antes de revogar, mapear:
 **DoD:** decisão documentada aqui (mesmo que seja "manter e aceitar o WARN"), migration
 aplicada se houver revoke, advisors re-rodados via MCP confirmando, commit + push.
 
-## [ ] S3 — Helper único getTenantId() + regra de lint
-**Modelo:** DeepSeek V4 Pro *(mecânico e bem delimitado — ou Sonnet 5)*
+## [x] S3 — Helper único getTenantId() + regra de lint
+**Modelo:** DeepSeek V4 Pro no OpenCode (2026-08-25, executado pelo Lucas)
+**Resumo:** Criado `apps/api/src/lib/jwt-claims.ts` com `getTenantId(user)`/`getUserId(user)`
+(fallback camelCase→snake_case + `uid`/`sub`, 13 testes unitários). Migradas TODAS as
+leituras diretas de claims do JWT — ~200 sites em ~90 arquivos de rota (incluindo
+destructuring `const { tenantId } = request.user as {...}`, padrões `(req as any).user?.tenantId`,
+`user.userId`, `payload.sub` do portal de assinante, websockets e os 3 plugins/serviços não-rota
+que liam `user?.tenantId`: sentry plugin, http-cache e rate-limit). Regra ESLint
+`no-restricted-syntax` (error) em `apps/api/eslint.config.mjs` proibindo `user.tenantId` /
+`*.user.tenant_id` — **decisão do Lucas (2026-08-25, via pergunta): escopo restrito ao objeto
+user**, porque a regra literal da spec ("proibir `\.tenantId`/`\.tenant_id` fora de
+jwt-claims.ts") colidiria com ~440 usos legítimos de domínio (`this.tenantId`, `opts.tenantId`,
+linhas do banco `invoice.tenant_id`) em ~150 arquivos — o bug que a S3 mata é a leitura DO
+objeto user. Exceções na config: `jwt-claims.ts` (o helper) e `login.route.ts` (lá `user` é
+linha do banco `users`, não claim). 26 testes que codificavam o comportamento antigo (JWT só
+com `tenant_id` → 401/vazio) atualizados para a semântica nova (fallback resolve o tenant).
+**Verificação:** backend 2719 passed/0 failed/7 skipped (336+2 arquivos); `npm run lint` 0
+errors; `npm run typecheck` limpo; grep de leituras diretas de claims nas rotas retorna 0.
+Commit local, SEM push (aguarda AUD-G). **Nota de execução:** o working tree sofreu reverts
+externos repetidos durante a sessão (outra atividade no repo); tudo reaplicado e verificado no
+estado final commitado.
+**Modelo (original):** DeepSeek V4 Pro *(mecânico e bem delimitado — ou Sonnet 5)*
 **Contexto:** em 2026-08-24, 11 rotas do `apps/api` liam `user.tenant_id` (snake_case)
 mas o JWT usa `tenantId` (camelCase) — rejeitavam todo usuário real. O padrão corrigido
 foi `user?.tenantId ?? user?.tenant_id`, espalhado na mão por ~28 rotas. Enquanto cada

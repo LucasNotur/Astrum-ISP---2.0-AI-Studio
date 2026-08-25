@@ -34,11 +34,13 @@ describe('labeling.routes', () => {
     expect(getPendingExamples).toHaveBeenCalledWith('tenant-1', 20);
   });
 
-  it('GET queue com JWT shape antigo (tenant_id) -> fila vazia', async () => {
+  it('GET queue com JWT tenant_id (fallback snake_case do helper) -> devolve fila do tenant resolvido', async () => {
+    (getPendingExamples as any).mockResolvedValue([{ id: 'e1' }]);
     const app = await buildApp({ userId: 'op-1', tenant_id: 'tenant-1', role: 'admin' });
     const res = await app.inject({ method: 'GET', url: '/api/v2/ia/labeling/queue' });
-    expect(res.json()).toEqual({ queue: [] });
-    expect(getPendingExamples).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ queue: [{ id: 'e1' }], enabled: true });
+    expect(getPendingExamples).toHaveBeenCalledWith('tenant-1', 20);
   });
 
   it('POST label com tenantId -> ok', async () => {
@@ -49,16 +51,19 @@ describe('labeling.routes', () => {
     expect(labelExample).toHaveBeenCalledWith('tenant-1', 'e1', 'positive');
   });
 
-  it('POST label com JWT shape antigo (tenant_id) -> 401', async () => {
+  it('POST label com JWT tenant_id (fallback snake_case do helper) -> ok', async () => {
+    (labelExample as any).mockResolvedValue(true);
     const app = await buildApp({ userId: 'op-1', tenant_id: 'tenant-1', role: 'admin' });
     const res = await app.inject({ method: 'POST', url: '/api/v2/ia/labeling/e1/label', payload: { label: 'positive' } });
-    expect(res.statusCode).toBe(401);
+    expect(res.statusCode).toBe(200);
+    expect(labelExample).toHaveBeenCalledWith('tenant-1', 'e1', 'positive');
   });
 
-  it('GET export com JWT shape antigo (tenant_id) -> 401', async () => {
+  it('GET export com JWT tenant_id (fallback snake_case do helper) -> exporta do tenant resolvido', async () => {
+    (exportExamples as any).mockResolvedValue([{ source: 's', input: 'i', output: 'o', label: 'positive' }]);
     const app = await buildApp({ userId: 'op-1', tenant_id: 'tenant-1', role: 'admin' });
     const res = await app.inject({ method: 'GET', url: '/api/v2/ia/labeling/export' });
-    expect(res.statusCode).toBe(401);
-    expect(exportExamples).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
+    expect(exportExamples).toHaveBeenCalledWith('tenant-1', undefined, undefined);
   });
 });

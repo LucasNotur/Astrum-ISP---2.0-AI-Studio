@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import {
@@ -75,7 +76,7 @@ export async function campaignsRoutes(fastify: FastifyInstance) {
       preHandler: [requirePermission('ai_config', 'read')],
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const tenantId = (request as any).user.tenantId as string;
+      const tenantId = getTenantId((request as any).user) as string;
       if (!tenantId) {
         return reply.code(401).send({ code: 'UNAUTHORIZED', message: 'tenant ausente' });
       }
@@ -137,7 +138,7 @@ export async function campaignsRoutes(fastify: FastifyInstance) {
       preHandler: [requirePermission('ai_config', 'write')],
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const tenantId = (request as any).user.tenantId as string;
+      const tenantId = getTenantId((request as any).user) as string;
       if (!tenantId) {
         return reply.code(401).send({ code: 'UNAUTHORIZED', message: 'tenant ausente' });
       }
@@ -178,7 +179,7 @@ export async function campaignsRoutes(fastify: FastifyInstance) {
       preHandler: [requirePermission('ai_config', 'write')],
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const tenantId = (request as any).user.tenantId as string;
+      const tenantId = getTenantId((request as any).user) as string;
       if (!tenantId) {
         return reply.code(401).send({ code: 'UNAUTHORIZED', message: 'tenant ausente' });
       }

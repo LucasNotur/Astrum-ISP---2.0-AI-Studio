@@ -64,12 +64,13 @@ describe('erp-admin.routes', () => {
       expect(supabase.from).toHaveBeenCalledWith('tenant_erp_credentials');
     });
 
-    it('JWT só com tenant_id (shape antigo/buggy) -> 401, não deve tratar como tenant presente', async () => {
+    it('JWT com tenant_id (fallback snake_case do helper) -> 200, resolve tenant normalmente', async () => {
+      (supabase.from as any).mockReturnValue(makeChain({ data: [], error: null }));
       const app = await buildApp({ userId: 'op-1', tenant_id: 'tenant-1', role: 'admin' });
       const res = await app.inject({ method: 'GET', url: '/api/v2/erp/credentials' });
 
-      expect(res.statusCode).toBe(401);
-      expect(supabase.from).not.toHaveBeenCalled();
+      expect(res.statusCode).toBe(200);
+      expect(supabase.from).toHaveBeenCalledWith('tenant_erp_credentials');
     });
 
     it('erro do Supabase -> 500', async () => {
@@ -102,13 +103,19 @@ describe('erp-admin.routes', () => {
       );
     });
 
-    it('JWT só com tenant_id (shape antigo) -> 401, nunca cifra nem grava', async () => {
+    it('JWT com tenant_id (fallback snake_case do helper) -> 201, cifra e grava com tenant correto', async () => {
+      (encryptCredentials as any).mockReturnValue('iv:tag:cipher');
+      (supabase.from as any).mockReturnValue(makeChain({ data: null, error: null }));
+
       const app = await buildApp({ userId: 'op-1', tenant_id: 'tenant-1', role: 'admin' });
       const res = await app.inject({ method: 'POST', url: '/api/v2/erp/credentials', payload: validBody });
 
-      expect(res.statusCode).toBe(401);
-      expect(encryptCredentials).not.toHaveBeenCalled();
-      expect(supabase.from).not.toHaveBeenCalled();
+      expect(res.statusCode).toBe(201);
+      const chain = (supabase.from as any).mock.results[0].value;
+      expect(chain.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ tenant_id: 'tenant-1', provider: 'ixc', credentials_encrypted: 'iv:tag:cipher' }),
+        { onConflict: 'tenant_id,provider' },
+      );
     });
 
     it('provider fora da allowlist -> 400', async () => {
@@ -152,10 +159,14 @@ describe('erp-admin.routes', () => {
       expect(chain.eq).toHaveBeenCalledWith('provider', 'ixc');
     });
 
-    it('JWT só com tenant_id (shape antigo) -> 401', async () => {
+    it('JWT com tenant_id (fallback snake_case do helper) -> 200, filtra pelo tenant resolvido', async () => {
+      (supabase.from as any).mockReturnValue(makeChain({ data: null, error: null }));
       const app = await buildApp({ userId: 'op-1', tenant_id: 'tenant-1', role: 'admin' });
       const res = await app.inject({ method: 'DELETE', url: '/api/v2/erp/credentials/ixc' });
-      expect(res.statusCode).toBe(401);
+
+      expect(res.statusCode).toBe(200);
+      const chain = (supabase.from as any).mock.results[0].value;
+      expect(chain.eq).toHaveBeenCalledWith('tenant_id', 'tenant-1');
     });
   });
 
@@ -196,10 +207,14 @@ describe('erp-admin.routes', () => {
       expect(findCustomerByCpf).toHaveBeenCalledWith('00000000000');
     });
 
-    it('JWT só com tenant_id (shape antigo) -> 401', async () => {
+    it('JWT com tenant_id (fallback snake_case do helper) -> resolve tenant e segue o fluxo', async () => {
+      (isErpImplemented as any).mockReturnValue(true);
+      (supabase.from as any).mockReturnValue(makeChain({ data: null, error: null }));
       const app = await buildApp({ userId: 'op-1', tenant_id: 'tenant-1', role: 'admin' });
       const res = await app.inject({ method: 'POST', url: '/api/v2/erp/credentials/ixc/test' });
-      expect(res.statusCode).toBe(401);
+
+      expect(res.statusCode).toBe(404);
+      expect(supabase.from).toHaveBeenCalledWith('tenant_erp_credentials');
     });
   });
 });

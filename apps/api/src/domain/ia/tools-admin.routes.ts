@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId, getUserId } from '../../lib/jwt-claims';
 import { z } from 'zod';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { validateBody, validateParams } from '../../infrastructure/validation/zod-validator';
@@ -22,7 +23,7 @@ export async function toolsAdminRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('ai_config', 'read')],
   }, async (request) => {
-    const tenantId = (request as any).user.tenantId as string;
+    const tenantId = getTenantId((request as any).user) as string;
     return await listToolCatalog(tenantId);
   });
 
@@ -45,7 +46,7 @@ export async function toolsAdminRoutes(fastify: FastifyInstance) {
       });
     }
 
-    await setToolEnabled(user.tenantId, name, enabled, user.userId);
+    await setToolEnabled(getTenantId(user) ?? '', name, enabled, getUserId(user) ?? undefined);
     return { ok: true, name, enabled };
   });
 }

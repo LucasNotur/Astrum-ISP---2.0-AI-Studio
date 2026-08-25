@@ -44,11 +44,13 @@ describe('ocr-review.routes', () => {
     expect(res.json()).toEqual({ queue: [{ id: 'd1' }] });
   });
 
-  it('GET queue com JWT shape antigo (tenant_id) -> fila vazia', async () => {
+  it('GET queue com JWT tenant_id (fallback snake_case do helper) -> devolve fila do tenant resolvido', async () => {
+    (supabaseAdmin.from as any).mockReturnValue(makeChain({ data: [{ id: 'd1' }], error: null }));
     const app = await buildApp({ userId: 'op-1', tenant_id: 'tenant-1', role: 'admin' });
     const res = await app.inject({ method: 'GET', url: '/api/v2/ia/ocr/queue' });
-    expect(res.json()).toEqual({ queue: [] });
-    expect(supabaseAdmin.from).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ queue: [{ id: 'd1' }] });
+    expect(supabaseAdmin.from).toHaveBeenCalled();
   });
 
   it('PATCH :id approve com tenantId -> ok, reviewed_by usa o userId real (não mais "unknown")', async () => {
@@ -60,10 +62,13 @@ describe('ocr-review.routes', () => {
     expect(chain.update).toHaveBeenCalledWith(expect.objectContaining({ reviewed_by: 'op-1', review_status: 'approved' }));
   });
 
-  it('PATCH :id com JWT shape antigo (tenant_id) -> 401', async () => {
+  it('PATCH :id com JWT tenant_id (fallback snake_case do helper) -> ok, reviewed_by resolve userId', async () => {
+    (supabaseAdmin.from as any).mockReturnValue(makeChain({ error: null }));
     const app = await buildApp({ userId: 'op-1', tenant_id: 'tenant-1', role: 'admin' });
     const res = await app.inject({ method: 'PATCH', url: '/api/v2/ia/ocr/d1', payload: { action: 'approve' } });
-    expect(res.statusCode).toBe(401);
+    expect(res.statusCode).toBe(200);
+    const chain = (supabaseAdmin.from as any).mock.results[0].value;
+    expect(chain.update).toHaveBeenCalledWith(expect.objectContaining({ reviewed_by: 'op-1', review_status: 'approved' }));
   });
 
   it('PATCH :id action inválida -> 400', async () => {

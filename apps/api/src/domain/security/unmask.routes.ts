@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId, getUserId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { buildUnmaskAudit, UnmaskValidationError } from './unmask.service';
 
@@ -14,7 +15,7 @@ import { buildUnmaskAudit, UnmaskValidationError } from './unmask.service';
  */
 function actorOf(req: any): { tenantId?: string; userId?: string } {
   const u = req.user ?? {};
-  return { tenantId: u.tenantId ?? u.tenant_id, userId: u.userId ?? u.uid ?? u.sub };
+  return { tenantId: getTenantId(u) ?? undefined, userId: getUserId(u) ?? undefined };
 }
 
 export async function unmaskRoutes(app: FastifyInstance) {

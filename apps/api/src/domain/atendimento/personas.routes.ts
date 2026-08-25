@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import {
   listPersonas,
@@ -24,8 +25,8 @@ import {
  *
  * Tenant vem do JWT (dropado o `?tenantId`/`x-tenant-id` do front).
  */
-function tenantOf(req: any): string | undefined {
-  return req.user?.tenantId ?? req.user?.tenant_id;
+function tenantOf(req: any): string | null {
+  return getTenantId(req.user);
 }
 
 /** Store sobre `legacy_docs` (path `ai_personas/<id>`, parent_path NULL, campos em `data`). */

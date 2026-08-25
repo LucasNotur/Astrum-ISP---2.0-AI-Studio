@@ -4,6 +4,7 @@
  * POST /api/v2/rede/twin/growth {cto_id, new_customers, avg_mrr_cents?} → "se eu crescer aqui"
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { simulateCtoFailure, simulateGrowth, rankCtosByFailureRisk } from './network-twin.service';
 
@@ -11,7 +12,7 @@ export async function networkTwinRoutes(app: FastifyInstance) {
   app.get('/api/v2/rede/twin/cto/:id/failure', {
     preHandler: [app.authenticate, requirePermission('reports', 'read')],
   }, async (request, reply) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     const { id } = request.params as { id: string };
     try {
       return await simulateCtoFailure(tenantId, id);
@@ -24,7 +25,7 @@ export async function networkTwinRoutes(app: FastifyInstance) {
   app.get('/api/v2/rede/twin/likely-failures', {
     preHandler: [app.authenticate, requirePermission('reports', 'read')],
   }, async (request, reply) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     const { limit } = request.query as any;
     const risks = await rankCtosByFailureRisk(tenantId, undefined, { limit: limit ? parseInt(limit) : 10 });
     return reply.send({ risks, count: risks.length });
@@ -33,7 +34,7 @@ export async function networkTwinRoutes(app: FastifyInstance) {
   app.post('/api/v2/rede/twin/growth', {
     preHandler: [app.authenticate, requirePermission('reports', 'read')],
   }, async (request, reply) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     const body = (request.body ?? {}) as { cto_id?: string; new_customers?: number; avg_mrr_cents?: number };
     if (!body.cto_id || !body.new_customers) {
       return reply.code(400).send({ error: 'cto_id e new_customers são obrigatórios' });

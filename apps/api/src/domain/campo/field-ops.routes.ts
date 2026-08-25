@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { validateBody, validateQuery } from '../../infrastructure/validation/zod-validator';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
+import { getTenantId, getUserId } from '../../lib/jwt-claims';
 import supabase from '../../infrastructure/database/supabase.client';
 import { applyTransition, type OsEvent } from './os-lifecycle.service';
 import { osLifecyclePorts } from './os-lifecycle.repo';
@@ -182,7 +183,8 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('service_orders', 'read'), validateQuery(agendaQuerySchema)],
   }, async (request, reply) => {
-    const { tenantId, userId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
+    const userId = getUserId((request as any).user) ?? '';
 
     // Resolve o técnico logado (technicians.user_id).
     const { data: tech } = await supabase
@@ -217,7 +219,8 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('service_orders', 'write'), validateBody(transitionBodySchema)],
   }, async (request, reply) => {
-    const { tenantId, userId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
+    const userId = getUserId((request as any).user) ?? '';
     const serviceOrderId = (request.params as any).id as string;
     const body = (request as any).validatedBody as z.infer<typeof transitionBodySchema>;
 
@@ -275,7 +278,8 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('service_orders', 'write'), validateBody(optimizeBodySchema)],
   }, async (request, reply) => {
-    const { tenantId, userId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
+    const userId = getUserId((request as any).user) ?? '';
     const body = (request as any).validatedBody as z.infer<typeof optimizeBodySchema>;
     const date = body.date ?? new Date().toISOString().slice(0, 10);
 
@@ -410,7 +414,8 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('service_orders', 'read'), validateQuery(agendaQuerySchema)],
   }, async (request, reply) => {
-    const { tenantId, userId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
+    const userId = getUserId((request as any).user) ?? '';
     const q = (request as any).validatedQuery as z.infer<typeof agendaQuerySchema>;
 
     const tech = await getTech(tenantId, userId);
@@ -448,7 +453,8 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('service_orders', 'read')],
   }, async (request, reply) => {
-    const { tenantId, userId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
+    const userId = getUserId((request as any).user) ?? '';
 
     const { data: tech } = await supabase
       .from('technicians')
@@ -486,7 +492,7 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('service_orders', 'write'), validateBody(saveLocationSchema)],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const serviceOrderId = (request.params as any).id as string;
     const body = (request as any).validatedBody as z.infer<typeof saveLocationSchema>;
 
@@ -512,7 +518,8 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('service_orders', 'write'), validateBody(shiftStartSchema)],
   }, async (request, reply) => {
-    const { tenantId, userId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
+    const userId = getUserId((request as any).user) ?? '';
     const body = (request as any).validatedBody as z.infer<typeof shiftStartSchema>;
     const tech = await getTech(tenantId, userId);
     if (!tech) return reply.code(404).send({ code: 'NOT_A_TECHNICIAN', message: 'Usuário não é um técnico.' });
@@ -533,7 +540,8 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('service_orders', 'write'), validateBody(shiftEndSchema)],
   }, async (request, reply) => {
-    const { tenantId, userId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
+    const userId = getUserId((request as any).user) ?? '';
     const body = (request as any).validatedBody as z.infer<typeof shiftEndSchema>;
     const tech = await getTech(tenantId, userId);
     if (!tech) return reply.code(404).send({ code: 'NOT_A_TECHNICIAN', message: 'Usuário não é um técnico.' });
@@ -573,7 +581,8 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('service_orders', 'write'), validateBody(locationSchema)],
   }, async (request, reply) => {
-    const { tenantId, userId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
+    const userId = getUserId((request as any).user) ?? '';
     const body = (request as any).validatedBody as z.infer<typeof locationSchema>;
     const tech = await getTech(tenantId, userId);
     if (!tech) return reply.code(404).send({ code: 'NOT_A_TECHNICIAN', message: 'Usuário não é um técnico.' });
@@ -595,7 +604,8 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('service_orders', 'write'), validateBody(mediaSchema)],
   }, async (request, reply) => {
-    const { tenantId, userId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
+    const userId = getUserId((request as any).user) ?? '';
     const serviceOrderId = (request.params as any).id as string;
     const body = (request as any).validatedBody as z.infer<typeof mediaSchema>;
     const tech = await getTech(tenantId, userId);
@@ -616,7 +626,7 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('service_orders', 'read')],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const serviceOrderId = (request.params as any).id as string;
 
     const [os, events, media, checklist, materials] = await Promise.all([
@@ -649,7 +659,7 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('service_orders', 'read'), validateQuery(reportsQuerySchema)],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const q = (request as any).validatedQuery as z.infer<typeof reportsQuerySchema>;
 
     let query = supabase.from('technician_shifts')
@@ -667,7 +677,7 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('service_orders', 'read')],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
 
     const { data: orders } = await supabase
       .from('service_orders').select('id, type').eq('tenant_id', tenantId).in('status', ['concluido', 'completed']).limit(500);
@@ -693,7 +703,7 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('service_orders', 'write')],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const serviceOrderId = (request.params as any).id as string;
 
     const [os, events, checklist, materials, diagnoses] = await Promise.all([
@@ -745,7 +755,8 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('service_orders', 'write'), validateBody(validatePhotoSchema)],
   }, async (request, reply) => {
-    const { tenantId, userId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
+    const userId = getUserId((request as any).user) ?? '';
     const serviceOrderId = (request.params as any).id as string;
     const body = (request as any).validatedBody as z.infer<typeof validatePhotoSchema>;
 
@@ -779,7 +790,7 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('service_orders', 'read')],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
 
     const { data: pending } = await supabase
       .from('service_orders')
@@ -818,7 +829,8 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('service_orders', 'write'), validateBody(assignSchema)],
   }, async (request, reply) => {
-    const { tenantId, userId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
+    const userId = getUserId((request as any).user) ?? '';
     const serviceOrderId = (request.params as any).id as string;
     const body = (request as any).validatedBody as z.infer<typeof assignSchema>;
 
@@ -852,7 +864,7 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('service_orders', 'write'), validateBody(signUploadSchema)],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const serviceOrderId = (request.params as any).id as string;
     const body = (request as any).validatedBody as z.infer<typeof signUploadSchema>;
 
@@ -872,7 +884,7 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('service_orders', 'read')],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const serviceOrderId = (request.params as any).id as string;
 
     const { data, error } = await supabase
@@ -893,7 +905,7 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('service_orders', 'write'), validateBody(checklistPatchSchema)],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const { osId, itemId } = request.params as any;
     const body = (request as any).validatedBody as z.infer<typeof checklistPatchSchema>;
 
@@ -915,7 +927,7 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('service_orders', 'read')],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
 
     const { data: techs } = await supabase
       .from('technicians').select('id, name, status, current_task, vehicle, plate').eq('tenant_id', tenantId);

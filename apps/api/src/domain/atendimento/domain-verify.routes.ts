@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { promises as dns } from 'node:dns';
 import { evaluateDnsMatch, isValidDomain, normalizeHost } from './domain-verify.service';
 
@@ -13,8 +14,8 @@ import { evaluateDnsMatch, isValidDomain, normalizeHost } from './domain-verify.
  * Autenticado (tenant do JWT). Só faz lookup de DNS — nenhuma requisição HTTP ao
  * domínio (sem SSRF). Domínio validado por regex (bloqueia IP/localhost/lixo).
  */
-function tenantOf(req: any): string | undefined {
-  return req.user?.tenantId ?? req.user?.tenant_id;
+function tenantOf(req: any): string | null {
+  return getTenantId(req.user);
 }
 
 async function safe<T>(p: Promise<T>): Promise<T | null> {

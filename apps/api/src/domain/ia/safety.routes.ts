@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId, getUserId } from '../../lib/jwt-claims';
 import { z } from 'zod';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { validateBody, validateParams, validateQuery } from '../../infrastructure/validation/zod-validator';
@@ -35,7 +36,7 @@ export async function safetyRoutes(fastify: FastifyInstance) {
       validateQuery(listQuery),
     ],
   }, async (request) => {
-    const tenantId = (request as any).user.tenantId as string;
+    const tenantId = getTenantId((request as any).user) as string;
     const { status, page, pageSize } = (request as any).validatedQuery;
 
     const from = (page - 1) * pageSize;
@@ -71,11 +72,11 @@ export async function safetyRoutes(fastify: FastifyInstance) {
       .from('safety_vetoes')
       .update({
         review_status,
-        reviewed_by: user.userId,
+        reviewed_by: getUserId(user),
         reviewed_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .eq('tenant_id', user.tenantId);
+      .eq('tenant_id', getTenantId(user));
 
     if (error) {
       return reply.code(500).send({ code: 'UPDATE_FAILED', message: error.message });
@@ -87,7 +88,7 @@ export async function safetyRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('ai_config', 'read')],
   }, async (request) => {
-    const tenantId = (request as any).user.tenantId as string;
+    const tenantId = getTenantId((request as any).user) as string;
     const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
 
     const { data, error } = await supabase

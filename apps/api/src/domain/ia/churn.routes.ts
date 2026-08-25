@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { validateQuery } from '../../infrastructure/validation/zod-validator';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
@@ -40,7 +41,7 @@ export async function churnRoutes(fastify: FastifyInstance) {
       validateQuery(churnQuerySchema),
     ],
   }, async (request) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const query = (request as any).validatedQuery as z.infer<typeof churnQuerySchema>;
 
     // IA-38: incluir `contributions` (explicabilidade) na seleção e

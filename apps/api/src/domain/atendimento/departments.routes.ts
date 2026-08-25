@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { sanitizeDepartmentInput } from './departments.service';
 
@@ -16,8 +17,8 @@ import { sanitizeDepartmentInput } from './departments.service';
  */
 const SELECT_COLS = 'id, name, sla_response_minutes, sla_resolution_hours, required_skills, color, routing_mode, created_at';
 
-function tenantOf(req: any): string | undefined {
-  return req.user?.tenantId ?? req.user?.tenant_id;
+function tenantOf(req: any): string | null {
+  return getTenantId(req.user);
 }
 
 export async function departmentsRoutes(app: FastifyInstance) {

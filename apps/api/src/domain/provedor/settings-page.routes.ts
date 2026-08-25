@@ -11,6 +11,7 @@
  * "Achados colaterais" no PLANO_ACAO_100_OPERACIONAL.md — não migradas nesta tarefa.
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 
 export async function settingsPageRoutes(app: FastifyInstance) {
@@ -18,7 +19,7 @@ export async function settingsPageRoutes(app: FastifyInstance) {
 
   // GET /api/v2/settings/modules — toggles de módulos habilitados pro tenant.
   app.get('/api/v2/settings/modules', { onRequest: auth }, async (req: any, reply: any) => {
-    const tenantId = req.user?.tenantId ?? req.user?.tenant_id;
+    const tenantId = getTenantId(req.user);
     if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
 
     const { data, error } = await supabaseAdmin
@@ -32,7 +33,7 @@ export async function settingsPageRoutes(app: FastifyInstance) {
 
   // PUT /api/v2/settings/modules — salva os toggles de módulos.
   app.put('/api/v2/settings/modules', { onRequest: auth }, async (req: any, reply: any) => {
-    const tenantId = req.user?.tenantId ?? req.user?.tenant_id;
+    const tenantId = getTenantId(req.user);
     if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
 
     const { modules } = (req.body ?? {}) as Record<string, any>;

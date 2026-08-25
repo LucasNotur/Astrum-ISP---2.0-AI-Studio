@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getUserId } from '../../lib/jwt-claims';
 import { verifyPassword } from '../../infrastructure/auth/password.service';
 import { generateTokenPair, verifyMfaPendingToken } from '../../infrastructure/auth/jwt.service';
 import {
@@ -25,19 +26,19 @@ export async function mfaRoutes(fastify: FastifyInstance) {
   const auth = [async (req: any, reply: any) => { await (fastify as any).authenticate(req, reply); }];
 
   fastify.post('/api/v2/auth/mfa/enroll', { onRequest: auth }, async (request, reply) => {
-    const user = (request as any).user as { userId: string };
-    const state = await getMfaState(user.userId);
+    const userId = getUserId((request as any).user) ?? '';
+    const state = await getMfaState(userId);
     if (state?.totp_enabled) {
       return reply.status(409).send({ code: 'MFA_ALREADY_ENABLED', message: 'MFA já está habilitado. Desabilite antes de refazer o cadastro.' });
     }
 
-    const { data: row } = await supabaseAdmin.from('users').select('email').eq('id', user.userId).single();
+    const { data: row } = await supabaseAdmin.from('users').select('email').eq('id', userId).single();
     if (!row) return reply.status(404).send({ code: 'NOT_FOUND', message: 'Usuário não encontrado.' });
 
     const { secret, otpauthUrl } = generateEnrollment(row.email);
-    await saveEnrollment(user.userId, secret);
+    await saveEnrollment(userId, secret);
 
-    securityLogger.info({ userId: user.userId }, 'MFA enrollment iniciado');
+    securityLogger.info({ userId: userId }, 'MFA enrollment iniciado');
     return reply.send({ secret, otpauthUrl });
   });
 
@@ -45,10 +46,10 @@ export async function mfaRoutes(fastify: FastifyInstance) {
     onRequest: auth,
     preHandler: [validateBody(mfaCodeBodySchema)],
   }, async (request, reply) => {
-    const user = (request as any).user as { userId: string };
+    const userId = getUserId((request as any).user) ?? '';
     const { code } = (request as any).validatedBody;
 
-    const state = await getMfaState(user.userId);
+    const state = await getMfaState(userId);
     if (state?.totp_enabled) {
       return reply.status(409).send({ code: 'MFA_ALREADY_ENABLED', message: 'MFA já está habilitado.' });
     }
@@ -58,11 +59,11 @@ export async function mfaRoutes(fastify: FastifyInstance) {
 
     const secret = decryptSecret(state.totp_secret_enc);
     if (!verifyCode(secret, code)) {
-      securityLogger.warn({ userId: user.userId }, 'Código TOTP inválido na confirmação do enrollment');
+      securityLogger.warn({ userId: userId }, 'Código TOTP inválido na confirmação do enrollment');
       return reply.status(401).send({ code: 'INVALID_CODE', message: 'Código inválido.' });
     }
 
-    await confirmEnrollment(user.userId);
+    await confirmEnrollment(userId);
     return reply.send({ ok: true });
   });
 
@@ -70,15 +71,15 @@ export async function mfaRoutes(fastify: FastifyInstance) {
     onRequest: auth,
     preHandler: [validateBody(mfaDisableBodySchema)],
   }, async (request, reply) => {
-    const user = (request as any).user as { userId: string };
+    const userId = getUserId((request as any).user) ?? '';
     const { password } = (request as any).validatedBody;
 
-    const { data: row } = await supabaseAdmin.from('users').select('password_hash').eq('id', user.userId).single();
+    const { data: row } = await supabaseAdmin.from('users').select('password_hash').eq('id', userId).single();
     if (!row || !(await verifyPassword(row.password_hash, password))) {
       return reply.status(401).send({ code: 'INVALID_CREDENTIALS', message: 'Senha incorreta.' });
     }
 
-    await disableMfa(user.userId);
+    await disableMfa(userId);
     return reply.send({ ok: true });
   });
 

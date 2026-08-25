@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId, getUserId } from '../../lib/jwt-claims';
 import { hashPassword } from '../../infrastructure/auth/password.service';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { securityLogger } from '../../infrastructure/logging/logger';
@@ -24,14 +25,14 @@ export async function registerRoute(fastify: FastifyInstance) {
     // AUTH-09 (auditoria 2026-08-10): o `tenant_id` vinha do BODY sem vínculo com o
     // solicitante → um `admin` do tenant A criava conta no tenant B (cross-tenant).
     // Agora: admin só cria no PRÓPRIO tenant; apenas super_admin pode especificar outro.
-    if (!isSuper && tenantId !== requester.tenantId) {
+    if (!isSuper && tenantId !== getTenantId(requester)) {
       securityLogger.warn(
-        { requesterId: requester.userId, requesterTenant: requester.tenantId, targetTenant: tenantId },
+        { requesterId: getUserId(requester), requesterTenant: getTenantId(requester), targetTenant: tenantId },
         'AUTH-09: admin tentou criar usuário em outro tenant — bloqueado',
       );
       return reply.status(403).send({ code: 'FORBIDDEN', message: 'Você só pode criar usuários no seu próprio tenant.' });
     }
-    const effectiveTenantId = isSuper ? tenantId : requester.tenantId;
+    const effectiveTenantId = isSuper ? tenantId : getTenantId(requester) ?? '';
 
     const passwordHash = await hashPassword(password);
 

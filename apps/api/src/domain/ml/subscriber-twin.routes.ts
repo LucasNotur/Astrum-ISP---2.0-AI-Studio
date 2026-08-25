@@ -5,6 +5,7 @@
  * GET  /api/v2/intelligence/twin/simulations          — histórico de simulações
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { simulateAction, simulateSegment, defaultPorts, type ActionType } from './subscriber-twin.service';
 
 export async function subscriberTwinRoutes(app: FastifyInstance) {
@@ -22,7 +23,7 @@ export async function subscriberTwinRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: `actionType inválido. Valores: ${VALID_ACTIONS.join(', ')}` });
     }
 
-    const result = await simulateAction(user.tenantId, customerId, actionType, actionParams, defaultPorts);
+    const result = await simulateAction(getTenantId(user) ?? '', customerId, actionType, actionParams, defaultPorts);
     return reply.send(result);
   });
 
@@ -37,7 +38,7 @@ export async function subscriberTwinRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: `actionType inválido.` });
     }
 
-    const result = await simulateSegment(user.tenantId, segmentFilter, actionType, actionParams, defaultPorts);
+    const result = await simulateSegment(getTenantId(user) ?? '', segmentFilter, actionType, actionParams, defaultPorts);
     return reply.send(result);
   });
 
@@ -48,7 +49,7 @@ export async function subscriberTwinRoutes(app: FastifyInstance) {
     const { data, error } = await defaultPorts.db
       .from('subscriber_simulations')
       .select('id,action_type,action_params,result,created_at')
-      .eq('tenant_id', user.tenantId)
+      .eq('tenant_id', getTenantId(user) ?? '')
       .order('created_at', { ascending: false })
       .limit(50);
     if (error) return reply.code(500).send({ error: error.message });

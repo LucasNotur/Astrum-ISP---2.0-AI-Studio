@@ -1,4 +1,5 @@
 import type { FastifyPluginCallback, FastifyRequest, FastifyReply } from 'fastify';
+import { getTenantId, getUserId } from '../../lib/jwt-claims';
 import fp from 'fastify-plugin';
 import * as Sentry from '@sentry/node';
 import { captureError, setSentryUser } from './sentry.service';
@@ -13,8 +14,9 @@ const sentryPlugin: FastifyPluginCallback = (fastify, _opts, done) => {
   // Adicionar contexto de usuário em requests autenticadas
   fastify.addHook('preHandler', async (request: FastifyRequest) => {
     const user = (request as any).user;
-    if (user?.userId) {
-      setSentryUser(user.userId, user.tenantId, user.role);
+    const userId = getUserId(user);
+    if (userId) {
+      setSentryUser(userId, getTenantId(user) ?? '', user?.role);
     }
 
     // Tag da rota para grouping no Sentry
@@ -30,8 +32,8 @@ const sentryPlugin: FastifyPluginCallback = (fastify, _opts, done) => {
       captureError(error as Error, {
         url: request.url,
         method: request.method,
-        tenantId: (request as any).user?.tenantId,
-        userId: (request as any).user?.userId,
+        tenantId: getTenantId((request as any).user),
+        userId: getUserId((request as any).user),
       });
     }
 

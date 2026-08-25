@@ -4,6 +4,7 @@
  * (analisa todo o histórico importado e grava os perfis; devolve o relatório).
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { runRetroAnalysis } from './whatsapp-retro.service';
 
@@ -11,7 +12,7 @@ export async function genesisRoutes(app: FastifyInstance) {
   app.post('/api/v2/genesis/retro-analysis', {
     preHandler: [app.authenticate, requirePermission('ai_config', 'write')],
   }, async (request, reply) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     try {
       const report = await runRetroAnalysis(tenantId);
       return reply.code(201).send(report);

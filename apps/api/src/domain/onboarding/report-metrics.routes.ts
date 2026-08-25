@@ -11,10 +11,11 @@
  * schema, não rename); ver achado colateral no PLANO_ACAO_100_OPERACIONAL.md.
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 
-function tenantOf(req: any): string | undefined {
-  return req.user?.tenantId ?? req.user?.tenant_id;
+function tenantOf(req: any): string | null {
+  return getTenantId(req.user);
 }
 
 export async function onboardingReportMetricsRoutes(app: FastifyInstance) {

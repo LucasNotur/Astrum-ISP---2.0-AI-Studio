@@ -1,5 +1,6 @@
 // apps/api/src/domain/webhooks/webhook-config.routes.ts
 import type { FastifyPluginAsync } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { svixService, SvixRetryError } from '../../adapters/webhooks/svix.service';
 import { isSafeExternalUrl } from '../../infrastructure/security/url-guard';
 
@@ -9,7 +10,7 @@ const webhookConfigRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/api/v2/webhooks/endpoints', {
     onRequest: [fastify.authenticate],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const endpoints = await svixService.listEndpoints(tenantId);
     return reply.send(endpoints);
   });
@@ -18,7 +19,7 @@ const webhookConfigRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/api/v2/webhooks/endpoints', {
     onRequest: [fastify.authenticate],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const { url, eventTypes } = request.body as {
       url: string;
       eventTypes: string[];
@@ -41,7 +42,7 @@ const webhookConfigRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.delete('/api/v2/webhooks/endpoints/:endpointId', {
     onRequest: [fastify.authenticate],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const { endpointId } = request.params as { endpointId: string };
 
     await svixService.removeEndpoint(tenantId, endpointId);
@@ -52,7 +53,7 @@ const webhookConfigRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post('/api/v2/webhooks/deliveries/:deliveryId/retry', {
     onRequest: [fastify.authenticate],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const { deliveryId } = request.params as { deliveryId: string };
 
     try {
@@ -78,7 +79,7 @@ const webhookConfigRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get('/api/v2/webhooks/portal', {
     onRequest: [fastify.authenticate],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const url = await svixService.getDashboardUrl(tenantId);
     return reply.send({ url });
   });

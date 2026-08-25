@@ -6,6 +6,7 @@
  * POST /api/v2/playbooks/:id/activate       — ativar instalação
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import {
   listPlaybooks,
   publishPlaybook,
@@ -36,7 +37,7 @@ export async function playbookMarketRoutes(app: FastifyInstance) {
     if (!body.name || !body.policy) {
       return reply.code(400).send({ error: 'name e policy são obrigatórios.' });
     }
-    const result = await publishPlaybook(user.tenantId, body, defaultPorts);
+    const result = await publishPlaybook(getTenantId(user) ?? '', body, defaultPorts);
     return reply.code(201).send(result);
   });
 
@@ -46,7 +47,7 @@ export async function playbookMarketRoutes(app: FastifyInstance) {
     const user = (req as any).user;
     const { id } = req.params as any;
     const { skipBacktest = false, activateAfterInstall = false } = (req.body as any) ?? {};
-    const result = await installPlaybook(user.tenantId, id, { skipBacktest, activateAfterInstall }, defaultPorts);
+    const result = await installPlaybook(getTenantId(user) ?? '', id, { skipBacktest, activateAfterInstall }, defaultPorts);
     return reply.code(201).send(result);
   });
 
@@ -58,7 +59,7 @@ export async function playbookMarketRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: 'FORBIDDEN' });
     }
     const { id } = req.params as any;
-    await activateInstalledPlaybook(user.tenantId, id, defaultPorts);
+    await activateInstalledPlaybook(getTenantId(user) ?? '', id, defaultPorts);
     return reply.send({ ok: true });
   });
 }

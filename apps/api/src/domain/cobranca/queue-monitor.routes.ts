@@ -1,8 +1,9 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { queues } from '../../infrastructure/queue/priority-queues';
 import { filterTenantCobraiJobs, countCobraiByStatus } from './queue-monitor.service';
 
-function tenantOf(req: any): string | undefined { return req.user?.tenantId ?? req.user?.tenant_id; }
+function tenantOf(req: any): string | null { return getTenantId(req.user); }
 
 const STATES = ['waiting', 'active', 'delayed', 'paused', 'completed', 'failed'] as const;
 

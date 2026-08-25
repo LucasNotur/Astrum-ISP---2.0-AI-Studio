@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { z } from 'zod';
 import { Queue } from 'bullmq';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
@@ -73,7 +74,7 @@ export async function replayRoutes(fastify: FastifyInstance) {
     const body = (request as any).validatedBody as {
       from: string; to: string; sample: number;
     };
-    const user = (request as any).user as { tenantId: string; userId: string };
+    const tenantId = getTenantId((request as any).user) ?? '';
 
     // Guarda de coerência temporal.
     if (new Date(body.from) >= new Date(body.to)) {
@@ -83,13 +84,13 @@ export async function replayRoutes(fastify: FastifyInstance) {
       });
     }
 
-    const runId = await enqueueReplay(user.tenantId, body);
+    const runId = await enqueueReplay(tenantId, body);
 
     try {
-      await replayQueue.add('replay.run', { runId, tenantId: user.tenantId });
+      await replayQueue.add('replay.run', { runId, tenantId });
     } catch (err) {
       iaLogger.error(
-        { runId, tenantId: user.tenantId, err: (err as Error).message },
+        { runId, tenantId, err: (err as Error).message },
         'Replay: falha ao enfileirar (a run ficou em queued — reprocessar manualmente)',
       );
     }
@@ -101,8 +102,8 @@ export async function replayRoutes(fastify: FastifyInstance) {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('ai_config', 'read')],
   }, async (request) => {
-    const user = (request as any).user as { tenantId: string };
-    const runs = await listReplayRuns(user.tenantId);
+    const tenantId = getTenantId((request as any).user) ?? '';
+    const runs = await listReplayRuns(tenantId);
     return runs.map((r) => ({
       id: r.id,
       status: r.status,
@@ -124,9 +125,9 @@ export async function replayRoutes(fastify: FastifyInstance) {
     const q = (request as any).validatedQuery as {
       verdict?: ReplayVerdict; page: number; pageSize: number;
     };
-    const user = (request as any).user as { tenantId: string };
+    const tenantId = getTenantId((request as any).user) ?? '';
 
-    const detail = await getReplayRunDetail(user.tenantId, id, {
+    const detail = await getReplayRunDetail(tenantId, id, {
       verdict: q.verdict,
       page: q.page,
       pageSize: q.pageSize,

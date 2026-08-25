@@ -5,6 +5,7 @@
  * GET  /api/v2/erp/forge/:id     — ver draft específico
  */
 import type { FastifyInstance } from 'fastify';
+import { getUserId } from '../../lib/jwt-claims';
 import { generateConnectorDraft, defaultPorts } from './connector-forge.service';
 
 export async function connectorForgeRoutes(app: FastifyInstance) {
@@ -21,7 +22,7 @@ export async function connectorForgeRoutes(app: FastifyInstance) {
     if (!erpName || typeof apiSpec !== 'object') {
       return reply.code(400).send({ error: 'erpName e apiSpec são obrigatórios.' });
     }
-    const result = await generateConnectorDraft(erpName, apiSpec, user.userId, defaultPorts);
+    const result = await generateConnectorDraft(erpName, apiSpec, getUserId(user) ?? '', defaultPorts);
     return reply.code(202).send(result);
   });
 

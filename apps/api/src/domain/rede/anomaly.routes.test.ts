@@ -37,11 +37,13 @@ describe('anomaly.routes', () => {
     expect(res.json()).toEqual({ anomalies: [{ id: 'a1' }] });
   });
 
-  it('GET anomalies com JWT shape antigo (tenant_id) -> vazio', async () => {
+  it('GET anomalies com JWT tenant_id (fallback snake_case do helper) -> devolve anomalias do tenant resolvido', async () => {
+    (supabaseAdmin.from as any).mockReturnValue(makeChain({ data: [{ id: 'a1' }], error: null }));
     const app = await buildApp({ userId: 'op-1', tenant_id: 'tenant-1', role: 'admin' });
     const res = await app.inject({ method: 'GET', url: '/api/v2/ia/network/anomalies' });
-    expect(res.json()).toEqual({ anomalies: [] });
-    expect(supabaseAdmin.from).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ anomalies: [{ id: 'a1' }] });
+    expect(supabaseAdmin.from).toHaveBeenCalled();
   });
 
   it('GET health com tenantId e anomalias recentes -> anomalies_detected', async () => {
@@ -51,9 +53,11 @@ describe('anomaly.routes', () => {
     expect(res.json()).toEqual({ status: 'anomalies_detected' });
   });
 
-  it('GET health com JWT shape antigo (tenant_id) -> unknown', async () => {
+  it('GET health com JWT tenant_id (fallback snake_case do helper) -> status do tenant resolvido', async () => {
+    (supabaseAdmin.from as any).mockReturnValue(makeChain({ data: [{ id: 'a1' }], error: null }));
     const app = await buildApp({ userId: 'op-1', tenant_id: 'tenant-1', role: 'admin' });
     const res = await app.inject({ method: 'GET', url: '/api/v2/ia/network/health' });
-    expect(res.json()).toEqual({ status: 'unknown' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ status: 'anomalies_detected' });
   });
 });

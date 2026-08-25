@@ -5,11 +5,12 @@
  * página). Write (toggle-pause): `billing:write`, mesmo gate de cobrai-dispatch.routes.ts.
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 
-function tenantOf(req: any): string | undefined {
-  return req.user?.tenantId ?? req.user?.tenant_id;
+function tenantOf(req: any): string | null {
+  return getTenantId(req.user);
 }
 
 export async function cobraiPageRoutes(app: FastifyInstance) {

@@ -7,6 +7,7 @@
  * GET    /api/v2/cobranca/negotiation/agreements      → listar acordos
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId, getUserId } from '../../lib/jwt-claims';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import {
@@ -22,14 +23,14 @@ import {
 
 function actorOf(request: any): { tenantId?: string; userId?: string } {
   const u = request.user ?? {};
-  return { tenantId: u.tenantId ?? u.tenant_id, userId: u.userId ?? u.uid ?? u.sub };
+  return { tenantId: getTenantId(u) ?? undefined, userId: getUserId(u) ?? undefined };
 }
 
 export async function negotiationRoutes(app: FastifyInstance) {
   app.get('/api/v2/cobranca/negotiation/policy', {
     preHandler: [app.authenticate, requirePermission('billing', 'read')],
   }, async (request) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     return getPolicy(tenantId);
   });
 
@@ -77,7 +78,7 @@ export async function negotiationRoutes(app: FastifyInstance) {
   app.post('/api/v2/cobranca/negotiation/validate', {
     preHandler: [app.authenticate, requirePermission('billing', 'read')],
   }, async (request) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     const proposal = (request.body ?? {}) as NegotiationProposal;
     const policy = await getPolicy(tenantId);
     const waivers = proposal.waiveFine
@@ -89,7 +90,7 @@ export async function negotiationRoutes(app: FastifyInstance) {
   app.post('/api/v2/cobranca/negotiation/agreements', {
     preHandler: [app.authenticate, requirePermission('billing', 'write')],
   }, async (request, reply) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     const body = (request.body ?? {}) as Record<string, unknown>;
 
     const customerId = body.customerId as string;
@@ -136,7 +137,7 @@ export async function negotiationRoutes(app: FastifyInstance) {
   app.get('/api/v2/cobranca/negotiation/agreements', {
     preHandler: [app.authenticate, requirePermission('billing', 'read')],
   }, async (request) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     const { status } = request.query as { status?: string };
     const agreements = await listAgreements(tenantId, { status });
     return { agreements };

@@ -1,4 +1,5 @@
 import type { FastifyRequest, FastifyReply } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { getRedisClient } from './redis.client';
 import { infraLogger } from '../logging/logger';
 
@@ -13,10 +14,10 @@ import { infraLogger } from '../logging/logger';
  */
 
 function getCacheKey(request: FastifyRequest): string {
-  const user = (request as any).user;
+  const tenantId = getTenantId((request as any).user);
   const url = new URL(request.url, 'http://localhost');
   const params = url.searchParams.toString();
-  return `http_cache:${user?.tenantId}:${request.method}:${url.pathname}:${params}`;
+  return `http_cache:${tenantId}:${request.method}:${url.pathname}:${params}`;
 }
 
 export function cacheResponse(ttlSeconds: number) {

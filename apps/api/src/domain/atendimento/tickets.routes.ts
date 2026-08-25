@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { validateBody, validateParams, validateQuery } from '../../infrastructure/validation/zod-validator';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { requirePlanCapacity } from '../onboarding/plan-limits.service';
@@ -15,7 +16,7 @@ export async function ticketRoutes(fastify: FastifyInstance) {
       validateQuery(paginationSchema as any),
     ],
   }, async (request) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const { page, limit } = (request as any).validatedQuery;
 
     const { data, error } = await tenantQuery(tenantId)
@@ -35,7 +36,7 @@ export async function ticketRoutes(fastify: FastifyInstance) {
       validateBody(createTicketSchema as any),
     ],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const body = (request as any).validatedBody;
 
     const { data, error } = await tenantQuery(tenantId)
@@ -55,7 +56,7 @@ export async function ticketRoutes(fastify: FastifyInstance) {
       validateBody(updateTicketSchema as any),
     ],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const { id } = (request as any).validatedParams;
     const body = (request as any).validatedBody;
 
@@ -77,7 +78,7 @@ export async function ticketRoutes(fastify: FastifyInstance) {
       validateParams(z.object({ id: uuidSchema as any }) as any),
     ],
   }, async (request, reply) => {
-    const { tenantId } = (request as any).user;
+    const tenantId = getTenantId((request as any).user) ?? '';
     const { id } = (request as any).validatedParams;
 
     const now = new Date().toISOString();

@@ -1,4 +1,5 @@
 import { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { readTenantScoped } from '../../infrastructure/database/tenant-rls';
 
@@ -8,7 +9,7 @@ export async function edgeRoutes(app: FastifyInstance) {
   });
 
   app.get('/api/v2/ia/edge/agreement', async (req) => {
-    const tenantId = (req as any).user?.tenantId;
+    const tenantId = getTenantId((req as any).user);
     if (!tenantId) return { agreement: null };
 
     // MT-02(c): RLS por-tenant quando a flag está ligada (pós-096); senão service_role.

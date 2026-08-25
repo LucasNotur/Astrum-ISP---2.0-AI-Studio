@@ -1,4 +1,5 @@
 import { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import {
   getPendingExamples,
   labelExample,
@@ -16,7 +17,7 @@ export async function labelingRoutes(app: FastifyInstance) {
     if (!isActiveLearningEnabled()) {
       return { queue: [], enabled: false };
     }
-    const tenantId = (req as any).user?.tenantId;
+    const tenantId = getTenantId((req as any).user);
     if (!tenantId) return { queue: [] };
     const limit = Number((req.query as any).limit) || 20;
     const queue = await getPendingExamples(tenantId, limit);
@@ -26,7 +27,7 @@ export async function labelingRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string }; Body: { label: string } }>(
     '/api/v2/ia/labeling/:id/label',
     async (req, reply) => {
-      const tenantId = (req as any).user?.tenantId;
+      const tenantId = getTenantId((req as any).user);
       if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });
       const { label } = req.body;
       if (!label) return reply.code(400).send({ error: 'label obrigatório' });
@@ -37,7 +38,7 @@ export async function labelingRoutes(app: FastifyInstance) {
   );
 
   app.get('/api/v2/ia/labeling/export', async (req, reply) => {
-    const tenantId = (req as any).user?.tenantId;
+    const tenantId = getTenantId((req as any).user);
     if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });
     const source = (req.query as any).source as ExampleSource | undefined;
     const since = (req.query as any).since as string | undefined;

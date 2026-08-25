@@ -28,10 +28,10 @@ describe('voice-consent.routes', () => {
     expect(grantConsent).toHaveBeenCalledWith('c1', 'tenant-1', 'api');
   });
 
-  it('POST consent com JWT shape antigo (tenant_id) -> 400, não concede consentimento sem tenant', async () => {
+  it('POST consent com JWT tenant_id (fallback snake_case do helper) -> concede no tenant resolvido', async () => {
     const app = await buildApp({ userId: 'op-1', tenant_id: 'tenant-1', role: 'admin' });
     const res = await app.inject({ method: 'POST', url: '/api/v2/ia/voice/consent', payload: { customerId: 'c1' } });
-    expect(res.statusCode).toBe(400);
-    expect(grantConsent).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
+    expect(grantConsent).toHaveBeenCalledWith('c1', 'tenant-1', 'api');
   });
 });

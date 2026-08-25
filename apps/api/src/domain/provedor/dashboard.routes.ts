@@ -4,10 +4,11 @@
  * (upsells e avaliações de CSAT) via `supabaseAdmin`, filtrando por tenant do JWT.
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 
-function tenantOf(req: any): string | undefined {
-  return req.user?.tenantId ?? req.user?.tenant_id;
+function tenantOf(req: any): string | null {
+  return getTenantId(req.user);
 }
 
 export async function dashboardRoutes(app: FastifyInstance) {

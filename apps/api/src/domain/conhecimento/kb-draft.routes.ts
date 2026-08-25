@@ -7,6 +7,7 @@
  * PATCH /api/v2/kb/drafts/:id/reject  → rejeita
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId, getUserId } from '../../lib/jwt-claims';
 import {
   findCandidateConversations,
   generateDraft,
@@ -21,7 +22,8 @@ export async function kbDraftRoutes(app: FastifyInstance) {
   app.get('/api/v2/kb/drafts', {
     preHandler: [app.authenticate],
   }, async (request, reply) => {
-    const { tenantId, sub } = request.user as { tenantId: string; sub: string };
+    const tenantId = getTenantId(request.user) ?? '';
+    const sub = getUserId(request.user) ?? '';
     const { status } = request.query as { status?: string };
     const valid = ['pending', 'approved', 'rejected', 'published', undefined];
     if (!valid.includes(status)) {
@@ -35,7 +37,7 @@ export async function kbDraftRoutes(app: FastifyInstance) {
   app.post('/api/v2/kb/drafts/scan', {
     preHandler: [app.authenticate],
   }, async (request, reply) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     const candidates = await findCandidateConversations(tenantId);
 
     if (!candidates.length) {
@@ -62,7 +64,8 @@ export async function kbDraftRoutes(app: FastifyInstance) {
   app.patch('/api/v2/kb/drafts/:id/approve', {
     preHandler: [app.authenticate],
   }, async (request, reply) => {
-    const { tenantId, sub } = request.user as { tenantId: string; sub: string };
+    const tenantId = getTenantId(request.user) ?? '';
+    const sub = getUserId(request.user) ?? '';
     const { id } = request.params as { id: string };
 
     try {
@@ -77,7 +80,8 @@ export async function kbDraftRoutes(app: FastifyInstance) {
   app.patch('/api/v2/kb/drafts/:id/reject', {
     preHandler: [app.authenticate],
   }, async (request, reply) => {
-    const { tenantId, sub } = request.user as { tenantId: string; sub: string };
+    const tenantId = getTenantId(request.user) ?? '';
+    const sub = getUserId(request.user) ?? '';
     const { id } = request.params as { id: string };
 
     try {

@@ -5,11 +5,12 @@
  * financeiro/cashflow.routes.ts, que cobre a mesma área de negócio (billing).
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 
-function tenantOf(req: any): string | undefined {
-  return req.user?.tenantId ?? req.user?.tenant_id;
+function tenantOf(req: any): string | null {
+  return getTenantId(req.user);
 }
 
 export async function billingPageRoutes(app: FastifyInstance) {

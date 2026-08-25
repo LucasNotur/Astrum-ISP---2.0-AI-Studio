@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 
 /**
@@ -12,8 +13,8 @@ import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
  * pertencer ao tenant do JWT antes de qualquer leitura — impede que um operador
  * veja o histórico de banimento de outro tenant.
  */
-function tenantOf(req: any): string | undefined {
-  return req.user?.tenantId ?? req.user?.tenant_id;
+function tenantOf(req: any): string | null {
+  return getTenantId(req.user);
 }
 
 const MAX_HOURS = 168;

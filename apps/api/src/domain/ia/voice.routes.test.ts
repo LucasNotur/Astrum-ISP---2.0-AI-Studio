@@ -41,17 +41,24 @@ describe('voice.routes', () => {
     expect(res.json().calls[0]).toMatchObject({ id: 'call-1', phoneLast4: '1234', scorecard: { total: 8 } });
   });
 
-  it('GET calls com JWT shape antigo (tenant_id) -> lista vazia', async () => {
+  it('GET calls com JWT tenant_id (fallback snake_case do helper) -> devolve chamadas do tenant resolvido', async () => {
+    (supabaseAdmin.from as any).mockReturnValue(makeChain({
+      data: [{ id: 'call-1', phone_last4: '1234', status: 'done', voice_scorecards: [{ total: 8 }] }],
+      error: null,
+    }));
     const app = await buildApp({ userId: 'op-1', tenant_id: 'tenant-1', role: 'admin' });
     const res = await app.inject({ method: 'GET', url: '/api/v2/ia/voice/calls' });
-    expect(res.json()).toEqual({ calls: [] });
-    expect(supabaseAdmin.from).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
+    expect(res.json().calls[0]).toMatchObject({ id: 'call-1', phoneLast4: '1234', scorecard: { total: 8 } });
+    expect(supabaseAdmin.from).toHaveBeenCalled();
   });
 
-  it('GET calls/:id com JWT shape antigo (tenant_id) -> 401', async () => {
+  it('GET calls/:id com JWT tenant_id (fallback snake_case do helper) -> consulta o tenant resolvido', async () => {
+    (supabaseAdmin.from as any).mockReturnValue(makeChain({ data: null, error: null }));
     const app = await buildApp({ userId: 'op-1', tenant_id: 'tenant-1', role: 'admin' });
     const res = await app.inject({ method: 'GET', url: '/api/v2/ia/voice/calls/call-1' });
-    expect(res.statusCode).toBe(401);
+    expect(res.statusCode).toBe(404);
+    expect(supabaseAdmin.from).toHaveBeenCalled();
   });
 
   it('GET calls/:id não encontrada -> 404', async () => {

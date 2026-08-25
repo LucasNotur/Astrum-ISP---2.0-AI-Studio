@@ -2,6 +2,7 @@
  * D-07 — Painel comercial: conversão por estágio, LTV médio, taxa por origem.
  */
 import type { FastifyInstance } from 'fastify';
+import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 
 interface FunnelStageCount {
@@ -28,7 +29,7 @@ export async function vendasDashboardRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { tenantId } = request.user as { tenantId: string };
+    const tenantId = getTenantId(request.user) ?? '';
     const { days = 30 } = request.query as { days?: number };
 
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
