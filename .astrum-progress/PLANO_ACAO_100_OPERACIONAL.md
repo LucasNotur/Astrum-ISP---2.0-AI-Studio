@@ -216,13 +216,110 @@ desenho de schema (não é "portar query pra rota" — colunas/tabelas precisam 
 a feature correspondente decidida como morta, caso a caso).
 Mesma verificação e DoD da F1-A.
 
-## [ ] F1-D — Migrar as páginas restantes do inventário
-**Modelo:** DeepSeek V4 Pro
-Idêntica à F1-A, para TODAS as páginas restantes do inventário F1-INV (Monitoring,
-QualityMonitor, OnboardingWizard, KnowledgeBase, AIConfig, AICosts, AIObservability,
-SuperAdmin, Inventory, SecurityPage, OperatorMobile, ERPIntegrations, intelligence/*, e
-quaisquer outras que o inventário liste). Pode ser dividida em 2 sessões se ficar grande —
-nesse caso commitar cada metade separadamente. Mesma verificação e DoD.
+## [x] F1-D — Migrar as páginas restantes do inventário (Batch 1/2)
+**Modelo:** Claude Sonnet 5 (2026-08-25 — executado direto pelo Lucas em vez do DeepSeek,
+mesma decisão da F1-B/C, ver nota de escopo abaixo)
+
+**Resumo:** Migradas 13 páginas/componentes com schema real confirmado via MCP antes de
+escrever qualquer rota (mesmo protocolo da F1-B/C): `MonitoringPage.tsx` (DLQ discard +
+notifications, 3 ocorrências), `QualityMonitorPage.tsx` (active-conversations + notifications,
+2 de 4), `SuperAdminPage.tsx` (tenants/shadow_results/tenant_feature_flags, 4, painel
+cross-tenant gateado por `role===super_admin`), `AIObservabilityPage.tsx` (ragas-scores +
+guardrail-blocks, 2, **corrigido vazamento cross-tenant** — a query original não filtrava
+`tenant_id`), `OnboardingWizardPage.tsx` (report-metrics, 3 de 4, dropada a segunda trilha de
+auth via `supabase.auth.getSession()`), `AIConfigPage.tsx` (só os 3 campos reais de CobrAI),
+`InventoryPage.tsx` (import CSV, `price`→`price_cents`), `TicketsPage.tsx` (reusa
+`POST /api/v2/tickets` existente + `GET /api/v2/departments`, `subject`→`title`),
+`NetworkGraphPage.tsx`+`NetworkTwinPage.tsx` (rota nova dedicada `GET /api/v2/rede/ctos`,
+**corrigido vazamento cross-tenant** — mesma falta de filtro), `KnowledgeBasePage.tsx` (lista
+de artigos, 1 de 3), `Sidebar.tsx`+`SuperAdminRoute.tsx` (nova `GET /api/v2/auth/me` lendo
+`role` do JWT — **corrige bug real**: o guard de `SuperAdminRoute` bloqueava TODO usuário,
+inclusive super admins de verdade, porque a query antiga sempre falhava pela RLS),
+`CustomerDetailsDialog.tsx`/`CustomerDetailSheet.tsx`/`CustomerHistorySidebar.tsx` (rota nova
+`customers.routes.ts` — maior buraco transversal do inventário, não existia NENHUMA rota de
+leitura de `customers` em `apps/api`; a subscrição Realtime do `CustomerHistorySidebar` saiu,
+virou fetch-on-open como as demais telas — já não entregava eventos por causa da RLS, sem
+regressão real). 9 rotas novas + 2 estendidas em 8 arquivos de rota (`notifications.routes.ts`,
+`super-admin.routes.ts`, `customers.routes.ts`, `ai-config.routes.ts`,
+`inventory-import.routes.ts`, `report-metrics.routes.ts`, `observability-data.routes.ts`, +
+extensões em `dlq.routes.ts`, `quality-stats.routes.ts`, `graph.routes.ts`,
+`knowledge-reindex.routes.ts`, `auth.routes.ts`), todas com `supabaseAdmin` +
+`.eq('tenant_id', ...)` do JWT (exceto o painel super-admin, ver nota). 49 testes Vitest
+novos (401 + sucesso + filtro de tenant, RBAC onde aplicável). Suítes completas verdes:
+backend 2695 passed/0 failed/7 skipped, typecheck limpo; frontend 3482 passed/0 failed/7
+skipped, typecheck limpo. Commit local, SEM push (aguarda F1-AUD).
+
+**⚠️ Achado crítico — bugs de produção já commitados na F1-A (não pushados ainda,
+`cobrai-page.routes.ts`), achados ao verificar schema real via MCP antes de escrever rotas
+novas nesta tarefa:**
+- `GET /api/v2/cobranca/dashboard-metrics` — filtra `customers.financial_status`, coluna que
+  **não existe** (real: `status`, `cobrai_opted_out`, sem `financial_status`). 500 garantido.
+- `GET /api/v2/cobranca/jobs/history` — seleciona `stage, template_name, error_message,
+  sent_at` de `cobrai_jobs`; **nenhuma dessas 4 colunas existe** (schema real: `id, tenant_id,
+  customer_id, invoice_id, bullmq_job_id, rule_id, status, scheduled_for, executed_at,
+  created_at`). 500 garantido.
+- `GET /api/v2/cobranca/tenant-config` — lê `tenants.cobrai_paused_customers`, coluna que
+  **não existe**. 500 garantido.
+- `GET /api/v2/dashboard/csat-ratings` (também F1-A) — lê `tickets.csat_score`, coluna que
+  **não existe** (confirmado também por `quality-stats.service.ts`, que já documentava no
+  próprio código "tickets não tem csat nem timestamp de resolução"). 500 garantido.
+Os testes Vitest dessas rotas passam porque mockam o client Supabase — nunca bateram no
+schema real. **F1-AUD precisa tratar isso antes do push** (essas rotas nunca funcionaram em
+produção real, mas hoje são só "não pushadas ainda" — não é regressão desta tarefa).
+
+**⚠️ Achado crítico — o inventário F1-INV está incompleto.** O grep do passo 1 da F1-INV
+(`supabase\.from(`) só casa `supabase` e `.from(` na MESMA linha — a própria F1-INV já tinha
+avisado disso (nota "Correção pós-F1-A") mas o F1-D não tinha reauditado o escopo inteiro
+antes de começar. Rodando `supabase\s*\n\s*\.from\(` (multi-linha) em `src/pages` +
+`src/components` aparecem **mais 18 ocorrências reais em 12 arquivos que a F1-INV reportou
+como 0**: `AICostsPage.tsx` (4), `WebhooksPage.tsx` (2), `SyntheticPage.tsx` (2),
+`EscalationRulesBuilder.tsx` (2), `ERPIntegrationsPage.tsx` (1), `SecurityPage.tsx` (1),
+`OperatorMobilePage.tsx` (1), `TopHeader.tsx` (1), `SentimentMetricsCard.tsx` (1),
+`IntelligenceHubPage.tsx` (1), `NetworkTwinPage.tsx` (1 — a ocorrência de CTOs desta já foi
+corrigida nesta tarefa, reaproveitando a rota nova), `SandboxPage.tsx` (1). Bate exatamente
+com a lista original da spec do F1-D ("AICosts... SecurityPage, OperatorMobile,
+ERPIntegrations, intelligence/*") — o autor do plano já esperava essas páginas; só o
+inventário gerado não as pegou. **Ficam para o F1-D Batch 2** (ver Achados Colaterais).
+
+**Nota de escopo — F1-D ficou em 2 lotes por decisão de execução, não por bug achado
+(diferente da F1-B/C):** o volume real de trabalho (13 páginas + 12 pendentes + auditoria de
+schema em ~15 tabelas) excede o razoável para uma sessão só, então este lote fechou o que
+tinha schema real E cabia com qualidade (rotas + testes) na sessão, deixando documentado e
+isolado o que falta. Dentro do que FOI migrado, mesma disciplina da F1-B/C: campos sem coluna
+real (ex.: `vector_store_config`, `pipeline_stage`, tabela `reflections`) foram deixados
+intactos e documentados, não inventados.
+
+**Pré-requisito:** F1-INV concluída (use o inventário como fonte).
+**Objetivo original:** zero chamadas `supabase.from(`/`supabase.rpc(` nas páginas restantes.
+**Verificação:** comandos padrão (frontend + backend, seção Regras Globais item 7) — ambos
+verdes.
+**DoD:** 13 páginas/componentes sem query direta (exceto gaps de schema documentados), rotas
+novas com testes, suites verdes, commit local SEM push (aguarda F1-AUD).
+
+## [ ] F1-D2 — Migrar as 12 páginas que a F1-INV não pegou (multi-linha)
+**Modelo:** Claude Sonnet 5 ou DeepSeek V4 Pro *(auditar schema real via MCP antes de
+escrever qualquer rota — Claude se precisar do MCP; DeepSeek pode seguir o que já foi
+verificado aqui, mas SEMPRE reconfirmar antes de gravar, o schema pode ter mudado)*
+**Contexto:** achado da F1-D — ver "Achado crítico" acima. Lista completa (arquivo:ocorrências):
+`AICostsPage.tsx` (4 — `ai_performance_logs` ×2, `tenants` ×2, mesmo padrão de `agent/step/
+escalated` que não existe em `ai_performance_logs`, ver achado colateral da F1-D sobre
+`AIObservabilityPage`/`AIConfigPage`), `WebhooksPage.tsx` (2 — `webhook_deliveries`,
+`tenants.svix_app_id`, este último É real), `SyntheticPage.tsx` (2 — `tenants`, `users`),
+`EscalationRulesBuilder.tsx` (2 — `tenants.escalation_rules`, **coluna real**, fácil),
+`ERPIntegrationsPage.tsx` (1 — `tenant_erp_credentials`, tabela não confirmada, checar),
+`SecurityPage.tsx` (1 — `audit_log`, tabela não confirmada, checar), `OperatorMobilePage.tsx`
+(1 — `messages`), `TopHeader.tsx` (1 — `tenants.operators`, **coluna real**, fácil),
+`SentimentMetricsCard.tsx` (1 — `ai_performance_logs`), `IntelligenceHubPage.tsx` (1 —
+`users.role`, mesmo padrão do Sidebar/SuperAdminRoute — reusar `GET /api/v2/auth/me` já
+criado na F1-D), `SandboxPage.tsx` (1 — `users`). `NetworkTwinPage.tsx` (1 — `network_ctos`)
+**já pode ser corrigido direto** reaproveitando `GET /api/v2/rede/ctos` criada na F1-D (mesmo
+padrão do `NetworkGraphPage.tsx`).
+**Passos:** idênticos à F1-A (auditar schema real via MCP ANTES de escrever rota, migrar só o
+que bate, documentar o resto). `ai_performance_logs` provavelmente repete o mesmo gap já
+achado em `AIObservabilityPage.tsx`/`AIConfigPage.tsx` (campos como `escalated`, `agent`,
+`active_flow`, `step`, `tool_called`, `provider` não existem na tabela real — é outro modelo
+de dados) — confirmar antes de assumir, mas não gastar tempo tentando portar 1:1.
+**Verificação/DoD:** mesmos da F1-A.
 
 ## [ ] F1-AUD — Auditoria dos lotes F1 antes do push
 **Modelo:** Claude Sonnet 5 *(rodar após CADA lote F1-A/B/C/D, ou após todos)*
@@ -500,7 +597,7 @@ quando a I1 concluir.
 # ORDEM DE EXECUÇÃO RECOMENDADA
 
 ```
-F1-INV → F1-A → F1-B → F1-C → F1-D   (DeepSeek, em série — F1-AUD após cada lote ou no fim)
+F1-INV → F1-A → F1-B → F1-C → F1-D → F1-D2   (F1-AUD após cada lote ou no fim)
 C1 (Claude Sonnet)                    (independente — pode rodar em paralelo à Fase 1)
 D1 → D2 → S3 → L1                     (DeepSeek, em série — AUD-G no fim)
 S1 → S2 → B1                          (Claude com MCP — após reset dos créditos)
@@ -508,7 +605,7 @@ L2                                    (Claude Sonnet — só após C1 e L1)
 I1                                    (Claude + Lucas — quando quiser atacar a VPS)
 ```
 
-Dependências duras: F1-A/B/C/D ← F1-INV · L2 ← C1+L1 · I2 ← I1.
+Dependências duras: F1-A/B/C/D/D2 ← F1-INV · L2 ← C1+L1 · I2 ← I1.
 Tudo o mais é independente entre si.
 
 ---
@@ -623,3 +720,48 @@ Tudo o mais é independente entre si.
   store/token-limits/backup/holidays são candidatos naturais a virar sub-chaves de
   `tenants.settings` (JSONB) numa migration só, em vez de 9+ colunas novas — mas é decisão
   de produto, não foi aplicada aqui.
+- **[F1-D, 2026-08-25 — bugs de produção em rotas já commitadas na F1-A (não pushadas),
+  achados ao verificar schema real via MCP ANTES de escrever rotas novas]** Detalhe completo
+  na seção da F1-D acima ("Achado crítico — bugs de produção"). Resumo: `cobrai-page.routes.ts`
+  (3 de 4 rotas quebradas — `financial_status`, `stage/template_name/error_message/sent_at`,
+  `cobrai_paused_customers`, nenhuma dessas colunas existe) e `dashboard.routes.ts`
+  (`csat-ratings` lê `tickets.csat_score`, também inexistente). Todos os testes Vitest dessas
+  rotas passam porque mockam o Supabase — nunca bateram no schema real. **F1-AUD precisa
+  decidir**: corrigir antes do push (mapear pra colunas reais ou pra fonte alternativa) ou
+  documentar como known-issue e abrir tarefa separada — mas não pode pushar sem uma decisão
+  explícita, porque hoje essas 4 rotas retornam 500 pra qualquer chamada real.
+- **[F1-D, 2026-08-25 — schema real ≠ o que o código assume, verificado via MCP]** Mesma
+  família de gap já documentada na F1-C, encontrada de novo em mais 2 páginas:
+  - `AIConfigPage.tsx` (linha 301→321 pré-migração, agora só o residual em `loadConfig`) —
+    `tenants.vector_store_config`/`monthly_token_limit`/`worker_concurrency` não existem
+    (idêntico ao achado da F1-C em SettingsPage). `knowledge_articles.vector_indexed`
+    também não existe (idêntico ao achado da F1-C).
+  - `KnowledgeBasePage.tsx` (linhas 166, 175) — `tenants.embedding_config`/
+    `vector_store_config` não existem.
+  - **Novo, não visto na F1-B/C:** `AIObservabilityPage.tsx` (linha 148, fora do grep de uma
+    linha só) e `AIConfigPage.tsx` (linha 430, idem) leem `ai_performance_logs` esperando
+    colunas `escalated`, `agent`, `active_flow`, `step`, `tool_called`, `input_summary`,
+    `provider`, `tokens_used` — **nenhuma existe**. O schema real da tabela (verificado via
+    MCP) é orientado a custo/qualidade por ticket:
+    `ticket_id, category, sentiment, response_time_ms, sla_compliant, is_critical,
+    tokens_in, tokens_out, model, cost_usd, context_tokens_saved, customer_id,
+    conversation_id, use_case`. Não é rename — é outro modelo de dados (sessão/fluxo/agente
+    de IA vs. custo/qualidade por ticket). Toda a seção "Métricas Operacionais" de
+    `AIObservabilityPage.tsx` (taxa de escalação, quedas de funil, erros de ferramenta, log
+    bruto) depende desses campos inexistentes. Mesmo gap provavelmente se repete em
+    `AICostsPage.tsx` (2 ocorrências de `ai_performance_logs`, ver F1-D2) e
+    `SentimentMetricsCard.tsx` — não confirmado ainda, mas mesma tabela.
+  - `KanbanBoard.tsx` (linha 63) — `tickets.pipeline_stage` não existe; o board de vendas
+    (Kanban) nunca persistiu o card na coluna certa, mesmo antes da migration 092.
+  - `CustomerDetailSheet.tsx` (linha 141) — tabela `reflections` (notas por cliente) não
+    existe; só `ai_reflections` existe (diário do Cérebro Noturno, schema/conceito
+    diferente: `reflection_date, metrics, hypotheses, actions`, sem `title/body/entity_id`).
+  Nenhuma dessas foi migrada — mesma decisão da F1-B/C (produto+engenharia decidem: criar
+  coluna/tabela, redirecionar pra JSONB livre, ou remover feature morta).
+- **[F1-D, 2026-08-25 — inventário F1-INV incompleto]** Ver seção "Achado crítico — o
+  inventário F1-INV está incompleto" na F1-D acima. 18 ocorrências reais em 12 arquivos
+  (`AICostsPage.tsx`, `WebhooksPage.tsx`, `SyntheticPage.tsx`, `EscalationRulesBuilder.tsx`,
+  `ERPIntegrationsPage.tsx`, `SecurityPage.tsx`, `OperatorMobilePage.tsx`, `TopHeader.tsx`,
+  `SentimentMetricsCard.tsx`, `IntelligenceHubPage.tsx`, `NetworkTwinPage.tsx`,
+  `SandboxPage.tsx`) não apareceram no inventário original por causa do grep de uma linha só.
+  Ficam para a F1-D2 (task nova criada acima).

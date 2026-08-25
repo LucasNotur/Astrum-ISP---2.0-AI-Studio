@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { Network, AlertOctagon, Activity, Zap, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ptBR } from '@/src/lib/i18n/pt-br';
-import { supabase } from '@/src/lib/supabase';
 import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { Card, CardContent } from '@/src/components/ui/card';
 import { Button } from '@/src/components/ui/button';
@@ -70,13 +69,10 @@ export function NetworkGraphPage() {
     return () => { mounted = false; };
   }, []);
 
-  // Lista de CTOs (reaproveita supabase direto — não passa pelo backend IA-16)
+  // Lista de CTOs (F1-D — GET /api/v2/rede/ctos, rota dedicada)
   const { data: ctos } = useQuery({
     queryKey: ['ctos-list', token],
-    queryFn: async () => {
-      const { data } = await supabase.from('network_ctos').select('id, name').order('name');
-      return (data ?? []) as CTO[];
-    },
+    queryFn: () => getJSON<CTO[]>(token!, '/api/v2/rede/ctos'),
     enabled: !!token,
   });
 

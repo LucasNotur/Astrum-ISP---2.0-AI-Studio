@@ -102,22 +102,25 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
 
 
   React.useEffect(() => {
-    // FZ-4: super admin é a role da tabela users (era claim do Firebase)
     if (user) {
       supabase.auth.getSession()
         .then(({ data: { session } }) => {
-          const uid = session?.user?.id;
           if (session?.user?.last_sign_in_at) {
             setLastLogin(new Date(session.user.last_sign_in_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }));
           }
-          if (!uid) { setIsSuperAdmin(false); return; }
-          return supabase.from('users').select('role').eq('id', uid).maybeSingle()
-            .then(({ data }) => setIsSuperAdmin(data?.role === 'super_admin'));
         })
-        .catch(() => setIsSuperAdmin(false));
-    } else {
-      setIsSuperAdmin(false);
+        .catch(() => {});
     }
+  }, [user]);
+
+  // F1-D — super_admin vem do JWT do apps/api (GET /api/v2/auth/me), não mais de
+  // `supabase.from('users').select('role')` direto (client anônimo, bloqueado
+  // pela migration 092).
+  React.useEffect(() => {
+    if (!user) { setIsSuperAdmin(false); return; }
+    apiGet<{ role: string | null }>('/api/v2/auth/me')
+      .then(({ role }) => setIsSuperAdmin(role === 'super_admin'))
+      .catch(() => setIsSuperAdmin(false));
   }, [user]);
 
   React.useEffect(() => {

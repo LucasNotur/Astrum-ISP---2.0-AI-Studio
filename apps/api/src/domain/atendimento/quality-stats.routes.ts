@@ -90,4 +90,21 @@ export async function qualityStatsRoutes(app: FastifyInstance) {
       topEscalatingAgent,
     });
   });
+
+  // F1-D — QualityMonitorPage listava os 10 tickets abertos mais recentes direto
+  // no Supabase (client anônimo, bloqueado pela migration 092).
+  app.get('/api/v2/quality/active-conversations', { onRequest: auth }, async (req, reply) => {
+    const tenantId = tenantOf(req);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+
+    const { data, error } = await supabaseAdmin
+      .from('tickets')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('status', 'open')
+      .order('updated_at', { ascending: false })
+      .limit(10);
+    if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
+    return reply.send(data ?? []);
+  });
 }

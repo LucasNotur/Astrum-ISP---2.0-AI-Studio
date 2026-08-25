@@ -11,7 +11,7 @@ import { Switch } from "@/src/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/src/components/ui/tabs";
 import { Users, DollarSign, Activity, Settings, TrendingUp, TrendingDown, Layers, GitBranch, FlaskConical, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from '@/src/lib/supabase';
+import { apiGet, apiPut } from '@/src/lib/apiClient';
 import { monthlyPriceCents, type AstrumTier } from '@/src/lib/plans';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TOOLTIP_STYLE, GRID_STYLE } from '@/src/lib/chart-theme';
@@ -71,16 +71,16 @@ export const SuperAdminPage = () => {
     try {
       setLoading(true);
 
-      const [tenantsRes, shadowRes, flagsRes] = await Promise.all([
-        supabase.from('tenants').select('id,name,plan,active,subscriber_count,atendimento_engine').limit(100),
-        supabase.from('shadow_results').select('*').order('created_at', { ascending: false }).limit(50),
-        supabase.from('tenant_feature_flags').select('*').order('created_at', { ascending: false }).limit(200),
+      const [tenantsData, shadowData, flagsData] = await Promise.all([
+        apiGet<TenantRow[]>('/api/v2/super-admin/tenants'),
+        apiGet<ShadowRow[]>('/api/v2/super-admin/shadow-results'),
+        apiGet<FlagRow[]>('/api/v2/super-admin/feature-flags'),
       ]);
 
-      const tenantRows: TenantRow[] = tenantsRes.data ?? [];
-      if (tenantsRes.data) setTenants(tenantRows);
-      if (shadowRes.data) setShadowRows(shadowRes.data);
-      if (flagsRes.data) setFlags(flagsRes.data);
+      const tenantRows: TenantRow[] = tenantsData ?? [];
+      setTenants(tenantRows);
+      setShadowRows(shadowData ?? []);
+      setFlags(flagsData ?? []);
 
       // Métricas SaaS computadas client-side pela Escada Astrum (plans.ts), fonte de verdade
       // de preço. Substitui o /api/super-admin/metrics legado (que usava preço antigo
@@ -113,37 +113,42 @@ export const SuperAdminPage = () => {
   // engine e os feature-flags já fazem. Seguro: a RLS `super_admin_all_tenants` (cmd ALL) só
   // deixa super_admin escrever em tenant de outro; não-super-admin só lê o próprio.
   const setTenantActive = async (tenantId: string, active: boolean) => {
-    const { error } = await supabase.from('tenants').update({ active }).eq('id', tenantId);
-    if (error) { toast.error(active ? 'Erro ao reativar tenant.' : 'Erro ao suspender tenant.'); return; }
-    toast.success(active ? 'Tenant reativado com sucesso.' : 'Tenant suspenso com sucesso.');
-    fetchData();
+    try {
+      await apiPut(`/api/v2/super-admin/tenants/${tenantId}`, { active });
+      toast.success(active ? 'Tenant reativado com sucesso.' : 'Tenant suspenso com sucesso.');
+      fetchData();
+    } catch {
+      toast.error(active ? 'Erro ao reativar tenant.' : 'Erro ao suspender tenant.');
+    }
   };
   const suspendTenant = (tenantId: string) => setTenantActive(tenantId, false);
   const reactivateTenant = (tenantId: string) => setTenantActive(tenantId, true);
 
   const setTenantEngine = async (tenantId: string, engine: string | null) => {
     setEngineUpdating(tenantId);
-    const { error } = await supabase
-      .from('tenants')
-      .update({ atendimento_engine: engine === 'env' ? null : engine })
-      .eq('id', tenantId);
-    setEngineUpdating(null);
-    if (error) { toast.error('Erro ao atualizar engine'); return; }
-    toast.success(`Engine atualizada para ${engine ?? 'padrão do env'}`);
-    setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, atendimento_engine: engine === 'env' ? null : engine } : t));
+    try {
+      await apiPut(`/api/v2/super-admin/tenants/${tenantId}`, { atendimento_engine: engine === 'env' ? null : engine });
+      toast.success(`Engine atualizada para ${engine ?? 'padrão do env'}`);
+      setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, atendimento_engine: engine === 'env' ? null : engine } : t));
+    } catch {
+      toast.error('Erro ao atualizar engine');
+    } finally {
+      setEngineUpdating(null);
+    }
   };
 
   const toggleFlag = async (tenantId: string, flag: string, enabled: boolean) => {
-    const { error } = await supabase
-      .from('tenant_feature_flags')
-      .upsert({ tenant_id: tenantId, flag, enabled }, { onConflict: 'tenant_id,flag' });
-    if (error) { toast.error('Erro ao alterar flag'); return; }
-    setFlags(prev => {
-      const existing = prev.find(f => f.tenant_id === tenantId && f.flag === flag);
-      if (existing) return prev.map(f => f.tenant_id === tenantId && f.flag === flag ? { ...f, enabled } : f);
-      return [...prev, { id: crypto.randomUUID(), tenant_id: tenantId, flag, enabled }];
-    });
-    toast.success(`Flag "${flag}" ${enabled ? 'ativada' : 'desativada'}`);
+    try {
+      await apiPut('/api/v2/super-admin/feature-flags', { tenantId, flag, enabled });
+      setFlags(prev => {
+        const existing = prev.find(f => f.tenant_id === tenantId && f.flag === flag);
+        if (existing) return prev.map(f => f.tenant_id === tenantId && f.flag === flag ? { ...f, enabled } : f);
+        return [...prev, { id: crypto.randomUUID(), tenant_id: tenantId, flag, enabled }];
+      });
+      toast.success(`Flag "${flag}" ${enabled ? 'ativada' : 'desativada'}`);
+    } catch {
+      toast.error('Erro ao alterar flag');
+    }
   };
 
   if (loading) {

@@ -296,15 +296,27 @@ export function AIConfigPage() {
       })
       .catch(e => setVectorTestResult({ success: false, error: e.message }));
       
-    // S99 — carrega config do tenant via Supabase
+    // F1-D — só os campos reais (cobrai_hourly_limit/window/stages/plan) via rota
+    // nova; `vector_store_config`/`monthly_token_limit`/`worker_concurrency` e
+    // `knowledge_articles.vector_indexed` continuam no Supabase direto (mesmo gap
+    // de schema já documentado na F1-C — colunas não existem, ver achado
+    // colateral no PLANO_ACAO_100_OPERACIONAL.md).
     const loadConfig = async () => {
+      try {
+        const cobraiSettings = await apiGet<{ plan?: string; cobrai_hourly_limit?: number; cobrai_daily_limit?: number; cobrai_window?: any; cobrai_stages?: any }>(
+          '/api/v2/ai-config/cobrai-settings',
+        );
+        setTenantData((prev: any) => ({ ...prev, ...cobraiSettings }));
+        if (cobraiSettings.plan) setTenantPlan(cobraiSettings.plan);
+      } catch (e) {
+        console.error(e);
+      }
+
       const { data: tenant } = await supabase.from('tenants').select('*').eq('id', tenantId).maybeSingle();
       if (tenant) {
         if (tenant.vector_store_config) setVectorConfig(tenant.vector_store_config);
-        setTenantData(tenant);
         if (tenant.monthly_token_limit) setTenantTokenLimit(tenant.monthly_token_limit);
         if (tenant.worker_concurrency) setWorkerConcurrency(tenant.worker_concurrency);
-        if (tenant.plan) setTenantPlan(tenant.plan);
       }
       const { count } = await supabase
         .from('knowledge_articles')
@@ -316,7 +328,8 @@ export function AIConfigPage() {
     loadConfig();
   }, []);
 
-  // S99 — tenant mutations via Supabase
+  // S99 — tenant mutations via Supabase (campos sem schema real: cobrai_enabled,
+  // vector_store_config, transcription_config, monthly_token_limit, worker_concurrency).
   const updateTenant = async (patch: Record<string, any>, successMsg: string) => {
     const { error } = await supabase.from('tenants').update(patch).eq('id', tenantId);
     if (error) { toast.error('Erro ao salvar'); return; }
@@ -324,17 +337,32 @@ export function AIConfigPage() {
     setTenantData((prev: any) => ({ ...prev, ...patch }));
   };
 
+  // F1-D — os 3 campos reais de CobrAI (verificado via MCP) via rota dedicada.
+  // `snakePatch` espelha o corpo (camelCase, o que a rota espera) pro estado local
+  // (snake_case, o que a UI lê de `tenantData`).
+  const updateCobraiSettings = async (body: Record<string, any>, snakePatch: Record<string, any>, successMsg: string) => {
+    try {
+      await apiPut('/api/v2/ai-config/cobrai-settings', body);
+      toast.success(successMsg);
+      setTenantData((prev: any) => ({ ...prev, ...snakePatch }));
+    } catch {
+      toast.error('Erro ao salvar');
+    }
+  };
+
   const toggleCobraiEnabled = (checked: boolean) =>
     updateTenant({ cobrai_enabled: checked }, checked ? "CobrAI ativado" : "CobrAI pausado");
 
   const updateCobraiLimiter = (limitHourly: number) =>
-    updateTenant({ cobrai_hourly_limit: limitHourly }, "Limite atualizado");
+    updateCobraiSettings({ cobraiHourlyLimit: limitHourly }, { cobrai_hourly_limit: limitHourly }, "Limite atualizado");
 
   const updateCobraiWindow = (start: number, end: number) =>
-    updateTenant({ cobrai_window: { start, end } }, "Janela de disparo atualizada");
+    updateCobraiSettings({ cobraiWindow: { start, end } }, { cobrai_window: { start, end } }, "Janela de disparo atualizada");
 
-  const toggleCobraiStage = (stage: string, checked: boolean) =>
-    updateTenant({ cobrai_stages: { ...(tenantData?.cobrai_stages ?? {}), [stage]: { active: checked } } }, `Etapa ${stage} ${checked ? 'ativada' : 'desativada'}`);
+  const toggleCobraiStage = (stage: string, checked: boolean) => {
+    const stages = { ...(tenantData?.cobrai_stages ?? {}), [stage]: { active: checked } };
+    return updateCobraiSettings({ cobraiStages: stages }, { cobrai_stages: stages }, `Etapa ${stage} ${checked ? 'ativada' : 'desativada'}`);
+  };
 
   const testVectorStore = async () => {
     setVectorTestResult(null);

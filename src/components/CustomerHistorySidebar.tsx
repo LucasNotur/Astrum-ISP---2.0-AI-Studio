@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from "../lib/supabase";
+import { apiGet } from "../lib/apiClient";
 import { ChevronRight, ChevronLeft, User, FileText, Wrench, HardDrive, Edit2, Calendar } from "lucide-react";
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
@@ -31,29 +31,28 @@ export function CustomerHistorySidebar({ customerId, tenantId, onEditCustomer }:
       return;
     }
 
-    // FZ-4: leitura via Supabase (uma carga + realtime no ticket do cliente)
+    // F1-D: rotas novas em apps/api (client anônimo do Supabase bloqueado pela
+    // migration 092). A subscrição Realtime (postgres_changes) saiu — dependia do
+    // mesmo client anônimo e já não entregava eventos por causa da RLS; sem
+    // regressão real, vira fetch-on-open como as demais telas migradas na Fase 1.
     const load = async () => {
-      const [custRes, ticketsRes, osRes] = await Promise.all([
-        supabase.from("customers").select("*").eq("id", customerId).maybeSingle(),
-        supabase.from("tickets").select("*").eq("customer_id", customerId)
-          .order("created_at", { ascending: false }),
-        supabase.from("service_orders").select("*").eq("customer_id", customerId)
-          .order("created_at", { ascending: false }),
-      ]);
-      if (custRes.data) setCustomer(custRes.data);
-      if (ticketsRes.data) setTickets(ticketsRes.data);
-      if (osRes.data) setServiceOrders(osRes.data);
+      try {
+        setCustomer(await apiGet<any>(`/api/v2/customers/${customerId}`));
+      } catch {
+        setCustomer(null);
+      }
+      try {
+        setTickets(await apiGet<any[]>(`/api/v2/customers/${customerId}/tickets`));
+      } catch {
+        setTickets([]);
+      }
+      try {
+        setServiceOrders(await apiGet<any[]>(`/api/v2/customers/${customerId}/service-orders`));
+      } catch {
+        setServiceOrders([]);
+      }
     };
     load();
-
-    const ch = supabase.channel(`customer-history:${customerId}:${Date.now()}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "tickets", filter: `customer_id=eq.${customerId}` }, load)
-      .on("postgres_changes", { event: "*", schema: "public", table: "service_orders", filter: `customer_id=eq.${customerId}` }, load)
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(ch);
-    };
   }, [customerId, tenantId, isOpen]);
 
   if (!isOpen) {
@@ -168,7 +167,7 @@ export function CustomerHistorySidebar({ customerId, tenantId, onEditCustomer }:
                     {tickets.map(t => (
                         <div key={t.id} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-3 hover:shadow-sm transition-shadow cursor-pointer">
                             <div className="flex justify-between items-start mb-2">
-                               <p className="text-sm font-medium line-clamp-1 pr-2">{t.subject || 'Atendimento'}</p>
+                               <p className="text-sm font-medium line-clamp-1 pr-2">{t.title || 'Atendimento'}</p>
                                <span className="text-[10px] font-mono text-zinc-400">#{t.id.slice(0, 5)}</span>
                             </div>
                             <div className="flex items-center justify-between mt-1">

@@ -4,9 +4,8 @@ import { Badge } from "@/src/components/ui/badge";
 import { Button } from "@/src/components/ui/button";
 import { toast } from 'sonner';
 import { Activity, RefreshCw, Smartphone, Server, AlertTriangle, AlertCircle, CheckCircle } from 'lucide-react';
-import { supabase } from '@/src/lib/supabase';
 import { useAppStore } from '@/src/store/useAppStore';
-import { apiGet, apiPost } from '@/src/lib/apiClient';
+import { apiGet, apiPost, apiPatch } from '@/src/lib/apiClient';
 
 const WA_STATUS_LABELS: Record<string, string> = {
   open: 'CONECTADO',
@@ -25,18 +24,25 @@ export function MonitoringPage() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [isFetchingStats, setIsFetchingStats] = useState(false);
 
+  const fetchDlqAndNotifications = async () => {
+    try {
+      const jobs = await apiGet<any[]>('/api/v2/dlq');
+      setDlqJobs(jobs ?? []);
+    } catch (e) {
+      toast.error('Erro ao buscar Dead Letter Queue');
+    }
+    try {
+      const notifs = await apiGet<any[]>('/api/v2/notifications');
+      setNotifications(notifs ?? []);
+    } catch (e) {
+      toast.error('Erro ao buscar notificações');
+    }
+  };
+
   useEffect(() => {
     if (!user) return;
 
-    // S99 — DLQ e notifications via Supabase
-    const tenantId = user?.tenantId || 'DEFAULT_TENANT';
-    supabase.from('dead_letter_queue').select('*').eq('resolved', false).limit(10)
-      .then(({ data }) => setDlqJobs(data ?? []));
-
-    supabase.from('notifications').select('*').eq('read', false).eq('tenant_id', tenantId)
-      .order('created_at', { ascending: false }).limit(20)
-      .then(({ data }) => setNotifications(data ?? []));
-
+    fetchDlqAndNotifications();
     fetchWaHealth();
     fetchQueueStats();
 
@@ -70,8 +76,9 @@ export function MonitoringPage() {
 
   const markDlqResolved = async (id: string, action: string = 'descartado') => {
     try {
-      await supabase.from('dead_letter_queue').update({ resolved: true, action }).eq('id', id);
+      await apiPost(`/api/v2/dlq/${id}/discard`, { reason: action });
       toast.success(action === 'descartado' ? 'Job descartado' : 'Job marcado como resolvido');
+      setDlqJobs((prev) => prev.filter((j) => j.id !== id));
     } catch (e) {
       toast.error('Erro ao atualizar job');
     }
@@ -88,10 +95,8 @@ export function MonitoringPage() {
 
   const markAllNotificationsRead = async () => {
     try {
-      // Basic approach
-      for (const n of notifications) {
-        await supabase.from('notifications').update({ read: true }).eq('id', n.id);
-      }
+      await apiPatch('/api/v2/notifications/read-all', {});
+      setNotifications([]);
       toast.success('Todas as notificações foram lidas');
     } catch (e) {
       toast.error('Erro ao atualizar notificações');

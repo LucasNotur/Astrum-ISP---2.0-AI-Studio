@@ -139,11 +139,16 @@ export const AIObservabilityPage = () => {
     const interval = setInterval(fetchCircuitInfo, 60000); // 1 minute fresh
 
     // S106 — RAGAS scores e guardrail blocks
-    supabase.from('ai_ragas_scores').select('*').order('evaluated_at', { ascending: false }).limit(200)
-      .then(({ data }) => { if (data) setRagasScores(data); });
-    supabase.from('ai_guardrail_blocks').select('*').order('blocked_at', { ascending: false }).limit(200)
-      .then(({ data }) => { if (data) setGuardrailBlocks(data); });
+    apiGet<any[]>('/api/v2/ia/ragas-scores').then((data) => { if (data) setRagasScores(data); }).catch(() => {});
+    apiGet<any[]>('/api/v2/ia/guardrail-blocks').then((data) => { if (data) setGuardrailBlocks(data); }).catch(() => {});
 
+    // F1-D: NÃO migrado — `ai_performance_logs` aqui é lido como se guardasse
+    // escalated/agent/active_flow/step/tool_called/input_summary/provider, mas o
+    // schema real (verificado via MCP) só tem
+    // ticket_id/category/sentiment/response_time_ms/sla_compliant/is_critical/
+    // tokens_in/tokens_out/model/cost_usd/use_case — é outro modelo de dados, não
+    // um rename. Mesmo gap em AIConfigPage.tsx e AICostsPage.tsx. Ver achado
+    // colateral no PLANO_ACAO_100_OPERACIONAL.md.
     // S99 — lê logs de AI do Supabase (ai_performance_logs)
     supabase
       .from('ai_performance_logs')

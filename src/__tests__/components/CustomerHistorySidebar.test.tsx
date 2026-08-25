@@ -10,38 +10,25 @@ global.ResizeObserver = class ResizeObserver {
   disconnect() {}
 };
 
-// FZ-5: o componente lê customers/tickets/service_orders via Supabase.
-// Mock com resultados controláveis por tabela.
-const tableResults: Record<string, any> = {};
+// F1-D: o componente lê customer/tickets/service-orders via apps/api
+// (GET /api/v2/customers/:id[, /tickets, /service-orders]). Mock por rota.
+const routeResults: Record<string, any> = {};
 
-vi.mock('../../lib/supabase', () => {
-  function makeChain(table: string) {
-    const chain: any = {
-      select: () => chain,
-      eq: () => chain,
-      order: () => chain,
-      maybeSingle: async () => ({ data: tableResults[table]?.single ?? null, error: null }),
-      then: (resolve: any) =>
-        Promise.resolve({ data: tableResults[table]?.rows ?? [], error: null }).then(resolve),
-    };
-    return chain;
-  }
-  const channelStub: any = { on: vi.fn(() => channelStub), subscribe: vi.fn(() => channelStub) };
-  return {
-    supabase: {
-      from: (table: string) => makeChain(table),
-      channel: vi.fn(() => channelStub),
-      removeChannel: vi.fn(),
-    },
-  };
-});
+vi.mock('../../lib/apiClient', () => ({
+  apiGet: vi.fn((path: string) => {
+    if (path.endsWith('/tickets')) return Promise.resolve(routeResults.tickets ?? []);
+    if (path.endsWith('/service-orders')) return Promise.resolve(routeResults.serviceOrders ?? []);
+    if (routeResults.customer === null) return Promise.reject(new Error('not found'));
+    return Promise.resolve(routeResults.customer ?? null);
+  }),
+}));
 
 import { CustomerHistorySidebar } from '../../components/CustomerHistorySidebar';
 
 describe('CustomerHistorySidebar', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    for (const k of Object.keys(tableResults)) delete tableResults[k];
+    for (const k of Object.keys(routeResults)) delete routeResults[k];
   });
 
   const mockCustomer = {
@@ -52,14 +39,14 @@ describe('CustomerHistorySidebar', () => {
   };
 
   const mockTickets = [
-    { id: 'tick2', customer_id: 'cust1', subject: 'Sem Sinal', created_at: '2023-01-02T10:00:00Z', status: 'open' },
-    { id: 'tick1', customer_id: 'cust1', subject: 'Internet Lenta', created_at: '2023-01-01T10:00:00Z', status: 'resolved' },
+    { id: 'tick2', customer_id: 'cust1', title: 'Sem Sinal', created_at: '2023-01-02T10:00:00Z', status: 'open' },
+    { id: 'tick1', customer_id: 'cust1', title: 'Internet Lenta', created_at: '2023-01-01T10:00:00Z', status: 'resolved' },
   ];
 
   it('1. CustomerHistorySidebar com customerId válido → carrega cliente e tickets', async () => {
-    tableResults['customers'] = { single: mockCustomer };
-    tableResults['tickets'] = { rows: [mockTickets[1]] };
-    tableResults['service_orders'] = { rows: [] };
+    routeResults.customer = mockCustomer;
+    routeResults.tickets = [mockTickets[1]];
+    routeResults.serviceOrders = [];
 
     render(<CustomerHistorySidebar customerId="cust1" tenantId="tenant1" onEditCustomer={() => {}} />);
 
@@ -70,9 +57,9 @@ describe('CustomerHistorySidebar', () => {
   });
 
   it('2. Sem dados → mostra "Nenhum atendimento anterior" (sem vazamento)', async () => {
-    tableResults['customers'] = { single: null };
-    tableResults['tickets'] = { rows: [] };
-    tableResults['service_orders'] = { rows: [] };
+    routeResults.customer = null;
+    routeResults.tickets = [];
+    routeResults.serviceOrders = [];
 
     render(<CustomerHistorySidebar customerId="cust1" tenantId="tenant2" onEditCustomer={() => {}} />);
 
@@ -82,10 +69,10 @@ describe('CustomerHistorySidebar', () => {
     });
   });
 
-  it('3. Tickets carregados na ordem devolvida pelo banco (desc)', async () => {
-    tableResults['customers'] = { single: mockCustomer };
-    tableResults['tickets'] = { rows: mockTickets };
-    tableResults['service_orders'] = { rows: [] };
+  it('3. Tickets carregados na ordem devolvida pelo backend (desc)', async () => {
+    routeResults.customer = mockCustomer;
+    routeResults.tickets = mockTickets;
+    routeResults.serviceOrders = [];
 
     render(<CustomerHistorySidebar customerId="cust1" tenantId="tenant1" onEditCustomer={() => {}} />);
 
@@ -97,9 +84,9 @@ describe('CustomerHistorySidebar', () => {
   });
 
   it('4. Cliente sem histórico → mensagem amigável sem lançar erro', async () => {
-    tableResults['customers'] = { single: { id: 'cust2', name: 'Maria Souza' } };
-    tableResults['tickets'] = { rows: [] };
-    tableResults['service_orders'] = { rows: [] };
+    routeResults.customer = { id: 'cust2', name: 'Maria Souza' };
+    routeResults.tickets = [];
+    routeResults.serviceOrders = [];
 
     render(<CustomerHistorySidebar customerId="cust2" tenantId="tenant1" onEditCustomer={() => {}} />);
 
@@ -110,9 +97,9 @@ describe('CustomerHistorySidebar', () => {
   });
 
   it('5. Sem hardware registrado → seção não renderiza mas componente não quebra', async () => {
-    tableResults['customers'] = { single: { id: 'cust3', name: 'Pedro' } };
-    tableResults['tickets'] = { rows: [] };
-    tableResults['service_orders'] = { rows: [] };
+    routeResults.customer = { id: 'cust3', name: 'Pedro' };
+    routeResults.tickets = [];
+    routeResults.serviceOrders = [];
 
     render(<CustomerHistorySidebar customerId="cust3" tenantId="tenant1" onEditCustomer={() => {}} />);
 

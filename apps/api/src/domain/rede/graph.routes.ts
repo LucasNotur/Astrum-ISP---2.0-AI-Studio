@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { validateParams, validateQuery } from '../../infrastructure/validation/zod-validator';
+import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import {
   impactoCto, reincidencia, capacidade, defaultDb,
 } from './network-graph.service';
@@ -50,5 +51,22 @@ export async function graphRoutes(fastify: FastifyInstance) {
   }, async (request) => {
     const tenantId = (request as any).user.tenantId as string;
     return await capacidade(defaultDb, tenantId);
+  });
+
+  // F1-D — NetworkGraphPage/NetworkTwinPage listavam CTOs (dropdown de seleção)
+  // direto no Supabase (client anônimo, bloqueado pela migration 092). Rota
+  // dedicada e leve — `capacidade` acima é semanticamente um relatório.
+  fastify.get('/api/v2/rede/ctos', {
+    onRequest: [fastify.authenticate],
+    preHandler: [requirePermission('reports', 'read')],
+  }, async (request, reply) => {
+    const tenantId = (request as any).user.tenantId as string;
+    const { data, error } = await supabaseAdmin
+      .from('network_ctos')
+      .select('id, name')
+      .eq('tenant_id', tenantId)
+      .order('name');
+    if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
+    return reply.send(data ?? []);
   });
 }

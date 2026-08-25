@@ -126,6 +126,12 @@ export async function buildServer() {
   const { onboardingRoutes } = await import('./domain/onboarding/onboarding.routes');
   await app.register(onboardingRoutes);
 
+  // F1-D — OnboardingWizardPage (step Report): métricas do "dinheiro vazando"
+  // (antes usava supabase.auth.getSession() + Supabase direto, trilha de auth
+  // separada do JWT do apps/api).
+  const { onboardingReportMetricsRoutes } = await import('./domain/onboarding/report-metrics.routes');
+  await app.register(onboardingReportMetricsRoutes);
+
   const { requirePermission } = await import('./infrastructure/auth/rbac.middleware');
 
   const { ticketRoutes } = await import('./domain/atendimento/tickets.routes');
@@ -207,6 +213,11 @@ export async function buildServer() {
   // IA-32 — OTel status (GET /api/v2/ia/otel/status).
   const { otelRoutes } = await import('./domain/ia/otel.routes');
   await app.register(otelRoutes);
+
+  // F1-D — AIObservabilityPage (S106): ai_ragas_scores/ai_guardrail_blocks (antes
+  // iam direto ao Supabase anônimo SEM filtrar tenant_id — vazava entre tenants).
+  const { observabilityDataRoutes } = await import('./domain/ia/observability-data.routes');
+  await app.register(observabilityDataRoutes);
 
   // IA-31 — Elo ranking: ranking, pending, resolve.
   const { modelsRoutes } = await import('./domain/ia/models.routes');
@@ -343,6 +354,11 @@ export async function buildServer() {
   const { dlqRoutes } = await import('./domain/ops/dlq.routes');
   await app.register(dlqRoutes);
 
+  // F1-D — MonitoringPage/QualityMonitorPage: notifications (antes iam direto ao
+  // Supabase anônimo assumindo coluna `read` que não existe — é `read_at`).
+  const { notificationsRoutes } = await import('./domain/ops/notifications.routes');
+  await app.register(notificationsRoutes);
+
   // Personas de IA por tenant (AIConfigPage) — portado do personaManager legado,
   // mesma fonte (legacy_docs/ai_personas) que o messageWorker lê.
   const { personasRoutes } = await import('./domain/atendimento/personas.routes');
@@ -396,6 +412,27 @@ export async function buildServer() {
   // existem no schema real, ver settings-page.routes.ts.
   const { settingsPageRoutes } = await import('./domain/provedor/settings-page.routes');
   await app.register(settingsPageRoutes);
+
+  // F1-D — SuperAdminPage: tenants/shadow_results/tenant_feature_flags (painel
+  // cross-tenant, gate por role super_admin) — antes ia direto ao Supabase anônimo.
+  const { superAdminRoutes } = await import('./domain/provedor/super-admin.routes');
+  await app.register(superAdminRoutes);
+
+  // F1-D — CustomerDetailSheet/CustomerHistorySidebar/CustomerDetailsDialog: não
+  // existia nenhuma rota de leitura de customers por id — maior buraco transversal
+  // do inventário F1-INV.
+  const { customersRoutes } = await import('./domain/provedor/customers.routes');
+  await app.register(customersRoutes);
+
+  // F1-D — AIConfigPage (aba CobrAI): só o subconjunto de tenants com schema real
+  // (cobrai_hourly_limit/window/stages) — ver ai-config.routes.ts.
+  const { aiConfigRoutes } = await import('./domain/provedor/ai-config.routes');
+  await app.register(aiConfigRoutes);
+
+  // F1-D — InventoryPage: importação de CSV (antes gravava `price`, coluna
+  // inexistente — a real é `price_cents`).
+  const { inventoryImportRoutes } = await import('./domain/provedor/inventory-import.routes');
+  await app.register(inventoryImportRoutes);
 
   // P5-03 — Kit de compliance (DPA/LGPD + due diligence)
   const { complianceRoutes } = await import('./domain/provedor/compliance.routes');

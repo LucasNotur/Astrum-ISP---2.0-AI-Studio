@@ -23,7 +23,7 @@ import {
   DialogHeader, DialogTitle,
 } from '@/src/components/ui/dialog';
 import { cn } from '@/src/lib/utils';
-import { supabase } from '@/src/lib/supabase';
+import { apiPost } from '@/src/lib/apiClient';
 import { useAppStore } from '@/src/store/useAppStore';
 import {
   getInventory as sbGetInventory,
@@ -163,22 +163,22 @@ export function InventoryPage() {
       const lines = text.split('\n');
       if (lines.length < 2) { toast.error('CSV vazio ou inválido.'); return; }
       setIsImporting(true);
-      let count = 0;
       try {
+        const items: any[] = [];
         for (let i = 1; i < lines.length; i++) {
           const line = lines[i].trim();
           if (!line) continue;
           const vals = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map((v) => v.replace(/^"|"$/g, '').trim());
           if (vals.length >= 2) {
-            await supabase.from('inventory').insert({
+            items.push({
               name: vals[0] || 'Item sem nome', category: vals[1] || 'Geral',
-              stock: parseInt(vals[2]) || 0, min_stock: parseInt(vals[3]) || 5,
-              price: parseFloat(vals[4]) || 0,
+              stock: parseInt(vals[2]) || 0, minStock: parseInt(vals[3]) || 5,
+              priceCents: Math.round((parseFloat(vals[4]) || 0) * 100),
             });
-            count++;
           }
         }
-        toast.success(`${count} itens importados com sucesso!`);
+        const { imported } = await apiPost<{ imported: number }>('/api/v2/inventory/import', { items });
+        toast.success(`${imported} itens importados com sucesso!`);
       } catch {
         toast.error('Erro ao importar estoque.');
       } finally {

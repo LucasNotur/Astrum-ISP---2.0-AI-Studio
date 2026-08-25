@@ -155,12 +155,18 @@ export function KnowledgeBasePage() {
     }
   }, [currentTenant]);
 
-  // S99 — knowledge articles via Supabase
-  const fetchKBArticles = async (tenantId: string) => {
-    const { data } = await supabase.from('knowledge_articles').select('*').eq('tenant_id', tenantId);
-    setKbArticles(data ?? []);
+  // F1-D — GET /api/v2/knowledge/articles (antes ia direto ao Supabase anônimo).
+  const fetchKBArticles = async (_tenantId: string) => {
+    try {
+      setKbArticles(await apiGet<any[]>('/api/v2/knowledge/articles'));
+    } catch {
+      setKbArticles([]);
+    }
   };
 
+  // F1-D: NÃO migrado — `tenants.embedding_config`/`vector_store_config` não
+  // existem no schema real (mesmo gap já achado na F1-C para vector_store_config).
+  // Ver achado colateral no PLANO_ACAO_100_OPERACIONAL.md.
   const loadConfigs = async () => {
     if (!currentTenant?.id) return;
     const { data } = await supabase.from('tenants').select('embedding_config,vector_store_config').eq('id', currentTenant.id).maybeSingle();

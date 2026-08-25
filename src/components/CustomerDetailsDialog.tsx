@@ -14,7 +14,7 @@ import {
 import { toast } from 'sonner';
 import { cn } from '@/src/lib/utils';
 import { useAppStore } from '@/src/store/useAppStore';
-import { supabase } from '@/src/lib/supabase';
+import { apiPost } from '@/src/lib/apiClient';
 import { logAudit } from '@/src/lib/db';
 import { summarizeCustomerHistory } from '@/src/lib/gemini';
 import { MaskedSensitiveData } from '@/src/components/MaskedSensitiveData';
@@ -115,14 +115,12 @@ export function CustomerDetailsDialog() {
           : 99.9;
       const dueDate = new Date();
       dueDate.setDate(dueDate.getDate() + 5);
-      const { error } = await supabase.from('invoices').insert({
-        customer_id: selectedCustomerDetails.id,
-        customer_name: selectedCustomerDetails.name,
-        amount,
-        status: 'pending',
-        due_date: dueDate.toISOString(),
+      // F1-D — `invoices` real não tem `customer_name`/`amount` (é `amount_cents`);
+      // rota nova aplica o allowlist e tenant_id do JWT.
+      await apiPost(`/api/v2/customers/${selectedCustomerDetails.id}/invoices`, {
+        amountCents: Math.round(amount * 100),
+        dueDate: dueDate.toISOString().slice(0, 10),
       });
-      if (error) throw error;
       toast.success('Fatura gerada com sucesso!');
     } catch (error) {
       toast.error('Erro ao gerar fatura.');

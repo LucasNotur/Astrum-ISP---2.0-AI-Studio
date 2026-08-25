@@ -9,8 +9,8 @@ import {
   MessageSquare, Download, Zap, Plug, FileText, Check, ChevronRight, Loader2, Upload,
   TrendingDown, AlertTriangle, DollarSign,
 } from 'lucide-react';
-import { supabase } from '@/src/lib/supabase';
 import { getApiAccessToken } from '@/src/lib/apiAuth';
+import { apiGet } from '@/src/lib/apiClient';
 import { Card, CardContent } from '@/src/components/ui/card';
 import { Button } from '@/src/components/ui/button';
 import { PageHeader } from '@/src/components/ui/PageHeader';
@@ -291,34 +291,25 @@ function ReportStep() {
     setLoading(true);
     (async () => {
       try {
-        const { data: session } = await supabase.auth.getSession();
-        const tenantId = session?.session?.user?.user_metadata?.tenant_id;
-        if (!tenantId) throw new Error('no tenant');
+        // F1-D: tenant vem do JWT do apps/api no backend (dropada a trilha separada
+        // de supabase.auth.getSession()). "avgTicketTime" não é calculado aqui —
+        // `tickets.resolved_at` não existe no schema real (verificado via MCP);
+        // fica com o valor default do estado (0) até haver desenho de schema pra
+        // isso (ver achado colateral no PLANO_ACAO_100_OPERACIONAL.md).
+        const metrics = await apiGet<{ totalCustomers: number; overdueCount: number; overdueAmountCents: number }>(
+          '/api/v2/onboarding/report-metrics',
+        );
 
-        const [{ count: totalCustomers }, { count: overdueCount }, { data: overdueInv }, { data: ticketRows }] = await Promise.all([
-          supabase.from('customers').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-          supabase.from('invoices').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('status', 'overdue'),
-          supabase.from('invoices').select('amount').eq('tenant_id', tenantId).eq('status', 'overdue'),
-          supabase.from('tickets').select('created_at,resolved_at').eq('tenant_id', tenantId).limit(200),
-        ]);
+        const total = metrics.totalCustomers ?? 0;
+        const overdue = metrics.overdueCount ?? 0;
+        const overdueAmount = metrics.overdueAmountCents ?? 0;
 
-        const total = totalCustomers ?? 0;
-        const overdue = overdueCount ?? 0;
-        const overdueAmount = (overdueInv ?? []).reduce((s: number, i: any) => s + (i.amount || 0), 0);
-
-        let avgTime = 0;
-        const resolved = (ticketRows ?? []).filter((t: any) => t.resolved_at);
-        if (resolved.length > 0) {
-          const totalMin = resolved.reduce((s: number, t: any) => s + (new Date(t.resolved_at).getTime() - new Date(t.created_at).getTime()) / 60000, 0);
-          avgTime = Math.round(totalMin / resolved.length);
-        }
-
-        if (total > 0 || overdue > 0 || resolved.length > 0) {
+        if (total > 0 || overdue > 0) {
           setLeakData({
             churn: total > 0 ? Math.round((overdue / total) * 100) : 0,
             overdueAmount: Math.round(overdueAmount / 100),
             atRiskClients: overdue,
-            avgTicketTime: avgTime || 0,
+            avgTicketTime: 0,
           });
         } else {
           setIsEstimate(true);

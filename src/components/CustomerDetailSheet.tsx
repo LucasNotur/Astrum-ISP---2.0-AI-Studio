@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback } from '@/src/components/ui/avatar';
 import { ScrollArea } from '@/src/components/ui/scroll-area';
 import { Skeleton } from '@/src/components/Skeleton';
 import { useAppStore } from '@/src/store/useAppStore';
-import { supabase } from '@/src/lib/supabase';
+import { apiGet } from '@/src/lib/apiClient';
 import { toast } from 'sonner';
 
 interface CustomerDetailSheetProps {
@@ -136,12 +136,16 @@ export function CustomerDetailSheet({ open, onClose, customerId }: CustomerDetai
     setTab('overview');
 
     const load = async () => {
-      const [custRes, reflRes] = await Promise.all([
-        supabase.from('customers').select('*').eq('id', customerId).maybeSingle(),
-        supabase.from('reflections').select('id,title,body,created_at').eq('entity_id', customerId).order('created_at', { ascending: false }).limit(10),
-      ]);
-      setCustomer(custRes.data || null);
-      setReflections(reflRes.data || []);
+      try {
+        setCustomer(await apiGet<any>(`/api/v2/customers/${customerId}`));
+      } catch {
+        setCustomer(null);
+      }
+      // F1-D: NÃO migrado — a tabela `reflections` (notas por cliente) não existe
+      // no schema real (só `ai_reflections`, conceito/colunas diferentes —
+      // diário do Cérebro Noturno, não notas por entidade). Ver achado colateral
+      // no PLANO_ACAO_100_OPERACIONAL.md.
+      setReflections([]);
       setLoading(false);
     };
     load();

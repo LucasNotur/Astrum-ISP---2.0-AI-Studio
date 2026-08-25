@@ -14,9 +14,9 @@ import { toast } from "sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/src/components/ui/table";
 import { GlowButton } from "@/src/components/ui/glow-button";
 
-import { supabase } from '@/src/lib/supabase';
 import { logAudit } from '@/src/lib/db';
 import { useTenantDate } from '@/src/hooks/useTenantDate';
+import { apiGet, apiPost } from '@/src/lib/apiClient';
 
 export function TicketsPage() {
   const { tickets, customers, setSelectedTicket, setIsTicketDetailOpen, userProfile } = useAppStore();
@@ -29,21 +29,14 @@ export function TicketsPage() {
 
   const [departments, setDepartments] = useState<any[]>([]);
 
-  // S99 — departamentos via Supabase (coluna department_id nos tickets)
+  // F1-D — `tickets.department_id` não existe no schema real; departamentos vêm
+  // da tabela real via GET /api/v2/departments (mesmo fix já aplicado no
+  // ChatPage.tsx na F1-B).
   React.useEffect(() => {
     if (!userProfile?.tenantId) return;
-    supabase
-      .from('tickets')
-      .select('department_id')
-      .eq('tenant_id', userProfile.tenantId)
-      .not('department_id', 'is', null)
-      .then(({ data }) => {
-        if (data) {
-          const unique = [...new Set(data.map((r: any) => r.department_id))]
-            .map((id) => ({ id, name: id }));
-          setDepartments(unique);
-        }
-      });
+    apiGet<{ departments: any[] }>('/api/v2/departments')
+      .then(({ departments: rows }) => setDepartments(rows ?? []))
+      .catch(() => {});
   }, [userProfile?.tenantId]);
 
   const getSLAStatus = (ticket: any) => {
@@ -72,16 +65,15 @@ export function TicketsPage() {
     const subject = formData.get("subject") as string;
     const priority = formData.get("priority") as string;
     try {
-      const { data: docRef, error } = await supabase.from("tickets").insert({
-        customer_id: customerId,
-        subject,
+      // F1-D — POST /api/v2/tickets já existia (createTicketSchema): espera
+      // `title` (não `subject`) e não aceita `ai_enabled`/`ai_attempts` (a
+      // tabela tem default pra ambos).
+      const created = await apiPost<any>('/api/v2/tickets', {
+        customerId,
+        title: subject,
         priority,
-        status: "open",
-        ai_enabled: true,
-        ai_attempts: 0,
-      }).select().single();
-      if (error) throw error;
-      try { await logAudit("TICKET_CREATED", { ticketId: docRef.id, customerId, subject }); } catch {}
+      });
+      try { await logAudit("TICKET_CREATED", { ticketId: created?.id, customerId, subject }); } catch {}
       setIsNewTicketDialogOpen(false);
       toast.success("Ticket criado com sucesso!");
     } catch {

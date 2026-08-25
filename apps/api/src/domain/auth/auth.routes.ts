@@ -30,4 +30,16 @@ export async function authRoutes(fastify: FastifyInstance) {
       return reply.send({ message: 'Logout realizado com sucesso.' });
     }
   );
+
+  // F1-D — Sidebar.tsx/SuperAdminRoute.tsx/IntelligenceHubPage.tsx checavam
+  // super_admin com `supabase.from('users').select('role')` direto (client
+  // anônimo, bloqueado pela migration 092). O JWT do apps/api já carrega
+  // `role`; esta rota só expõe o que já está no token, sem tocar no Supabase.
+  fastify.get('/api/v2/auth/me',
+    { onRequest: [(fastify as any).authenticate] },
+    async (request, reply) => {
+      const user = (request as any).user as { role?: string; tenantId?: string; tenant_id?: string };
+      return reply.send({ role: user.role ?? null, tenantId: user.tenantId ?? user.tenant_id ?? null });
+    }
+  );
 }

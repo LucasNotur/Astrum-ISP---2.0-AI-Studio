@@ -91,4 +91,25 @@ export async function dlqRoutes(app: FastifyInstance) {
 
     return reply.send({ ok: true });
   });
+
+  // POST /api/v2/dlq/:id/discard → marca resolvido SEM reenfileirar (F1-D — MonitoringPage).
+  app.post('/api/v2/dlq/:id/discard', { onRequest: auth, preHandler: admin }, async (req, reply) => {
+    const tenantId = tenantOf(req);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+    const { id } = req.params as { id: string };
+    const { reason } = (req.body as { reason?: string }) ?? {};
+
+    const userId = (req as any).user?.userId ?? (req as any).user?.sub ?? null;
+    const { data, error } = await supabaseAdmin
+      .from('dead_letter_queue')
+      .update({ resolved: true, resolved_at: new Date().toISOString(), resolved_by: userId, notes: reason ?? 'descartado' })
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .select('id')
+      .maybeSingle();
+    if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
+    if (!data) return reply.code(404).send({ code: 'NOT_FOUND' });
+
+    return reply.send({ ok: true });
+  });
 }

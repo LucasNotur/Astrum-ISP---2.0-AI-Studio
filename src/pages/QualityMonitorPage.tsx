@@ -19,8 +19,7 @@ import {
   Smile,
   Search,
 } from "lucide-react";
-import { supabase } from "@/src/lib/supabase";
-import { apiGet } from "@/src/lib/apiClient";
+import { apiGet, apiPatch } from "@/src/lib/apiClient";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { TOOLTIP_STYLE, GRID_STYLE } from '@/src/lib/chart-theme';
 import { Button } from "@/src/components/ui/button";
@@ -76,25 +75,27 @@ export default function QualityMonitorPage() {
   useEffect(() => {
     if (!tenantId) return;
 
-    // S99 — quality data via Supabase
-    supabase.from('tickets').select('*').eq('tenant_id', tenantId).eq('status', 'open')
-      .order('updated_at', { ascending: false }).limit(10)
-      .then(({ data }) => setActiveConversations(data ?? []));
+    apiGet<any[]>('/api/v2/quality/active-conversations')
+      .then((data) => setActiveConversations(data ?? []))
+      .catch((e) => console.error(e));
 
-    supabase.from('notifications').select('*').eq('tenant_id', tenantId).eq('read', false)
-      .order('created_at', { ascending: false }).limit(20)
-      .then(({ data }) => setRecentAlerts(data ?? []));
+    apiGet<any[]>('/api/v2/notifications')
+      .then((data) => setRecentAlerts(data ?? []))
+      .catch((e) => console.error(e));
 
-    supabase.from('tickets').select('csat_score,created_at').eq('tenant_id', tenantId)
-      .not('csat_score', 'is', null).order('created_at', { ascending: false }).limit(100)
-      .then(({ data }) => setCsatRatings((data ?? []).map((r: any) => ({ id: r.id, rating: r.csat_score, createdAt: r.created_at }))));
+    // F1-D: feed de CSAT fica sem fonte — `tickets.csat_score` não existe no schema
+    // real (verificado via MCP, mesmo gap já achado no bug pré-existente de
+    // dashboard.routes.ts/csat-ratings da F1-A). Ver achado colateral no
+    // PLANO_ACAO_100_OPERACIONAL.md antes de reativar este card.
+    setCsatRatings([]);
 
     return () => {};
   }, [tenantId]);
 
   const markAlertAsRead = async (id: string) => {
     try {
-      await supabase.from('notifications').update({ read: true }).eq('id', id);
+      await apiPatch(`/api/v2/notifications/${id}/read`, {});
+      setRecentAlerts((prev) => prev.filter((a) => a.id !== id));
     } catch (e) {
       console.error(e);
     }
