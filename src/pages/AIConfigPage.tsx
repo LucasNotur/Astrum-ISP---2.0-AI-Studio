@@ -452,19 +452,20 @@ export function AIConfigPage() {
     }
   };
 
-  // S99 — usage logs via Supabase ai_performance_logs
+  // F1-AUD — `ai_performance_logs` é tabela real, mas batia no client anônimo
+  // (bloqueado pela migration 092) E os campos lidos no render (promptTokens/
+  // completionTokens/totalTokens/ticketId/createdAt.seconds) eram resíduo do
+  // Firestore (removido em 2026-07-03) — nunca existiram no schema Supabase.
+  // Reaproveita GET /api/v2/ai-costs/logs (F1-D2), que já expõe os campos reais
+  // (tokens_in/tokens_out/ticket_id/created_at ISO).
   useEffect(() => {
     setLoadingAiUsage(true);
-    supabase
-      .from('ai_performance_logs')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .order('created_at', { ascending: false })
-      .limit(100)
-      .then(({ data }) => {
+    apiGet<any[]>('/api/v2/ai-costs/logs')
+      .then((data) => {
         setAiUsageLogs(data ?? []);
         setLoadingAiUsage(false);
-      });
+      })
+      .catch(() => setLoadingAiUsage(false));
   }, []);
 
   return (<>
@@ -1766,19 +1767,19 @@ export function AIConfigPage() {
                               <div className="bg-zinc-50 dark:bg-zinc-900 rounded-xl p-4 border border-zinc-100 dark:border-zinc-800">
                                 <h4 className="text-xs font-bold text-zinc-500 uppercase">Tokens Input (Lidos)</h4>
                                 <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                                  {aiUsageLogs.reduce((acc, log) => acc + (log.promptTokens || 0), 0).toLocaleString()}
+                                  {aiUsageLogs.reduce((acc, log) => acc + (log.tokens_in || 0), 0).toLocaleString()}
                                 </span>
                               </div>
                               <div className="bg-zinc-50 dark:bg-zinc-900 rounded-xl p-4 border border-zinc-100 dark:border-zinc-800">
                                 <h4 className="text-xs font-bold text-zinc-500 uppercase">Tokens Output (Enviados)</h4>
                                 <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                                  {aiUsageLogs.reduce((acc, log) => acc + (log.completionTokens || 0), 0).toLocaleString()}
+                                  {aiUsageLogs.reduce((acc, log) => acc + (log.tokens_out || 0), 0).toLocaleString()}
                                 </span>
                               </div>
                               <div className="bg-zinc-50 dark:bg-zinc-900 rounded-xl p-4 border border-zinc-100 dark:border-zinc-800">
                                 <h4 className="text-xs font-bold text-zinc-500 uppercase">Total de Tokens</h4>
                                 <span className="text-2xl font-bold">
-                                  {aiUsageLogs.reduce((acc, log) => acc + (log.totalTokens || 0), 0).toLocaleString()}
+                                  {aiUsageLogs.reduce((acc, log) => acc + (log.tokens_in || 0) + (log.tokens_out || 0), 0).toLocaleString()}
                                 </span>
                               </div>
                             </div>
@@ -1799,15 +1800,15 @@ export function AIConfigPage() {
                                   {aiUsageLogs.length > 0 ? aiUsageLogs.map(log => (
                                     <tr key={log.id} className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/50">
                                       <td className="px-4 py-3 text-zinc-600 dark:text-zinc-300">
-                                        {log.createdAt?.seconds ? new Date(log.createdAt.seconds * 1000).toLocaleString('pt-BR') : 'N/A'}
+                                        {log.created_at ? new Date(log.created_at).toLocaleString('pt-BR') : 'N/A'}
                                       </td>
                                       <td className="px-4 py-3 font-medium">
                                         <Badge variant="outline" className="text-[10px]">{log.category}</Badge>
                                       </td>
-                                      <td className="px-4 py-3 font-mono text-xs">{log.ticketId?.slice(0, 8)}...</td>
-                                      <td className="px-4 py-3 text-right text-indigo-600 dark:text-indigo-400">{log.promptTokens?.toLocaleString()}</td>
-                                      <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">{log.completionTokens?.toLocaleString()}</td>
-                                      <td className="px-4 py-3 text-right font-bold">{log.totalTokens?.toLocaleString()}</td>
+                                      <td className="px-4 py-3 font-mono text-xs">{log.ticket_id?.slice(0, 8)}...</td>
+                                      <td className="px-4 py-3 text-right text-indigo-600 dark:text-indigo-400">{log.tokens_in?.toLocaleString()}</td>
+                                      <td className="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">{log.tokens_out?.toLocaleString()}</td>
+                                      <td className="px-4 py-3 text-right font-bold">{((log.tokens_in || 0) + (log.tokens_out || 0)).toLocaleString()}</td>
                                     </tr>
                                   )) : (
                                     <tr>

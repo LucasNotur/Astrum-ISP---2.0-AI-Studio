@@ -36,26 +36,30 @@ export async function authRoutes(fastify: FastifyInstance) {
   // F1-D — Sidebar.tsx/SuperAdminRoute.tsx checavam super_admin com
   // `supabase.from('users').select('role')` direto (client anônimo, bloqueado pela
   // migration 092). `role`/`tenantId` vêm do JWT (sem tocar no Supabase). F1-D2:
-  // `isSandbox` (SyntheticPage.tsx, mesmo bug — `supabase.auth.getSession()` nunca
-  // resolve porque este app não usa Supabase Auth pra login) exige 1 leitura em
-  // `tenants.is_sandbox` — único campo desta rota que toca o banco.
+  // `isSandbox` (SyntheticPage.tsx) e `lastLoginAt` (Sidebar.tsx, achado da F1-AUD)
+  // tinham o mesmo bug — `supabase.auth.getSession()` nunca resolve porque este app
+  // não usa Supabase Auth pra login. `lastLoginAt` vem de `users.last_login_at`,
+  // gravado de verdade em cada login bem-sucedido (`login.route.ts`).
   fastify.get('/api/v2/auth/me',
     { onRequest: [(fastify as any).authenticate] },
     async (request, reply) => {
       const user = (request as any).user as { role?: string };
       const tenantId = getTenantId((request as any).user);
+      const userId = getUserId((request as any).user);
 
-      let isSandbox = false;
-      if (tenantId) {
-        const { data } = await supabaseAdmin
-          .from('tenants')
-          .select('is_sandbox')
-          .eq('id', tenantId)
-          .maybeSingle();
-        isSandbox = (data as any)?.is_sandbox === true;
-      }
+      const [tenantRes, userRes] = await Promise.all([
+        tenantId
+          ? supabaseAdmin.from('tenants').select('is_sandbox').eq('id', tenantId).maybeSingle()
+          : Promise.resolve({ data: null }),
+        userId
+          ? supabaseAdmin.from('users').select('last_login_at').eq('id', userId).maybeSingle()
+          : Promise.resolve({ data: null }),
+      ]);
 
-      return reply.send({ role: user.role ?? null, tenantId, isSandbox });
+      const isSandbox = (tenantRes.data as any)?.is_sandbox === true;
+      const lastLoginAt = (userRes.data as any)?.last_login_at ?? null;
+
+      return reply.send({ role: user.role ?? null, tenantId, isSandbox, lastLoginAt });
     }
   );
 }

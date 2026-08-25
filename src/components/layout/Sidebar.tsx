@@ -101,26 +101,22 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
   const [lastLogin, setLastLogin] = React.useState<string | null>(null);
 
 
-  React.useEffect(() => {
-    if (user) {
-      supabase.auth.getSession()
-        .then(({ data: { session } }) => {
-          if (session?.user?.last_sign_in_at) {
-            setLastLogin(new Date(session.user.last_sign_in_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }));
-          }
-        })
-        .catch(() => {});
-    }
-  }, [user]);
-
   // F1-D — super_admin vem do JWT do apps/api (GET /api/v2/auth/me), não mais de
   // `supabase.from('users').select('role')` direto (client anônimo, bloqueado
-  // pela migration 092).
+  // pela migration 092). F1-AUD: "Último acesso" tinha o mesmo bug —
+  // `supabase.auth.getSession()` nunca resolve (este app não usa Supabase Auth pra
+  // login), então `lastLogin` nunca era setado. Agora vem de `users.last_login_at`
+  // (gravado de verdade em cada login, ver login.route.ts), exposto pela mesma rota.
   React.useEffect(() => {
-    if (!user) { setIsSuperAdmin(false); return; }
-    apiGet<{ role: string | null }>('/api/v2/auth/me')
-      .then(({ role }) => setIsSuperAdmin(role === 'super_admin'))
-      .catch(() => setIsSuperAdmin(false));
+    if (!user) { setIsSuperAdmin(false); setLastLogin(null); return; }
+    apiGet<{ role: string | null; lastLoginAt: string | null }>('/api/v2/auth/me')
+      .then(({ role, lastLoginAt }) => {
+        setIsSuperAdmin(role === 'super_admin');
+        setLastLogin(lastLoginAt
+          ? new Date(lastLoginAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+          : null);
+      })
+      .catch(() => { setIsSuperAdmin(false); setLastLogin(null); });
   }, [user]);
 
   React.useEffect(() => {

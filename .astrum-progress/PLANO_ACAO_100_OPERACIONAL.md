@@ -451,29 +451,36 @@ de frontend do inventário original.
   isolada, sem contenção de carga — inclusive os 4 arquivos que costumam dar timeout sob
   carga total passaram limpos desta vez).
 
-**Achados colaterais (estruturais, NÃO consertados — fora do escopo de "problema
-pequeno"):**
-- **`AIConfigPage.tsx`, aba de uso de IA (linhas ~455-468, ~1799-1811):** lê
-  `ai_performance_logs` direto do Supabase anônimo (tabela real, mas client bloqueado
-  pela migration 092 — mesmo padrão de bug de RLS). Só corrigir o client não resolveria:
-  a UI lê `log.promptTokens`/`log.completionTokens`/`log.totalTokens`/`log.ticketId`/
-  `log.createdAt.seconds` — nomes que **não existem em nenhuma versão do schema real**
-  (`ai_performance_logs` usa `tokens_in`/`tokens_out`/`ticket_id`/`created_at` string ISO,
-  sem contrapartida camelCase). O `.seconds` é claramente resíduo do Firestore
-  (removido por completo em 2026-07-03) — esta aba nunca foi tocada na migração
-  Firestore→Supabase nem na Fase 1. Precisa de reescrita da camada de leitura + mapeamento
-  de campos, não é rename de rota.
-- **`Sidebar.tsx`, "Último acesso" (linhas ~104-114, ~211-212):** usa
-  `supabase.auth.getSession()` pra pegar `last_sign_in_at` — sessão sempre `null` (app não
-  usa Supabase Auth pra login, mesmo bug já corrigido em várias outras telas na F1-D2).
-  Efeito prático: `lastLogin` nunca é setado, o bloco `{lastLogin && (...)}` nunca
-  renderiza — **feature invisível, não quebra nada, sem risco de segurança**. A coluna
-  real existe (`users.last_login_at`), mas não confirmei se o fluxo de login grava nela —
-  precisa investigar antes de expor via rota nova. Baixa prioridade.
+**Achados colaterais — RESOLVIDOS em 2026-08-25 (mesmo dia, sessão seguinte, a pedido do
+Lucas):**
+- **✅ `AIConfigPage.tsx`, aba de uso de IA:** reaproveitado `GET /api/v2/ai-costs/logs`
+  (já existia, criado na F1-D2) em vez do `supabase.from('ai_performance_logs')` direto.
+  Render corrigido pra ler os campos reais (`tokens_in`/`tokens_out`/`ticket_id`/
+  `created_at` ISO) em vez dos nomes Firestore-legado (`promptTokens`/`completionTokens`/
+  `totalTokens`/`ticketId`/`createdAt.seconds`) que nunca existiram no schema Supabase.
+  Os outros 3 `supabase.from('tenants')` da mesma página (campos `vector_store_config`/
+  `monthly_token_limit`/`worker_concurrency`, sem coluna real) **continuam intocados** —
+  gap de schema diferente, já documentado, fora do escopo deste fix.
+- **✅ `Sidebar.tsx`, "Último acesso":** confirmado que `login.route.ts` grava
+  `users.last_login_at` de verdade em todo login bem-sucedido (linha 47-51) — dado real,
+  só faltava expor. `GET /api/v2/auth/me` ganhou o campo `lastLoginAt` (leitura extra em
+  `users`, em paralelo com a leitura de `tenants.is_sandbox` já existente); `Sidebar.tsx`
+  passou a consumir dali em vez de `supabase.auth.getSession()` (sessão sempre `null`,
+  mesmo bug já corrigido em várias telas na F1-D2). `handleLogout` continua usando
+  `supabase.auth.signOut()` — não é bug (idempotente/inofensivo mesmo sem sessão Supabase
+  Auth ativa), só não fazia parte deste achado.
+- Testes: `auth.routes.test.ts` reescrito pra mockar `tenants` E `users` separadamente
+  (antes só mockava um `.from()` genérico) — 5 testes, incluindo `lastLoginAt: null`
+  quando o usuário nunca logou. Suites completas verdes: `typecheck:legacy` + `apps/api
+  typecheck` limpos, build ok, apps/api **2751 passed / 0 failed** (isolado — 3 timeouts
+  sob carga total, mesmo padrão de sempre, 53/53 verde isolado), root **1 falha** (mesma
+  familia, isolada também). Commit + push direto (fix pequeno, mesmo padrão de
+  correção-no-ato desta tarefa).
 
 **Push:** nada pendente de F1-A/B/C/D/D2 em si (já em produção). Os 2 arquivos de teste
-corrigidos nesta auditoria foram commitados e pushados direto (fix pequeno, mesmo padrão
-de correção-no-ato autorizada pela própria spec desta tarefa).
+corrigidos na auditoria e os 2 achados estruturais resolvidos depois foram commitados e
+pushados direto (fix pequeno, mesmo padrão de correção-no-ato autorizada pela própria
+spec desta tarefa).
 
 <!-- Spec original abaixo, mantida para referência -->
 
