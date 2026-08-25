@@ -527,8 +527,8 @@ commit local SEM push (aguarda AUD-G).
 >   4.20260603.0→5.20260820.0-alpha` **não é decisão da D1**: é dev-only (`dev: true`,
 >   fora do `--omit=dev`) e vem pinado pelo próprio `wrangler`, que subiu 4.98.0→4.125.0
 >   dentro do range `^4.98.0` já declarado. Registrado aqui para não parecer major escondido.
-> - **(b) dep removida que aparece em grep:** não se aplica — a D1 não removeu nenhuma dep,
->   só bumps. (As 13 remoções são da D2, ainda NÃO commitadas — ficam para o passe 2.)
+> - **(b) dep removida que aparece em grep:** não se aplica à D1 (só bumps, zero remoções).
+>   Ver o bloco da D2 logo abaixo — ela entrou no mesmo push.
 > - **(c) lockfile coerente:** `npm ci` do zero **exit 0** (1414 pacotes). `npm audit
 >   --omit=dev` = **2 moderate / 0 high / 0 critical**, batendo com o relatório da D1 (os 2
 >   são o react-router, pulado com justificativa). E a checagem que a própria D1 pediu:
@@ -548,7 +548,41 @@ commit local SEM push (aguarda AUD-G).
 >   passou a usar `vi.hoisted()` para o mock do `supabaseAdmin` — 3 linhas, sem enfraquecer
 >   asserção nenhuma (as duas `expect(supabaseFrom).toHaveBeenCalledWith(...)` seguem
 >   valendo). **7/7 verde.** Com isso o `main` volta a ficar verde.
-> - **Veredito: push feito.** Os 3 commits da D1/I1/S2 + o fix do teste subiram para o main.
+> - **Veredito: push feito.** D1/I1/S2 + o fix do teste subiram para o main.
+>
+> **⚠️ Correção de registro — a D2 entrou neste push, e eu não a peguei antes de empurrar.**
+> Quando levantei o estado da árvore, as 13 remoções da D2 estavam NÃO commitadas, e foi por
+> isso que isolei a verificação num worktree (para não misturar). Só que o commit `ec2657c`
+> (D2, `LucasNotur`, 16:56) nasceu **durante** a janela da auditoria, o meu commit de
+> fechamento foi criado em cima dele e o `git push` — que é do branch inteiro, não dos
+> commits que eu escolhi — levou a D2 junto. Eu deveria ter reconferido
+> `git log origin/main..HEAD` imediatamente antes do push; não reconferi. A DoD da D2 pedia
+> "commit local SEM push (aguarda AUD-G)", então ela foi para o main antes da auditoria.
+> **Auditei logo depois, no estado exato que foi pushado (`a6dc9cb`), e o resultado é
+> aprovação** — mas na ordem errada, o que fica registrado aqui em vez de escondido:
+> - **(b) dep removida que aparece em grep — PASSA.** Nenhum dos 13 pacotes removidos
+>   (`@fastify/type-provider-typebox`, `axios`, `cors`, `express-rate-limit`,
+>   `http-proxy-middleware`, `pino-http`, `react-hook-form`, `swagger-jsdoc`,
+>   `swagger-ui-express`, `@tanstack/react-query-devtools` + 3 `@types`) tem uma única
+>   importação real no repo — os únicos hits são exemplos em markdown de `.claude/skills/`.
+>   Conferidos os quase-homônimos que poderiam enganar um grep frouxo: `apps/api/src/server.ts`
+>   importa **`@fastify/cors`** (declarado no `apps/api/package.json`), não o `cors` do Express;
+>   a raiz manteve **`@tanstack/react-query`** (só o *devtools* saiu) e **`pino`**/`pino-pretty`
+>   (só o `pino-http`, middleware de Express, saiu). Nenhum caso de dep hoisted usada por
+>   `apps/api` sem estar no package.json dele — a armadilha que o próprio autor da D2 diz ter
+>   filtrado (9 falsos positivos do depcheck).
+> - **(c) lockfile coerente — PASSA.** `npm ci` do zero no estado pushado: **exit 0**, 1363
+>   pacotes (51 a menos que antes da D2, coerente com 13 deps + transitivas exclusivas).
+>   `npm audit --omit=dev` segue **2 moderate / 0 high / 0 critical**.
+> - **(a) major sem registro:** não se aplica (a D2 não faz bump).
+> - **suites no estado pushado (`a6dc9cb`):** `typecheck:legacy` exit 0, `apps/api typecheck`
+>   exit 0, `npm run build` exit 0. `npm run test:unit`: **3482 passed / 7 failed / 7 skipped**.
+>   As 7 falhas passam **todas** em execução isolada (`langgraph`+`owasp-audit`: 48/48;
+>   `erp-admin`+`campaigns`+`sandbox`+`synthetic`: 52/52) — é a mesma flakiness de timeout sob
+>   carga total já documentada na F1-B/C/D, e não quebra da D2: uma dep faltando de verdade
+>   reprovaria no typecheck/build ou falharia igual isolada. O `batch.service.test.ts` que
+>   estava vermelho no `main` saiu da lista (corrigido neste mesmo passe).
+> - **Veredito da D2: aprovada em auditoria pós-push.** Nenhuma ação corretiva necessária.
 
 Mesmo protocolo da F1-AUD (diff completo de `origin/main..HEAD`, rodar suites, procurar
 teste enfraquecido, push se ok). Checklist extra: (a) nenhum bump de major sem registro;
