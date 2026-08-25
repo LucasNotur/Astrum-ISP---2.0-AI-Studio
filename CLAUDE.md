@@ -12,9 +12,10 @@
 ## Regras invioláveis (R1–R6)
 
 - **R1 — Frontend:** o frontend oficial é o **legado** (`src/pages/*`, 22 páginas, Vite na raiz).
-  **NUNCA migrar telas para `apps/web`.** `apps/web` será canibalizado (hooks bons) e deletado na S78.
-  Mudanças no frontend legado são permitidas apenas em: camada de dados (repositories), auth,
-  hooks de rede e correção de bug. Páginas **novas** (ex.: dashboard de saúde) são permitidas.
+  `apps/web` já foi deletado (S78 concluída de fato — hooks bons canibalizados antes da remoção).
+  **NUNCA recriar telas lá.** Mudanças no frontend legado são permitidas apenas em: camada de
+  dados (repositories), auth, hooks de rede e correção de bug. Páginas **novas** (ex.: dashboard
+  de saúde) são permitidas.
 
 - **R2 — Dados:** Supabase é o **ÚNICO** banco. Redis para cache/filas. O Firestore foi
   **REMOVIDO totalmente do código** em 2026-07-03 (Plano FIRESTORE-ZERO —
@@ -22,9 +23,13 @@
   camada de compatibilidade `src/lib/db-compat/` (via seam `src/lib/firebaseAdmin.ts`,
   que mantém o nome histórico mas é 100% Supabase). **Proibido reintroduzir firebase/firebase-admin.**
 
-- **R3 — LLMs:** GPT-4o-mini para conversação, GPT-4o para orquestração/raciocínio. O sistema de
-  fallback multi-provider **já existe** em `src/ai-provider/` (adapters openai/anthropic/gemini) e
-  deve ser **portado** para o motor novo, nunca reimplementado do zero.
+- **R3 — LLMs:** GPT-4o-mini para conversação, GPT-4o para orquestração/raciocínio. O fallback
+  multi-provider foi **portado** para `apps/api/src/infrastructure/ai/providers/model-router.ts`
+  (failover multi-provider + circuit breaker, validado em produção 2026-08-23) — **regra
+  cumprida**. O `src/ai-provider/` legado (adapters openai/anthropic/gemini) ainda não foi
+  deletado: a L1 (2026-08-25) achou um importador vivo na re-verificação
+  (`embeddingProvider.ts` ← `dbAdmin.ts` ← whatsappSender/erpAdapter) e parou a deleção daquele
+  alvo por segurança — resolver essa cadeia de import fica para uma tarefa futura de faxina.
 
 - **R4 — Backend:** toda lógica nova vai em `apps/api` (Fastify/DDD). **Proibido criar feature nova
   em `/src`** (backend legado) — lá só se corrige bug crítico de produção.
@@ -70,7 +75,7 @@ real, não teste), use o freio de emergência de verdade: `POST
 /api/v2/atendimento/emergency-stop` ou o painel `/atendimento-emergencia` (super_admin) —
 ver `astrum-rollback-atendimento-quebrado` na memória do Claude Code.
 
-## Estado das frentes de backend (2026-08-23)
+## Estado das frentes de backend (2026-08-25)
 
 - `apps/api` (Fastify + Supabase) — **é o único backend em produção**, desde a Fase 4 do
   Plano Migração Express→Fastify (2026-08-17/18). Recebe 100% do tráfego real: login,
@@ -82,7 +87,29 @@ ver `astrum-rollback-atendimento-quebrado` na memória do Claude Code.
 - `apps/backend` — removido na S68 (órfão; preservado em `graveyard/billing-enterprise`).
 - `apps/frontend` — billing/subscriptions **em uso** por `src/pages/SettingsPage.tsx` (UI viva, mantido).
 
+**Resultado do PLANO_ACAO_100_OPERACIONAL (Fases 1–5, `.astrum-progress/PLANO_ACAO_100_OPERACIONAL.md`):**
+- **Fase 1** (frontend legado parando de consultar Supabase direto com o client anônimo,
+  depois que a `092_p0_rls_hardening.sql` revogou os grants do `anon`): a maior parte das
+  páginas migradas para rotas novas em `apps/api` (Dashboard, CobrAI, Billing, Team, Settings,
+  Monitoring, SuperAdmin, AIObservability, Onboarding, Inventory, Tickets, NetworkGraph/Twin,
+  KnowledgeBase, Sidebar/SuperAdminRoute, Customers). Ficaram pendentes: 12 páginas que o
+  inventário original não pegou (grep multi-linha, F1-D2) e a auditoria formal antes do push
+  (F1-AUD) — os commits já estão em produção porque foram ao main "de carona" em pushes de
+  tarefas seguintes, não por um push formal auditado.
+- **Fase 2** (C1): cobrança tem engine única v2, sem flag de escolha; freio de emergência real
+  em `POST /api/v2/cobranca/emergency-stop`. Concluída e em produção.
+- **Fase 3** (D1/D2): zero vulnerabilidades critical/high (`npm audit`); 13 dependências mortas
+  do Express legado removidas da raiz. Concluída e em produção.
+- **Fase 4** (S1/S2): client Supabase anônimo trocado por `supabaseAdmin` nos 4 arquivos que
+  ainda usavam; RPC de `has_permission` revogada + deny-all real nas 5 tabelas sem policy.
+  Pendente: S3 (helper único `getTenantId()` + regra de lint).
+- **Fase 5** (L1/L2): ~6.360 linhas de código morto deletadas (`gemini.server.ts`, `src/workers/`
+  inteiro, `Supabase_Assinaturas/`) — commit local, ainda aguardando push pela auditoria geral
+  (`AUD-G`). `src/ai-provider/` **não** foi deletado (ver R3 acima). Este arquivo (L2) é a
+  própria Fase 5.
+
 Fontes da verdade: `.astrum-progress/PLANO_MIGRACAO_EXPRESS_FASTIFY.md` (retirada do
 Express), `.astrum-progress/PLANO_FIRESTORE_ZERO__CONCLUIDO.md` (remoção do Firestore),
+`.astrum-progress/PLANO_ACAO_100_OPERACIONAL.md` (checklist Fases 1–7, status por tarefa),
 `.astrum-progress/CHECKLIST_PENDENCIAS_EXTERNAS.md` (pendências reais — mais confiável
 que o `PLANO_MESTRE_V2` pra saber "o que falta", ver aviso no topo daquele arquivo).

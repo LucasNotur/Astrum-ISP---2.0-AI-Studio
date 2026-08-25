@@ -830,8 +830,15 @@ próximo; (c) zero hits → deletar arquivo(s) + testes órfãos.
 **DoD:** alvos deletados (com contagem de linhas removidas no relatório), suites verdes,
 commit local SEM push (aguarda AUD-G).
 
-## [ ] L2 — Atualizar CLAUDE.md para o estado real
-**Modelo:** Claude Sonnet 5 *(é o mapa que as IAs leem — precisão importa mais que custo)*
+## [x] L2 — Atualizar CLAUDE.md para o estado real
+**Modelo:** Claude Sonnet 5 (2026-08-25)
+**Resumo:** R1 atualizada (apps/web já deletado, sem menção futura à S78). R6/tabela de flags já
+estava correta (C1 já tinha atualizado no próprio commit). R3: registrada como **cumprida**
+(fallback portado a `model-router.ts`) mas com nota honesta de divergência — `src/ai-provider/`
+**não** foi deletado na L1 (achou importador vivo `embeddingProvider.ts` ← `dbAdmin.ts`), então
+não escrevi "deletado" como a spec original pedia (regra global 2). Seção "Estado das frentes"
+reescrita com data 2026-08-25 e resultado real das Fases 1–5, incluindo pendências (F1-D2,
+F1-AUD, S3, push da L1/AUD-G). Commit + push direto (tarefa Claude, autorizada pela spec).
 **Pré-requisito:** C1 e L1 concluídas (para documentar o estado final, não o intermediário).
 **Correções mínimas:**
 1. R1: `apps/web` JÁ FOI deletado (a S78 aconteceu de facto) — remover a menção futura.
