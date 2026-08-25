@@ -838,7 +838,10 @@ estava correta (C1 já tinha atualizado no próprio commit). R3: registrada como
 **não** foi deletado na L1 (achou importador vivo `embeddingProvider.ts` ← `dbAdmin.ts`), então
 não escrevi "deletado" como a spec original pedia (regra global 2). Seção "Estado das frentes"
 reescrita com data 2026-08-25 e resultado real das Fases 1–5, incluindo pendências (F1-D2,
-F1-AUD, S3, push da L1/AUD-G). Commit + push direto (tarefa Claude, autorizada pela spec).
+F1-AUD, S3, push da L1/AUD-G). **Commit local (`ab0345f`), SEM push:** avisei o Lucas que
+o push levaria junto o commit local da L1 (`4589ad9`), cuja própria spec pede "SEM push
+(aguarda AUD-G)" — ele escolheu esperar a AUD-G empurrar as duas juntas, em vez de furar a
+fila só porque a L2 tem push autorizado por padrão.
 **Pré-requisito:** C1 e L1 concluídas (para documentar o estado final, não o intermediário).
 **Correções mínimas:**
 1. R1: `apps/web` JÁ FOI deletado (a S78 aconteceu de facto) — remover a menção futura.
