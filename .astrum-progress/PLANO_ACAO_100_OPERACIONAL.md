@@ -833,8 +833,27 @@ commit local SEM push (aguarda AUD-G).
 
 # FASE 6 — Banco: performance
 
-## [ ] B1 — [MCP] Índices em FKs quentes + limpeza de índices
-**Modelo:** Claude Opus 5 / Fable 5 no Claude Code *(DDL em produção)*
+## [x] B1 — [MCP] Índices em FKs quentes + limpeza de índices
+**Modelo:** Claude Opus 5 no Claude Code, 2026-08-25 *(DDL em produção)*
+**Resumo:** migration `114_b1_fk_indexes_e_limpeza.sql` criada e aplicada via MCP.
+10 índices de FK nas tabelas quentes (invoices.plan_id; conversations.customer_id/
+assigned_to; tickets.customer_id/assigned_to; customers.cto_id; service_orders.cto_id/
+premise_id; outbox.tenant_id; cobrai_jobs.rule_id) + drop dos 3 índices duplicados
+(`idx_audit_tenant`, `idx_docs_status`, `tenant_meta_pages_tenant` — pares byte-a-byte
+idênticos, não-únicos, sem constraint por trás; mantido o nome mais descritivo).
+Advisors: `unindexed_foreign_keys` 59 → 49 (zero nas tabelas quentes), `duplicate_index`
+3 → 0. `unused_index` foi de 134 → 141 (os 10 novos nascem "sem uso" −3 dropados) e
+**não foi tocado** — decisão do passo 4, revisão pós-VPS. `messages`, `audit_log` e
+`dead_letter_queue` já não tinham FK sem índice. **Puladas (49, tabelas frias):**
+ai_guardrail_blocks, ai_ragas_scores(2), atendimento_emergency_stops(2), automations,
+billing_plans, churn_scores, cobrai_rules, cobranca_emergency_stops(2), connector_drafts,
+customer_premises, field_photo_diagnoses, fine_tune_runs, hsm_send_logs, incidents,
+kb_drafts(3), knowledge_articles, knowledge_documents, legacy_ticket_conversation_map,
+notifications, playbooks, route_plans, route_stops(2), service_order_checklist_items,
+service_order_events, service_order_materials, service_order_media(2),
+subscriber_simulations, team_members, technician_locations, technician_shifts,
+technicians(3), tenant_evolution_instances, threat_signals, trust_unlocks, variant_sends,
+voice_biometry_consents, voice_calls, voice_prints, voice_scorecards, voice_transcripts.
 **Contexto:** advisors de performance (2026-08-24): 57 FKs sem índice, 3 índices
 duplicados, 133 índices nunca usados. FKs sem índice penalizam joins e deletes em cascata
 independente de RLS.
@@ -908,6 +927,13 @@ Tudo o mais é independente entre si.
 
 # ACHADOS COLATERAIS (executores anotam aqui, NÃO consertam)
 
+- **[B1, 2026-08-25]** `npm run db:migrate:dry` lista **10 migrations como pendentes**
+  (097_departments, 097_svix_message_id, 105, 106, 107, 108, 109, 110, 113, 114) que na
+  verdade já estão aplicadas no banco — foram aplicadas via MCP/SQL Editor, que grava em
+  `supabase_migrations.schema_migrations`, não na tabela `schema_migrations` do runner do
+  repo. Rodar `npm run db:migrate` hoje re-executaria as 10 (nem todas idempotentes — ex.:
+  `097_departments_table.sql`). Por isso a 114 foi aplicada via MCP. Precisa de um
+  `db:baseline` (ou equivalente) para ressincronizar o tracking — não feito aqui (escopo).
 - **[F1-INV, 2026-08-24]** Fora do escopo do grep pedido (`src/pages`+`src/components`+
   `src/hooks`), existem mais ~85 ocorrências de `supabase.from(`/`supabase.rpc(` em
   `src/lib/db.ts` (~35), `src/lib/supabaseDb.ts` (~18), `src/App.tsx` (~15),
