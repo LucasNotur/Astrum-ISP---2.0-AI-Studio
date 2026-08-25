@@ -14,11 +14,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/src/components/ui/ta
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/src/components/ui/dialog";
 import { Input } from "@/src/components/ui/input";
 import { Label } from "@/src/components/ui/label";
-import { supabase } from "@/src/lib/supabase";
 import { toast } from "sonner";
 import { useAppStore } from '@/src/store/useAppStore';
 import { getTeamMembers as sbGetTeamMembers } from '@/src/lib/supabaseDb';
 import { upsertTenantOperator } from '@/src/lib/supabaseDb';
+import { apiGet, apiPost, apiPut, apiDelete } from '@/src/lib/apiClient';
 
 export function TeamPage() {
   const { user, userProfile } = useAppStore();
@@ -41,12 +41,8 @@ export function TeamPage() {
       setTeamPerformanceData([]);
       return;
     }
-    const currentMonth = new Date().toISOString().substring(0, 7);
-    supabase.from('tickets')
-      .select('assigned_to,created_at,updated_at,status')
-      .eq('tenant_id', tenantId)
-      .gte('created_at', `${currentMonth}-01`)
-      .then(({ data }) => {
+    apiGet<any[]>('/api/v2/team/performance')
+      .then((data) => {
         const rows = data ?? [];
         const byMember: Record<string, { count: number; totalMinutes: number }> = {};
         rows.forEach((t: any) => {
@@ -67,14 +63,14 @@ export function TeamPage() {
             responseTime: stats && stats.count > 0 ? (stats.totalMinutes / stats.count).toFixed(1) : '—',
           };
         }));
-      });
+      })
+      .catch(() => setTeamPerformanceData([]));
   }, [tenantId, teamMembers]);
 
   const handleDeleteTeamMember = async (id: string) => {
     if (!window.confirm('Tem certeza que deseja remover este colaborador?')) return;
     try {
-      const { error } = await supabase.from('team_members').delete().eq('id', id);
-      if (error) throw error;
+      await apiDelete(`/api/v2/team/members/${id}`);
       toast.success('Colaborador removido com sucesso!');
     } catch (error: any) {
       toast.error('Erro ao remover colaborador: ' + error.message);
@@ -87,14 +83,12 @@ export function TeamPage() {
     try {
       const activeTenant = userProfile?.tenantId || 'DEFAULT_TENANT';
       if (selectedTeamMember.id) {
-        const { error } = await supabase.from('team_members').update({
+        await apiPut(`/api/v2/team/members/${selectedTeamMember.id}`, {
           name: selectedTeamMember.name,
           email: selectedTeamMember.email,
           role: selectedTeamMember.role,
           status: selectedTeamMember.status,
-          tenant_id: activeTenant,
-        }).eq('id', selectedTeamMember.id);
-        if (error) throw error;
+        });
         if (selectedTeamMember.role === 'support') {
           await upsertTenantOperator(activeTenant, selectedTeamMember.id, {
             name: selectedTeamMember.name,
@@ -107,14 +101,12 @@ export function TeamPage() {
         }
         toast.success('Colaborador atualizado com sucesso!');
       } else {
-        const { data: memberRow, error } = await supabase.from('team_members').insert({
+        const memberRow = await apiPost<{ id: string }>('/api/v2/team/members', {
           name: selectedTeamMember.name,
           email: selectedTeamMember.email,
           role: selectedTeamMember.role,
           status: selectedTeamMember.status,
-          tenant_id: activeTenant,
-        }).select().single();
-        if (error) throw error;
+        });
         if (selectedTeamMember.role === 'support') {
           await upsertTenantOperator(activeTenant, memberRow.id, {
             name: selectedTeamMember.name,
@@ -141,24 +133,21 @@ export function TeamPage() {
   useEffect(() => {
     if (!tenantId) return;
 
-    // S99 — operadores e gamificação via Supabase (team_members como proxy)
-    supabase.from('team_members').select('*').eq('tenant_id', tenantId)
-      .then(({ data }) => setLiveOperators(data ?? []));
+    // S99 — operadores e gamificação (team_members como proxy)
+    apiGet<any[]>('/api/v2/team/members')
+      .then((data) => setLiveOperators(data ?? []))
+      .catch(() => setLiveOperators([]));
 
-    const currentMonth = new Date().toISOString().substring(0, 7);
     // ranking usa tickets resolvidos pelo agente no mês
-    supabase.from('tickets')
-      .select('assigned_to,status,created_at')
-      .eq('tenant_id', tenantId)
-      .eq('status', 'resolved')
-      .gte('created_at', `${currentMonth}-01`)
-      .then(({ data }) => {
+    apiGet<any[]>('/api/v2/team/ranking')
+      .then((data) => {
         const scoreMap: Record<string, number> = {};
         (data ?? []).forEach((t: any) => {
           if (t.assigned_to) scoreMap[t.assigned_to] = (scoreMap[t.assigned_to] || 0) + 10;
         });
         setRanking(Object.entries(scoreMap).map(([id, points]) => ({ id, points })).sort((a, b) => b.points - a.points));
-      });
+      })
+      .catch(() => setRanking([]));
 
     return () => {};
   }, [tenantId]);

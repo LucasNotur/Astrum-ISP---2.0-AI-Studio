@@ -308,6 +308,11 @@ export async function buildServer() {
   const { whatsappConnectionHealthRoutes } = await import('./domain/atendimento/whatsapp-connection-health.routes');
   await app.register(whatsappConnectionHealthRoutes);
 
+  // F1-B — WhatsAppPage: remoção de instância desconectada (antes ia direto ao Supabase
+  // anônimo). Só a operação de delete — ver comentário no arquivo pro resto da página.
+  const { whatsappPageRoutes } = await import('./domain/atendimento/whatsapp-page.routes');
+  await app.register(whatsappPageRoutes);
+
   // Fase 2 — proxy Evolution API (port do Express /api/evolution/proxy). Creds server-side + guard SSRF.
   const { evolutionProxyRoutes } = await import('./domain/atendimento/evolution-proxy.routes');
   await app.register(evolutionProxyRoutes);
@@ -380,6 +385,11 @@ export async function buildServer() {
   // F1-A — DashboardPage: upsell events + CSAT ratings (antes iam direto ao Supabase anônimo).
   const { dashboardRoutes } = await import('./domain/provedor/dashboard.routes');
   await app.register(dashboardRoutes);
+
+  // F1-B — TeamPage: CRUD de colaboradores + performance/ranking do mês (antes iam
+  // direto ao Supabase anônimo).
+  const { teamPageRoutes } = await import('./domain/provedor/team-page.routes');
+  await app.register(teamPageRoutes);
 
   // P5-03 — Kit de compliance (DPA/LGPD + due diligence)
   const { complianceRoutes } = await import('./domain/provedor/compliance.routes');

@@ -145,12 +145,35 @@ usar o client anônimo no backend.
 **DoD:** 3 páginas sem query direta, testes novos das rotas criadas, suites verdes,
 commit local SEM push (aguarda F1-AUD).
 
-## [ ] F1-B — Migrar Team + Chat + WhatsApp
-**Modelo:** DeepSeek V4 Pro
-Idêntica à F1-A, para `src/pages/TeamPage.tsx`, `src/pages/ChatPage.tsx`,
-`src/pages/WhatsAppPage.tsx`. Mesmas regras, mesma verificação, mesmo DoD.
-Área de domínio provável no backend: `domain/atendimento` (chat/whatsapp) e
-`domain/provedor` (equipe) — confirme pelo que já existe lá antes de criar área nova.
+## [x] F1-B — Migrar Team + Chat + WhatsApp
+**Modelo:** Claude Sonnet 5 (2026-08-25 — executado direto pelo Lucas em vez do
+DeepSeek, ver nota de escopo abaixo)
+**Resumo:** `TeamPage.tsx` migrada 100% (6/6 ocorrências) para
+`apps/api/src/domain/provedor/team-page.routes.ts` (5 rotas: GET/POST/PUT/DELETE
+`team/members`, GET `team/performance`, GET `team/ranking`; escrita gated por
+`users:write`). `ChatPage.tsx` e `WhatsAppPage.tsx` migraram só a fração seguro
+(1/7 e 1/3 respectivamente — ver nota abaixo): `ChatPage.tsx:201` (departamentos,
+JA_EXISTE_ROTA) trocado por `GET /api/v2/departments` já existente, e
+`WhatsAppPage.tsx:136` (delete de instância) para nova rota
+`DELETE /api/v2/whatsapp/instances/:instanceName` em
+`apps/api/src/domain/atendimento/whatsapp-page.routes.ts`. `grep -c "supabase.from("`:
+TeamPage.tsx = 0; ChatPage.tsx = 6 (restam, landmine); WhatsAppPage.tsx = 2 (restam,
+landmine). 17 testes Vitest novos (401 + sucesso + filtro de tenant + 403 RBAC nas
+escritas de team). Suítes verdes: backend 2639 passed/0 failed/7 skipped, typecheck
+limpo; frontend suite completa (com backend embutido) 3421 passed/5 failed/7 skipped —
+as 5 falhas são pré-existentes e sem relação (SignupPage, server health, langgraph,
+owasp-audit — timeout sob carga total), confirmadas por re-run isolado 55/55 verde;
+typecheck frontend limpo. Commit local, SEM push (aguarda F1-AUD).
+
+**Nota de escopo — F1-B ficou parcial por decisão do Lucas (não é um desvio silencioso):**
+antes de escrever qualquer rota, uma consulta ao schema real do Supabase (via MCP)
+mostrou que a maioria das ocorrências de `ChatPage.tsx` e `WhatsAppPage.tsx` grava/lê
+colunas que **não existem** nas tabelas reais — um bug pré-existente, não causado pela
+RLS (a mensagem do operador no chat, por exemplo, nunca foi persistida em produção; só
+sai de fato pelo WhatsApp). Reportei o achado ao Lucas antes de prosseguir (regra global
+2) e ele escolheu migrar só a fração seguro agora, deixando o resto documentado em
+"Achados colaterais" pra uma tarefa futura de schema (decisão de produto, não só
+engenharia — precisa decidir se cria coluna nova ou remove a feature morta).
 
 ## [ ] F1-C — Migrar SettingsPage (a maior: ~31 chamadas)
 **Modelo:** DeepSeek V4 Pro
@@ -484,3 +507,34 @@ Tudo o mais é independente entre si.
   `supabase.auth.getSession()` — uma trilha de autenticação Supabase Auth separada do JWT
   próprio do `apps/api`, logada em `src/App.tsx:1936` via `supabase.auth.signInWithPassword`.
   Vale investigar se é intencional ou resquício de uma migração incompleta.
+- **[F1-B, 2026-08-25 — schema real ≠ o que o código assume, verificado via MCP
+  `execute_sql` contra `information_schema.columns`]** Sete ocorrências de
+  `ChatPage.tsx`/`WhatsAppPage.tsx` gravam ou leem colunas que **não existem** nas
+  tabelas reais — bug pré-existente, não é RLS (a query já falhava com "column does not
+  exist" antes da migration 092). Não migradas nesta tarefa (decisão do Lucas: só migrar
+  o seguro agora). Ficam para uma tarefa futura de decisão de schema/produto:
+  - `ChatPage.tsx:217` — `tenants.closing_reasons`/`tenants.forms` não existem (só
+    `settings`/`integration_keys`/`cobrai_*` são JSONB reais em `tenants`). Cai sempre no
+    fallback hardcoded de 4 motivos; `tenantForms` sempre `[]`.
+  - `ChatPage.tsx:368` — insert em `messages` com `ticket_id, body, sender_type, agent_id,
+    agent_name, attachment, is_internal`: NENHUMA dessas colunas existe. A tabela real é
+    `id, tenant_id, conversation_id (NOT NULL), role, content, from_ai, tokens_used,
+    created_at, extra, created_by, legacy_id` — schema orientado a `conversation_id`, não
+    a `ticket_id`. **Consequência real: quando o operador manda mensagem pelo inbox, ela
+    nunca é salva no Postgres** (só sai de fato pelo WhatsApp via Evolution API; o insert
+    falha e o código não checa `error`).
+  - `ChatPage.tsx:420` — update de `evo_msg_ids` em `messages`: coluna não existe.
+  - `ChatPage.tsx:452` — update de `tickets.snoozed_until/snooze_reason/snoozed_by` +
+    `status='snoozed'`: nenhuma coluna existe E `'snoozed'` nem é valor aceito pelo CHECK
+    constraint de `tickets.status` (só `open/in_progress/resolved/closed`).
+  - `ChatPage.tsx:472` — update de `tickets.closing_reason`: coluna não existe.
+  - `ChatPage.tsx:513` — update de `customers` com `document`/`plan`/`tenantId`: colunas
+    reais são `cpf`/`plan_id`/`tenant_id` (nomes diferentes, não é só RLS).
+  - `WhatsAppPage.tsx:97` — `tenants.evolution_instances` (plural, array): a coluna real é
+    `evolution_instance` (singular, texto único — não suporta múltiplas instâncias).
+  - `WhatsAppPage.tsx:99` — upsert em `tenant_evolution_instances` com `label,
+    phone_number, ai_enabled`: a tabela real só tem `id, tenant_id, instance_name, status,
+    created_at` — essas 3 colunas não existem.
+  Antes de migrar essas 7, alguém (produto + engenharia) precisa decidir, por caso: criar
+  migration com a coluna/tabela que falta, ou tratar como feature morta e remover da UI.
+  Não é uma tarefa "portar query pra rota" — é desenho de schema.

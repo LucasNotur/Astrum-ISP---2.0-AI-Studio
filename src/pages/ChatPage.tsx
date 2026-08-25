@@ -195,18 +195,14 @@ export function ChatPage() {
   const typingStatus = useSocketTyping(socket, selectedTicket, customers, tenantId);
 
   // ── Departments (SLA) ──
+  // F1-B — antes derivava department_id (coluna inexistente em tickets) via Supabase
+  // direto; agora usa a rota real de departamentos (com sla_response_minutes de verdade).
   const [departments, setDepartments] = useState<any[]>([]);
   React.useEffect(() => {
     if (!tenantId) return;
-    supabase.from("tickets").select("department_id").eq("tenant_id", tenantId)
-      .not("department_id", "is", null)
-      .then(({ data }) => {
-        if (data) {
-          setDepartments(
-            [...new Set(data.map((r: any) => r.department_id))].map((id) => ({ id, name: id })),
-          );
-        }
-      });
+    apiGet<{ departments: any[] }>("/api/v2/departments")
+      .then(({ departments }) => setDepartments(departments ?? []))
+      .catch(() => setDepartments([]));
   }, [tenantId]);
 
   // ── Config (closing reasons, forms) ──

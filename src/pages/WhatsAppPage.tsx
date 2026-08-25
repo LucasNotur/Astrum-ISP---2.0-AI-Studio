@@ -133,7 +133,8 @@ export function WhatsAppConnectionsPage() {
     const tId = companySettings?.tenant_id || user?.tenantId;
     if (tId && tId !== 'default' && instanceName) {
        try {
-         await supabase.from('tenant_evolution_instances').delete().eq('tenant_id', tId).eq('instance_name', instanceName);
+         // F1-B — antes ia direto ao Supabase anônimo; tenant sempre vem do JWT no backend.
+         await apiDelete(`/api/v2/whatsapp/instances/${encodeURIComponent(instanceName)}`);
        } catch (e) {
          console.warn("Failed to delete instance doc", e);
        }
