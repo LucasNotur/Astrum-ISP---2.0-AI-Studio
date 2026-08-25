@@ -413,8 +413,26 @@ após auto-revisão do diff).
 
 # FASE 3 — Dependências e vulnerabilidades
 
-## [ ] D1 — npm audit fix + bumps dirigidos
-**Modelo:** DeepSeek V4 Pro *(ou Sonnet 5 — ambos capazes)*
+## [x] D1 — npm audit fix + bumps dirigidos
+**Modelo:** DeepSeek V4 Pro (2026-08-25 — via OpenCode, executado pelo Lucas)
+**Resumo:** 27 → 2 vulns (zero critical/high). `npm audit fix` (sem force) resolveu 20
+via lockfile (tar 7.5.16→7.5.22 pelo override existente, axios 1.17→1.19,
+find-my-way 9.6.0→9.9.0, fast-uri 3.1.2→3.1.6, ws/engine.io-client, socket.io-parser,
+undici, js-yaml, ip-address, brace-expansion, body-parser, dompurify, protobufjs,
+@opentelemetry/*). Bumps dirigidos: `nodemailer ^8.0.10 → ^9.0.5` (MAJOR avaliado: o
+breaking do v9 é validar TLS por padrão ao buscar conteúdo remoto — os 3 usos do Astrum
+são SMTP puro, sem fetch remoto/OAuth2/SES) e overrides `form-data ^4.0.4 → ^4.0.6` +
+overrides ANINHADOS para `@getzep/zep-js` e `typed-rest-client` (qs ^6.15.2) — o zep-js
+pina versões exatas vulneráveis (form-data 4.0.0 crítica, qs 6.11.2) e o override global
+não era aplicado ao pin exato pelo npm 11 (bug de lockfile: foi preciso remover as 3
+entradas aninhadas obsoletas do lockfile para o npm re-resolver com override — ver
+achado). Sobrou só react-router/dom (moderate; fix exige 7.18.2, major com breaking no
+frontend legado — justificado nos achados). Verificação: `npm run build` ok (15.9s),
+`typecheck:legacy` exit 0, `apps/api typecheck` exit 0, frontend 3483 passed/7 skipped,
+backend 2700 passed/7 skipped — única suíte falha é `batch.service.test.ts` (bug de
+hoisting do vi.mock introduzido pelo commit S1 434fd65, rodado em paralelo a esta
+tarefa; confirmado por run isolado e por diff — não é D1, ver achados). Commit local
+5c1acc1 SEM push (aguarda AUD-G).
 **Contexto:** `npm audit --omit=dev` acusa 27 vulnerabilidades (1 crítica `node-tar`;
 highs: `nodemailer` (leitura de arquivo/SSRF), `find-my-way` (router do Fastify, DDoS
 HTTP/2), `fast-uri`, `axios`, `undici`, `ws`, `form-data`, `socket.io-parser`,
@@ -861,3 +879,36 @@ Tudo o mais é independente entre si.
   Quem retomar a C1 (ou o que quer que seja esse lote) precisa terminar/corrigir antes de
   rodar a suite completa de novo — hoje ela sempre vai reportar 3 falhas por causa disso,
   não por regressão da S1.
+- **[D1, 2026-08-25 — execução em paralelo com C1/S1 na mesma árvore de trabalho]** A D1
+  rodou enquanto agentes Claude executavam C1 e S1 na MESMA pasta (arquivos de cobrança
+  aparecendo/desaparecendo do `git status` durante a sessão; commits 434fd65 e 9106370
+  feitos no meio do trabalho). O executor da D1 manteve escopo estrito (só
+  `package.json`+`package-lock.json` no commit) e esperou a suíte deles terminar antes de
+  rodar `npm install`. **Consequência na verificação da D1:** a suíte backend completa tem
+  1 suíte falhando — `apps/api/src/infrastructure/ai/batch.service.test.ts` com
+  `ReferenceError: Cannot access 'supabaseFrom' before initialization` — bug de hoisting do
+  `vi.mock` INTRODUZIDO PELO COMMIT DA S1 (434fd65; `const supabaseFrom` no top-level do
+  teste é usada dentro da factory do `vi.mock`, que é hoisted). Confirmado por: run
+  isolado do arquivo falha igual; `git diff be7d470..HEAD` mostra o vi.mock vindo da S1;
+  o erro é em tempo de import do próprio teste, sem relação com versões de dependência
+  (o diff da D1 não toca source). **Fica para a S1/AUD-G corrigir** (mover o
+  `vi.fn` pra dentro da factory ou usar `vi.hoisted`). Resto verde: backend 2700
+  passed/7 skipped, frontend 3483 passed/7 skipped.
+- **[D1, 2026-08-25 — bug npm 11.8.0 com overrides em pins exatos + lockfile]** O `npm
+  audit fix` (npm 11.8.0) re-resolveu as deps do `@getzep/zep-js` e **desaplicou** o
+  override global existente (`form-data ^4.0.4`): o lockfile do HEAD tinha form-data
+  deduplicado em 4.0.5 (override aplicado, aresta "invalid" cosmética no `npm ls`), e o
+  audit fix criou entradas aninhadas `node_modules/@getzep/zep-js/node_modules/{form-data@
+  4.0.0, qs@6.11.2}` vulneráveis. O override ANINHADO novo (`"@getzep/zep-js": {
+  "form-data": "^4.0.6", "qs": "^6.15.2" }`) funciona em install limpo (testado em dir
+  temporário: aplica 4.0.6/6.15.3), mas o npm 11 NÃO re-resolve entradas aninhadas já
+  presentes no lockfile (nem com `npm install`, nem com `npm update <pkg>`). Solução
+  aplicada: deletar as 3 entradas aninhadas obsoletas do lockfile + as pastas
+  correspondentes e rodar `npm install` — o override passou a aplicar (form-data 4.0.6,
+  qs 6.15.3 deduplicados). **AUD-G:** conferir com `npm ci` em pasta limpa que o lockfile
+  permanece coerente com npm 11 e que as entradas aninhadas vulneráveis não voltam.
+- **[D1, 2026-08-25 — react-router-dom 6→7 pulado (regra 3)]** O fix dos 2 moderates
+  restantes (`react-router`/`react-router-dom`, GHSA-wrjc-x8rr-h8h6 +
+  GHSA-337j-9hxr-rhxg) exige `react-router-dom@7.18.2` — major 6→7 com breaking no
+  frontend legado inteiro (todas as rotas usam API v6). Fora do escopo de D1; exige tarefa
+  de migração dedicada. `npm audit --omit=dev` final: **2 moderate, 0 high, 0 critical**.
