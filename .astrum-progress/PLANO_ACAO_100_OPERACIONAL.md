@@ -584,6 +584,60 @@ commit local SEM push (aguarda AUD-G).
 >   estava vermelho no `main` saiu da lista (corrigido neste mesmo passe).
 > - **Veredito da D2: aprovada em auditoria pós-push.** Nenhuma ação corretiva necessária.
 
+> **PASSE 2 — 2026-08-25, Claude Sonnet 5: L1/L2 AUDITADOS, APROVADOS E PUSHADOS.**
+> Range auditado: `origin/main..HEAD` = 3 commits (`4589ad9` L1, `ab0345f` + `23f0bb8` L2).
+> `origin/main` estava em `3dfbbfa` (B1, já pushada — fora do escopo desta tarefa, que é
+> D1/D2/S3/L1; S3 segue não executada, só WIP não commitado na árvore). **Toda a
+> verificação rodou num worktree isolado (`git worktree add`) do HEAD**, pelo mesmo motivo
+> do Passe 1: a árvore de trabalho tem WIP não commitado e enorme da S3 (86 rotas +
+> `apps/api/src/lib/jwt-claims.ts` novo) que a própria L1 já tinha registrado como culpado
+> por 26 falhas de teste e 44 erros de typecheck durante a sua verificação — não dava pra
+> confiar num resultado rodado em cima disso. `node_modules` (raiz e `apps/api`) reaproveitados
+> via junction (NTFS) em vez de `npm install`, porque `git diff origin/main..HEAD` confirma
+> zero mudança em `package.json`/`package-lock.json` nos 3 commits — instalar de novo não
+> mudaria nada e só gastaria tempo.
+> - **Diff revisado por completo:** só deleções de código morto + testes órfãos (32 arquivos,
+>   -6.981/+88 linhas) e edição de docs (`CLAUDE.md`, o próprio plano). Nenhuma mudança de
+>   dependência, nenhuma rota nova, nenhum arquivo de produção tocado além das deleções.
+> - **Alvos da L1 — zero importer real restante.** Regrep de cada nome-base
+>   (`gemini.server`, `toolRegistry`, `tenantGuard`, e os 9 workers) no worktree: os únicos
+>   hits são falsos-positivos de substring (ex.: variável local `tenantGuardWarned` em
+>   `src/lib/db-compat/firestore.ts`; nomes dos workers v2 em `apps/api`/`packages/queue`,
+>   que são implementações diferentes, não importam os arquivos deletados).
+> - **Lista "NÃO deletar" respeitada:** `apps/frontend/`, `src/repositories/`,
+>   `src/middleware/` intactos; `src/ai-provider/` **não** foi deletado (confirmado presente),
+>   batendo com o achado colateral registrado pela própria L1 (importador vivo via
+>   `embeddingProvider.ts` ← `dbAdmin.ts`). `src/lib/wizard.ts` citado na spec como "não
+>   deletar" não existe no repo (não é arquivo tocado por este diff — préexistente, fora do
+>   escopo desta auditoria).
+> - **Teste enfraquecido/skipado:** nenhum. Os 10 testes de `src/__tests__/workers/`
+>   removidos são exclusivos dos workers deletados (confirmado pelo diff: cada teste some
+>   junto com o worker que testa); `lockout.test.ts` continua intacto (testa
+>   `tenantStatusMiddleware`, código vivo, como a L1 registrou).
+> - **Suites no worktree isolado (sem contaminação da S3):** `npm run typecheck:legacy`
+>   exit 0; `cd apps/api && npm run typecheck` exit 0; `npm run build` (Vite) exit 0 (só
+>   warnings pré-existentes de code-splitting, nada do diff). `npm run test:unit`
+>   (raiz): **3457 passed / 7 skipped, 0 falhas**, exit 0 — bate exatamente com a baseline
+>   conhecida (3483 passed/7 skipped) menos os 26 testes órfãos removidos pela própria L1.
+>   `cd apps/api && npm test`: 4 arquivos falharam por timeout sob carga total
+>   (`langgraph.service.test.ts`, `replay.routes.test.ts`, `prompt-cache.service.test.ts`,
+>   `owasp-audit.test.ts`) — mesma flakiness já documentada desde F1-B/C/D; **os 4 rodados
+>   isolados: 60/60 verde.** Nenhum dos 4 arquivos aparece no diff `origin/main..HEAD`
+>   (confirma que não é regressão da L1/L2). Isso também confirma, por comparação direta, que
+>   os "26 falhas / 44 erros de typecheck" que a própria L1 relatou durante a sua verificação
+>   eram mesmo 100% da S3 WIP contaminando a árvore — sumiram por completo no worktree limpo.
+> - **L2 (`CLAUDE.md`):** diff mínimo e cirúrgico (34 inserções/7 remoções, 5 trechos: R1,
+>   R3, data da seção "Estado das frentes", bloco novo de resultado das Fases 1-5, fonte da
+>   verdade nova). Conteúdo conferido contra a realidade verificada nesta auditoria: R3
+>   ("cumprida", `src/ai-provider/` não deletado) bate com o achado da L1 acima; "Fase 5...
+>   ainda aguardando push pela auditoria geral" ficou desatualizado pelo push desta própria
+>   tarefa — não veio reescrito aqui porque a doc reflete o estado no momento do commit L2
+>   (correto para aquele commit); quem ler depois deste push já vê a S3 pendente citada
+>   corretamente na "Fase 4".
+> - **Veredito: push feito.** L1 + L2 (`4589ad9`, `ab0345f`, `23f0bb8`) subiram para o main.
+>   Com isso a Fase 5 do plano está completa e pushada; falta só a S3 (Fase 4) para fechar
+>   tudo que esta tarefa cobria (D1/D2/S3/L1 — D1/D2 já tinham sido pushados no Passe 1).
+
 Mesmo protocolo da F1-AUD (diff completo de `origin/main..HEAD`, rodar suites, procurar
 teste enfraquecido, push se ok). Checklist extra: (a) nenhum bump de major sem registro;
 (b) nenhuma dep removida que aparece em grep; (c) lockfile coerente (`npm ci` limpo).
