@@ -326,7 +326,64 @@ verdes.
 **DoD:** 13 páginas/componentes sem query direta (exceto gaps de schema documentados), rotas
 novas com testes, suites verdes, commit local SEM push (aguarda F1-AUD).
 
-## [ ] F1-D2 — Migrar as 12 páginas que a F1-INV não pegou (multi-linha)
+## [x] F1-D2 — Migrar as 12 páginas que a F1-INV não pegou (multi-linha)
+**Modelo:** Claude Sonnet 5 (2026-08-25, via MCP)
+**Resumo:** as 12 chamadas listadas abaixo miravam TODAS colunas/tabelas reais (reconferido
+via MCP — nenhuma repetiu o gap de `AIObservabilityPage`/`AIConfigPage` que a spec original
+temia para `ai_performance_logs`). 11 páginas migradas, 1 documentada sem migrar:
+- `AICostsPage.tsx` (4) → rota nova `ai-costs.routes.ts` (`attribution`, `logs`,
+  `budget` GET/PUT, `sentiment-7d` — este último reaproveitado por `SentimentMetricsCard.tsx`).
+- `WebhooksPage.tsx` (2) → `GET /api/v2/webhooks/deliveries` + `/config` em
+  `webhook-config.routes.ts`. Corrigido de brinde um comentário desatualizado no
+  `retryDelivery()` que dizia a rota de retry "ainda não existe" — ela já existia.
+- `EscalationRulesBuilder.tsx` (2, `tenants.escalation_rules`) →
+  `GET/PUT /api/v2/settings/escalation-rules` em `settings-page.routes.ts`.
+- `SecurityPage.tsx` (1, `audit_log`) → rota nova `audit-log.routes.ts`.
+- `TopHeader.tsx` (1, `tenants.operators`) → `GET /api/v2/team/operator-status` em
+  `team-page.routes.ts`. Só a leitura — a escrita (`upsertTenantOperator`,
+  `src/lib/supabaseDb.ts`) e a assinatura Realtime (`supabase.channel(...)` na mesma
+  função) ficam fora do escopo, mesmo limite que a F1-INV já tinha registrado pra
+  `src/lib/*` (achado colateral próprio, não desta tarefa).
+- `ERPIntegrationsPage.tsx` (1, `tenant_erp_credentials`) → reaproveitado
+  `GET /api/v2/erp/credentials` (já existe em `erp-admin.routes.ts`, usado por
+  `SettingsPage.tsx`). **Achado colateral não corrigido:** o resto da página (salvar/
+  testar credencial) chama `fetch('/api/integrations/${provider}...')` — rota Express
+  mortA desde a Fase 4 (2026-08-17/18), 404 garantido; a página está com Salvar/Testar
+  quebrados end-to-end há semanas. Corrigir exigiria reescrever o fluxo pro contrato de
+  `erp-admin.routes.ts` (`{provider, credentials: {url, token|clientSecret|password},
+  active}` em vez de campos soltos por provider) — fora do escopo desta tarefa (só
+  cobria `supabase.from(`, não `fetch()` morto).
+- `IntelligenceHubPage.tsx` + `SandboxPage.tsx` + `SyntheticPage.tsx` (3, todas
+  `supabase.auth.getSession()` + `.from('users'|'tenants')`, nunca resolviam porque o
+  app não usa Supabase Auth pra login) → reaproveitado `GET /api/v2/auth/me` (F1-D).
+  **`/api/v2/auth/me` ganhou o campo `isSandbox`** (leitura de `tenants.is_sandbox`,
+  única mudança que faz a rota tocar o banco — antes era 100% JWT) pra cobrir o gate da
+  `SyntheticPage.tsx`, que também usava a sessão pra derivar `tenantId` (comentário
+  errado no código dizia "`tenantId` no `useAppStore` não serve" — serve sim, é de lá
+  que vem noutras 10+ páginas; a página só nunca tinha sido migrada). 2 testes de
+  frontend (`SyntheticPage.test.tsx`, `SandboxPage.test.tsx`) reescritos pra mockar
+  `apiGet('/api/v2/auth/me')` em vez do `supabase.auth`/`.from('users')` antigo.
+- `NetworkTwinPage.tsx` (1, `network_ctos`) → reaproveitado `GET /api/v2/rede/ctos`
+  (F1-D); `select` ampliado com `used_ports, total_ports, status` + filtro opcional
+  `?status=` (aditivo — `NetworkGraphPage.tsx`, que só usa `id,name` sem filtro,
+  continua igual).
+
+**NÃO migrado (documentado, não consertado — regra global 1):**
+`OperatorMobilePage.tsx` (1, `messages`) — a tabela real usa `conversation_id/content/
+role+from_ai`, não `ticket_id/body/sender_type` como o `insert()` grava; é o **mesmo gap
+já documentado pra `ChatPage.tsx` na F1-B** (decisão de produto pendente: criar o
+mapeamento ticket→conversation ou aposentar o envio manual — não é engenharia de rota).
+
+**Verificação:** `npm run typecheck:legacy` + `cd apps/api && npm run typecheck` limpos;
+`npm run build` (Vite) ok, só warnings pré-existentes de code-splitting. Suites: root
+**3497 passed / 7 skipped / 0 failed**, exit 0 (bate com a baseline 3457 + os testes
+novos das rotas); `cd apps/api && npm test` **2719 passed / 0 failed / 7 skipped**,
+exit 0 rodado isolado (sem contenção de carga do monorepo inteiro). Commit local
+(`61fd64c`), **SEM push** (regra global 3 — aguarda F1-AUD, que também segue pendente
+pra F1-A/B/C/D/D2 como um todo).
+
+<!-- Spec original abaixo, mantida para referência -->
+
 **Modelo:** Claude Sonnet 5 ou DeepSeek V4 Pro *(auditar schema real via MCP antes de
 escrever qualquer rota — Claude se precisar do MCP; DeepSeek pode seguir o que já foi
 verificado aqui, mas SEMPRE reconfirmar antes de gravar, o schema pode ter mudado)*
