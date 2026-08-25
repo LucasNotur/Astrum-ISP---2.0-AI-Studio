@@ -267,6 +267,36 @@ Os testes Vitest dessas rotas passam porque mockam o client Supabase — nunca b
 schema real. **F1-AUD precisa tratar isso antes do push** (essas rotas nunca funcionaram em
 produção real, mas hoje são só "não pushadas ainda" — não é regressão desta tarefa).
 
+> **✅ RESOLVIDO — 2026-08-25, Claude Sonnet 5, commit `ec10b97` (pushado direto, fora do
+> fluxo normal de auditoria por pedido explícito do Lucas):** as 4 rotas corrigidas contra o
+> schema real (reconferido via MCP, sem mudança desde a F1-D). Resumo por rota — ver diff
+> completo em [cobrai-page.routes.ts](../apps/api/src/domain/cobranca/cobrai-page.routes.ts)
+> e [dashboard.routes.ts](../apps/api/src/domain/provedor/dashboard.routes.ts):
+> - `dashboard-metrics`: "inadimplentes" agora é contagem de `customer_id` distintos com
+>   `invoices.status='overdue'` (24 invoices overdue existem hoje no banco; mesma definição
+>   que `nightly-brain.service.ts` já usa para "overdue").
+> - `jobs/history`: `stage` vem de `cobrai_rules.name` via embed no `rule_id`
+>   (`cobrai_jobs_rule_id_fkey` confirmado); `sent_at` vem de `executed_at`.
+>   `template_name`/`error_message` não têm coluna real — omitidos (ambos opcionais em
+>   `CobraiLog` no `CobrAIPage.tsx`, UI não quebra).
+> - `tenant-config`: a pausa é por cliente (`customers.cobrai_opted_out`, já usada pelo
+>   `toggle-pause` da mesma rota), não uma lista solta no tenant — query trocada de
+>   `tenants` para `customers` filtrando `cobrai_opted_out=true`.
+> - `csat-ratings`: fonte real é `ai_performance_logs.extra->csat_score` — mesmo campo que
+>   `nightly-brain.service.ts` (`gatherDailyMetrics`) já lê para CSAT médio. Confirmado via
+>   MCP que **hoje nenhuma das 20 linhas de `ai_performance_logs` tem `csat_score` em
+>   `extra`** — a rota não quebra mais, mas o widget continua vazio até algo popular o
+>   campo (mesmo estado prático que `QualityMonitorPage.tsx` já assumia manualmente com
+>   `setCsatRatings([])` e um comentário apontando este mesmo achado).
+>
+> Shape de resposta pro frontend **inalterado** nas 4 (`CobrAIPage.tsx`/`DashboardPage.tsx`
+> não precisaram de mudança). Suite `apps/api` completa: **2719 passed / 0 failed / 7
+> skipped**, exit 0 — inclusive os 4 arquivos que costumavam dar timeout sob carga total
+> (`langgraph`, `replay`, `prompt-cache`, `owasp-audit`) passaram limpos rodando sozinhos.
+> `typecheck:legacy` e `apps/api typecheck` limpos. Push direto autorizado pelo Lucas nesta
+> sessão (não passou pelo fluxo padrão F1-AUD/AUD-G — F1-AUD segue pendente para o resto do
+> lote F1, ver F1-D2 e "ACHADOS COLATERAIS").
+
 **⚠️ Achado crítico — o inventário F1-INV está incompleto.** O grep do passo 1 da F1-INV
 (`supabase\.from(`) só casa `supabase` e `.from(` na MESMA linha — a própria F1-INV já tinha
 avisado disso (nota "Correção pós-F1-A") mas o F1-D não tinha reauditado o escopo inteiro
