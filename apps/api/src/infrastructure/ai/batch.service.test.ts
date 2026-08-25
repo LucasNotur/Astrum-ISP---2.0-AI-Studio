@@ -2,11 +2,16 @@ import { describe, it, expect, vi } from 'vitest';
 
 vi.stubEnv('OPENAI_API_KEY', 'test-openai-key-for-vitest');
 
-const supabaseFrom = vi.fn(() => ({
-  select: vi.fn().mockReturnThis(),
-  eq: vi.fn().mockReturnThis(),
-  is: vi.fn().mockReturnThis(),
-  limit: vi.fn(async () => ({ data: [] })),
+// vi.hoisted: o `vi.mock` abaixo é içado para o topo do módulo, então a factory
+// roda ANTES de um `const` comum ser inicializado (TDZ → "Cannot access
+// 'supabaseFrom' before initialization"). O hoisted sobe junto e resolve.
+const { supabaseFrom } = vi.hoisted(() => ({
+  supabaseFrom: vi.fn(() => ({
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    is: vi.fn().mockReturnThis(),
+    limit: vi.fn(async () => ({ data: [] })),
+  })),
 }));
 
 vi.mock('../database/supabase.client', () => ({

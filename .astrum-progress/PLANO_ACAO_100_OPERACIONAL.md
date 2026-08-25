@@ -511,6 +511,45 @@ commit local SEM push (aguarda AUD-G).
 
 ## [ ] AUD-G — Auditoria geral dos lotes D1/D2/S3/L1 + push
 **Modelo:** Claude Sonnet 5
+
+> **PASSE 1 — 2026-08-25, Claude Opus 5: D1 AUDITADA, APROVADA E PUSHADA.** A tarefa segue
+> aberta porque D2/S3/L1 ainda não foram executadas (quando forem, roda um passe 2).
+>
+> Auditado o range `origin/main..HEAD` (4 commits: `5c1acc1` D1 + `f985679` doc D1 +
+> `010cca1` I1 + `db19c87` S2). **Toda a verificação rodou num git worktree isolado do
+> HEAD**, porque a árvore de trabalho tem WIP não commitado da D2 (remoção de 13 deps) que
+> contaminaria o resultado — auditar o commit exige testar o commit, não a árvore.
+> - **(a) major sem registro:** só 2 majors no lockfile. `nodemailer 8.0.10→9.0.5` está
+>   registrado E a justificativa se confirma — os 3 usos (`email.adapter.ts`,
+>   `src/lib/email.ts`, `siteScrapeWorker.ts`) são SMTP puro com host/port/auth, e o único
+>   anexo (`reportWorker.ts:156`) usa `content` base64 inline, não `path` remoto: o breaking
+>   do v9 (validar TLS ao buscar conteúdo remoto) não toca em nada. `miniflare
+>   4.20260603.0→5.20260820.0-alpha` **não é decisão da D1**: é dev-only (`dev: true`,
+>   fora do `--omit=dev`) e vem pinado pelo próprio `wrangler`, que subiu 4.98.0→4.125.0
+>   dentro do range `^4.98.0` já declarado. Registrado aqui para não parecer major escondido.
+> - **(b) dep removida que aparece em grep:** não se aplica — a D1 não removeu nenhuma dep,
+>   só bumps. (As 13 remoções são da D2, ainda NÃO commitadas — ficam para o passe 2.)
+> - **(c) lockfile coerente:** `npm ci` do zero **exit 0** (1414 pacotes). `npm audit
+>   --omit=dev` = **2 moderate / 0 high / 0 critical**, batendo com o relatório da D1 (os 2
+>   são o react-router, pulado com justificativa). E a checagem que a própria D1 pediu:
+>   as entradas aninhadas vulneráveis **NÃO voltaram** — `@getzep/zep-js/node_modules/
+>   {form-data,qs}` e `typed-rest-client/node_modules/qs` não existem no install limpo, e o
+>   override resolveu para `form-data@4.0.6` + `qs@6.15.3` deduplicados no topo.
+> - **teste enfraquecido/skipado:** nenhum — os 4 commits não tocam **nenhum** arquivo de
+>   teste nem de código (só `package.json`, `package-lock.json`, 2 docs e a migration 113).
+> - **suites:** `typecheck:legacy` exit 0, `apps/api typecheck` exit 0, `npm run build`
+>   exit 0. `npm run test:unit` acusou 4 falhas, TODAS provadas alheias a estes commits:
+>   `langgraph.service.test.ts` (2) e `owasp-audit.test.ts` (1) passam isoladas
+>   (**48/48 verde**) — é a flakiness de timeout sob carga total já documentada na
+>   F1-B/C/D; e `batch.service.test.ts` é o bug de hoisting do `vi.mock` herdado do commit
+>   S1 `434fd65`, **já em `origin/main`** (arquivo idêntico ao main, erro estático de TDZ,
+>   sem relação com dependência). Ou seja: o `main` já estava vermelho antes destes commits.
+> - **correção no ato** (AUD-G autoriza para problema pequeno): `batch.service.test.ts`
+>   passou a usar `vi.hoisted()` para o mock do `supabaseAdmin` — 3 linhas, sem enfraquecer
+>   asserção nenhuma (as duas `expect(supabaseFrom).toHaveBeenCalledWith(...)` seguem
+>   valendo). **7/7 verde.** Com isso o `main` volta a ficar verde.
+> - **Veredito: push feito.** Os 3 commits da D1/I1/S2 + o fix do teste subiram para o main.
+
 Mesmo protocolo da F1-AUD (diff completo de `origin/main..HEAD`, rodar suites, procurar
 teste enfraquecido, push se ok). Checklist extra: (a) nenhum bump de major sem registro;
 (b) nenhuma dep removida que aparece em grep; (c) lockfile coerente (`npm ci` limpo).
