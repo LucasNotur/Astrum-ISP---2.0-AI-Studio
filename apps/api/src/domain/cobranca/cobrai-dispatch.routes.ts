@@ -1,7 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { queues } from '../../infrastructure/queue/priority-queues';
-import { getCobraiEngine } from '../../infrastructure/config/engine-flags';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import {
   computeStage,
@@ -30,7 +29,6 @@ export async function cobraiDispatchRoutes(app: FastifyInstance) {
     const tenantId = tenantOf(req);
     if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
 
-    const engine = getCobraiEngine();
     const body = (req.body ?? {}) as { customerId?: string; stage?: CobraiStage };
     const now = Date.now();
     const jobs: CobraiEnqueue[] = [];
@@ -48,13 +46,13 @@ export async function cobraiDispatchRoutes(app: FastifyInstance) {
         .maybeSingle();
 
       const stage: CobraiStage = body.stage ?? (inv?.due_date ? computeStage(inv.due_date, now) : 'D_ZERO');
-      jobs.push(buildCobraiEnqueue(engine, {
+      jobs.push(buildCobraiEnqueue({
         customerId: body.customerId,
         tenantId,
         stage,
         invoiceId: inv?.id,
         amountCents: inv?.amount_cents,
-      }, { manual: true }));
+      }));
     } else {
       // Massa: todas as faturas do tenant não-pagas e já vencidas.
       const { data: invoices, error } = await supabaseAdmin
@@ -82,18 +80,18 @@ export async function cobraiDispatchRoutes(app: FastifyInstance) {
 
       for (const r of rows as any[]) {
         if (!r.customer_id || optedOut.has(r.customer_id)) continue;
-        jobs.push(buildCobraiEnqueue(engine, {
+        jobs.push(buildCobraiEnqueue({
           customerId: r.customer_id,
           tenantId,
           stage: computeStage(r.due_date, now),
           invoiceId: r.id,
           amountCents: r.amount_cents,
-        }, { manual: false }));
+        }));
       }
     }
 
     for (const j of jobs) await (queues.cobrai as any).add(j.name, j.data);
-    return reply.send({ ok: true, dispatched: jobs.length, engine });
+    return reply.send({ ok: true, dispatched: jobs.length });
   });
 
   // DELETE /api/v2/cobranca/queue/:id — remove um job da fila cobrai (ownership por tenant).

@@ -509,9 +509,15 @@ export async function buildServer() {
   const { queueMonitorRoutes } = await import('./domain/cobranca/queue-monitor.routes');
   await app.register(queueMonitorRoutes);
 
-  // Fase 2 — disparo manual da régua CobrAI (send-now) + gestão da fila (DELETE). Engine-aware (R6).
+  // Fase 2 — disparo manual da régua CobrAI (send-now) + gestão da fila (DELETE).
   const { cobraiDispatchRoutes } = await import('./domain/cobranca/cobrai-dispatch.routes');
   await app.register(cobraiDispatchRoutes);
+
+  // Freio de emergência da cobrança CobrAI (kill switch de verdade — C1, Option A,
+  // 2026-08-25, mesmo padrão do atendimento). Checado por cobrai.worker.ts antes de
+  // enviar qualquer mensagem via WhatsApp.
+  const { cobraiEmergencyStopRoutes } = await import('./domain/cobranca/cobrai-emergency-stop.routes');
+  await app.register(cobraiEmergencyStopRoutes);
 
   // F1-A — CobrAIPage: métricas do card, histórico de disparos, config do tenant e
   // toggle de opt-out por cliente (antes iam direto ao Supabase anônimo).
@@ -711,12 +717,12 @@ export async function startFastifyServer() {
     const msgWorker = createMessageWorker();
     app.log.info('[message-worker] iniciado');
 
-    // R6 — Worker v2 da régua CobrAI. Auto-guardado por COBRAI_ENGINE=v2 (shouldBootWorker);
-    // nunca era chamado antes (bug — descoberto na Fase 2/TAREFA 1, ver commit da fila 'cobrai').
+    // Worker de cobrança — único motor CobrAI (v2). Freio de emergência é o kill
+    // switch real (cobrai-emergency-stop.routes.ts), não uma env de engine (C1).
     // @ts-ignore
     const { createCobraiWorker } = await import('../../../packages/queue/src/workers/cobrai.worker');
-    const cobraiWorker = createCobraiWorker();
-    if (cobraiWorker) app.log.info('[cobrai-worker] v2 iniciado (COBRAI_ENGINE=v2)');
+    createCobraiWorker();
+    app.log.info('[cobrai-worker] iniciado');
 
     // F2-01 — Nightly brain worker (03:00 BRT, flag NIGHTLY_BRAIN_ENABLED).
     // @ts-ignore

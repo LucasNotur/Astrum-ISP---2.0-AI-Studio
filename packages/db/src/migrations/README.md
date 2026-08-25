@@ -48,6 +48,7 @@ já foi aplicado, roda cada arquivo em sua própria transação e alerta em caso
 015–020 fecham o gap Firestore→Supabase — ver `docs/DB_MIGRATION_GAP_REPORT.md`.
 
 | 108 | atendimento_emergency_stop.sql | Kill switch de verdade do atendimento IA (pós Fase 4, ver `astrum-rollback-atendimento-quebrado` na memória) |
+| 110 | cobranca_emergency_stop.sql | Kill switch de verdade da cobrança CobrAI (C1 — Option A, 2026-08-25, mesmo padrão da 108) |
 
 ## Verificação
 

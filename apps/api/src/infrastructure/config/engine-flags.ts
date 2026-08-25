@@ -1,44 +1,19 @@
 /**
- * Engine Flags — controle de qual implementação (legado vs v2) está ativa por domínio.
+ * Engine Flags — flags simples de feature por domínio (process.env only).
  *
- * Contexto (Plano Mestre V2, S68 — Contenção):
- * Durante a migração Strangler Fig, o mesmo domínio pode existir em duas frentes
- * que NÃO se enxergam. Se ambas subirem, há risco de disparo duplo (ex.: cobrança
- * dupla). Estas flags garantem que apenas UMA engine por domínio esteja ativa em
- * produção, de forma reversível (rollback = trocar a env).
- *
- * Regra R6 do plano: até a S76, apenas UMA engine CobrAI pode estar ativa.
- *
- * O par equivalente para atendimento (`getAtendimentoEngine`/`ATENDIMENTO_ENGINE`)
- * foi removido em 2026-08-23: a Fase 4 apagou o Express legado por completo, então
- * não há mais uma segunda engine real para escolher — v2 é a única. O freio de
- * emergência de verdade é `emergency-stop.service.ts` (Supabase, não env).
+ * O par que existia aqui para CobrAI (`getCobraiEngine`/`isCobraiEngineActive`/
+ * `shouldBootWorker`/`COBRAI_ENGINE`) foi removido em 2026-08-25 (Option A, mesma
+ * decisão já aplicada ao atendimento em 2026-08-23 — ver `ATENDIMENTO_ENGINE` no
+ * histórico do CLAUDE.md): o worker legado (`src/workers/cobraiWorker.ts`) só era
+ * bootado pelo Express, apagado por completo na Fase 4 (2026-08-17/18) — a flag
+ * não revertia mais nada, apenas desligava a cobrança inteira quando setada para
+ * 'legacy'. v2 (`packages/queue/src/workers/cobrai.worker.ts`) é a única engine e
+ * sobe incondicionalmente. O freio de emergência de verdade é o kill switch no
+ * Supabase (ver `domain/cobranca/cobrai-emergency-stop.routes.ts`), não uma env.
  *
  * Sem dependências externas de propósito — lê apenas process.env, para poder ser
  * importado tanto pelo backend novo (apps/api) quanto pelo legado (/src) no load.
  */
-
-export type EngineTarget = 'legacy' | 'v2';
-
-const VALID_TARGETS: readonly EngineTarget[] = ['legacy', 'v2'];
-
-function normalize(raw: string | undefined, fallback: EngineTarget): EngineTarget {
-  const value = (raw ?? '').trim().toLowerCase();
-  return (VALID_TARGETS as string[]).includes(value) ? (value as EngineTarget) : fallback;
-}
-
-/**
- * Engine ativa para a régua de cobrança (CobrAI).
- * Default: 'legacy' — é quem tem os dados reais em produção até o cutover (S76).
- */
-export function getCobraiEngine(): EngineTarget {
-  return normalize(process.env.COBRAI_ENGINE, 'legacy');
-}
-
-/** True se a engine de cobrança ativa é a passada em `target`. */
-export function isCobraiEngineActive(target: EngineTarget): boolean {
-  return getCobraiEngine() === target;
-}
 
 /**
  * Multi-agente por domínio (IA-10).
@@ -46,25 +21,4 @@ export function isCobraiEngineActive(target: EngineTarget): boolean {
  */
 export function isMultiAgentEnabled(): boolean {
   return (process.env.MULTI_AGENT_ENABLED ?? '').trim().toLowerCase() === 'true';
-}
-
-/**
- * Decide se o worker de cobrança deve subir. Retorna true se a engine dele é a ativa.
- * Quando false, o chamador NÃO deve instanciar o worker (evita disparo duplo — R6).
- * O `log` é injetável para não acoplar a nenhum logger específico.
- */
-export function shouldBootWorker(
-  domain: 'cobrai',
-  self: EngineTarget,
-  log: (msg: string) => void = () => {},
-): boolean {
-  const active = getCobraiEngine();
-  const boot = active === self;
-  if (!boot) {
-    log(
-      `[engine-flags] Worker ${domain}/${self} NÃO iniciado: engine ativa é '${active}'. ` +
-        `Ajuste COBRAI_ENGINE para '${self}' para ativá-lo.`,
-    );
-  }
-  return boot;
 }

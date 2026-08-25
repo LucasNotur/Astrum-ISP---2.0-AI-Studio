@@ -21,9 +21,9 @@ import type { PsiSeverity } from '../../../../apps/api/src/domain/ml/psi';
  *     `notifications` (schema em migration 016).
  *
  * Flag: DRIFT_DETECTION_ENABLED=true|false (default false).
- * Quando off, o worker NÃO instancia (mesmo padrão do cobrai.worker →
- * shouldBootWorker, mas adaptamos para flag booleana simples igual ao
- * IA-27 feature-store.worker).
+ * Quando off, o worker NÃO instancia — flag booleana simples igual ao
+ * IA-27 feature-store.worker (o cobrai.worker não usa mais esse padrão desde a
+ * C1, 2026-08-25: engine única v2, sobe incondicional).
  */
 
 const DRIFT_QUEUE = 'astrum:drift';

@@ -341,7 +341,42 @@ de dados) — confirmar antes de assumir, mas não gastar tempo tentando portar 
 
 # FASE 2 — P0: Rollback do CobrAI quebrado
 
-## [ ] C1 — Option A na cobrança (repetir a decisão do atendimento)
+## [x] C1 — Option A na cobrança (repetir a decisão do atendimento)
+**Modelo:** Claude Sonnet 5 (2026-08-25)
+**Resumo:** Deletado `src/workers/cobraiWorker.ts` + teste exclusivo; `lockout.test.ts`
+adaptado (removidos só os 2 testes do `processCobraiJob` legado, mantidos os 3 testes de
+`tenantStatusMiddleware`, código vivo separado). `engine-flags.ts` perdeu
+`getCobraiEngine`/`isCobraiEngineActive`/`shouldBootWorker`/`EngineTarget` (só sobrou
+`isMultiAgentEnabled`, sem relação); `cobrai.worker.ts` sobe incondicional (como o
+`message.worker`) e ganhou o freio de emergência real ANTES de qualquer `sendWhatsAppResponse`
+(send_message/suspend_signal — para só o envio, não o resto do processamento: lockout,
+invoice.paid, reactivate, notify_human continuam). Freio novo: tabela
+`cobranca_emergency_stops` (migration `110_cobranca_emergency_stop.sql`, aplicada via MCP e
+verificada — RLS on, policy `is_super_admin()`, grants corretos) + rota
+`cobrai-emergency-stop.routes.ts` (GET/POST `/api/v2/cobranca/emergency-stop`, POST
+`/api/v2/cobranca/emergency-resume`), reaproveitando as funções puras genéricas de
+`emergency-stop.service.ts` (do atendimento) em vez de duplicar lógica. `cobrai-dispatch.routes.ts`/`.service.ts` simplificados: `buildCobraiEnqueue` não recebe mais
+`engine` (só existe o shape v2 agora). `.env.example` e `CLAUDE.md` (R6 + tabela de flags)
+atualizados. 12 testes Vitest novos/adaptados. Verificação: `npm run typecheck:legacy` e
+`cd apps/api && npm run typecheck` limpos; `npm run test:unit` (suite completa, inclui
+apps/api + packages/queue): 3483 passed / 7 skipped / **1 arquivo falhando**
+(`apps/api/src/infrastructure/ai/batch.service.test.ts`) — **pré-existente, fora do escopo
+desta tarefa** (WIP não commitado do S1, arquivo nunca tocado por mim; confirmado via
+`git log` que o S1 já tem commit próprio `434fd65` e o bug de hoisting do mock já existia
+antes desta sessão). Commit local (não incluí `package.json`/`package-lock.json` nem as
+rotas de outras domains — cobrai-page/knowledge-reindex/dashboard/graph — que são WIP de
+D1/F1-D em andamento em paralelo, não meus). Push direto no main após auto-revisão do diff
+(autorizado pela spec desta tarefa).
+**Achado colateral (não corrigido, fora do escopo):** as tabelas `atendimento_emergency_stops`
+e `cobranca_emergency_stops` (esta e a migration 108) têm `authenticated` com grants
+`TRUNCATE`/`DELETE`/`TRIGGER`/`REFERENCES` além de `SELECT`/`INSERT`/`UPDATE`, herdados de
+`ALTER DEFAULT PRIVILEGES` do projeto — RLS cobre linhas mas `TRUNCATE` não é row-scoped,
+então qualquer `authenticated` pode truncar a tabela hoje. Sistêmico do projeto (não
+introduzido por esta migration), mesma categoria do achado da auditoria pré-prod de
+2026-08-10. Relevante para a S2 (funções SECURITY DEFINER + tabelas deny-all).
+
+<!-- Spec original abaixo, mantida para referência -->
+
 **Modelo:** Claude Sonnet 5 *(mexe em cobrança — manter no Claude; NÃO dar ao DeepSeek)*
 **Contexto:** `.env` de produção já roda `COBRAI_ENGINE=v2`. O worker legado
 `src/workers/cobraiWorker.ts` não é bootado por ninguém (quem o bootava era o Express,

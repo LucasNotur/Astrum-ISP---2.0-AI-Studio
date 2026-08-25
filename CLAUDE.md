@@ -32,8 +32,9 @@
 - **R5 — Portar, não apagar:** código legado só é deletado quando o comportamento equivalente
   estiver no `apps/api`, testado, **e** recebendo o tráfego de produção.
 
-- **R6 — Uma régua de cobrança:** até a S76, apenas **UMA** engine CobrAI ativa, controlada pela
-  env `COBRAI_ENGINE` (`legacy` | `v2`, default `legacy`). Ver `engine-flags.ts`.
+- **R6 — Uma régua de cobrança:** engine única, **v2** (`packages/queue/src/workers/cobrai.worker.ts`),
+  sem env de escolha — `COBRAI_ENGINE` foi removida em 2026-08-25 (Option A, ver abaixo). Freio de
+  emergência = `POST /api/v2/cobranca/emergency-stop` (kill switch real, não env).
 
 ## Padrão de qualidade (obrigatório)
 
@@ -43,9 +44,20 @@
 
 ## Flags de transição (env)
 
-| Env | Valores | Default | Efeito |
-|---|---|---|---|
-| `COBRAI_ENGINE` | `legacy` \| `v2` | `legacy` | Qual worker de cobrança sobe (R6). Rollback = trocar a env (o worker legado ainda existe e é bootado condicionalmente). |
+Nenhuma engine flag de cobrança/atendimento ativa hoje — ambas foram removidas (ver os dois
+parágrafos abaixo). `engine-flags.ts` só resta com `isMultiAgentEnabled()` (`MULTI_AGENT_ENABLED`, IA-10).
+
+`COBRAI_ENGINE` foi **removida do código em 2026-08-25** (C1 — Option A, repetindo a decisão
+do atendimento): o worker legado (`src/workers/cobraiWorker.ts`) só era bootado pelo Express,
+apagado por completo na Fase 4 (2026-08-17/18) — setar a env pra `legacy` não revertia mais
+nada, só impedia o worker v2 de subir e nada subia no lugar (desligava a cobrança inteira sem
+ninguém perceber). `getCobraiEngine()`/`isCobraiEngineActive()`/`shouldBootWorker()`
+(`engine-flags.ts`) foram deletados; `cobrai.worker.ts` agora só processa e envia (R5 — sem
+"legado" de verdade pra reverter). **Para parar a cobrança CobrAI de enviar mensagem de
+verdade em produção** (incidente real, não teste), use o freio de emergência de verdade:
+`POST /api/v2/cobranca/emergency-stop` (super_admin) — para o ENVIO via WhatsApp, mas o resto
+do processamento (lockout de tenant inadimplente, invoice.paid, reactivate, notify_human)
+continua rodando. Ver migration `110_cobranca_emergency_stop.sql`.
 
 `ATENDIMENTO_ENGINE` foi **removida do código em 2026-08-23** (Option A da decisão sobre
 o rollback quebrado — ver abaixo): a Fase 4 já tinha apagado o webhook/worker Express por

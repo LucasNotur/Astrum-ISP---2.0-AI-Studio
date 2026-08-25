@@ -6,7 +6,7 @@ import { supabaseAdmin } from '../../../../apps/api/src/infrastructure/database/
 import { cobrancaLogger } from '../../../../apps/api/src/infrastructure/logging/logger';
 import { addSentryToWorker } from '../../../../apps/api/src/infrastructure/observability/sentry-worker.helper';
 import { svixEvents } from '../../../../apps/api/src/adapters/webhooks/svix.service';
-import { shouldBootWorker } from '../../../../apps/api/src/infrastructure/config/engine-flags';
+import { isEmergencyStopped } from '../../../../apps/api/src/domain/atendimento/emergency-stop.service';
 
 export interface CobraiJobData {
   tenantId: string;
@@ -97,6 +97,33 @@ async function executeCobraiAction(job: Job<CobraiJobData>): Promise<void> {
 
   // Guardas portadas do legado (S76): janela, limites, opt-out, acordo, compensação.
   if (action === 'send_message' || action === 'suspend_signal') {
+    // Freio de emergência da cobrança (C1 — Option A): checado ANTES de enviar
+    // qualquer mensagem via WhatsApp. Ativo → o job é marcado 'skipped' e nada é
+    // enviado, mas o resto do processamento CobrAI (lockout, invoice.paid,
+    // reactivate, notify_human) continua normal — o freio para só o envio.
+    const stopped = await isEmergencyStopped({
+      findActive: async () => {
+        const { data, error } = await supabaseAdmin
+          .from('cobranca_emergency_stops')
+          .select('id, reason, activated_at, activated_by')
+          .is('deactivated_at', null)
+          .order('activated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (error) throw new Error(error.message);
+        return data as any;
+      },
+    });
+    if (stopped) {
+      cobrancaLogger.warn({ tenantId, invoiceId, action }, '[emergency-stop] CobrAI suspenso — mensagem NÃO enviada');
+      await supabaseAdmin
+        .from('cobrai_jobs')
+        .update({ status: 'skipped', skip_reason: 'emergency_stop', executed_at: new Date().toISOString() })
+        .eq('bullmq_job_id', job.id)
+        .eq('tenant_id', tenantId);
+      return;
+    }
+
     const { evaluateCobraiGate } = await import('../../../../apps/api/src/domain/cobranca/cobrai-guards');
     const { data: tenantCfg } = await supabaseAdmin
       .from('tenants')
@@ -257,11 +284,6 @@ async function executeCobraiAction(job: Job<CobraiJobData>): Promise<void> {
 }
 
 export function createCobraiWorker() {
-  // Guarda R6: só sobe se COBRAI_ENGINE=v2. Evita disparo duplo com o worker legado.
-  if (!shouldBootWorker('cobrai', 'v2', (m) => cobrancaLogger.warn(m))) {
-    return null;
-  }
-
   const worker = new Worker<CobraiJobData>(
     // BUG FIX (Fase 2, 2026-08-16): tinha que ser 'cobrai' — mesmo nome da Queue em
     // priority-queues.ts. Com nomes diferentes, BullMQ nunca conecta Queue->Worker

@@ -26,23 +26,15 @@ describe('computeStage', () => {
 describe('buildCobraiEnqueue', () => {
   const input = { customerId: 'c1', tenantId: 't1', stage: 'D_PLUS_3' as const, invoiceId: 'inv1', amountCents: 5000 };
 
-  it('engine legacy: shape {customerId,tenantId,stage} + nome por modo', () => {
-    expect(buildCobraiEnqueue('legacy', input, { manual: true })).toEqual({
-      name: 'cobrai_manual',
-      data: { customerId: 'c1', tenantId: 't1', stage: 'D_PLUS_3' },
-    });
-    expect(buildCobraiEnqueue('legacy', input, { manual: false }).name).toBe('cobrai_routine');
-  });
-
-  it('engine v2: shape CobraiJobData com invoiceId/action', () => {
-    expect(buildCobraiEnqueue('v2', input, { manual: true })).toEqual({
+  it('monta shape CobraiJobData (v2 — única engine desde a C1) com invoiceId/action', () => {
+    expect(buildCobraiEnqueue(input)).toEqual({
       name: 'send_message',
       data: { tenantId: 't1', customerId: 'c1', invoiceId: 'inv1', action: 'send_message', amountCents: 5000 },
     });
   });
 
-  it('engine v2 sem invoiceId → invoiceId vazio (não quebra)', () => {
-    const { data } = buildCobraiEnqueue('v2', { customerId: 'c1', tenantId: 't1', stage: 'D_ZERO' }, { manual: true });
+  it('sem invoiceId → invoiceId vazio (não quebra)', () => {
+    const { data } = buildCobraiEnqueue({ customerId: 'c1', tenantId: 't1', stage: 'D_ZERO' });
     expect(data.invoiceId).toBe('');
   });
 });

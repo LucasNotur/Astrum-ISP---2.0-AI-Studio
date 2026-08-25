@@ -5,12 +5,9 @@
  * `customers.financial_status`/`overdue_days` (colunas que NÃO existem — o send-now
  * legado estava quebrado, era da era Firestore).
  *
- * **Engine-aware (contorna o cutover S76):** o send-now enfileira na fila `cobrai`, que é
- * consumida pelo worker ATIVO conforme `COBRAI_ENGINE` (R6 — só um sobe por vez):
- *   - `legacy` (default de hoje, vivo em produção) espera `{ customerId, tenantId, stage }`.
- *   - `v2` (sobe só no cutover) espera `CobraiJobData { tenantId, customerId, invoiceId, action, ... }`.
- * Assim o disparo funciona HOJE (via engine legado) sem esperar o S76, e troca de shape sozinho
- * quando o flag virar. Funções PURAS + testáveis; a rota faz o I/O (Supabase/fila).
+ * O send-now enfileira na fila `cobrai`, consumida pelo worker v2 (única engine
+ * desde a C1 — Option A, 2026-08-25): shape `CobraiJobData { tenantId, customerId,
+ * invoiceId, action, ... }`. Funções PURAS + testáveis; a rota faz o I/O (Supabase/fila).
  */
 
 export type CobraiStage = 'D_MINUS_5' | 'D_ZERO' | 'D_PLUS_3' | 'D_PLUS_15' | 'D_PLUS_30';
@@ -47,29 +44,16 @@ export interface CobraiEnqueue {
   data: Record<string, unknown>;
 }
 
-/**
- * Monta o job para a engine ativa. `manual=true` marca disparo avulso (um cliente);
- * `false` é a rotina em massa. NÃO faz I/O.
- */
-export function buildCobraiEnqueue(
-  engine: 'legacy' | 'v2',
-  input: DispatchInput,
-  opts: { manual: boolean },
-): CobraiEnqueue {
-  if (engine === 'v2') {
-    return {
-      name: 'send_message',
-      data: {
-        tenantId: input.tenantId,
-        customerId: input.customerId,
-        invoiceId: input.invoiceId ?? '',
-        action: 'send_message',
-        amountCents: input.amountCents,
-      },
-    };
-  }
+/** Monta o job CobrAI (shape v2 — `CobraiJobData`). NÃO faz I/O. */
+export function buildCobraiEnqueue(input: DispatchInput): CobraiEnqueue {
   return {
-    name: opts.manual ? 'cobrai_manual' : 'cobrai_routine',
-    data: { customerId: input.customerId, tenantId: input.tenantId, stage: input.stage },
+    name: 'send_message',
+    data: {
+      tenantId: input.tenantId,
+      customerId: input.customerId,
+      invoiceId: input.invoiceId ?? '',
+      action: 'send_message',
+      amountCents: input.amountCents,
+    },
   };
 }
