@@ -408,7 +408,75 @@ achado em `AIObservabilityPage.tsx`/`AIConfigPage.tsx` (campos como `escalated`,
 de dados) — confirmar antes de assumir, mas não gastar tempo tentando portar 1:1.
 **Verificação/DoD:** mesmos da F1-A.
 
-## [ ] F1-AUD — Auditoria dos lotes F1 antes do push
+## [x] F1-AUD — Auditoria dos lotes F1 antes do push
+**Modelo:** Claude Sonnet 5 (2026-08-25)
+**Resumo:** rodada **retroativa**, não no formato original da spec — `git log
+origin/main..HEAD` deu vazio (F1-A/B/C/D/D2 já estavam 100% em produção, foram ao main
+"de carona" em pushes de tarefas seguintes, não por um push formal auditado; ver "Estado
+das frentes" no CLAUDE.md). Sem diff pra revisar, auditei o **código já em produção**
+direto: levantei os 20 arquivos de rota criados/estendidos por F1-A/B/C/D/D2 via `git log
+--grep "PLANO-100 F1-"` + `git show --stat` de cada commit, e as ~22 páginas/componentes
+de frontend do inventário original.
+- **(a) nenhuma rota aceita tenantId de fora do JWT / (b) supabaseAdmin + tenant_id / (c)
+  fallback camelCase↔snake_case:** as 20 rotas lidas por completo (`billing-page`,
+  `cobrai-page`, `dashboard`, `whatsapp-page`, `team-page`, `settings-page`,
+  `quality-stats`, `knowledge-reindex`, `dlq`, `notifications`, `ai-config`, `customers`,
+  `inventory-import`, `observability-data`, `graph`, `auth`, mais as 4 da própria F1-D2) —
+  **todas** usam `getTenantId(req.user)` (helper da S3) + `supabaseAdmin` +
+  `.eq('tenant_id', tenantId)`. Único desvio é **deliberado e documentado no próprio
+  código**: `super-admin.routes.ts` não filtra por tenant porque É o painel cross-tenant,
+  gateado só por `requirePermission('reports','admin')` — conferido que só `super_admin`
+  tem essa permissão (`rbac.middleware.ts`, `admin` role só tem `reports:['read']`).
+  `customers.routes.ts` merece nota: os sub-recursos (`/tickets`, `/service-orders`)
+  filtram por `customer_id` **E** `tenant_id` juntos, não confiam só no `id` do path.
+- **(d) zero `supabase.from(` restante nas páginas do lote (além do já documentado):**
+  grep multi-arquivo nas ~22 páginas — sobraram ocorrências em 5 arquivos, **todas já
+  documentadas** como gap de schema pré-existente (`ChatPage.tsx` 6, `WhatsAppPage.tsx` 2,
+  `SettingsPage.tsx` 26, `KnowledgeBasePage.tsx` 2 — `embedding_config`/`vector_store_config`
+  não existem; `AIConfigPage.tsx` 2 dessas 4 restantes idem). `SuperAdminRoute.tsx`/
+  `Sidebar.tsx` "davam match" só por **comentário** citando o código antigo — zero código
+  real restante ali.
+- **(e)/(f) testes — 2 gaps reais achados e corrigidos no ato:**
+  - `observability-data.routes.ts` (ragas-scores + guardrail-blocks, F1-D) **não tinha
+    nenhum teste** — violação direta do DoD da F1-D ("toda rota nova tem teste"). Criado
+    `observability-data.routes.test.ts` (10 testes: 401, filtro de tenant nos dois
+    endpoints, não-vazamento cross-tenant, erro 500).
+  - `report-metrics.routes.test.ts` (F1-D) testava a agregação e a sequência de tabelas
+    consultadas, mas **nunca afirmava que o filtro de tenant foi aplicado** — um `.eq('id',
+    ...)` trocado por engano passaria despercebido. Adicionada asserção `chain.eq
+    toHaveBeenCalledWith('tenant_id', 'tenant-1')` nos 3 selects.
+  - Nenhum teste existente foi enfraquecido ou skipado — só adições.
+- **(g) suites:** `typecheck:legacy` + `apps/api typecheck` limpos; `npm run build` ok.
+  `cd apps/api && npm test`: **2753 passed / 0 failed / 7 skipped**, exit 0 (rodada
+  isolada, sem contenção de carga — inclusive os 4 arquivos que costumam dar timeout sob
+  carga total passaram limpos desta vez).
+
+**Achados colaterais (estruturais, NÃO consertados — fora do escopo de "problema
+pequeno"):**
+- **`AIConfigPage.tsx`, aba de uso de IA (linhas ~455-468, ~1799-1811):** lê
+  `ai_performance_logs` direto do Supabase anônimo (tabela real, mas client bloqueado
+  pela migration 092 — mesmo padrão de bug de RLS). Só corrigir o client não resolveria:
+  a UI lê `log.promptTokens`/`log.completionTokens`/`log.totalTokens`/`log.ticketId`/
+  `log.createdAt.seconds` — nomes que **não existem em nenhuma versão do schema real**
+  (`ai_performance_logs` usa `tokens_in`/`tokens_out`/`ticket_id`/`created_at` string ISO,
+  sem contrapartida camelCase). O `.seconds` é claramente resíduo do Firestore
+  (removido por completo em 2026-07-03) — esta aba nunca foi tocada na migração
+  Firestore→Supabase nem na Fase 1. Precisa de reescrita da camada de leitura + mapeamento
+  de campos, não é rename de rota.
+- **`Sidebar.tsx`, "Último acesso" (linhas ~104-114, ~211-212):** usa
+  `supabase.auth.getSession()` pra pegar `last_sign_in_at` — sessão sempre `null` (app não
+  usa Supabase Auth pra login, mesmo bug já corrigido em várias outras telas na F1-D2).
+  Efeito prático: `lastLogin` nunca é setado, o bloco `{lastLogin && (...)}` nunca
+  renderiza — **feature invisível, não quebra nada, sem risco de segurança**. A coluna
+  real existe (`users.last_login_at`), mas não confirmei se o fluxo de login grava nela —
+  precisa investigar antes de expor via rota nova. Baixa prioridade.
+
+**Push:** nada pendente de F1-A/B/C/D/D2 em si (já em produção). Os 2 arquivos de teste
+corrigidos nesta auditoria foram commitados e pushados direto (fix pequeno, mesmo padrão
+de correção-no-ato autorizada pela própria spec desta tarefa).
+
+<!-- Spec original abaixo, mantida para referência -->
+
 **Modelo:** Claude Sonnet 5 *(rodar após CADA lote F1-A/B/C/D, ou após todos)*
 **Objetivo:** garantir que os commits locais não-pushados da Fase 1 estão corretos.
 **Passos:**

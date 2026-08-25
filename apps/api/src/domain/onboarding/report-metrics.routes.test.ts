@@ -54,6 +54,9 @@ describe('GET /api/v2/onboarding/report-metrics', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ totalCustomers: 42, overdueCount: 5, overdueAmountCents: 15000 });
     expect((supabaseAdmin.from as any).mock.calls.map((c: any) => c[0])).toEqual(['customers', 'invoices', 'invoices']);
+    for (const result of (supabaseAdmin.from as any).mock.results) {
+      expect(result.value.eq).toHaveBeenCalledWith('tenant_id', 'tenant-1');
+    }
   });
 
   it('erro do Supabase -> 500', async () => {
