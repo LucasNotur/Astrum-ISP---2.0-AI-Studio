@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { apiGet, apiPut } from '../lib/apiClient';
 import { useAppStore } from '../store/useAppStore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card";
 import { Button } from "./ui/button";
@@ -29,21 +29,19 @@ export function EscalationRulesBuilder() {
     fetchRules();
   }, [tenantId]);
 
-  // FZ-4: regras vivem em tenants.escalation_rules (JSONB array) — mesmo storage
-  // que o backend (escalationEngine/messageWorker) lê via db-compat.
+  // F1-D2: regras vivem em tenants.escalation_rules (JSONB array) — mesmo storage
+  // que o backend (escalationEngine/messageWorker) lê via db-compat. Antes ia
+  // direto ao Supabase anônimo (bloqueado pela migration 092).
   const persistRules = async (next: Rule[]) => {
-    const { error } = await supabase
-      .from('tenants').update({ escalation_rules: next }).eq('id', tenantId);
-    if (error) throw error;
+    await apiPut('/api/v2/settings/escalation-rules', { escalation_rules: next });
     setRules(next);
   };
 
   const fetchRules = async () => {
     setLoading(true);
     try {
-      const { data } = await supabase
-        .from('tenants').select('escalation_rules').eq('id', tenantId).maybeSingle();
-      setRules(Array.isArray(data?.escalation_rules) ? data!.escalation_rules : []);
+      const data = await apiGet<{ escalation_rules: Rule[] }>('/api/v2/settings/escalation-rules');
+      setRules(Array.isArray(data?.escalation_rules) ? data.escalation_rules : []);
     } catch (error) {
       console.error("Error fetching rules", error);
     }

@@ -18,6 +18,7 @@ interface TopHeaderProps {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { supabase } from '@/src/lib/supabase';
 import { upsertTenantOperator } from '@/src/lib/supabaseDb';
+import { apiGet } from '@/src/lib/apiClient';
 
 function OperatorStatusToggle() {
   const { userProfile, user } = useAppStore();
@@ -25,11 +26,11 @@ function OperatorStatusToggle() {
 
   useEffect(() => {
     if (!userProfile?.tenantId || !user?.uid || !userProfile?.name) return;
-    // FZ-4: operadores vivem em tenants.operators (JSONB array) — mesmo storage do backend
+    // F1-D2: operadores vivem em tenants.operators (JSONB array) — mesmo storage do
+    // backend. Antes ia direto ao Supabase anônimo (bloqueado pela migration 092).
     let cancelled = false;
     const load = async () => {
-      const { data } = await supabase
-        .from('tenants').select('operators').eq('id', userProfile.tenantId).maybeSingle();
+      const data = await apiGet<{ operators: any[] }>('/api/v2/team/operator-status').catch(() => null);
       const ops: any[] = Array.isArray(data?.operators) ? data!.operators : [];
       const me = ops.find(o => o?.id === user.uid);
       if (cancelled) return;

@@ -3,6 +3,7 @@ import { getTenantId, getUserId } from '../../lib/jwt-claims';
 import { generateTokenPair, rotateTokens, revokeAllTokens } from '../../infrastructure/auth/jwt.service';
 import { validateBody } from '../../infrastructure/validation/zod-validator';
 import { refreshBodySchema } from '../../../../../packages/shared/src/schemas';
+import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 
 export async function authRoutes(fastify: FastifyInstance) {
   // Renovar tokens
@@ -32,15 +33,29 @@ export async function authRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // F1-D — Sidebar.tsx/SuperAdminRoute.tsx/IntelligenceHubPage.tsx checavam
-  // super_admin com `supabase.from('users').select('role')` direto (client
-  // anônimo, bloqueado pela migration 092). O JWT do apps/api já carrega
-  // `role`; esta rota só expõe o que já está no token, sem tocar no Supabase.
+  // F1-D — Sidebar.tsx/SuperAdminRoute.tsx checavam super_admin com
+  // `supabase.from('users').select('role')` direto (client anônimo, bloqueado pela
+  // migration 092). `role`/`tenantId` vêm do JWT (sem tocar no Supabase). F1-D2:
+  // `isSandbox` (SyntheticPage.tsx, mesmo bug — `supabase.auth.getSession()` nunca
+  // resolve porque este app não usa Supabase Auth pra login) exige 1 leitura em
+  // `tenants.is_sandbox` — único campo desta rota que toca o banco.
   fastify.get('/api/v2/auth/me',
     { onRequest: [(fastify as any).authenticate] },
     async (request, reply) => {
       const user = (request as any).user as { role?: string };
-      return reply.send({ role: user.role ?? null, tenantId: getTenantId((request as any).user) });
+      const tenantId = getTenantId((request as any).user);
+
+      let isSandbox = false;
+      if (tenantId) {
+        const { data } = await supabaseAdmin
+          .from('tenants')
+          .select('is_sandbox')
+          .eq('id', tenantId)
+          .maybeSingle();
+        isSandbox = (data as any)?.is_sandbox === true;
+      }
+
+      return reply.send({ role: user.role ?? null, tenantId, isSandbox });
     }
   );
 }

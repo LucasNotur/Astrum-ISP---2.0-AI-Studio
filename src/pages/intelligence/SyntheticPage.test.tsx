@@ -4,47 +4,17 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import SyntheticPage from './SyntheticPage';
 
-// Mock do supabase (auth + tabelas)
-const tenantsMaybeSingle = vi.fn();
-const usersMaybeSingle = vi.fn();
-const sessionState: { tenantId: string | null; userId: string | null } = {
-  tenantId: 't-1',
-  userId: 'u-1',
-};
+// F1-D2 — role/isSandbox agora vêm de GET /api/v2/auth/me (apiClient), não mais de
+// `supabase.from('tenants'|'users')` direto (o mock antigo simulava isso).
+const meState: { role: string | null; isSandbox: boolean } = { role: null, isSandbox: false };
 
-vi.mock('@/src/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      getSession: vi.fn(() =>
-        Promise.resolve({
-          data: {
-            session: {
-              access_token: 'tok',
-              user: {
-                id: sessionState.userId,
-                app_metadata: sessionState.tenantId
-                  ? { tenant_id: sessionState.tenantId }
-                  : {},
-                user_metadata: {},
-              },
-            },
-          },
-        }),
-      ),
-      onAuthStateChange: vi.fn(() => ({
-        data: { subscription: { unsubscribe: vi.fn() } },
-      })),
-    },
-    from: vi.fn((table: string) => {
-      if (table === 'tenants') {
-        return { select: () => ({ eq: () => ({ maybeSingle: tenantsMaybeSingle }) }) };
-      }
-      if (table === 'users') {
-        return { select: () => ({ eq: () => ({ maybeSingle: usersMaybeSingle }) }) };
-      }
-      return { select: vi.fn() };
-    }),
-  },
+vi.mock('@/src/lib/apiClient', () => ({
+  apiGet: vi.fn((path: string) => {
+    if (path === '/api/v2/auth/me') {
+      return Promise.resolve({ role: meState.role, isSandbox: meState.isSandbox });
+    }
+    return Promise.reject(new Error(`apiGet inesperado no teste: ${path}`));
+  }),
 }));
 
 vi.mock('@/src/lib/apiAuth', () => ({
@@ -75,8 +45,8 @@ describe('SyntheticPage (IA-45)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     globalThis.fetch = vi.fn();
-    sessionState.tenantId = 't-1';
-    sessionState.userId = 'u-1';
+    meState.role = null;
+    meState.isSandbox = false;
   });
 
   afterEach(() => {
@@ -87,8 +57,6 @@ describe('SyntheticPage (IA-45)', () => {
 
   it('amber banner sempre visível, mesmo com gates falhando', async () => {
     flagsState.flags = {};
-    usersMaybeSingle.mockResolvedValue({ data: null, error: null });
-    tenantsMaybeSingle.mockResolvedValue({ data: null, error: null });
 
     render(<SyntheticPage />, { wrapper });
 
@@ -99,8 +67,8 @@ describe('SyntheticPage (IA-45)', () => {
 
   it('flag off → mostra "recurso desabilitado" e NÃO mostra o form', async () => {
     flagsState.flags = { synthdata: false };
-    usersMaybeSingle.mockResolvedValue({ data: { role: 'super_admin' }, error: null });
-    tenantsMaybeSingle.mockResolvedValue({ data: { is_sandbox: true }, error: null });
+    meState.role = 'super_admin';
+    meState.isSandbox = true;
 
     render(<SyntheticPage />, { wrapper });
 
@@ -112,8 +80,8 @@ describe('SyntheticPage (IA-45)', () => {
 
   it('não super_admin → mostra "restrito a super_admin" e NÃO mostra o form', async () => {
     flagsState.flags = { synthdata: true };
-    usersMaybeSingle.mockResolvedValue({ data: { role: 'admin' }, error: null });
-    tenantsMaybeSingle.mockResolvedValue({ data: { is_sandbox: true }, error: null });
+    meState.role = 'admin';
+    meState.isSandbox = true;
 
     render(<SyntheticPage />, { wrapper });
 
@@ -123,8 +91,8 @@ describe('SyntheticPage (IA-45)', () => {
 
   it('tenant real (is_sandbox=false) → mostra "ambiente de teste" e NÃO mostra o form', async () => {
     flagsState.flags = { synthdata: true };
-    usersMaybeSingle.mockResolvedValue({ data: { role: 'super_admin' }, error: null });
-    tenantsMaybeSingle.mockResolvedValue({ data: { is_sandbox: false }, error: null });
+    meState.role = 'super_admin';
+    meState.isSandbox = false;
 
     render(<SyntheticPage />, { wrapper });
 
@@ -134,8 +102,8 @@ describe('SyntheticPage (IA-45)', () => {
 
   it('sandbox + super_admin + flag on → mostra o form completo', async () => {
     flagsState.flags = { synthdata: true };
-    usersMaybeSingle.mockResolvedValue({ data: { role: 'super_admin' }, error: null });
-    tenantsMaybeSingle.mockResolvedValue({ data: { is_sandbox: true }, error: null });
+    meState.role = 'super_admin';
+    meState.isSandbox = true;
 
     render(<SyntheticPage />, { wrapper });
 
@@ -150,8 +118,8 @@ describe('SyntheticPage (IA-45)', () => {
 
   it('form mostra "Restante: X%" baseado no mix default (soma 100)', async () => {
     flagsState.flags = { synthdata: true };
-    usersMaybeSingle.mockResolvedValue({ data: { role: 'super_admin' }, error: null });
-    tenantsMaybeSingle.mockResolvedValue({ data: { is_sandbox: true }, error: null });
+    meState.role = 'super_admin';
+    meState.isSandbox = true;
 
     render(<SyntheticPage />, { wrapper });
 
@@ -162,8 +130,8 @@ describe('SyntheticPage (IA-45)', () => {
 
   it('clicando Gerar dataset chama POST /api/v2/ia/synthetic/generate', async () => {
     flagsState.flags = { synthdata: true };
-    usersMaybeSingle.mockResolvedValue({ data: { role: 'super_admin' }, error: null });
-    tenantsMaybeSingle.mockResolvedValue({ data: { is_sandbox: true }, error: null });
+    meState.role = 'super_admin';
+    meState.isSandbox = true;
     (globalThis.fetch as any).mockResolvedValue({
       ok: true,
       json: async () => ({ job_id: 'job-99' }),

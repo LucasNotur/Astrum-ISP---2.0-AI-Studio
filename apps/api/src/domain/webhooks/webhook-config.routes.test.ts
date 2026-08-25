@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Fastify from 'fastify';
 
 // Mocks antes de qualquer import de rotas
+vi.mock('../../infrastructure/database/supabase.client', () => ({
+  supabaseAdmin: { from: vi.fn() },
+}));
+
 vi.mock('../../adapters/webhooks/svix.service', () => {
   class SvixRetryError extends Error {
     constructor(public readonly code: string, message: string) {
@@ -41,6 +45,37 @@ describe('webhook-config.routes', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     app = await buildApp();
+  });
+
+  it('GET /api/v2/webhooks/deliveries lista entregas do tenant, filtrado por tenant_id', async () => {
+    const { supabaseAdmin } = await import('../../infrastructure/database/supabase.client');
+    const rows = [{ id: 'd1', event_type: 'ticket.created', status: 'sent' }];
+    const chain: any = {};
+    for (const m of ['select', 'eq', 'order', 'limit']) chain[m] = vi.fn().mockReturnValue(chain);
+    chain.then = (resolve: any) => Promise.resolve({ data: rows, error: null }).then(resolve);
+    (supabaseAdmin.from as any).mockReturnValue(chain);
+
+    const res = await app.inject({ method: 'GET', url: '/api/v2/webhooks/deliveries' });
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toEqual(rows);
+    expect(supabaseAdmin.from).toHaveBeenCalledWith('webhook_deliveries');
+    expect(chain.eq).toHaveBeenCalledWith('tenant_id', 'tenant-test');
+  });
+
+  it('GET /api/v2/webhooks/config retorna o svix_app_id do tenant', async () => {
+    const { supabaseAdmin } = await import('../../infrastructure/database/supabase.client');
+    const chain: any = {};
+    for (const m of ['select', 'eq']) chain[m] = vi.fn().mockReturnValue(chain);
+    chain.maybeSingle = vi.fn().mockResolvedValue({ data: { svix_app_id: 'app_123' }, error: null });
+    (supabaseAdmin.from as any).mockReturnValue(chain);
+
+    const res = await app.inject({ method: 'GET', url: '/api/v2/webhooks/config' });
+
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toEqual({ svixAppId: 'app_123' });
+    expect(supabaseAdmin.from).toHaveBeenCalledWith('tenants');
+    expect(chain.eq).toHaveBeenCalledWith('id', 'tenant-test');
   });
 
   it('GET /api/v2/webhooks/endpoints retorna lista de endpoints', async () => {

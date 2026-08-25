@@ -5,7 +5,7 @@ import { formatDistanceToNow, parseISO } from 'date-fns';
 import { ptBR as datePtBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { ptBR } from '@/src/lib/i18n/pt-br';
-import { supabase } from '@/src/lib/supabase';
+import { apiGet } from '@/src/lib/apiClient';
 import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { useFeatureFlags } from '@/src/hooks/useFeatureFlags';
 import { Card, CardContent } from '@/src/components/ui/card';
@@ -50,23 +50,21 @@ interface SandboxHistoryItem {
   executed_at: string;
 }
 
-interface UserRow {
-  role?: string;
-}
-
 async function fetchToken(): Promise<string | null> {
   return getApiAccessToken();
 }
 
-async function fetchIsSuperAdmin(userId: string | null): Promise<boolean> {
-  if (!userId) return false;
-  const { data, error } = await supabase
-    .from('users')
-    .select('role')
-    .eq('id', userId)
-    .maybeSingle();
-  if (error || !data) return false;
-  return (data as UserRow).role === 'super_admin';
+// F1-D2: role vem do JWT do apps/api (GET /api/v2/auth/me), não mais de
+// `supabase.from('users').select('role')` direto (client anônimo, bloqueado pela
+// migration 092 — e `supabase.auth.getSession()` nunca resolvia mesmo, pois este
+// app não usa Supabase Auth pra login).
+async function fetchIsSuperAdmin(): Promise<boolean> {
+  try {
+    const { role } = await apiGet<{ role: string | null }>('/api/v2/auth/me');
+    return role === 'super_admin';
+  } catch {
+    return false;
+  }
 }
 
 async function postQuery(token: string, sql: string): Promise<SandboxRun> {
@@ -112,30 +110,21 @@ export function SandboxPage() {
   const flagOn = flags.sandbox === true;
 
   const [token, setToken] = React.useState<string | null>(null);
-  const [userId, setUserId] = React.useState<string | null>(null);
   React.useEffect(() => {
     let mounted = true;
-    // `token` autentica em apps/api (JWT próprio — ver src/lib/apiAuth.ts);
-    // `userId` é o do Supabase Auth, usado só pra checar is_super_admin via RLS.
+    // `token` autentica em apps/api (JWT próprio — ver src/lib/apiAuth.ts).
     getApiAccessToken().then((t) => {
       if (mounted) setToken(t);
     });
-    supabase.auth.getSession().then(({ data }) => {
-      if (mounted) setUserId(data.session?.user?.id ?? null);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (mounted) setUserId(session?.user?.id ?? null);
-    });
     return () => {
       mounted = false;
-      sub?.subscription?.unsubscribe?.();
     };
   }, []);
 
   const { data: isSuperAdmin, isLoading: isRoleLoading } = useQuery({
-    queryKey: ['sandbox-is-super-admin', userId],
-    queryFn: () => fetchIsSuperAdmin(userId),
-    enabled: !!userId,
+    queryKey: ['sandbox-is-super-admin', token],
+    queryFn: fetchIsSuperAdmin,
+    enabled: !!token,
     staleTime: 60_000,
   });
 

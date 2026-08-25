@@ -57,16 +57,22 @@ export async function graphRoutes(fastify: FastifyInstance) {
   // F1-D — NetworkGraphPage/NetworkTwinPage listavam CTOs (dropdown de seleção)
   // direto no Supabase (client anônimo, bloqueado pela migration 092). Rota
   // dedicada e leve — `capacidade` acima é semanticamente um relatório.
+  // F1-D2: select ampliado com used_ports/total_ports/status (todas colunas reais)
+  // + filtro opcional ?status= — NetworkTwinPage precisa desses campos pra
+  // simulação de falha/crescimento e só lista CTOs ativas; NetworkGraphPage
+  // (que só usa id/name, sem filtro) continua igual.
   fastify.get('/api/v2/rede/ctos', {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('reports', 'read')],
   }, async (request, reply) => {
     const tenantId = getTenantId((request as any).user) as string;
-    const { data, error } = await supabaseAdmin
+    const { status } = (request.query as { status?: string }) ?? {};
+    let query = supabaseAdmin
       .from('network_ctos')
-      .select('id, name')
-      .eq('tenant_id', tenantId)
-      .order('name');
+      .select('id, name, used_ports, total_ports, status')
+      .eq('tenant_id', tenantId);
+    if (status) query = query.eq('status', status);
+    const { data, error } = await query.order('name');
     if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
     return reply.send(data ?? []);
   });

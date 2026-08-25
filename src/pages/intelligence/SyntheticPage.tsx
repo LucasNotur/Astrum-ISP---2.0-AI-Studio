@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FlaskConical, AlertTriangle, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { ptBR } from '@/src/lib/i18n/pt-br';
-import { supabase } from '@/src/lib/supabase';
+import { apiGet } from '@/src/lib/apiClient';
 import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { useFeatureFlags } from '@/src/hooks/useFeatureFlags';
 import { Card, CardContent } from '@/src/components/ui/card';
@@ -29,34 +29,17 @@ type JobState = {
   error: string | null;
 };
 
-interface TenantRow {
-  is_sandbox?: boolean;
-}
-
-interface UserRow {
-  role?: string;
-}
-
-async function fetchTenantIsSandbox(tenantId: string | null): Promise<boolean> {
-  if (!tenantId) return false;
-  const { data, error } = await supabase
-    .from('tenants')
-    .select('is_sandbox')
-    .eq('id', tenantId)
-    .maybeSingle();
-  if (error || !data) return false;
-  return (data as TenantRow).is_sandbox === true;
-}
-
-async function fetchIsSuperAdmin(userId: string | null): Promise<boolean> {
-  if (!userId) return false;
-  const { data, error } = await supabase
-    .from('users')
-    .select('role')
-    .eq('id', userId)
-    .maybeSingle();
-  if (error || !data) return false;
-  return (data as UserRow).role === 'super_admin';
+// F1-D2: role/isSandbox vêm do JWT/apps-api (GET /api/v2/auth/me), não mais de
+// `supabase.from('tenants'|'users')` direto (client anônimo, bloqueado pela migration
+// 092 — e `supabase.auth.getSession()` nunca resolvia mesmo, pois este app não usa
+// Supabase Auth pra login).
+async function fetchMe(): Promise<{ role: string | null; isSandbox: boolean }> {
+  try {
+    const { role, isSandbox } = await apiGet<{ role: string | null; isSandbox: boolean }>('/api/v2/auth/me');
+    return { role, isSandbox };
+  } catch {
+    return { role: null, isSandbox: false };
+  }
 }
 
 async function fetchToken(): Promise<string | null> {
@@ -95,59 +78,28 @@ export function SyntheticPage() {
   const flagOn = flags.synthdata === true;
 
   const [token, setToken] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [tenantId, setTenantId] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
-    // `token` autentica em apps/api (JWT próprio — ver src/lib/apiAuth.ts);
-    // `userId` é o do Supabase Auth, usado só pra checar is_super_admin via RLS.
+    // `token` autentica em apps/api (JWT próprio — ver src/lib/apiAuth.ts).
     getApiAccessToken().then((t) => {
       if (mounted) setToken(t);
     });
-    supabase.auth.getSession().then(({ data }) => {
-      if (mounted) setUserId(data.session?.user?.id ?? null);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUserId(session?.user?.id ?? null);
-    });
-    return () => {
-      mounted = false;
-      sub?.subscription?.unsubscribe?.();
-    };
-  }, []);
-
-  const { data: tenant, isLoading: isTenantLoading } = useQuery({
-    queryKey: ['tenant-sandbox', tenantId],
-    queryFn: () => fetchTenantIsSandbox(tenantId),
-    enabled: !!tenantId,
-    staleTime: 60_000,
-  });
-  const isSandbox = tenant === true;
-
-  const { data: isSuperAdmin, isLoading: isRoleLoading } = useQuery({
-    queryKey: ['is-super-admin', userId],
-    queryFn: () => fetchIsSuperAdmin(userId),
-    enabled: !!userId,
-    staleTime: 60_000,
-  });
-
-  // tenantId no useAppStore não serve (vem do JWT). Pegamos via session metadata.
-  useEffect(() => {
-    let mounted = true;
-    supabase.auth.getSession().then(async ({ data }) => {
-      const t =
-        (data.session?.user?.app_metadata as any)?.tenant_id ??
-        (data.session?.user?.user_metadata as any)?.tenant_id ??
-        null;
-      if (mounted) setTenantId(t);
-    });
     return () => {
       mounted = false;
     };
   }, []);
 
-  const isLoading = isFlagsLoading || isTenantLoading || isRoleLoading || !token;
+  const { data: me, isLoading: isMeLoading } = useQuery({
+    queryKey: ['synthetic-me', token],
+    queryFn: fetchMe,
+    enabled: !!token,
+    staleTime: 60_000,
+  });
+  const isSandbox = me?.isSandbox === true;
+  const isSuperAdmin = me?.role === 'super_admin';
+
+  const isLoading = isFlagsLoading || isMeLoading || !token;
 
   if (isLoading) {
     return (

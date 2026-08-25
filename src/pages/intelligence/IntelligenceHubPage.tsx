@@ -2,7 +2,7 @@ import React from 'react';
 import { Sparkles, Wrench, ShieldCheck, Network, Database, Target, Activity, Terminal, FlaskConical, RefreshCw, TrendingDown, Trophy, Tags, FileSearch, Plug, HeartPulse, TrendingUp, PhoneCall, Brain, Radio, Zap, GitCompareArrows, Wallet, Layers } from 'lucide-react';
 import { useFeatureFlags } from '@/src/hooks/useFeatureFlags';
 import { ptBR } from '@/src/lib/i18n/pt-br';
-import { supabase } from '@/src/lib/supabase';
+import { apiGet } from '@/src/lib/apiClient';
 import { RiskStripeCard } from '@/src/components/intelligence/RiskStripeCard';
 import { EmptyState } from '@/src/components/intelligence/EmptyState';
 import { CardContent } from '@/src/components/ui/card';
@@ -52,31 +52,16 @@ export function IntelligenceHubPage() {
   const navigate = useNavigate();
 
   // IA-45: gate adicional — card synthdata só aparece para super_admin.
-  // Mesmo padrão do Sidebar.tsx (consulta role na tabela users, não no JWT).
+  // F1-D2: role vem do JWT do apps/api (GET /api/v2/auth/me), não mais de
+  // `supabase.from('users').select('role')` direto (client anônimo, bloqueado pela
+  // migration 092) — mesmo padrão do Sidebar.tsx/SuperAdminRoute.tsx.
   const [isSuperAdmin, setIsSuperAdmin] = React.useState(false);
 
   React.useEffect(() => {
     let mounted = true;
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const uid = session?.user?.id;
-      if (!uid) {
-        if (mounted) setIsSuperAdmin(false);
-        return;
-      }
-      supabase
-        .from('users')
-        .select('role')
-        .eq('id', uid)
-        .maybeSingle()
-        .then(
-          ({ data }) => {
-            if (mounted) setIsSuperAdmin(data?.role === 'super_admin');
-          },
-          () => {
-            if (mounted) setIsSuperAdmin(false);
-          },
-        );
-    });
+    apiGet<{ role: string | null }>('/api/v2/auth/me')
+      .then(({ role }) => { if (mounted) setIsSuperAdmin(role === 'super_admin'); })
+      .catch(() => { if (mounted) setIsSuperAdmin(false); });
     return () => {
       mounted = false;
     };

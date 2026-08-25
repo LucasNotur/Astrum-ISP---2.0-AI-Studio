@@ -57,6 +57,12 @@ export default function OperatorMobilePage() {
   const handleSend = async () => {
     if (!inputText.trim() || !selectedTicketId) return;
     try {
+      // F1-D2: NÃO migrado — mesmo gap de schema já documentado pra ChatPage.tsx (F1-B).
+      // `messages` real não tem `ticket_id`/`body`/`sender_type` (é `conversation_id`/
+      // `content`/`role`+`from_ai`); esta escrita nunca persistiu em produção, RLS à
+      // parte. Decisão de produto pendente (criar mapeamento ticket->conversation ou
+      // aposentar o envio manual aqui) — ver "Achados colaterais" no
+      // PLANO_ACAO_100_OPERACIONAL.md.
       await supabase
         .from("messages")
         .insert({ ticket_id: selectedTicketId, body: inputText, sender_type: "human" });

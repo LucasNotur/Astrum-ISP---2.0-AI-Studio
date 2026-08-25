@@ -4,7 +4,7 @@ import {
   Network, AlertTriangle, Users, DollarSign, Ticket, MapPin,
   TrendingUp, Loader2, ChevronRight, Info, Zap, PackagePlus,
 } from 'lucide-react';
-import { supabase } from '@/src/lib/supabase';
+import { apiGet } from '@/src/lib/apiClient';
 import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { Badge } from '@/src/components/ui/badge';
@@ -81,27 +81,21 @@ export default function NetworkTwinPage() {
   const [mode, setMode] = useState<SimMode>('failure');
   const [growthForm, setGrowthForm] = useState({ newCustomers: 50, avgMrrCents: 10000 });
 
-  // Buscar CTOs do Supabase diretamente
+  // F1-D2 — reaproveita GET /api/v2/rede/ctos (F1-D, tenant vem do JWT). Antes ia
+  // direto ao Supabase (client anônimo, bloqueado pela migration 092) e derivava o
+  // tenant de `session.user_metadata`, que nunca resolvia (este app não usa
+  // Supabase Auth pra login).
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const tenantId = (session?.user?.user_metadata as any)?.tenant_id
-        ?? (session?.user as any)?.app_metadata?.tenant_id;
-
-      if (!tenantId) { setLoadingCtos(false); return; }
-
-      const { data } = await supabase
-        .from('network_ctos')
-        .select('id, name, used_ports, total_ports, status')
-        .eq('tenant_id', tenantId)
-        .eq('status', 'active')
-        .order('name');
-
-      if (mounted) {
-        setCtos((data as CtoOption[] | null) ?? []);
-        if (data?.length) setSelectedCtoId(data[0].id);
-        setLoadingCtos(false);
+      try {
+        const data = await apiGet<CtoOption[]>('/api/v2/rede/ctos?status=active');
+        if (mounted) {
+          setCtos(data ?? []);
+          if (data?.length) setSelectedCtoId(data[0].id);
+        }
+      } finally {
+        if (mounted) setLoadingCtos(false);
       }
     })();
     return () => { mounted = false; };

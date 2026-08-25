@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { supabase } from '@/src/lib/supabase';
 import { apiGet, apiPost, apiDelete } from '@/src/lib/apiClient';
 import { useAppStore } from '../store/useAppStore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
@@ -65,31 +64,21 @@ export function WebhooksPage() {
 
   async function load() {
     setLoading(true);
-    const [deliveriesRes, tenantRes] = await Promise.all([
-      supabase
-        .from('webhook_deliveries')
-        .select('*')
-        .eq('tenant_id', tenantId)
-        .order('sent_at', { ascending: false })
-        .limit(100),
-      supabase
-        .from('tenants')
-        .select('svix_app_id')
-        .eq('id', tenantId)
-        .maybeSingle(),
-    ]);
+    try {
+      const [deliveries, config] = await Promise.all([
+        apiGet<Delivery[]>('/api/v2/webhooks/deliveries'),
+        apiGet<{ svixAppId: string | null }>('/api/v2/webhooks/config'),
+      ]);
+      setDeliveries(deliveries ?? []);
+      if (config?.svixAppId) setSvixAppId(config.svixAppId);
 
-    if (deliveriesRes.data) setDeliveries(deliveriesRes.data as Delivery[]);
-    if (tenantRes.data?.svix_app_id) setSvixAppId(tenantRes.data.svix_app_id);
-
-    // Load endpoints from Svix API
-    if (tenantRes.data?.svix_app_id) {
-      try {
-        // Fase 1: /api/webhooks/endpoints (404 — não montado) → /api/v2/webhooks/endpoints
-        // (Fastify). Tenant vem do JWT (apiClient injeta o Bearer); dropado o ?tenantId.
-        setEndpoints(await apiGet('/api/v2/webhooks/endpoints'));
-      } catch {}
-    }
+      // Load endpoints from Svix API
+      if (config?.svixAppId) {
+        try {
+          setEndpoints(await apiGet('/api/v2/webhooks/endpoints'));
+        } catch {}
+      }
+    } catch {}
     setLoading(false);
   }
 
@@ -126,10 +115,6 @@ export function WebhooksPage() {
 
   async function retryDelivery(deliveryId: string) {
     try {
-      // Fase 1: repontado para /api/v2. ⚠️ GAP CONHECIDO: o Fastify ainda NÃO tem
-      // POST /api/v2/webhooks/deliveries/:id/retry (só existem endpoints + portal).
-      // Task aberta para criá-lo; até lá esta ação retorna 404 (comportamento honesto:
-      // já falhava antes, pois /api/webhooks/deliveries também não existia).
       await apiPost(`/api/v2/webhooks/deliveries/${deliveryId}/retry`);
       toast.success('Reenvio agendado');
       load();

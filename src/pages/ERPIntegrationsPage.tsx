@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { supabase } from '@/src/lib/supabase';
+import { apiGet } from '@/src/lib/apiClient';
 import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { useAppStore } from '../store/useAppStore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
@@ -98,15 +98,15 @@ export function ERPIntegrationsPage() {
   }, [tenantId]);
 
   async function loadConnectedStatus() {
-    const { data } = await supabase
-      .from('tenant_erp_credentials')
-      .select('provider,active')
-      .eq('tenant_id', tenantId);
-    if (data) {
+    // F1-D2 — antes ia direto ao Supabase anônimo (bloqueado pela migration 092).
+    // Reaproveita a rota do wizard de credenciais ERP (P0-01, `erp-admin.routes.ts`),
+    // já em uso por SettingsPage.tsx.
+    try {
+      const { credentials } = await apiGet<{ credentials: CredRow[] }>('/api/v2/erp/credentials');
       const map: Record<string, boolean> = {};
-      (data as CredRow[]).forEach(r => { map[r.provider] = r.active; });
+      (credentials ?? []).forEach(r => { map[r.provider] = r.active; });
       setConnected(map);
-    }
+    } catch {}
   }
 
   async function loadAllCredentials() {

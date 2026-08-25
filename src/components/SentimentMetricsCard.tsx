@@ -10,7 +10,7 @@ import {
   ResponsiveContainer,
   Legend
 } from "recharts";
-import { supabase } from "../lib/supabase";
+import { apiGet } from "../lib/apiClient";
 import { useAppStore } from "../store/useAppStore";
 import { Activity } from "lucide-react";
 
@@ -26,14 +26,9 @@ export function SentimentMetricsCard() {
 
     const fetchData = async () => {
       try {
-        // FZ-4: agrega sentimentos direto de ai_performance_logs (últimos 7 dias)
-        const since = new Date();
-        since.setDate(since.getDate() - 7);
-        const { data: logs } = await supabase
-          .from("ai_performance_logs")
-          .select("sentiment, created_at")
-          .eq("tenant_id", tenantId)
-          .gte("created_at", since.toISOString());
+        // F1-D2: agrega sentimentos de ai_performance_logs (últimos 7 dias). Antes ia
+        // direto ao Supabase anônimo (bloqueado pela migration 092).
+        const logs = await apiGet<{ sentiment: string; created_at: string }[]>('/api/v2/ai-costs/sentiment-7d');
 
         const byDay: Record<string, Record<string, number>> = {};
         (logs ?? []).forEach((l: any) => {

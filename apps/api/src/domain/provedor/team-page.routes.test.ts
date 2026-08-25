@@ -18,6 +18,7 @@ function makeChain(terminal: Terminal): AnyChain {
     chain[m] = vi.fn().mockReturnValue(chain);
   }
   chain.single = vi.fn().mockResolvedValue(terminal);
+  chain.maybeSingle = vi.fn().mockResolvedValue(terminal);
   chain.then = (resolve: any, reject: any) => Promise.resolve(terminal).then(resolve, reject);
   return chain;
 }
@@ -189,6 +190,37 @@ describe('team-page.routes', () => {
       const chain = (supabaseAdmin.from as any).mock.results[0].value;
       expect(chain.eq).toHaveBeenCalledWith('tenant_id', 'tenant-1');
       expect(chain.eq).toHaveBeenCalledWith('status', 'resolved');
+    });
+  });
+
+  describe('GET /api/v2/team/operator-status', () => {
+    it('sem tenant no JWT -> 401', async () => {
+      const app = await buildApp({});
+      const res = await app.inject({ method: 'GET', url: '/api/v2/team/operator-status' });
+      expect(res.statusCode).toBe(401);
+    });
+
+    it('devolve os operadores do tenant, filtrado por id', async () => {
+      const operators = [{ id: 'u1', name: 'Ana', status: 'online' }];
+      mockFromSequence([{ data: { operators }, error: null }]);
+      const app = await buildApp();
+
+      const res = await app.inject({ method: 'GET', url: '/api/v2/team/operator-status' });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({ operators });
+      expect(supabaseAdmin.from).toHaveBeenCalledWith('tenants');
+      const chain = (supabaseAdmin.from as any).mock.results[0].value;
+      expect(chain.eq).toHaveBeenCalledWith('id', 'tenant-1');
+    });
+
+    it('sem linha/valor não-array no banco -> devolve lista vazia', async () => {
+      mockFromSequence([{ data: null, error: null }]);
+      const app = await buildApp();
+
+      const res = await app.inject({ method: 'GET', url: '/api/v2/team/operator-status' });
+
+      expect(res.json()).toEqual({ operators: [] });
     });
   });
 });

@@ -32,6 +32,24 @@ export async function teamPageRoutes(app: FastifyInstance) {
     return reply.send(data ?? []);
   });
 
+  // GET /api/v2/team/operator-status — presença/status ao vivo (TopHeader.tsx, F1-D2).
+  // `tenants.operators` é JSONB real, mesmo storage que o backend já usa. Só leitura —
+  // a escrita (upsertTenantOperator, src/lib/supabaseDb.ts) e a assinatura Realtime
+  // ficam fora do escopo desta rota (mesmo limite já registrado pela F1-INV para
+  // `src/lib/*`).
+  app.get('/api/v2/team/operator-status', { onRequest: auth }, async (req: any, reply: any) => {
+    const tenantId = tenantOf(req);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+
+    const { data, error } = await supabaseAdmin
+      .from('tenants')
+      .select('operators')
+      .eq('id', tenantId)
+      .maybeSingle();
+    if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
+    return reply.send({ operators: Array.isArray(data?.operators) ? data.operators : [] });
+  });
+
   // POST /api/v2/team/members — cria novo colaborador.
   app.post('/api/v2/team/members', {
     onRequest: auth,

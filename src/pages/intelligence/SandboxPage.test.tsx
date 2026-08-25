@@ -4,35 +4,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import SandboxPage from './SandboxPage';
 
-const usersMaybeSingle = vi.fn();
-const sessionState: { userId: string | null } = { userId: 'u-1' };
+// F1-D2 — role agora vem de GET /api/v2/auth/me (apiClient), não mais de
+// `supabase.from('users')` direto (o mock antigo simulava isso via RLS).
+const meState: { role: string | null } = { role: null };
 
-vi.mock('@/src/lib/supabase', () => ({
-  supabase: {
-    auth: {
-      getSession: vi.fn(() =>
-        Promise.resolve({
-          data: {
-            session: {
-              access_token: 'tok',
-              user: sessionState.userId
-                ? { id: sessionState.userId, app_metadata: {}, user_metadata: {} }
-                : null,
-            },
-          },
-        }),
-      ),
-      onAuthStateChange: vi.fn(() => ({
-        data: { subscription: { unsubscribe: vi.fn() } },
-      })),
-    },
-    from: vi.fn((table: string) => {
-      if (table === 'users') {
-        return { select: () => ({ eq: () => ({ maybeSingle: usersMaybeSingle }) }) };
-      }
-      return { select: vi.fn() };
-    }),
-  },
+vi.mock('@/src/lib/apiClient', () => ({
+  apiGet: vi.fn((path: string) => {
+    if (path === '/api/v2/auth/me') return Promise.resolve({ role: meState.role });
+    return Promise.reject(new Error(`apiGet inesperado no teste: ${path}`));
+  }),
 }));
 
 vi.mock('@/src/lib/apiAuth', () => ({
@@ -75,7 +55,7 @@ describe('SandboxPage (IA-44 / IA-38 E1)', () => {
     globalThis.fetch = vi.fn();
     flagsState.flags = { sandbox: true };
     flagsState.isLoading = false;
-    sessionState.userId = 'u-1';
+    meState.role = null;
   });
 
   afterEach(() => {
@@ -86,7 +66,7 @@ describe('SandboxPage (IA-44 / IA-38 E1)', () => {
 
   it('GATE: flag off → mostra card de "desabilitado" e NÃO mostra o editor', async () => {
     flagsState.flags = { sandbox: false };
-    usersMaybeSingle.mockResolvedValue({ data: { role: 'super_admin' }, error: null });
+    meState.role = 'super_admin';
     render(<SandboxPage />, { wrapper });
 
     expect(
@@ -96,7 +76,7 @@ describe('SandboxPage (IA-44 / IA-38 E1)', () => {
   });
 
   it('GATE: usuário comum (role != super_admin) → vê mensagem de acesso restrito', async () => {
-    usersMaybeSingle.mockResolvedValue({ data: { role: 'support' }, error: null });
+    meState.role = 'support';
     render(<SandboxPage />, { wrapper });
 
     expect(await screen.findByText('Acesso restrito a super_admin.')).toBeInTheDocument();
@@ -104,7 +84,7 @@ describe('SandboxPage (IA-44 / IA-38 E1)', () => {
   });
 
   it('POST bem-sucedido: SQL → tabela renderiza colunas + tempo em mono', async () => {
-    usersMaybeSingle.mockResolvedValue({ data: { role: 'super_admin' }, error: null });
+    meState.role = 'super_admin';
     // Sequência esperada:
     //  1ª = GET history (mount, historyQ.enabled)
     //  2ª = POST query (user clica em "Executar consulta")
@@ -140,7 +120,7 @@ describe('SandboxPage (IA-44 / IA-38 E1)', () => {
   });
 
   it('erro do guard (400 com hint): renderiza card vermelho com error + hint', async () => {
-    usersMaybeSingle.mockResolvedValue({ data: { role: 'super_admin' }, error: null });
+    meState.role = 'super_admin';
     mockFetchSequence([
       {
         ok: false,
@@ -166,7 +146,7 @@ describe('SandboxPage (IA-44 / IA-38 E1)', () => {
   });
 
   it('histórico: clica em um item → SQL carrega no editor', async () => {
-    usersMaybeSingle.mockResolvedValue({ data: { role: 'super_admin' }, error: null });
+    meState.role = 'super_admin';
     // Sem POST; só o GET history.
     mockFetchSequence([
       {
@@ -195,7 +175,7 @@ describe('SandboxPage (IA-44 / IA-38 E1)', () => {
   });
 
   it('flag on + super_admin: mostra o editor, o botão "Executar consulta" e a hint', async () => {
-    usersMaybeSingle.mockResolvedValue({ data: { role: 'super_admin' }, error: null });
+    meState.role = 'super_admin';
     mockFetchSequence([{ ok: true, body: { queries: [] } }]);
 
     render(<SandboxPage />, { wrapper });
@@ -210,7 +190,7 @@ describe('SandboxPage (IA-44 / IA-38 E1)', () => {
   });
 
   it('botão Executar fica disabled enquanto o SQL está vazio', async () => {
-    usersMaybeSingle.mockResolvedValue({ data: { role: 'super_admin' }, error: null });
+    meState.role = 'super_admin';
     mockFetchSequence([{ ok: true, body: { queries: [] } }]);
 
     render(<SandboxPage />, { wrapper });

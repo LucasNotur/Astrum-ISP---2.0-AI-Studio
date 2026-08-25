@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { supabase } from '@/src/lib/supabase';
-import { apiPost } from '@/src/lib/apiClient';
+import { apiGet, apiPost } from '@/src/lib/apiClient';
 import { useAppStore } from '../store/useAppStore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
 import { Badge } from "@/src/components/ui/badge";
@@ -57,15 +56,12 @@ export function SecurityPage() {
 
   async function loadAuditLogs() {
     setLoading(true);
-    let q = supabase
-      .from('audit_log')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .order('created_at', { ascending: false })
-      .limit(500);
-
-    const { data } = await q;
-    if (data) setAuditLogs(data as AuditEntry[]);
+    try {
+      const data = await apiGet<AuditEntry[]>('/api/v2/security/audit-log');
+      setAuditLogs(data ?? []);
+    } catch {
+      // silencioso — mesma tolerância do comportamento anterior
+    }
     setLoading(false);
   }
 

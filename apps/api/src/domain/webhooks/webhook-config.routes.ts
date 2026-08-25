@@ -3,8 +3,43 @@ import type { FastifyPluginAsync } from 'fastify';
 import { getTenantId } from '../../lib/jwt-claims';
 import { svixService, SvixRetryError } from '../../adapters/webhooks/svix.service';
 import { isSafeExternalUrl } from '../../infrastructure/security/url-guard';
+import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 
 const webhookConfigRoutes: FastifyPluginAsync = async (fastify) => {
+
+  // GET /api/v2/webhooks/deliveries — log de entregas (últimas 100), F1-D2.
+  // Antes ia direto ao Supabase anônimo (WebhooksPage.tsx), bloqueado pela migration 092.
+  fastify.get('/api/v2/webhooks/deliveries', {
+    onRequest: [fastify.authenticate],
+  }, async (request, reply) => {
+    const tenantId = getTenantId((request as any).user);
+    if (!tenantId) return reply.status(401).send({ code: 'UNAUTHORIZED' });
+
+    const { data, error } = await supabaseAdmin
+      .from('webhook_deliveries')
+      .select('id, event_type, status, sent_at, endpoint_url, payload')
+      .eq('tenant_id', tenantId)
+      .order('sent_at', { ascending: false })
+      .limit(100);
+    if (error) return reply.status(500).send({ code: 'DB_ERROR', message: error.message });
+    return reply.send(data ?? []);
+  });
+
+  // GET /api/v2/webhooks/config — svix_app_id do tenant (exibição), F1-D2.
+  fastify.get('/api/v2/webhooks/config', {
+    onRequest: [fastify.authenticate],
+  }, async (request, reply) => {
+    const tenantId = getTenantId((request as any).user);
+    if (!tenantId) return reply.status(401).send({ code: 'UNAUTHORIZED' });
+
+    const { data, error } = await supabaseAdmin
+      .from('tenants')
+      .select('svix_app_id')
+      .eq('id', tenantId)
+      .maybeSingle();
+    if (error) return reply.status(500).send({ code: 'DB_ERROR', message: error.message });
+    return reply.send({ svixAppId: (data as any)?.svix_app_id ?? null });
+  });
 
   // GET /api/v2/webhooks/endpoints — listar endpoints configurados
   fastify.get('/api/v2/webhooks/endpoints', {

@@ -112,4 +112,67 @@ describe('settings-page.routes', () => {
       expect(chain.eq).toHaveBeenCalledWith('id', 'tenant-1');
     });
   });
+
+  describe('GET /api/v2/settings/escalation-rules', () => {
+    it('sem tenant no JWT -> 401', async () => {
+      const app = await buildApp({});
+      const res = await app.inject({ method: 'GET', url: '/api/v2/settings/escalation-rules' });
+      expect(res.statusCode).toBe(401);
+    });
+
+    it('devolve as regras do tenant, filtrado por tenant_id', async () => {
+      const rules = [{ id: 'r1', condition_type: 'sentiment', condition_value: 'ANGRY', action: 'escalate_to_human', active: true }];
+      mockFromSequence([{ data: { escalation_rules: rules }, error: null }]);
+      const app = await buildApp();
+
+      const res = await app.inject({ method: 'GET', url: '/api/v2/settings/escalation-rules' });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({ escalation_rules: rules });
+      expect(supabaseAdmin.from).toHaveBeenCalledWith('tenants');
+      const chain = (supabaseAdmin.from as any).mock.results[0].value;
+      expect(chain.eq).toHaveBeenCalledWith('id', 'tenant-1');
+    });
+
+    it('sem linha/valor não-array no banco -> devolve lista vazia', async () => {
+      mockFromSequence([{ data: null, error: null }]);
+      const app = await buildApp();
+
+      const res = await app.inject({ method: 'GET', url: '/api/v2/settings/escalation-rules' });
+
+      expect(res.json()).toEqual({ escalation_rules: [] });
+    });
+  });
+
+  describe('PUT /api/v2/settings/escalation-rules', () => {
+    it('sem tenant no JWT -> 401', async () => {
+      const app = await buildApp({});
+      const res = await app.inject({ method: 'PUT', url: '/api/v2/settings/escalation-rules', payload: { escalation_rules: [] } });
+      expect(res.statusCode).toBe(401);
+    });
+
+    it('sem body array -> 400', async () => {
+      const app = await buildApp();
+      const res = await app.inject({ method: 'PUT', url: '/api/v2/settings/escalation-rules', payload: {} });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('salva a lista de regras filtrado por tenant_id do JWT', async () => {
+      mockFromSequence([{ data: null, error: null }]);
+      const app = await buildApp();
+      const rules = [{ id: 'r1', condition_type: 'keyword', condition_value: 'cancelar', action: 'send_alert', active: true }];
+
+      const res = await app.inject({
+        method: 'PUT',
+        url: '/api/v2/settings/escalation-rules',
+        payload: { escalation_rules: rules },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({ ok: true });
+      const chain = (supabaseAdmin.from as any).mock.results[0].value;
+      expect(chain.update).toHaveBeenCalledWith({ escalation_rules: rules });
+      expect(chain.eq).toHaveBeenCalledWith('id', 'tenant-1');
+    });
+  });
 });

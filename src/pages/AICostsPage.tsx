@@ -7,7 +7,7 @@ import {
 } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/src/lib/supabase';
+import { apiGet, apiPut } from '@/src/lib/apiClient';
 import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
 import { RingChart, RingLegend } from "@/src/components/ui/ring-chart";
@@ -115,19 +115,9 @@ interface ConversationAgg {
 
 const ATTRIBUTION_LIMIT = 1000;
 
-async function fetchAttribution(tenantId: string, accessToken: string): Promise<AttributionRow[]> {
-  // 1000 últimas linhas com dimensões — o backend grava cost_usd sempre
-  // (incluindo zero) então o filtro .not('cost_usd','is',null) só exclui
-  // linhas legadas (pré-IA-34) e nunca custa performance significativa.
-  const { data, error } = await supabase
-    .from('ai_performance_logs')
-    .select('id,customer_id,conversation_id,use_case,tokens_in,tokens_out,cost_usd,created_at')
-    .eq('tenant_id', tenantId)
-    .not('cost_usd', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(ATTRIBUTION_LIMIT);
-  if (error) throw new Error(error.message);
-  return (data ?? []) as AttributionRow[];
+async function fetchAttribution(): Promise<AttributionRow[]> {
+  // F1-D2 — antes ia direto ao Supabase anônimo (bloqueado pela migration 092).
+  return apiGet<AttributionRow[]>('/api/v2/ai-costs/attribution');
 }
 
 function groupByCustomer(rows: AttributionRow[]): CustomerAgg[] {
@@ -259,7 +249,7 @@ export function AICostsPage() {
   const attributionEnabled = !!accessToken && !!tenantId && tenantId !== 'default' && costdrill;
   const attributionQ = useQuery({
     queryKey: ['ai-costs-attribution', tenantId, accessToken, costdrill],
-    queryFn: () => fetchAttribution(tenantId, accessToken!),
+    queryFn: fetchAttribution,
     enabled: attributionEnabled,
     staleTime: 60_000,
   });
@@ -306,42 +296,37 @@ export function AICostsPage() {
 
   async function load() {
     setLoading(true);
-    const [logsRes, tenantRes] = await Promise.all([
-      supabase
-        .from('ai_performance_logs')
-        .select('id,ticket_id,model,tokens_in,tokens_out,cost_usd,created_at,category,context_tokens_saved')
-        .eq('tenant_id', tenantId)
-        .order('created_at', { ascending: false })
-        .limit(500),
-      supabase
-        .from('tenants')
-        .select('ai_budget_usd_monthly,ai_budget_hard_stop')
-        .eq('id', tenantId)
-        .maybeSingle(),
-    ]);
-
-    if (logsRes.data) setLogs(logsRes.data as LogRow[]);
-    if (tenantRes.data) {
-      setBudget(tenantRes.data as TenantBudget);
-      setBudgetInput(tenantRes.data.ai_budget_usd_monthly?.toString() ?? '');
-      setHardStop(tenantRes.data.ai_budget_hard_stop ?? false);
+    try {
+      const [logsData, tenantData] = await Promise.all([
+        apiGet<LogRow[]>('/api/v2/ai-costs/logs'),
+        apiGet<TenantBudget>('/api/v2/ai-costs/budget'),
+      ]);
+      setLogs(logsData ?? []);
+      if (tenantData) {
+        setBudget(tenantData);
+        setBudgetInput(tenantData.ai_budget_usd_monthly?.toString() ?? '');
+        setHardStop(tenantData.ai_budget_hard_stop ?? false);
+      }
+    } catch {
+      // silencioso — mesma tolerância do comportamento anterior (dados ficam vazios)
     }
     setLoading(false);
   }
 
   async function saveBudget() {
     setSaving(true);
-    const { error } = await supabase
-      .from('tenants')
-      .update({
+    try {
+      await apiPut('/api/v2/ai-costs/budget', {
         ai_budget_usd_monthly: budgetInput ? parseFloat(budgetInput) : null,
         ai_budget_hard_stop: hardStop,
-      })
-      .eq('id', tenantId);
-    setSaving(false);
-    if (error) { toast.error('Erro ao salvar orçamento'); return; }
-    toast.success('Orçamento salvo');
-    load();
+      });
+      toast.success('Orçamento salvo');
+      load();
+    } catch {
+      toast.error('Erro ao salvar orçamento');
+    } finally {
+      setSaving(false);
+    }
   }
 
   // Enrich rows with computed costs where cost_usd is null

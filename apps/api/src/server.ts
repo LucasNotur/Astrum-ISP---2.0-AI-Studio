@@ -434,6 +434,15 @@ export async function buildServer() {
   const { inventoryImportRoutes } = await import('./domain/provedor/inventory-import.routes');
   await app.register(inventoryImportRoutes);
 
+  // F1-D2 — AICostsPage (drill-down/logs/orçamento) + SentimentMetricsCard: batiam
+  // direto no Supabase com o client anônimo (bloqueado pela migration 092).
+  const { aiCostsRoutes } = await import('./domain/provedor/ai-costs.routes');
+  await app.register(aiCostsRoutes);
+
+  // F1-D2 — SecurityPage: log de auditoria (antes ia direto ao Supabase anônimo).
+  const { auditLogRoutes } = await import('./domain/security/audit-log.routes');
+  await app.register(auditLogRoutes);
+
   // P5-03 — Kit de compliance (DPA/LGPD + due diligence)
   const { complianceRoutes } = await import('./domain/provedor/compliance.routes');
   await app.register(complianceRoutes);

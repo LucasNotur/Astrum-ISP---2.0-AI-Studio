@@ -125,5 +125,24 @@ describe('graph.routes (IA-16)', () => {
       expect(supabaseAdmin.from).toHaveBeenCalledWith('network_ctos');
       expect(chain.eq).toHaveBeenCalledWith('tenant_id', 'tenant-1');
     });
+
+    it('?status=active aplica filtro extra de status (NetworkTwinPage)', async () => {
+      const { supabaseAdmin } = await import('../../infrastructure/database/supabase.client');
+      const chain: any = {};
+      for (const m of ['select', 'eq', 'order']) chain[m] = vi.fn().mockReturnValue(chain);
+      chain.then = (resolve: any) =>
+        Promise.resolve({
+          data: [{ id: 'c1', name: 'CTO 1', used_ports: 3, total_ports: 8, status: 'active' }],
+          error: null,
+        }).then(resolve);
+      (supabaseAdmin.from as any).mockReturnValue(chain);
+
+      const app = await buildApp();
+      const res = await app.inject({ method: 'GET', url: '/api/v2/rede/ctos?status=active' });
+
+      expect(res.statusCode).toBe(200);
+      expect(chain.eq).toHaveBeenCalledWith('tenant_id', 'tenant-1');
+      expect(chain.eq).toHaveBeenCalledWith('status', 'active');
+    });
   });
 });

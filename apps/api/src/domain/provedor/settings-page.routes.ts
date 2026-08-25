@@ -48,4 +48,39 @@ export async function settingsPageRoutes(app: FastifyInstance) {
     if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
     return reply.send({ ok: true });
   });
+
+  // GET /api/v2/settings/escalation-rules — regras de escalonamento (EscalationRulesBuilder,
+  // F1-D2). `tenants.escalation_rules` é JSONB real, mesmo storage que o backend
+  // (escalationEngine/messageWorker) já lê via db-compat.
+  app.get('/api/v2/settings/escalation-rules', { onRequest: auth }, async (req: any, reply: any) => {
+    const tenantId = getTenantId(req.user);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+
+    const { data, error } = await supabaseAdmin
+      .from('tenants')
+      .select('escalation_rules')
+      .eq('id', tenantId)
+      .maybeSingle();
+    if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
+    return reply.send({ escalation_rules: Array.isArray(data?.escalation_rules) ? data.escalation_rules : [] });
+  });
+
+  // PUT /api/v2/settings/escalation-rules — salva o array de regras (substitui inteiro,
+  // mesmo padrão do frontend atual — persistRules sempre grava a lista completa).
+  app.put('/api/v2/settings/escalation-rules', { onRequest: auth }, async (req: any, reply: any) => {
+    const tenantId = getTenantId(req.user);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+
+    const { escalation_rules } = (req.body ?? {}) as Record<string, any>;
+    if (!Array.isArray(escalation_rules)) {
+      return reply.code(400).send({ code: 'BAD_REQUEST', message: 'escalation_rules obrigatório (array)' });
+    }
+
+    const { error } = await supabaseAdmin
+      .from('tenants')
+      .update({ escalation_rules })
+      .eq('id', tenantId);
+    if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
+    return reply.send({ ok: true });
+  });
 }
