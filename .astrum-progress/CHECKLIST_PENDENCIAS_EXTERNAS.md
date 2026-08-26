@@ -217,9 +217,14 @@
   supabase`) nos 45 + 14 arquivos de teste que mockavam só o `default` export.
   Suite completa 2763/2763 verde. Ver `astrum-anon-client-fix` na memória do
   Claude Code pro relatório completo (achados + severidade por arquivo).
-  **Ainda pendente, registrado como follow-up separado (não mecânico):** os
-  padrões de `error` ignorado silenciosamente continuam frágeis contra
-  qualquer falha futura, não só esta — corrigir isso é arquivo por arquivo.
+  **✅ Follow-up também RESOLVIDO 2026-08-26 (commit `f4c4f74`, mesma sessão).**
+  38 arquivos tinham `error` ignorado silenciosamente (leitura virando
+  `[]`/`0`/`200 OK` mentiroso, ou escrita nunca persistindo sem ninguém
+  saber) — corrigidos arquivo por arquivo (não mecânico, cada um com o
+  tratamento certo pro seu contexto: throw, log, ou fail-closed deliberado
+  em `negotiation-policy.service.ts` — erro na contagem de isenção de multa
+  agora bloqueia por segurança em vez de liberar). Suite 2763/2763 verde.
+  Ver `astrum-anon-client-fix` na memória pro detalhe completo.
 
 ---
 
