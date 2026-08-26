@@ -37,7 +37,7 @@ import { cn } from "@/src/lib/utils";
 import { useAppStore } from "@/src/store/useAppStore";
 import { updateTicketStatus, toggleTicketAI } from "@/src/lib/db";
 import { supabase } from "@/src/lib/supabase";
-import { apiGet, apiPost } from "@/src/lib/apiClient";
+import { apiGet, apiPost, apiPut } from "@/src/lib/apiClient";
 import { uploadAttachment as uploadToStorage, getSignedUrl } from "@/src/lib/storage";
 import { useSignedMediaUrls, resolveMediaUrl } from "@/src/hooks/useSignedMediaUrls";
 import { CustomerHistorySidebar } from "@/src/components/CustomerHistorySidebar";
@@ -501,16 +501,20 @@ export function ChatPage() {
     }
   };
 
+  // F1-D2 — antes ia direto ao Supabase anônimo (bloqueado pela migration 092) gravando
+  // `document`/`plan`, nomes que não existem no schema real (`cpf`/`plan_id`).
   const handleSaveCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editCustomerData.id) return;
     setIsSavingCustomer(true);
     try {
-      await supabase.from("customers").update({
-        ...editCustomerData,
-        status:   editCustomerData.status ?? "active",
-        tenantId: tenantId,
-      }).eq("id", editCustomerData.id);
+      await apiPut(`/api/v2/customers/${editCustomerData.id}`, {
+        name: editCustomerData.name,
+        email: editCustomerData.email,
+        phone: editCustomerData.phone,
+        cpf: editCustomerData.document,
+        planId: editCustomerData.plan,
+      });
       toast.success("Perfil atualizado!");
       setIsEditCustomerOpen(false);
     } catch {

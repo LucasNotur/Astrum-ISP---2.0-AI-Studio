@@ -12,7 +12,7 @@ type AnyChain = { [k: string]: any };
 
 function makeChain(terminal: { data: any; error: any }): AnyChain {
   const chain: AnyChain = {};
-  for (const m of ['select', 'eq', 'order', 'maybeSingle', 'insert', 'single']) {
+  for (const m of ['select', 'eq', 'order', 'maybeSingle', 'insert', 'single', 'update']) {
     chain[m] = vi.fn().mockReturnValue(chain);
   }
   chain.then = (resolve: any, reject: any) => Promise.resolve(terminal).then(resolve, reject);
@@ -104,6 +104,46 @@ describe('customers.routes', () => {
       expect(chain.insert).toHaveBeenCalledWith(expect.objectContaining({
         customer_id: 'c1', tenant_id: 'tenant-1', amount_cents: 19990, status: 'pending',
       }));
+    });
+  });
+
+  describe('PUT /api/v2/customers/:id', () => {
+    it('sem tenant -> 401', async () => {
+      const app = await buildApp({});
+      const res = await app.inject({ method: 'PUT', url: '/api/v2/customers/c1', payload: { name: 'Novo Nome' } });
+      expect(res.statusCode).toBe(401);
+    });
+
+    it('sem campos -> 400', async () => {
+      const app = await buildApp();
+      const res = await app.inject({ method: 'PUT', url: '/api/v2/customers/c1', payload: {} });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('mapeia document->cpf e plan->planId->plan_id, filtra por tenant_id do JWT', async () => {
+      mockFrom({ data: { id: 'c1', name: 'Fulano', cpf: '111', plan_id: 'basico' }, error: null });
+      const app = await buildApp();
+
+      const res = await app.inject({
+        method: 'PUT',
+        url: '/api/v2/customers/c1',
+        payload: { name: 'Fulano', email: 'f@x.com', phone: '5511999998888', cpf: '111', planId: 'basico', tenantId: 'attacker-tenant' },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const chain = (supabaseAdmin.from as any).mock.results[0].value;
+      expect(chain.update).toHaveBeenCalledWith({
+        name: 'Fulano', email: 'f@x.com', phone: '5511999998888', cpf: '111', plan_id: 'basico',
+      });
+      expect(chain.eq).toHaveBeenCalledWith('id', 'c1');
+      expect(chain.eq).toHaveBeenCalledWith('tenant_id', 'tenant-1');
+    });
+
+    it('cliente não encontrado no tenant -> 404', async () => {
+      mockFrom({ data: null, error: null });
+      const app = await buildApp();
+      const res = await app.inject({ method: 'PUT', url: '/api/v2/customers/ghost', payload: { name: 'X' } });
+      expect(res.statusCode).toBe(404);
     });
   });
 });

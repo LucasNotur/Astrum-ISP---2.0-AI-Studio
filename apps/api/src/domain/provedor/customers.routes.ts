@@ -88,4 +88,35 @@ export async function customersRoutes(app: FastifyInstance) {
     if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
     return reply.code(201).send(data);
   });
+
+  // PUT /api/v2/customers/:id — edita cadastro (ChatPage.tsx, achado da F1-D2/ChatPage).
+  // Allowlist explícito de colunas reais — o form antigo gravava `document`/`plan`
+  // direto no Supabase anônimo (bloqueado pela migration 092); os nomes reais são
+  // `cpf`/`plan_id`.
+  app.put('/api/v2/customers/:id', { onRequest: auth }, async (req: any, reply: any) => {
+    const tenantId = tenantOf(req);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+    const { id } = req.params as { id: string };
+    const body = (req.body as { name?: string; email?: string; phone?: string; cpf?: string; planId?: string; status?: string }) ?? {};
+
+    const patch: Record<string, unknown> = {};
+    if (typeof body.name === 'string') patch.name = body.name;
+    if (typeof body.email === 'string') patch.email = body.email;
+    if (typeof body.phone === 'string') patch.phone = body.phone;
+    if (typeof body.cpf === 'string') patch.cpf = body.cpf;
+    if (typeof body.planId === 'string') patch.plan_id = body.planId;
+    if (typeof body.status === 'string') patch.status = body.status;
+    if (Object.keys(patch).length === 0) return reply.code(400).send({ code: 'BAD_REQUEST', message: 'Nada para atualizar' });
+
+    const { data, error } = await supabaseAdmin
+      .from('customers')
+      .update(patch)
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .select()
+      .maybeSingle();
+    if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
+    if (!data) return reply.code(404).send({ code: 'NOT_FOUND' });
+    return reply.send(data);
+  });
 }

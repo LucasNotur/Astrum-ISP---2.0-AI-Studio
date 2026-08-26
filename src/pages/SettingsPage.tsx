@@ -1047,10 +1047,21 @@ export function SettingsPage() {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
-                           toast.success('Configurações MK-Auth salvas com sucesso!');
-                           setIsSavingKeys(false);
-                           setSelectedIntegrationMenu(null);
+                           try {
+                             const keys: Record<string, string> = {
+                               mkAuthUrl: integrationKeys.mkAuthUrl || '',
+                               mkAuthClientId: integrationKeys.mkAuthClientId || '',
+                               mkAuthClientSecret: integrationKeys.mkAuthClientSecret || '',
+                             };
+                             await apiPut('/api/v2/settings/integration-keys', { keys });
+                             toast.success('Configurações MK-Auth salvas com sucesso!');
+                             fetchIntegrationSecretsStatus();
+                           } catch (e: any) {
+                             toast.error(`Erro ao salvar: ${e.message}`);
+                           } finally {
+                             setIsSavingKeys(false);
+                             setSelectedIntegrationMenu(null);
+                           }
                         }}>Salvar MK-Auth</Button>
                       </div>
                   </div>
@@ -1224,10 +1235,17 @@ export function SettingsPage() {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
-                           toast.success('Configurações RD Station salvas!');
-                           setIsSavingKeys(false);
-                           setSelectedIntegrationMenu(null);
+                           try {
+                             const keys: Record<string, string> = { rdStationToken: integrationKeys.rdStationToken || '' };
+                             await apiPut('/api/v2/settings/integration-keys', { keys });
+                             toast.success('Configurações RD Station salvas!');
+                             fetchIntegrationSecretsStatus();
+                           } catch (e: any) {
+                             toast.error(`Erro ao salvar: ${e.message}`);
+                           } finally {
+                             setIsSavingKeys(false);
+                             setSelectedIntegrationMenu(null);
+                           }
                         }}>
                            Salvar RD Station
                         </Button>
@@ -1249,10 +1267,17 @@ export function SettingsPage() {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
-                           toast.success('Configurações Pipedrive salvas!');
-                           setIsSavingKeys(false);
-                           setSelectedIntegrationMenu(null);
+                           try {
+                             const keys: Record<string, string> = { pipedriveToken: integrationKeys.pipedriveToken || '' };
+                             await apiPut('/api/v2/settings/integration-keys', { keys });
+                             toast.success('Configurações Pipedrive salvas!');
+                             fetchIntegrationSecretsStatus();
+                           } catch (e: any) {
+                             toast.error(`Erro ao salvar: ${e.message}`);
+                           } finally {
+                             setIsSavingKeys(false);
+                             setSelectedIntegrationMenu(null);
+                           }
                         }}>
                            Salvar Pipedrive
                         </Button>
@@ -1274,10 +1299,17 @@ export function SettingsPage() {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
-                           toast.success('Configurações HubSpot salvas!');
-                           setIsSavingKeys(false);
-                           setSelectedIntegrationMenu(null);
+                           try {
+                             const keys: Record<string, string> = { hubspotToken: integrationKeys.hubspotToken || '' };
+                             await apiPut('/api/v2/settings/integration-keys', { keys });
+                             toast.success('Configurações HubSpot salvas!');
+                             fetchIntegrationSecretsStatus();
+                           } catch (e: any) {
+                             toast.error(`Erro ao salvar: ${e.message}`);
+                           } finally {
+                             setIsSavingKeys(false);
+                             setSelectedIntegrationMenu(null);
+                           }
                         }}>
                            Salvar HubSpot
                         </Button>
@@ -1352,10 +1384,20 @@ export function SettingsPage() {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
-                           toast.success('Configurações salvas!');
-                           setIsSavingKeys(false);
-                           setSelectedIntegrationMenu(null);
+                           try {
+                             const keys: Record<string, string> = {
+                               radiusNetUrl: integrationKeys.radiusNetUrl || '',
+                               radiusNetToken: integrationKeys.radiusNetToken || '',
+                             };
+                             await apiPut('/api/v2/settings/integration-keys', { keys });
+                             toast.success('Configurações salvas!');
+                             fetchIntegrationSecretsStatus();
+                           } catch (e: any) {
+                             toast.error(`Erro ao salvar: ${e.message}`);
+                           } finally {
+                             setIsSavingKeys(false);
+                             setSelectedIntegrationMenu(null);
+                           }
                         }}>Salvar RadiusNet</Button>
                       </div>
                   </div>
@@ -1375,10 +1417,17 @@ export function SettingsPage() {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
-                           toast.success('Configurações salvas!');
-                           setIsSavingKeys(false);
-                           setSelectedIntegrationMenu(null);
+                           try {
+                             const keys: Record<string, string> = { asaasToken: integrationKeys.asaasToken || '' };
+                             await apiPut('/api/v2/settings/integration-keys', { keys });
+                             toast.success('Configurações salvas!');
+                             fetchIntegrationSecretsStatus();
+                           } catch (e: any) {
+                             toast.error(`Erro ao salvar: ${e.message}`);
+                           } finally {
+                             setIsSavingKeys(false);
+                             setSelectedIntegrationMenu(null);
+                           }
                         }}>Salvar Asaas</Button>
                       </div>
                   </div>
@@ -1407,10 +1456,20 @@ export function SettingsPage() {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
-                           toast.success('Configurações salvas!');
-                           setIsSavingKeys(false);
-                           setSelectedIntegrationMenu(null);
+                           try {
+                             const keys: Record<string, string> = {
+                               gerencianetClientId: integrationKeys.gerencianetClientId || '',
+                               gerencianetClientSecret: integrationKeys.gerencianetClientSecret || '',
+                             };
+                             await apiPut('/api/v2/settings/integration-keys', { keys });
+                             toast.success('Configurações salvas!');
+                             fetchIntegrationSecretsStatus();
+                           } catch (e: any) {
+                             toast.error(`Erro ao salvar: ${e.message}`);
+                           } finally {
+                             setIsSavingKeys(false);
+                             setSelectedIntegrationMenu(null);
+                           }
                         }}>Salvar Gerencianet</Button>
                       </div>
                   </div>
@@ -1687,10 +1746,20 @@ export function SettingsPage() {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
-                           toast.success('Configurações salvas!');
-                           setIsSavingKeys(false);
-                           setSelectedIntegrationMenu(null);
+                           try {
+                             const keys: Record<string, string> = {
+                               qdrantUrl: integrationKeys.qdrantUrl || '',
+                               qdrantApiKey: integrationKeys.qdrantApiKey || '',
+                             };
+                             await apiPut('/api/v2/settings/integration-keys', { keys });
+                             toast.success('Configurações salvas!');
+                             fetchIntegrationSecretsStatus();
+                           } catch (e: any) {
+                             toast.error(`Erro ao salvar: ${e.message}`);
+                           } finally {
+                             setIsSavingKeys(false);
+                             setSelectedIntegrationMenu(null);
+                           }
                         }}>Salvar Qdrant</Button>
                       </div>
                   </div>
@@ -1710,10 +1779,17 @@ export function SettingsPage() {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
-                           toast.success('Configurações salvas!');
-                           setIsSavingKeys(false);
-                           setSelectedIntegrationMenu(null);
+                           try {
+                             const keys: Record<string, string> = { instagramToken: integrationKeys.instagramToken || '' };
+                             await apiPut('/api/v2/settings/integration-keys', { keys });
+                             toast.success('Configurações salvas!');
+                             fetchIntegrationSecretsStatus();
+                           } catch (e: any) {
+                             toast.error(`Erro ao salvar: ${e.message}`);
+                           } finally {
+                             setIsSavingKeys(false);
+                             setSelectedIntegrationMenu(null);
+                           }
                         }}>Salvar Instagram</Button>
                       </div>
                   </div>
@@ -1733,10 +1809,17 @@ export function SettingsPage() {
                       <div className="pt-4 flex gap-2">
                         <Button onClick={async () => {
                            setIsSavingKeys(true);
-                           await supabase.from('tenants').update({ integrations: integrationKeys }).eq('id', tenantId);
-                           toast.success('Configurações salvas!');
-                           setIsSavingKeys(false);
-                           setSelectedIntegrationMenu(null);
+                           try {
+                             const keys: Record<string, string> = { facebookToken: integrationKeys.facebookToken || '' };
+                             await apiPut('/api/v2/settings/integration-keys', { keys });
+                             toast.success('Configurações salvas!');
+                             fetchIntegrationSecretsStatus();
+                           } catch (e: any) {
+                             toast.error(`Erro ao salvar: ${e.message}`);
+                           } finally {
+                             setIsSavingKeys(false);
+                             setSelectedIntegrationMenu(null);
+                           }
                         }}>Salvar Facebook</Button>
                       </div>
                   </div>

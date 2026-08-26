@@ -408,6 +408,88 @@ achado em `AIObservabilityPage.tsx`/`AIConfigPage.tsx` (campos como `escalated`,
 de dados) — confirmar antes de assumir, mas não gastar tempo tentando portar 1:1.
 **Verificação/DoD:** mesmos da F1-A.
 
+## [~] F1-EXTRA — Retomada de SettingsPage.tsx e ChatPage.tsx (pedido direto do Lucas,
+2026-08-25, pós-F1-AUD)
+**Modelo:** Claude Sonnet 5
+**Contexto:** F1-C/F1-B tinham deixado SettingsPage.tsx (26 ocorrências) e ChatPage.tsx (6)
+documentadas como bloqueadas por gap de schema. O Lucas pediu pra "rodar a F1-D2" nelas de
+novo — reauditei ambas com o mesmo rigor (MCP antes de qualquer rota), e o resultado é
+misto: uma parte real foi destravada, o resto continua genuinamente bloqueado (e achei 2
+problemas novos, mais sérios que os documentados até aqui).
+
+**✅ Corrigido — SettingsPage.tsx, 10 dos ~28 `supabase.from(` restantes:**
+os 10 botões "Salvar X" de integrações (MK-Auth, RD Station, Pipedrive, HubSpot, RadiusNet,
+Asaas, Gerencianet, Qdrant, Instagram, Facebook) gravavam em `tenants.integrations`, coluna
+que não existe — **mas a própria página já tinha o padrão certo ao lado**: os botões de
+Evolution/OpenAI/Gemini/Anthropic/SMTP/Clicksign/D4Sign já usavam
+`apiPut('/api/v2/settings/integration-keys', { keys })`, rota real que grava em
+`tenants.integration_keys` (jsonb, cifrado — `integration-secrets.routes.ts`, já existia).
+Os 10 blocos foram alinhados ao mesmo padrão (`keys` só com os campos daquela integração,
+try/catch/finally, refresh de `fetchIntegrationSecretsStatus()`). Fix mecânico, zero
+schema novo, mesmo contrato já provado em produção pelos outros 7 provedores.
+
+**✅ Corrigido — ChatPage.tsx, 1 das 6 ocorrências:** o formulário "Editar Cliente"
+gravava `document`/`plan` (nomes que não existem — os reais são `cpf`/`plan_id`) via
+Supabase anônimo. Criada `PUT /api/v2/customers/:id` (`customers.routes.ts`, allowlist
+`name/email/phone/cpf/planId/status`, tenant-scoped) e `handleSaveCustomer` migrado.
+
+**⛔ NÃO corrigido — SettingsPage.tsx, ~18 ocorrências restantes:** confirma o achado
+original da F1-C, sem novidade — `sso_config`, `theme`, `vector_store_config` (duplicata do
+gap já achado em AIConfigPage/KnowledgeBasePage), `monthly_token_limit`/`worker_concurrency`/
+7 campos de `backup_*`, `holidays`, `role_permissions` (schema RBAC global, não por-tenant),
+`cleanSettings` (spread de `companySettings` inteiro, mistura campos reais e inventados) —
+nenhuma coluna real, precisa decisão de produto (criar coluna ou aposentar a feature) antes
+de qualquer rota. **Achado extra dentro deste grupo:** o comentário do próprio código em
+`saveBackupConfig` (linha ~801) já admite que a seção de backup manual "nunca teve backend"
+e é vestigial (Supabase já faz backup automático) — candidata a remoção, não a migração.
+Também dentro deste grupo: `supabase.auth.mfa.enroll/challenge/verify` (linhas ~263-284) —
+MFA via Supabase Auth, **sistema paralelo e morto**: o app tem seu próprio MFA real
+(`apps/api/src/domain/auth/mfa.routes.ts`, TOTP, já funcional), então esta tela de setup de
+MFA nunca funcionou e está desconectada do MFA de verdade.
+
+**⛔ NÃO corrigido — ChatPage.tsx, 5 ocorrências restantes:** todas em `messages`/`tickets`
+com nomes que não existem (`ticket_id`/`body`/`sender_type`/`evo_msg_ids` em vez de
+`conversation_id`/`content`/`role`/`from_ai`; `snoozed_until`/`snooze_reason`/`closing_reason`
+em `tickets`, também inexistentes). **Isto não é um gap de nomenclatura simples — é um
+modelo de dados diferente**, e o próprio cabeçalho do arquivo já documentava o motivo:
+> "U4-01 — Inbox do Operador... Por ora usa `store.tickets` como fonte primária; **em S77
+> a lista migrará para `GET /api/v2/conversations/inbox`**"
+
+S77 é uma migração já planejada (tickets→conversations) e nunca executada — não é uma
+tarefa desta sessão inventar essa decisão. `inbox.routes.ts` (P2-04) já é o backend real e
+correto (`conversations` + `messages(content,role,extra,created_at)`), só não tem consumidor
+no frontend ainda.
+
+**🔴 Achado novo #1 (mais grave que tudo documentado até aqui) — realtime do ChatPage está
+100% morto:** o arquivo conecta via `socket.io-client` (`io(url)`, eventos `join_chat`/
+`typing_status`) a `http://localhost:3000`. O backend real (`apps/api/src/domain/realtime/
+websocket.routes.ts`, BLOCO 7) é um **WebSocket nativo** (`@fastify/websocket`, não
+Socket.IO) no canal `/ws/conversations/:conversationId`, protocolo de mensagens totalmente
+diferente (`{type:'new_message',...}` via Redis pub/sub). **Não existe servidor Socket.IO
+em lugar nenhum do `apps/api`** (grep confirma). Ou seja: além dos 6 `supabase.from(`
+documentados, o ChatPage nunca recebe mensagem nova nem indicador de "digitando" em tempo
+real — o socket.io-client conecta a nada. Isso é maior que o achado original da F1-B.
+
+**🔴 Achado novo #2 (bug de produção, worker já rodando) — `snooze.worker.ts` quebrado:**
+`packages/queue/src/workers/snooze.worker.ts` (o worker "v2" que a L1 manteve como
+substituto real do legado) faz `.select('id, tenant_id, snoozed_until, snooze_reason,
+assigned_operator_id, snoozed_by')` em `tickets` — **nenhuma dessas 4 colunas existe**
+(confirmado via MCP, schema idêntico ao já levantado). Esse worker roda a cada minuto em
+produção (`snooze-check-repeat`); a query real do PostgREST rejeita coluna inexistente, ou
+seja, **o cron do snooze provavelmente erra silenciosamente a cada execução** desde que foi
+promovido a "v2 real" — precisa investigação separada (não confirmei o comportamento exato
+do erro em runtime, só a incompatibilidade de schema).
+
+**Verificação:** `typecheck:legacy` + `apps/api typecheck` limpos, build ok. Suites: root
+**3505 passed / 0 failed** (isolado — timeout de sempre sob carga), apps/api **2755 passed /
+0 failed** (isolado — mesmos 3 timeouts de sempre, 53/53 verde isolado). Testes novos:
+`customers.routes.test.ts` (+4, cobrindo o PUT).
+
+**Recomendação para o Lucas:** os dois achados novos (realtime morto + worker de snooze
+quebrado) valem uma tarefa própria — não são "problema pequeno" nem cabem no escopo de uma
+migração de página. O resto de SettingsPage/ChatPage precisa de decisão de produto (schema
+novo vs. aposentar feature) antes de qualquer código.
+
 ## [x] F1-AUD — Auditoria dos lotes F1 antes do push
 **Modelo:** Claude Sonnet 5 (2026-08-25)
 **Resumo:** rodada **retroativa**, não no formato original da spec — `git log
