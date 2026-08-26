@@ -5,7 +5,7 @@ import type { DiagnosticResult } from './diagnostic-portal.service';
 import { subscriberPortalRoutes } from './subscriber-portal.routes';
 
 vi.mock('../../infrastructure/database/supabase.client', () => ({
-  default: { from: vi.fn() },
+  supabaseAdmin: { from: vi.fn() },
 }));
 
 vi.mock('../../infrastructure/logging/logger', () => ({

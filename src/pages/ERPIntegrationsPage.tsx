@@ -1,7 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { apiGet } from '@/src/lib/apiClient';
-import { getApiAccessToken } from '@/src/lib/apiAuth';
+import { apiGet, apiPost } from '@/src/lib/apiClient';
 import { useAppStore } from '../store/useAppStore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
 import { Badge } from "@/src/components/ui/badge";
@@ -85,16 +84,10 @@ export function ERPIntegrationsPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
-  const [loadingCreds, setLoadingCreds] = useState(true);
-
-  const getToken = useCallback(async () => {
-    return (await getApiAccessToken()) ?? '';
-  }, []);
 
   useEffect(() => {
     if (!tenantId || tenantId === 'default') return;
     loadConnectedStatus();
-    loadAllCredentials();
   }, [tenantId]);
 
   async function loadConnectedStatus() {
@@ -109,26 +102,6 @@ export function ERPIntegrationsPage() {
     } catch {}
   }
 
-  async function loadAllCredentials() {
-    setLoadingCreds(true);
-    const results = await Promise.allSettled(
-      ERP_PROVIDERS.map(p =>
-        fetch(`/api/integrations/${p.id}?tenantId=${tenantId}`)
-          .then(r => r.ok ? r.json() : null)
-          .then(data => ({ id: p.id, data }))
-          .catch(() => ({ id: p.id, data: null }))
-      )
-    );
-    const newValues: Record<string, Record<string, string>> = {};
-    results.forEach(r => {
-      if (r.status === 'fulfilled' && r.value.data) {
-        newValues[r.value.id] = r.value.data;
-      }
-    });
-    setFieldValues(newValues);
-    setLoadingCreds(false);
-  }
-
   const setField = (provider: string, key: string, value: string) => {
     setFieldValues(prev => ({ ...prev, [provider]: { ...(prev[provider] ?? {}), [key]: value } }));
   };
@@ -136,13 +109,14 @@ export function ERPIntegrationsPage() {
   const saveProvider = async (providerId: string) => {
     setSaving(providerId);
     try {
-      const token = await getToken();
-      const res = await fetch(`/api/integrations/${providerId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ...fieldValues[providerId], tenantId }),
+      // erp-admin.routes.ts nunca devolve a credencial cifrada de volta (POST-only,
+      // sem endpoint de leitura do segredo) — os campos ficam sempre em branco no
+      // formulário, mesmo padrão já usado pelas credenciais ERP de SettingsPage.tsx.
+      await apiPost('/api/v2/erp/credentials', {
+        provider: providerId,
+        credentials: fieldValues[providerId] ?? {},
+        active: true,
       });
-      if (!res.ok) throw new Error(await res.text());
       toast.success(`Credenciais ${ERP_PROVIDERS.find(p => p.id === providerId)?.label} salvas`);
       await loadConnectedStatus();
     } catch (e: any) {
@@ -155,21 +129,12 @@ export function ERPIntegrationsPage() {
   const testProvider = async (providerId: string) => {
     setTesting(providerId);
     try {
-      const token = await getToken();
-      const res = await fetch(`/api/integrations/${providerId}/test`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ ...fieldValues[providerId], tenantId }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast.success(`Conexão com ${ERP_PROVIDERS.find(p => p.id === providerId)?.label} OK`);
-        setConnected(prev => ({ ...prev, [providerId]: true }));
-      } else {
-        toast.error(`Falha: ${data.error ?? 'Erro desconhecido'}`);
-      }
+      // Testa a credencial JÁ SALVA (cifrada no servidor) — salve antes de testar.
+      await apiPost(`/api/v2/erp/credentials/${providerId}/test`, {});
+      toast.success(`Conexão com ${ERP_PROVIDERS.find(p => p.id === providerId)?.label} OK`);
+      setConnected(prev => ({ ...prev, [providerId]: true }));
     } catch (e: any) {
-      toast.error(`Erro ao testar: ${e.message}`);
+      toast.error(`Falha: ${e.message}`);
     } finally {
       setTesting(null);
     }
@@ -248,47 +213,39 @@ export function ERPIntegrationsPage() {
 
               {isOpen && (
                 <CardContent className="pt-4 space-y-4">
-                  {loadingCreds ? (
-                    <div className="flex items-center gap-2 text-zinc-400 text-sm">
-                      <Loader2 size={14} className="animate-spin" /> Carregando credenciais…
-                    </div>
-                  ) : (
-                    <>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {provider.fields.map(f => (
-                          <div key={f.key} className="space-y-1">
-                            <Label className="text-xs">{f.label}</Label>
-                            <Input
-                              type={f.type ?? 'text'}
-                              placeholder={f.placeholder}
-                              value={vals[f.key] ?? ''}
-                              onChange={e => setField(provider.id, f.key, e.target.value)}
-                              className="h-8 text-sm"
-                            />
-                          </div>
-                        ))}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {provider.fields.map(f => (
+                      <div key={f.key} className="space-y-1">
+                        <Label className="text-xs">{f.label}</Label>
+                        <Input
+                          type={f.type ?? 'text'}
+                          placeholder={f.placeholder}
+                          value={vals[f.key] ?? ''}
+                          onChange={e => setField(provider.id, f.key, e.target.value)}
+                          className="h-8 text-sm"
+                        />
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => saveProvider(provider.id)}
-                          disabled={saving === provider.id}
-                        >
-                          {saving === provider.id ? <Loader2 size={12} className="animate-spin mr-1" /> : null}
-                          Salvar credenciais
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => testProvider(provider.id)}
-                          disabled={testing === provider.id}
-                        >
-                          {testing === provider.id ? <Loader2 size={12} className="animate-spin mr-1" /> : null}
-                          Testar conexão
-                        </Button>
-                      </div>
-                    </>
-                  )}
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => saveProvider(provider.id)}
+                      disabled={saving === provider.id}
+                    >
+                      {saving === provider.id ? <Loader2 size={12} className="animate-spin mr-1" /> : null}
+                      Salvar credenciais
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => testProvider(provider.id)}
+                      disabled={testing === provider.id}
+                    >
+                      {testing === provider.id ? <Loader2 size={12} className="animate-spin mr-1" /> : null}
+                      Testar conexão
+                    </Button>
+                  </div>
                 </CardContent>
               )}
             </Card>

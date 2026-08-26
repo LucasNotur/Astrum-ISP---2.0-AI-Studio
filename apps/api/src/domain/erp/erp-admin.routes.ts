@@ -5,9 +5,10 @@ import { encryptCredentials, decryptCredentials } from '../../adapters/erp/crede
 import { createErpProvider, isErpImplemented } from '../../adapters/erp/erp.factory';
 import type { ERPProviderName, ERPCredentials } from '../../adapters/erp/erp.types';
 
-// rbx tem tipo + adapter (RBXAdapter) no factory, mas estava fora desta lista → o
-// wizard rejeitava um provider IMPLEMENTADO (o frontend usa rbx). Alinhado ao factory.
-const ALLOWED_PROVIDERS: ERPProviderName[] = ['ixc', 'mkauth', 'voalle', 'sgp', 'hubsoft', 'rbx'];
+// rbx e radiusnet têm tipo + adapter no factory, mas estavam fora desta lista → o
+// wizard rejeitava providers IMPLEMENTADOS (ERPIntegrationsPage.tsx usa os dois).
+// Alinhado ao factory (7/7 adapters implementados).
+const ALLOWED_PROVIDERS: ERPProviderName[] = ['ixc', 'mkauth', 'voalle', 'sgp', 'hubsoft', 'radiusnet', 'rbx'];
 
 /**
  * P0-01 — Wizard de credenciais ERP (15 minutos).

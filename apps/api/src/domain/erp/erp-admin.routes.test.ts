@@ -128,6 +128,20 @@ describe('erp-admin.routes', () => {
       expect(res.statusCode).toBe(400);
     });
 
+    it('regressão: radiusnet (implementado no factory, usado por ERPIntegrationsPage.tsx) -> 201, não 400', async () => {
+      (encryptCredentials as any).mockReturnValue('iv:tag:cipher');
+      (supabase.from as any).mockReturnValue(makeChain({ data: null, error: null }));
+
+      const app = await buildApp();
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v2/erp/credentials',
+        payload: { provider: 'radiusnet', credentials: { url: 'https://rn.example.com', password: 'pwd' } },
+      });
+
+      expect(res.statusCode).toBe(201);
+    });
+
     it('credentials sem url/segredo -> 400', async () => {
       const app = await buildApp();
       const res = await app.inject({
