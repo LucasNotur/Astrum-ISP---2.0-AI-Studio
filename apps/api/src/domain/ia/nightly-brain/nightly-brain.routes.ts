@@ -18,11 +18,12 @@ export async function nightlyBrainRoutes(app: FastifyInstance) {
     preHandler: [app.authenticate, requirePermission('ai_config', 'read')],
   }, async (request) => {
     const tenantId = getTenantId(request.user) ?? '';
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('ai_reflections').select('*')
       .eq('tenant_id', tenantId)
       .order('reflection_date', { ascending: false })
       .limit(30);
+    if (error) throw new Error(`ia/reflections: ${error.message}`);
     return { reflections: data ?? [] };
   });
 

@@ -93,13 +93,18 @@ export class OutboxService {
    * Chamado pelo OutboxWorker a cada 5 segundos.
    */
   async processPending(): Promise<void> {
-    const { data: events } = await supabase
+    const { data: events, error } = await supabase
       .from('outbox')
       .select('*')
       .is('processed_at', null)
       .lt('retry_count', 5)
       .order('created_at', { ascending: true })
       .limit(50);
+
+    if (error) {
+      infraLogger.error({ error }, 'Outbox: falha ao consultar eventos pendentes');
+      throw new Error('Falha ao consultar outbox: ' + error.message);
+    }
 
     if (!events || events.length === 0) return;
 
@@ -129,10 +134,14 @@ export class OutboxService {
       });
 
       // Marcar como processado
-      await supabase
+      const { error: markErr } = await supabase
         .from('outbox')
         .update({ processed_at: new Date().toISOString() })
         .eq('id', event.id);
+
+      if (markErr) {
+        infraLogger.error({ error: markErr, outboxId: event.id }, 'Outbox: falha ao marcar evento como processado');
+      }
 
       infraLogger.info({
         outboxId: event.id,
@@ -145,10 +154,14 @@ export class OutboxService {
       infraLogger.error({ err, outboxId: event.id }, 'Outbox event failed');
 
       // Incrementar retry_count
-      await supabase
+      const { error: retryErr } = await supabase
         .from('outbox')
         .update({ retry_count: event.retry_count + 1 })
         .eq('id', event.id);
+
+      if (retryErr) {
+        infraLogger.error({ error: retryErr, outboxId: event.id }, 'Outbox: falha ao incrementar retry_count');
+      }
     }
   }
 }

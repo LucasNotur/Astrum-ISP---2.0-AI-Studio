@@ -11,12 +11,16 @@ import { syncAsaasInvoices, type AsaasSyncPorts, type InvoiceUpsertRow } from '.
 function makeAsaasSyncPorts(): AsaasSyncPorts {
   return {
     async listCharges(tenantId: string): Promise<AsaasCharge[]> {
-      const { data: cred } = await supabase
+      const { data: cred, error } = await supabase
         .from('tenant_erp_credentials')
         .select('credentials_encrypted')
         .eq('tenant_id', tenantId)
         .eq('provider', 'asaas')
         .maybeSingle();
+      if (error) {
+        infraLogger.error({ tenantId, err: error }, 'F6-02: falha ao consultar tenant_erp_credentials para sync Asaas');
+        throw new Error(`falha ao consultar credenciais Asaas: ${error.message ?? error}`);
+      }
       if (!cred?.credentials_encrypted) return [];
       const creds = decryptCredentials<AsaasCredentials>(cred.credentials_encrypted);
       const adapter = new AsaasAdapter(creds);
@@ -26,33 +30,49 @@ function makeAsaasSyncPorts(): AsaasSyncPorts {
     async resolveCustomerId(tenantId: string, customerExternalId: string): Promise<string | null> {
       if (!customerExternalId) return null;
       // Cliente precisa existir (importado via ERP/planilha). Casa por legacy_id.
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('customers')
         .select('id')
         .eq('tenant_id', tenantId)
         .eq('legacy_id', customerExternalId)
         .maybeSingle();
+      if (error) {
+        infraLogger.error({ tenantId, customerExternalId, err: error }, 'F6-02: falha ao resolver customer_id para sync Asaas');
+        throw new Error(`falha ao resolver cliente ${customerExternalId}: ${error.message ?? error}`);
+      }
       return (data as any)?.id ?? null;
     },
 
     async upsertInvoice(row: InvoiceUpsertRow): Promise<'inserted' | 'updated'> {
-      const { data: existing } = await supabase
+      const { data: existing, error: selectErr } = await supabase
         .from('invoices')
         .select('id')
         .eq('tenant_id', row.tenant_id)
         .eq('external_id', row.external_id)
         .maybeSingle();
+      if (selectErr) {
+        infraLogger.error({ tenantId: row.tenant_id, externalId: row.external_id, err: selectErr }, 'F6-02: falha ao verificar invoice existente para sync Asaas');
+        throw new Error(`falha ao verificar invoice ${row.external_id}: ${selectErr.message ?? selectErr}`);
+      }
 
       if (existing?.id) {
-        await supabase.from('invoices').update({
+        const { error: updateErr } = await supabase.from('invoices').update({
           amount_cents: row.amount_cents, status: row.status, due_date: row.due_date,
           paid_at: row.paid_at, payment_url: row.payment_url, pix_copy_paste: row.pix_copy_paste,
           extra: row.extra,
         }).eq('id', existing.id);
+        if (updateErr) {
+          infraLogger.error({ tenantId: row.tenant_id, externalId: row.external_id, err: updateErr }, 'F6-02: falha ao atualizar invoice no sync Asaas');
+          throw new Error(`falha ao atualizar invoice ${row.external_id}: ${updateErr.message ?? updateErr}`);
+        }
         return 'updated';
       }
 
-      await supabase.from('invoices').insert(row);
+      const { error: insertErr } = await supabase.from('invoices').insert(row);
+      if (insertErr) {
+        infraLogger.error({ tenantId: row.tenant_id, externalId: row.external_id, err: insertErr }, 'F6-02: falha ao inserir invoice no sync Asaas');
+        throw new Error(`falha ao inserir invoice ${row.external_id}: ${insertErr.message ?? insertErr}`);
+      }
       return 'inserted';
     },
   };

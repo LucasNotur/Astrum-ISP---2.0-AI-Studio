@@ -26,10 +26,19 @@ export function normalizeCpf(cpf: string): string {
 
 export type PortalAuthResult =
   | { ok: true; customerId: string; tenantId: string }
-  | { ok: false; reason: 'not_found' | 'contract_mismatch' | 'inactive' };
+  | { ok: false; reason: 'not_found' | 'contract_mismatch' | 'inactive' | 'lookup_error' };
 
-/** Autentica o assinante por CPF+contrato contra o registro do ISP. */
-export function authenticateSubscriber(input: SubscriberAuthInput, record: SubscriberRecord | null): PortalAuthResult {
+/**
+ * Autentica o assinante por CPF+contrato contra o registro do ISP.
+ * `opts.lookupError` sinaliza que a consulta ao banco falhou (infra) — nesse caso a
+ * causa NÃO é CPF/contrato errados, e a rota deve responder diferente (500, não 401).
+ */
+export function authenticateSubscriber(
+  input: SubscriberAuthInput,
+  record: SubscriberRecord | null,
+  opts: { lookupError?: boolean } = {},
+): PortalAuthResult {
+  if (opts.lookupError) return { ok: false, reason: 'lookup_error' };
   if (!record || normalizeCpf(input.cpf) !== record.cpf) return { ok: false, reason: 'not_found' };
   if (input.contract.trim() !== record.contract) return { ok: false, reason: 'contract_mismatch' };
   if (!record.active) return { ok: false, reason: 'inactive' };
@@ -52,7 +61,14 @@ export interface PortalDb {
 }
 
 import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
+import { infraLogger } from '../../infrastructure/logging/logger';
 export const defaultPortalDb: PortalDb = supabase as any;
+
+export interface SubscriberLookupResult {
+  record: SubscriberRecord | null;
+  /** true quando a consulta ao banco falhou (infra) — distinto de "CPF não encontrado". */
+  lookupError: boolean;
+}
 
 /**
  * Busca o assinante pelo CPF normalizado no tenant.
@@ -63,22 +79,30 @@ export async function lookupSubscriberByCpf(
   db: PortalDb,
   tenantId: string,
   cpf: string,
-): Promise<SubscriberRecord | null> {
+): Promise<SubscriberLookupResult> {
   const cpfNorm = normalizeCpf(cpf);
-  const { data } = await db
+  const { data, error } = await db
     .from('customers')
     .select('id, cpf, legacy_id, status, tenant_id')
     .eq('tenant_id', tenantId)
     .eq('cpf', cpfNorm)
     .maybeSingle();
 
-  if (!data) return null;
+  if (error) {
+    infraLogger.error({ tenantId, err: error }, 'P4-01: falha ao consultar customers no portal do assinante — lookup por CPF indisponível');
+    return { record: null, lookupError: true };
+  }
+
+  if (!data) return { record: null, lookupError: false };
   return {
-    customerId: data.id,
-    cpf: normalizeCpf(data.cpf ?? ''),
-    contract: data.legacy_id ?? data.id,   // ERP ID ou UUID como fallback
-    tenantId: data.tenant_id,
-    active: data.status === 'active',
+    record: {
+      customerId: data.id,
+      cpf: normalizeCpf(data.cpf ?? ''),
+      contract: data.legacy_id ?? data.id,   // ERP ID ou UUID como fallback
+      tenantId: data.tenant_id,
+      active: data.status === 'active',
+    },
+    lookupError: false,
   };
 }
 
@@ -89,13 +113,16 @@ export async function getCustomerInvoices(
   customerId: string,
   limit = 10,
 ): Promise<any[]> {
-  const { data } = await db
+  const { data, error } = await db
     .from('invoices')
     .select('id, amount_cents, due_date, status, paid_at, payment_url, pix_copy_paste')
     .eq('tenant_id', tenantId)
     .eq('customer_id', customerId)
     .order('due_date', { ascending: false })
     .limit(limit);
+  if (error) {
+    infraLogger.error({ tenantId, customerId, err: error }, 'P4-01: falha ao consultar invoices no portal do assinante — lista pode estar vazia indevidamente');
+  }
   return data ?? [];
 }
 
@@ -106,12 +133,15 @@ export async function getCustomerServiceOrders(
   customerId: string,
   limit = 5,
 ): Promise<any[]> {
-  const { data } = await db
+  const { data, error } = await db
     .from('service_orders')
     .select('id, type, status, description, scheduled_for, created_at')
     .eq('tenant_id', tenantId)
     .eq('customer_id', customerId)
     .order('created_at', { ascending: false })
     .limit(limit);
+  if (error) {
+    infraLogger.error({ tenantId, customerId, err: error }, 'P4-01: falha ao consultar service_orders no portal do assinante — lista pode estar vazia indevidamente');
+  }
   return data ?? [];
 }

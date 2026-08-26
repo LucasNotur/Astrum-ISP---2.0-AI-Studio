@@ -97,12 +97,18 @@ export class ToolsExecutor {
 
   /** P0-06 — instancia o adapter do ERP ativo do tenant (null se não configurado). */
   private async _getErpAdapter(): Promise<ERPProvider | null> {
-    const { data: erpCred } = await supabase
+    const { data: erpCred, error: erpCredErr } = await supabase
       .from('tenant_erp_credentials')
       .select('provider, credentials_encrypted')
       .eq('tenant_id', this.tenantId)
       .eq('active', true)
       .maybeSingle();
+    if (erpCredErr) {
+      infraLogger.warn(
+        { tenantId: this.tenantId, err: erpCredErr.message },
+        '_getErpAdapter: erro ao buscar credenciais ERP (distinto de "sem ERP configurado")',
+      );
+    }
     if (!erpCred?.provider || !isErpImplemented(erpCred.provider as ERPProviderName)) return null;
     const creds = decryptCredentials<ERPCredentials>(erpCred.credentials_encrypted);
     return createErpProvider(erpCred.provider as ERPProviderName, creds);
@@ -116,12 +122,18 @@ export class ToolsExecutor {
     };
 
     // Registrar no audit log ANTES de executar (segurança)
-    await supabase.from('audit_log').insert({
+    const { error: auditErr } = await supabase.from('audit_log').insert({
       tenant_id: this.tenantId,
       action: 'ai_suspend_signal',
       entity_id: customer_id,
       metadata: { reason, scheduled_for, triggered_by: 'ai_agent' },
     });
+    if (auditErr) {
+      infraLogger.error(
+        { tenantId: this.tenantId, customerId: customer_id, err: auditErr.message },
+        'suspend_signal: FALHA ao gravar audit_log de segurança (suspensão prossegue mesmo assim)',
+      );
+    }
 
     // P0-06 — suspensão imediata direto no ERP quando o conector suporta.
     // Suspensão AGENDADA continua no BullMQ (o delay mora na fila, não no ERP).
@@ -163,12 +175,19 @@ export class ToolsExecutor {
 
     // P0-06 — se o tenant tem ERP configurado, busca diretamente no ERP do ISP.
     try {
-      const { data: erpCred } = await supabase
+      const { data: erpCred, error: erpCredErr } = await supabase
         .from('tenant_erp_credentials')
         .select('provider, credentials_encrypted')
         .eq('tenant_id', this.tenantId)
         .eq('active', true)
         .maybeSingle();
+
+      if (erpCredErr) {
+        infraLogger.warn(
+          { tenantId: this.tenantId, err: erpCredErr.message },
+          'check_invoice: erro ao buscar credenciais ERP (distinto de "sem ERP configurado") — usando Supabase',
+        );
+      }
 
       if (erpCred?.provider && isErpImplemented(erpCred.provider as ERPProviderName)) {
         const creds = decryptCredentials<ERPCredentials>(erpCred.credentials_encrypted);
@@ -225,13 +244,20 @@ export class ToolsExecutor {
   /** run_diagnostics — teste de sinal/latência. Sem SNMP ainda (S93): resultado simulado marcado. */
   private async _runDiagnostics(args: Record<string, unknown>) {
     const { customer_id } = args as { customer_id: string };
-    const { data: customer } = await supabase
+    const { data: customer, error: customerErr } = await supabase
       .from('customers')
       .select('id, status')
       .eq('id', customer_id)
       .eq('tenant_id', this.tenantId)
       .maybeSingle();
 
+    if (customerErr) {
+      infraLogger.warn(
+        { tenantId: this.tenantId, customerId: customer_id, err: customerErr.message },
+        'run_diagnostics: erro ao consultar cliente',
+      );
+      return { error: 'Erro ao consultar dados do cliente' };
+    }
     if (!customer) return { error: 'Cliente não encontrado' };
     // Suspenso → diagnóstico aponta a causa real antes de "problema técnico".
     if (customer.status === 'suspended') {
@@ -256,7 +282,7 @@ export class ToolsExecutor {
           description: reason,
           scheduledFor: scheduled_for,
         });
-        await supabase.from('service_orders').insert({
+        const { error: mirrorErr } = await supabase.from('service_orders').insert({
           tenant_id: this.tenantId,
           customer_id,
           type: 'technical_visit',
@@ -267,6 +293,12 @@ export class ToolsExecutor {
           created_by: 'ai_agent',
           external_id: erpOs.orderId,
         });
+        if (mirrorErr) {
+          infraLogger.warn(
+            { tenantId: this.tenantId, orderId: erpOs.orderId, err: mirrorErr.message },
+            'schedule_technical_visit: falha ao gravar espelho local em service_orders (ERP é a fonte da verdade, seguindo)',
+          );
+        }
         infraLogger.info({ tenantId: this.tenantId, provider: adapter.name, orderId: erpOs.orderId }, 'schedule_technical_visit via ERP adapter');
         return { service_order_id: erpOs.orderId, source: 'erp', success: true };
       }

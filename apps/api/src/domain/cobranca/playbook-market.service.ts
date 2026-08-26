@@ -131,10 +131,13 @@ export async function installPlaybook(
   }, { onConflict: 'playbook_id,tenant_id' }).select('id').single();
   if (insErr) throw new Error(`D-17 install: ${insErr.message}`);
 
-  // 4. Incrementar downloads
-  await ports.db.from('playbooks')
+  // 4. Incrementar downloads (fire-and-forget: contador não deve travar a instalação)
+  const { error: downloadsErr } = await ports.db.from('playbooks')
     .update({ downloads: (pb as any).downloads + 1 })
     .eq('id', playbookId);
+  if (downloadsErr) {
+    infraLogger.warn({ tenantId, playbookId, err: downloadsErr }, 'D-17: falha ao incrementar contador de downloads');
+  }
 
   infraLogger.info({ tenantId, playbookId }, 'D-17: playbook instalado');
   return {

@@ -90,6 +90,16 @@ export async function gatherDailyMetrics(
       .eq('tenant_id', tenantId).eq('status', 'resolved'),
   ]);
 
+  for (const [label, result] of [
+    ['tickets', tickets], ['conversations', conversations], ['ai_performance_logs (hoje)', aiLogs],
+    ['ai_performance_logs (prev7d)', aiLogsPrev], ['invoices (overdue)', overdue],
+    ['conversations (kb candidates)', kbCandidates],
+  ] as const) {
+    if (result.error) {
+      iaLogger.error({ error: result.error, tenantId, date, source: label }, 'nightly-brain: falha ao coletar métrica do dia');
+    }
+  }
+
   const tRows = tickets.data ?? [];
   const cRows = conversations.data ?? [];
   const logRows = aiLogs.data ?? [];

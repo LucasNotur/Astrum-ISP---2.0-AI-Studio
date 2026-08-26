@@ -84,11 +84,18 @@ export async function findCandidateConversations(
   if (error) throw new Error(`findCandidateConversations: ${error.message}`);
   if (!convs?.length) return [];
 
-  const { data: existing } = await supabase
+  const { data: existing, error: existingErr } = await supabase
     .from('kb_drafts')
     .select('conversation_id')
     .eq('tenant_id', tenantId)
     .in('conversation_id', convs.map(c => c.id));
+
+  if (existingErr) {
+    infraLogger.warn(
+      { tenantId, err: existingErr.message },
+      'D-05: erro ao checar dedupe de kb_drafts (pode gerar rascunhos duplicados)',
+    );
+  }
 
   const existingIds = new Set((existing ?? []).map((e: any) => e.conversation_id));
   const candidates = convs.filter(c => !existingIds.has(c.id));
@@ -102,11 +109,18 @@ export async function findCandidateConversations(
 
   const entries: { item: Omit<CandidateConversation, 'explicitConfirmation' | 'priority'>; signals: ConversationSignals }[] = [];
   for (const conv of candidates) {
-    const { data: msgs } = await supabase
+    const { data: msgs, error: msgsErr } = await supabase
       .from('messages')
       .select('content, role, created_at')
       .eq('conversation_id', conv.id)
       .order('created_at', { ascending: true });
+
+    if (msgsErr) {
+      infraLogger.warn(
+        { tenantId, conversationId: conv.id, err: msgsErr.message },
+        'D-05: erro ao buscar mensagens da conversa candidata (pulando)',
+      );
+    }
 
     if (!msgs || msgs.length < 3) continue;
 

@@ -7,6 +7,7 @@
  * É o insumo do card no dashboard Valor Gerado (P5) — o dono lê em 30 segundos.
  */
 import { supabaseAdmin as supabase } from '../../../infrastructure/database/supabase.client';
+import { infraLogger } from '../../../infrastructure/logging/logger';
 
 export interface AutoevolucaoReport {
   month: string; // YYYY-MM
@@ -22,6 +23,7 @@ export interface AutoevolucaoReport {
   aiCostLastWeekUsd: number;
   costTrendPct: number | null;         // negativo = ficou mais barata
   headline: string;                    // a frase para o card
+  hasErrors?: boolean;                 // true se alguma query do agregado falhou (dados parciais)
 }
 
 function monthRange(month: string): { start: string; end: string } {
@@ -53,6 +55,21 @@ export async function buildAutoevolucaoReport(
       .gte('created_at', new Date(new Date(end).getTime() - 7 * 86400000).toISOString())
       .lt('created_at', end),
   ]);
+
+  const namedResults: [string, { data: any; error: any }][] = [
+    ['ai_reflections', reflections],
+    ['kb_drafts', drafts],
+    ['incidents', incidents],
+    ['ai_performance_logs (primeira semana)', logsFirst],
+    ['ai_performance_logs (última semana)', logsLast],
+  ];
+  let hasErrors = false;
+  for (const [metric, result] of namedResults) {
+    if (result.error) {
+      hasErrors = true;
+      infraLogger.error({ tenantId, month, metric, error: result.error }, 'E-05: falha ao agregar métrica do relatório de autoevolução');
+    }
+  }
 
   const refl = reflections.data ?? [];
   const hyp = { info: 0, atencao: 0, critico: 0 };
@@ -97,5 +114,6 @@ export async function buildAutoevolucaoReport(
     aiCostLastWeekUsd: last,
     costTrendPct: trend,
     headline,
+    ...(hasErrors ? { hasErrors: true } : {}),
   };
 }

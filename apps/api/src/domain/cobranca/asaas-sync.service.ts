@@ -55,32 +55,60 @@ export interface AsaasSyncResult {
   skippedInvalid: number;
   inserted: number;
   updated: number;
+  /** Presente (e não-vazio) quando alguma cobrança/consulta falhou — sync parcial. */
+  errors?: string[];
 }
 
 /**
  * Puxa as cobranças e faz upsert em `invoices`. Pula cobranças sem cliente local
  * resolvido (cliente precisa existir — importado via ERP/planilha antes) e sem
- * vencimento (coluna NOT NULL). Nunca lança por causa de uma cobrança ruim.
+ * vencimento (coluna NOT NULL).
+ *
+ * Nunca lança por causa de uma cobrança ruim OU de uma falha de infra pontual — a rota
+ * responde sempre 200 com contadores (contrato existente). Falhas (ex.: erro do
+ * Supabase nos ports) são acumuladas em `errors` para o resultado deixar de "mentir"
+ * sucesso total quando na real algo falhou.
  */
 export async function syncAsaasInvoices(tenantId: string, ports: AsaasSyncPorts): Promise<AsaasSyncResult> {
-  const charges = await ports.listCharges(tenantId);
   const result: AsaasSyncResult = {
-    fetched: charges.length, synced: 0, overdue: 0,
+    fetched: 0, synced: 0, overdue: 0,
     skippedNoCustomer: 0, skippedInvalid: 0, inserted: 0, updated: 0,
   };
+  const errors: string[] = [];
+
+  let charges: AsaasCharge[];
+  try {
+    charges = await ports.listCharges(tenantId);
+  } catch (err: any) {
+    errors.push(`listCharges: ${err?.message ?? String(err)}`);
+    result.errors = errors;
+    return result;
+  }
+  result.fetched = charges.length;
 
   for (const charge of charges) {
     if (!charge.externalId || !charge.dueDate) { result.skippedInvalid++; continue; }
 
-    const customerId = await ports.resolveCustomerId(tenantId, charge.customerExternalId);
+    let customerId: string | null;
+    try {
+      customerId = await ports.resolveCustomerId(tenantId, charge.customerExternalId);
+    } catch (err: any) {
+      errors.push(`resolveCustomerId(${charge.externalId}): ${err?.message ?? String(err)}`);
+      continue;
+    }
     if (!customerId) { result.skippedNoCustomer++; continue; }
 
     const row = mapChargeToInvoiceRow(tenantId, customerId, charge);
-    const op = await ports.upsertInvoice(row);
-    result.synced++;
-    if (op === 'inserted') result.inserted++; else result.updated++;
-    if (charge.status === 'overdue') result.overdue++;
+    try {
+      const op = await ports.upsertInvoice(row);
+      result.synced++;
+      if (op === 'inserted') result.inserted++; else result.updated++;
+      if (charge.status === 'overdue') result.overdue++;
+    } catch (err: any) {
+      errors.push(`upsertInvoice(${charge.externalId}): ${err?.message ?? String(err)}`);
+    }
   }
 
+  if (errors.length > 0) result.errors = errors;
   return result;
 }

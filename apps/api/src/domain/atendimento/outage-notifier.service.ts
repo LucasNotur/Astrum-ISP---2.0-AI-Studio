@@ -64,7 +64,7 @@ export async function notifyMassOutage(
   const affected = customers ?? [];
 
   // Registra a notificação de falha em massa ANTES de enviar
-  const { data: outageRow } = await db
+  const { data: outageRow, error: outageInsertError } = await db
     .from('outage_notifications')
     .insert({
       tenant_id: tenantId,
@@ -75,6 +75,13 @@ export async function notifyMassOutage(
     })
     .select('id')
     .single();
+
+  if (outageInsertError) {
+    infraLogger.error(
+      { tenantId, ctoId, error: outageInsertError },
+      'outage-notifier: falha ao registrar auditoria de notificação de falha em massa',
+    );
+  }
 
   const outageId: string = outageRow?.id ?? crypto.randomUUID();
 

@@ -96,12 +96,18 @@ export async function importWhatsAppHistory(
 
     const phone = chat.remoteJid.replace('@s.whatsapp.net', '');
 
-    const { data: existing } = await ports.db
+    const { data: existing, error: existingErr } = await ports.db
       .from('conversations')
       .select('id')
       .eq('tenant_id', tenantId)
       .eq('legacy_id', chat.id)
       .maybeSingle();
+    if (existingErr) {
+      infraLogger.warn(
+        { tenantId, chat: chat.id, err: existingErr.message },
+        'F6-01: erro ao checar dedupe de conversa (assumindo inexistente)',
+      );
+    }
 
     let conversationId: string;
     if (existing) {
@@ -142,12 +148,18 @@ export async function importWhatsAppHistory(
 
       const legacyId = msg.key.id;
 
-      const { data: existingMsg } = await ports.db
+      const { data: existingMsg, error: existingMsgErr } = await ports.db
         .from('messages')
         .select('id')
         .eq('tenant_id', tenantId)
         .eq('legacy_id', legacyId)
         .maybeSingle();
+      if (existingMsgErr) {
+        infraLogger.warn(
+          { tenantId, legacyId, err: existingMsgErr.message },
+          'F6-01: erro ao checar dedupe de mensagem (assumindo inexistente)',
+        );
+      }
 
       if (existingMsg) {
         duplicatesSkipped++;

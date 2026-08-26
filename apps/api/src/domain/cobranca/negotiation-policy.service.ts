@@ -92,11 +92,18 @@ export async function getPolicy(
   tenantId: string,
   db: typeof supabase = supabase,
 ): Promise<NegotiationPolicy> {
-  const { data } = await db
+  const { data, error } = await db
     .from('negotiation_policies')
     .select('*')
     .eq('tenant_id', tenantId)
     .maybeSingle();
+
+  if (error) {
+    // Nível error (não warn): isto é a alçada financeira real do tenant deixando
+    // de ser lida — cair no DEFAULT_POLICY silenciosamente esconderia que a
+    // policy configurada pelo admin não está sendo aplicada na negociação.
+    infraLogger.error({ tenantId, err: error }, 'D-03: falha ao consultar negotiation_policies — caindo no DEFAULT_POLICY');
+  }
 
   if (data) {
     return {
@@ -164,13 +171,25 @@ export async function countFineWaiversThisYear(
   db: typeof supabase = supabase,
 ): Promise<number> {
   const yearStart = `${new Date().getFullYear()}-01-01`;
-  const { count } = await db
+  const { count, error } = await db
     .from('negotiation_agreements')
     .select('id', { count: 'exact', head: true })
     .eq('tenant_id', tenantId)
     .eq('customer_id', customerId)
     .eq('fine_waived', true)
     .gte('created_at', yearStart);
+
+  if (error) {
+    // Fail-closed deliberado (mesma gravidade de getPolicy acima): esta contagem decide
+    // se uma isenção de multa é liberada. Assumir "0 usadas" em erro sempre libera a
+    // isenção — o pior cenário financeiro possível. Em vez disso, assumimos o pior caso
+    // OPOSTO: um valor absurdamente alto, que bloqueia qualquer política de
+    // fineWaiverPerYear real (nunca >= Number.MAX_SAFE_INTEGER), forçando negação segura
+    // até a consulta voltar a funcionar. Ver decisão registrada no relatório da task.
+    infraLogger.error({ tenantId, customerId, err: error }, 'D-03: falha ao contar isenções de multa do ano — bloqueando isenção por segurança (fail-closed)');
+    return Number.MAX_SAFE_INTEGER;
+  }
+
   return count ?? 0;
 }
 

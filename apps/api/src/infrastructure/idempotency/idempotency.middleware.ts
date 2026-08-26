@@ -4,6 +4,15 @@ import { createHash } from 'crypto';
 import { supabaseAdmin as supabaseClient } from '../database/supabase.client';
 import { securityLogger } from '../logging/logger';
 
+// NOTA (auditoria 2026-08-26): este plugin ESTÁ registrado globalmente em
+// server.ts (preHandler em toda rota POST), mas nenhuma das 5 rotas em
+// REQUIRED_ROUTES abaixo existe de fato registrada em apps/api hoje
+// (confirmado por grep em src/ — só aparecem no teste deste arquivo e num
+// mapeamento de rate-limit, não em nenhum app.post real). Ou seja: o
+// middleware está vivo mas atualmente INERTE — nenhuma requisição real bate
+// no filtro `isRequired`. Não interpretar a presença deste plugin como
+// "idempotência ativa em produção" até essas rotas existirem de verdade.
+
 export const REQUIRED_ROUTES = [
   '/api/billing/charge',
   '/api/billing/refund',

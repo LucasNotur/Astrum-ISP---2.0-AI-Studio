@@ -73,13 +73,20 @@ export async function getOrCreateLead(
   tenantId: string,
   conversationId: string,
 ): Promise<SalesLead> {
-  const { data: existing } = await db
+  const { data: existing, error: existingErr } = await db
     .from('sales_leads')
     .select('*')
     .eq('tenant_id', tenantId)
     .eq('conversation_id', conversationId)
     .not('stage', 'in', '("completed","abandoned")')
     .maybeSingle();
+
+  if (existingErr) {
+    infraLogger.warn(
+      { tenantId, conversationId, err: existingErr.message },
+      'sales_leads: erro ao buscar lead existente — dedupe degradado, tentando criar novo',
+    );
+  }
 
   if (existing) return existing as SalesLead;
 
@@ -116,12 +123,16 @@ export async function checkViability(
 ): Promise<ViabilityResult> {
   // 1. Tentar via ERP configurado do tenant (mais preciso).
   try {
-    const { data: erpCred } = await (db as any)
+    const { data: erpCred, error: erpCredErr } = await (db as any)
       .from('tenant_erp_credentials')
       .select('provider, credentials_encrypted')
       .eq('tenant_id', tenantId)
       .eq('active', true)
       .maybeSingle();
+
+    if (erpCredErr) {
+      infraLogger.warn({ tenantId, err: erpCredErr.message }, 'checkViability: erro ao buscar credenciais ERP (distinto de "sem ERP configurado") — usando grafo local');
+    }
 
     if (erpCred?.provider) {
       const creds = decryptCredentials<ERPCredentials>(erpCred.credentials_encrypted);
@@ -167,12 +178,16 @@ export async function getAvailablePlans(
 ): Promise<ErpPlan[]> {
   // 1. Tentar via ERP.
   try {
-    const { data: erpCred } = await (db as any)
+    const { data: erpCred, error: erpCredErr } = await (db as any)
       .from('tenant_erp_credentials')
       .select('provider, credentials_encrypted')
       .eq('tenant_id', tenantId)
       .eq('active', true)
       .maybeSingle();
+
+    if (erpCredErr) {
+      infraLogger.warn({ tenantId, err: erpCredErr.message }, 'getAvailablePlans: erro ao buscar credenciais ERP (distinto de "sem ERP configurado") — usando Supabase');
+    }
 
     if (erpCred?.provider) {
       const creds = decryptCredentials<ERPCredentials>(erpCred.credentials_encrypted);
@@ -187,13 +202,17 @@ export async function getAvailablePlans(
   }
 
   // 2. Fallback: tabela local `plans`.
-  const { data } = await (db as any)
+  const { data, error: plansErr } = await (db as any)
     .from('plans')
     .select('id, name, download_mbps, upload_mbps, price_cents, description')
     .eq('tenant_id', tenantId)
     .eq('active', true)
     .order('price_cents', { ascending: true })
     .limit(20);
+
+  if (plansErr) {
+    infraLogger.warn({ tenantId, err: plansErr.message }, 'getAvailablePlans: erro ao buscar planos locais — retornando lista vazia');
+  }
 
   return (data ?? []).map((r: any): ErpPlan => ({
     id: r.id,
@@ -226,12 +245,16 @@ export async function registerLeadInErp(
   };
 
   try {
-    const { data: erpCred } = await (db as any)
+    const { data: erpCred, error: erpCredErr } = await (db as any)
       .from('tenant_erp_credentials')
       .select('provider, credentials_encrypted')
       .eq('tenant_id', tenantId)
       .eq('active', true)
       .maybeSingle();
+
+    if (erpCredErr) {
+      infraLogger.warn({ tenantId, err: erpCredErr.message }, 'registerLeadInErp: erro ao buscar credenciais ERP (distinto de "sem ERP configurado") — armazenado localmente');
+    }
 
     if (erpCred?.provider) {
       const creds = decryptCredentials<ERPCredentials>(erpCred.credentials_encrypted);
@@ -260,12 +283,16 @@ export async function scheduleInstallation(
   const erpLeadId = lead.erp_lead_id ?? lead.id;
 
   try {
-    const { data: erpCred } = await (db as any)
+    const { data: erpCred, error: erpCredErr } = await (db as any)
       .from('tenant_erp_credentials')
       .select('provider, credentials_encrypted')
       .eq('tenant_id', tenantId)
       .eq('active', true)
       .maybeSingle();
+
+    if (erpCredErr) {
+      infraLogger.warn({ tenantId, err: erpCredErr.message }, 'scheduleInstallation: erro ao buscar credenciais ERP (distinto de "sem ERP configurado") — usando OS local');
+    }
 
     if (erpCred?.provider) {
       const creds = decryptCredentials<ERPCredentials>(erpCred.credentials_encrypted);

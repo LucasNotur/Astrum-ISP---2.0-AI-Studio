@@ -13,6 +13,7 @@
  */
 import { computeLtv } from '../ml/ltv';
 import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
+import { infraLogger } from '../../infrastructure/logging/logger';
 
 export type OfferTier = 'standard' | 'premium' | 'promotional';
 
@@ -71,7 +72,15 @@ export async function computeCtOccupancy(
     .eq('tenant_id', tenantId)
     .maybeSingle();
 
-  if (error || !data) return null;
+  if (error || !data) {
+    if (error) {
+      infraLogger.warn(
+        { tenantId, ctoId, err: error.message },
+        'computeCtOccupancy: erro ao buscar ocupação da CTO — calibração de oferta LTV cai no fallback sem ocupação',
+      );
+    }
+    return null;
+  }
 
   const total = Number(data.total_ports) || 0;
   const used = Number(data.used_ports) || 0;

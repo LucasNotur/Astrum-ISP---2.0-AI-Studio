@@ -130,21 +130,23 @@ describe('${erpName} adapter contract', () => {
     const allPassed = testResults.every(r => r.passed);
     const status = allPassed ? 'ready' : 'testing';
 
-    await ports.db.from('connector_drafts').update({
+    const { error: updErr } = await ports.db.from('connector_drafts').update({
       generated_code: generatedCode,
       test_results: testResults,
       status,
       updated_at: new Date().toISOString(),
     }).eq('id', draftId);
+    if (updErr) infraLogger.error({ error: updErr, draftId }, 'D-13: falha ao salvar código gerado');
 
     infraLogger.info({ draftId, erpName, allPassed }, 'D-13: connector draft gerado');
     return { draftId, erpName, status, generatedCode, testResults };
   } catch (err: any) {
-    await ports.db.from('connector_drafts').update({
+    const { error: failUpdErr } = await ports.db.from('connector_drafts').update({
       status: 'failed',
       notes: err.message,
       updated_at: new Date().toISOString(),
     }).eq('id', draftId);
+    if (failUpdErr) infraLogger.error({ error: failUpdErr, draftId }, 'D-13: falha ao marcar draft como failed');
     throw err;
   }
 }

@@ -164,7 +164,12 @@ export async function listToolCatalog(tenantId: string): Promise<ToolCatalogEntr
         .select('tool_name, calls, errors')
         .eq('tenant_id', tenantId)
         .gte('day', since);
-      if (!error && data) {
+      if (error) {
+        infraLogger.warn(
+          { err: error.message, tenantId },
+          'tool-registry: falha ao ler tool_usage_daily — contadores 7d ficam zerados',
+        );
+      } else if (data) {
         for (const row of data as any[]) {
           const acc = usageMap.get(row.tool_name) ?? { calls: 0, errors: 0 };
           acc.calls += Number(row.calls ?? 0);
@@ -214,19 +219,31 @@ export function recordToolUsage(
     } catch {
       // Tabela não tem RPC: usa upsert manual como fallback.
       try {
-        const { data: existing } = await supabase
+        const { data: existing, error: selectErr } = await supabase
           .from('tool_usage_daily')
           .select('calls, errors')
           .eq('tenant_id', tenantId)
           .eq('tool_name', toolName)
           .eq('day', day)
           .maybeSingle();
+        if (selectErr) {
+          infraLogger.warn(
+            { err: selectErr.message, tenantId, toolName },
+            'tool-registry: falha ao ler contador atual (fallback) — upsert seguirá com base 0',
+          );
+        }
         const calls = ((existing as any)?.calls ?? 0) + 1;
         const errors = ((existing as any)?.errors ?? 0) + (isError ? 1 : 0);
-        await supabase.from('tool_usage_daily').upsert(
+        const { error: upsertErr } = await supabase.from('tool_usage_daily').upsert(
           { tenant_id: tenantId, tool_name: toolName, day, calls, errors },
           { onConflict: 'tenant_id,tool_name,day' },
         );
+        if (upsertErr) {
+          infraLogger.warn(
+            { err: upsertErr.message, tenantId, toolName },
+            'tool-registry: contador (fallback) não atualizado',
+          );
+        }
       } catch (err) {
         infraLogger.warn(
           { err: (err as Error).message, tenantId, toolName },

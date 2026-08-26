@@ -36,11 +36,15 @@ export async function checkTrustUnlockEligibility(
   customerId: string,
   debtCents: number,
 ): Promise<EligibilityResult> {
-  const { data: policyRow } = await db
+  const { data: policyRow, error: policyError } = await db
     .from('trust_unlock_policies')
     .select('max_times_per_year, max_debt_cents, enabled')
     .eq('tenant_id', tenantId)
     .maybeSingle();
+
+  if (policyError) {
+    infraLogger.error({ tenantId, error: policyError }, 'trust_unlock: falha ao consultar política — usando default');
+  }
 
   const policy: TrustUnlockPolicy = policyRow ?? DEFAULT_POLICY;
 
@@ -53,12 +57,16 @@ export async function checkTrustUnlockEligibility(
   }
 
   const startOfYear = new Date(new Date().getFullYear(), 0, 1).toISOString();
-  const { count } = await db
+  const { count, error: countError } = await db
     .from('trust_unlocks')
     .select('id', { count: 'exact', head: true })
     .eq('tenant_id', tenantId)
     .eq('customer_id', customerId)
     .gte('created_at', startOfYear);
+
+  if (countError) {
+    infraLogger.error({ tenantId, customerId, error: countError }, 'trust_unlock: falha ao contar religues do ano — assumindo 0');
+  }
 
   const timesThisYear = count ?? 0;
 
@@ -100,11 +108,15 @@ export async function executeTrustUnlock(
     return { success: false, message: 'Erro interno ao registrar religue por confiança.' };
   }
 
-  await db
+  const { error: updErr } = await db
     .from('customers')
     .update({ status: 'active' })
     .eq('tenant_id', tenantId)
     .eq('id', customerId);
+
+  if (updErr) {
+    infraLogger.error({ tenantId, customerId, error: updErr }, 'trust_unlock: falha ao reativar cliente após religue');
+  }
 
   infraLogger.info({ tenantId, customerId, debtCents }, 'trust_unlock: cliente religado por confiança');
 

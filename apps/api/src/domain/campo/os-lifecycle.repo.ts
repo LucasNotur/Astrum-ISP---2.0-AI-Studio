@@ -15,7 +15,7 @@ import {
 export const osLifecyclePorts: OsLifecyclePorts = {
   async getCurrentPhase(tenantId, serviceOrderId): Promise<OsPhase | null> {
     // Fase atual = resultado do último evento; se não houver, deriva do status.
-    const { data: lastEvent } = await supabase
+    const { data: lastEvent, error: eventError } = await supabase
       .from('service_order_events')
       .select('event')
       .eq('tenant_id', tenantId)
@@ -24,16 +24,24 @@ export const osLifecyclePorts: OsLifecyclePorts = {
       .limit(1)
       .maybeSingle();
 
+    if (eventError) {
+      throw new Error('Falha ao consultar estado da OS: ' + eventError.message);
+    }
+
     if (lastEvent?.event) {
       return phaseAfterEvent(lastEvent.event as any);
     }
 
-    const { data: os } = await supabase
+    const { data: os, error: osError } = await supabase
       .from('service_orders')
       .select('status')
       .eq('tenant_id', tenantId)
       .eq('id', serviceOrderId)
       .maybeSingle();
+
+    if (osError) {
+      throw new Error('Falha ao consultar estado da OS: ' + osError.message);
+    }
 
     if (!os) return null;
     return statusToInitialPhase(os.status as OsStatus);

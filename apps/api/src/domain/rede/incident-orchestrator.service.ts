@@ -52,11 +52,17 @@ export async function isAutoCommunicateEnabled(
   tenantId: string,
   db: typeof supabase = supabase,
 ): Promise<boolean> {
-  const { data } = await db
+  const { data, error } = await db
     .from('tenants')
     .select('noc_auto_communicate')
     .eq('id', tenantId)
     .maybeSingle();
+  if (error) {
+    infraLogger.warn(
+      { err: error.message, tenantId, table: 'tenants' },
+      'D-04: falha ao ler noc_auto_communicate — fail-closed (sem auto-comunicação)',
+    );
+  }
   return data?.noc_auto_communicate === true;
 }
 
@@ -90,11 +96,17 @@ export async function scanForIncidents(
     byCto.get(row.cto_id)!.push({ t: row.collected_at as string, v: Number(row.value) });
   }
 
-  const { data: openIncidents } = await ports.db
+  const { data: openIncidents, error: openErr } = await ports.db
     .from('incidents')
     .select('cto_id')
     .eq('tenant_id', tenantId)
     .in('status', ['suspeita', 'confirmada', 'comunicada']);
+  if (openErr) {
+    infraLogger.warn(
+      { err: openErr.message, tenantId, table: 'incidents' },
+      'D-04: falha ao ler incidentes já abertos — dedupe pode falhar (risco de incidente duplicado)',
+    );
+  }
   const alreadyOpen = new Set((openIncidents ?? []).map((i: any) => i.cto_id));
 
   const anomalousCtos: string[] = [];
@@ -118,7 +130,14 @@ export async function scanForIncidents(
       source: 'anomaly',
       extra: { metric, anomalies: recent.slice(0, 5), worst_z: Math.round(worstZ * 100) / 100 },
     });
-    if (!insErr) opened++;
+    if (!insErr) {
+      opened++;
+    } else {
+      infraLogger.error(
+        { err: insErr.message, tenantId, ctoId, metric, table: 'incidents' },
+        'D-04: falha ao inserir incidente detectado — anomalia real não vai gerar alerta',
+      );
+    }
   }
 
   infraLogger.info({ tenantId, metric, opened, anomalous: anomalousCtos.length }, 'D-04: scan de incidentes');
@@ -154,9 +173,16 @@ export async function transitionIncident(
 
   // Confirmar = medir o raio da explosão (quem pende daquela CTO)
   if (to === 'confirmada' && incident.cto_id) {
-    const { data: affected } = await ports.db
+    const { data: affected, error: affectedErr } = await ports.db
       .from('customers').select('id')
       .eq('tenant_id', tenantId).eq('cto_id', incident.cto_id).eq('status', 'active');
+    if (affectedErr) {
+      infraLogger.error(
+        { err: affectedErr.message, tenantId, id, ctoId: incident.cto_id, table: 'customers' },
+        'D-04: falha ao medir clientes afetados — abortando confirmação para não comunicar contagem errada',
+      );
+      throw new Error(`D-04: falha ao medir clientes afetados: ${affectedErr.message}`);
+    }
     patch.affected_customers = affected?.length ?? 0;
   }
 

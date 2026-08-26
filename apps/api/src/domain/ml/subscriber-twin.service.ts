@@ -206,7 +206,7 @@ export async function simulateSegment(
 export const defaultPorts: SubscriberTwinPorts = {
   db: supabase,
   getChurnScore: async (tenantId, customerId) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('churn_scores')
       .select('score')
       .eq('tenant_id', tenantId)
@@ -214,15 +214,21 @@ export const defaultPorts: SubscriberTwinPorts = {
       .order('scored_at', { ascending: false })
       .limit(1)
       .maybeSingle();
+    if (error) {
+      infraLogger.warn({ tenantId, customerId, err: error }, 'D-19: falha ao consultar churn_scores — usando default 0.3');
+    }
     return (data as any)?.score ?? 0.3;
   },
   getLtv: async (tenantId, customerId) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('customers')
       .select('mrr')
       .eq('id', customerId)
       .eq('tenant_id', tenantId)
       .maybeSingle();
+    if (error) {
+      infraLogger.warn({ tenantId, customerId, err: error }, 'D-19: falha ao consultar customers.mrr para LTV — usando default');
+    }
     const mrr = (data as any)?.mrr ?? 5000;
     // LTV com band 'medium' (lifetime ~2.5 anos = 30 meses)
     return Math.round(mrr * 30);

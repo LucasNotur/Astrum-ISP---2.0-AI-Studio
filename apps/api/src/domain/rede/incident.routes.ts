@@ -9,6 +9,7 @@
 import type { FastifyInstance } from 'fastify';
 import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
+import { infraLogger } from '../../infrastructure/logging/logger';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import {
   isNocAutonomoEnabled,
@@ -27,24 +28,48 @@ import {
 function makeCorrelationPorts(): CorrelationPorts {
   return {
     async getCustomerCto(tenantId, customerId) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('customers').select('cto_id')
         .eq('tenant_id', tenantId).eq('id', customerId).maybeSingle();
+      if (error) {
+        infraLogger.error(
+          { err: error.message, tenantId, customerId, table: 'customers' },
+          'incident-routes: falha ao ler CTO do cliente (correlação de ticket pode ficar incompleta)',
+        );
+      }
       return (data as any)?.cto_id ?? null;
     },
     async listActiveIncidents(tenantId): Promise<ActiveIncident[]> {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('incidents').select('id, cto_id, status')
         .eq('tenant_id', tenantId).in('status', ['confirmada', 'comunicada']);
+      if (error) {
+        infraLogger.error(
+          { err: error.message, tenantId, table: 'incidents' },
+          'incident-routes: falha ao listar incidentes ativos (correlação de ticket pode ficar incompleta)',
+        );
+      }
       return (data ?? []).map((i: any) => ({ id: i.id, ctoId: i.cto_id, status: i.status }));
     },
     async suppressTicket(tenantId, ticketId, incidentId, note) {
-      const { data: tk } = await supabase
+      const { data: tk, error: selErr } = await supabase
         .from('tickets').select('extra').eq('tenant_id', tenantId).eq('id', ticketId).maybeSingle();
+      if (selErr) {
+        infraLogger.error(
+          { err: selErr.message, tenantId, ticketId, table: 'tickets' },
+          'incident-routes: falha ao ler ticket para supressão',
+        );
+      }
       const extra = { ...((tk as any)?.extra ?? {}), suppressed: true, incident_id: incidentId, suppression_note: note };
-      await supabase.from('tickets')
+      const { error: updErr } = await supabase.from('tickets')
         .update({ ai_enabled: false, extra, updated_at: new Date().toISOString() })
         .eq('tenant_id', tenantId).eq('id', ticketId);
+      if (updErr) {
+        infraLogger.error(
+          { err: updErr.message, tenantId, ticketId, table: 'tickets' },
+          'incident-routes: falha ao suprimir ticket (ticket pode continuar sendo respondido pela IA durante o incidente)',
+        );
+      }
     },
   };
 }
@@ -54,11 +79,12 @@ export async function incidentRoutes(app: FastifyInstance) {
     preHandler: [app.authenticate, requirePermission('reports', 'read')],
   }, async (request) => {
     const tenantId = getTenantId(request.user) ?? '';
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('incidents').select('*')
       .eq('tenant_id', tenantId)
       .order('detected_at', { ascending: false })
       .limit(50);
+    if (error) throw new Error(`D-04: falha ao listar incidentes: ${error.message}`);
     return { incidents: data ?? [] };
   });
 
@@ -135,8 +161,9 @@ export async function incidentRoutes(app: FastifyInstance) {
   }, async (request, reply) => {
     const tenantId = getTenantId(request.user) ?? '';
     const { id } = request.params as { id: string };
-    const { data: ticket } = await supabase
+    const { data: ticket, error } = await supabase
       .from('tickets').select('id, customer_id').eq('tenant_id', tenantId).eq('id', id).maybeSingle();
+    if (error) throw new Error(`D-04: falha ao buscar ticket para correlação: ${error.message}`);
     if (!ticket) return reply.code(404).send({ error: 'Ticket não encontrado.' });
 
     const r = await correlateIncomingTicket(

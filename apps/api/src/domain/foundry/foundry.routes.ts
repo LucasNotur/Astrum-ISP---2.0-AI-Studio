@@ -53,9 +53,10 @@ export async function foundryRoutes(app: FastifyInstance) {
   }, async (req, reply) => {
     const user = (req as any).user;
     const { id } = req.params as any;
-    await defaultPorts.db.from('automations')
+    const { error } = await defaultPorts.db.from('automations')
       .update({ status: 'paused', updated_at: new Date().toISOString() })
       .eq('id', id).eq('tenant_id', getTenantId(user) ?? '');
+    if (error) return reply.code(500).send({ error: `D-16: falha ao pausar automação: ${error.message}` });
     return reply.send({ ok: true });
   });
 }

@@ -118,11 +118,14 @@ export async function forecastCashflow(
   let churnAdjustedCount = activeCount;
   let churnNote = 'Base ativa considerada constante (churn previsto IA-07 entra quando houver ≥90d de dados).';
   if (process.env.CFO_CHURN_INTEGRATION_ENABLED === 'true') {
-    const { data: recentChurn } = await db
+    const { data: recentChurn, error: churnErr } = await db
       .from('churn_scores')
       .select('score')
       .eq('tenant_id', tenantId)
       .gte('scored_at', new Date(Date.now() - 7 * 86400000).toISOString());
+    if (churnErr) {
+      infraLogger.warn({ tenantId, error: churnErr }, 'D-08: falha ao ler churn_scores, mantendo base constante');
+    }
     if (recentChurn && recentChurn.length > 0) {
       const avgChurn = recentChurn.reduce((s: number, r: any) => s + Number(r.score), 0) / recentChurn.length;
       churnAdjustedCount = Math.round(activeCount * (1 - avgChurn * 0.1)); // 10% dos high-churn viram churn/mês

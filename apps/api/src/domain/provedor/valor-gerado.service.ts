@@ -144,26 +144,33 @@ export async function generateCase(
 // ── Implementação Supabase (default) ──────────────────────────────────────────
 
 import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
+import { infraLogger } from '../../infrastructure/logging/logger';
 
 export const defaultValorGeradoDb: ValorGeradoDb = {
   async getRecoveredCents(tenantId, since) {
     // invoices pagas no período que tiveram pelo menos 1 cobrai_job associado
-    const { data } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from('invoices')
       .select('amount_cents, cobrai_jobs!inner(id)')
       .eq('tenant_id', tenantId)
       .eq('status', 'paid')
       .gte('paid_at', since.toISOString());
+    if (error) {
+      infraLogger.error({ err: error, tenantId }, 'P5-01: falha ao consultar invoices para getRecoveredCents — métrica pode estar zerada indevidamente');
+    }
     return (data ?? []).reduce((sum: number, row: any) => sum + (row.amount_cents ?? 0), 0);
   },
 
   async getAiResolutions(tenantId, since) {
-    const { data } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from('conversations')
       .select('id, resolved_by_ai')
       .eq('tenant_id', tenantId)
       .in('status', ['resolved', 'closed'])
       .gte('created_at', since.toISOString());
+    if (error) {
+      infraLogger.error({ err: error, tenantId }, 'P5-01: falha ao consultar conversations para getAiResolutions — métrica pode estar zerada indevidamente');
+    }
     const rows = data ?? [];
     return {
       aiResolved: rows.filter((r: any) => r.resolved_by_ai).length,
@@ -173,11 +180,14 @@ export const defaultValorGeradoDb: ValorGeradoDb = {
 
   async getAiCostUsd(tenantId, since) {
     // ai_performance_logs grava tokens_used por request
-    const { data } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from('ai_performance_logs')
       .select('tokens_used')
       .eq('tenant_id', tenantId)
       .gte('created_at', since.toISOString());
+    if (error) {
+      infraLogger.error({ err: error, tenantId }, 'P5-01: falha ao consultar ai_performance_logs para getAiCostUsd — métrica pode estar zerada indevidamente');
+    }
     const tokens = (data ?? []).reduce((s: number, r: any) => s + (r.tokens_used ?? 0), 0);
     // GPT-4o-mini = $0.15/1M tokens (input+output médio)
     return Math.round(tokens * 0.00000015 * 10000) / 10000;
@@ -185,19 +195,22 @@ export const defaultValorGeradoDb: ValorGeradoDb = {
 
   async getTicketsAvoided(tenantId, since) {
     // conversas resolvidas pela IA sem ter escalado para ticket
-    const { data } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from('conversations')
       .select('id')
       .eq('tenant_id', tenantId)
       .eq('resolved_by_ai', true)
       .eq('escalated', false)
       .gte('created_at', since.toISOString());
+    if (error) {
+      infraLogger.error({ err: error, tenantId }, 'P5-01: falha ao consultar conversations para getTicketsAvoided — métrica pode estar zerada indevidamente');
+    }
     return (data ?? []).length;
   },
 
   async saveCase(tenantId, data) {
     const shareToken = crypto.randomBytes(16).toString('hex');
-    await (supabase as any).from('valor_cases').insert({
+    const { error } = await (supabase as any).from('valor_cases').insert({
       tenant_id: tenantId,
       period: data.period,
       period_days: data.periodDays,
@@ -209,15 +222,21 @@ export const defaultValorGeradoDb: ValorGeradoDb = {
       roi_multiple: data.roiMultiple,
       share_token: shareToken,
     });
+    if (error) {
+      throw new Error(`P5-04: falha ao persistir valor_cases: ${error.message ?? error}`);
+    }
     return shareToken;
   },
 
   async getCaseByToken(token) {
-    const { data } = await (supabase as any)
+    const { data, error } = await (supabase as any)
       .from('valor_cases')
       .select('*')
       .eq('share_token', token)
       .maybeSingle();
+    if (error) {
+      infraLogger.warn({ err: error, token }, 'P5-04: falha ao consultar valor_cases por share_token');
+    }
     if (!data) return null;
     return {
       id: data.id,

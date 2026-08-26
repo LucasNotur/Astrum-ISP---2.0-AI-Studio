@@ -35,7 +35,7 @@ export async function safetyRoutes(fastify: FastifyInstance) {
       requirePermission('ai_config', 'read'),
       validateQuery(listQuery),
     ],
-  }, async (request) => {
+  }, async (request, reply) => {
     const tenantId = getTenantId((request as any).user) as string;
     const { status, page, pageSize } = (request as any).validatedQuery;
 
@@ -51,7 +51,7 @@ export async function safetyRoutes(fastify: FastifyInstance) {
       .range(from, to);
 
     if (error) {
-      return { items: [], total: 0 };
+      return reply.code(500).send({ code: 'INTERNAL_ERROR', message: error.message });
     }
     return { items: data ?? [], total: count ?? 0 };
   });
@@ -87,7 +87,7 @@ export async function safetyRoutes(fastify: FastifyInstance) {
   fastify.get('/api/v2/ia/safety/stats', {
     onRequest: [fastify.authenticate],
     preHandler: [requirePermission('ai_config', 'read')],
-  }, async (request) => {
+  }, async (request, reply) => {
     const tenantId = getTenantId((request as any).user) as string;
     const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -98,7 +98,7 @@ export async function safetyRoutes(fastify: FastifyInstance) {
       .gte('created_at', since);
 
     if (error) {
-      return { total14d: 0, byCategory: {}, falsePositiveRate: 0, vetoRate7d: 0 };
+      return reply.code(500).send({ code: 'INTERNAL_ERROR', message: error.message });
     }
 
     const items = data ?? [];

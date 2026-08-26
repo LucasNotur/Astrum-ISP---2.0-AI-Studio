@@ -96,7 +96,7 @@ export async function impactoCto(
       .eq('tenant_id', tenantId)
       .in('status', ['open', 'in_progress', 'escalated']);
     if (tkErr) {
-      infraLogger.warn({ err: tkErr.message, ctoId }, 'graph: erro ao contar tickets abertos');
+      infraLogger.error({ err: tkErr.message, ctoId }, 'graph: erro ao contar tickets abertos (openCount reportado como 0, pode enganar a IA/usuário)');
     } else {
       openCount = count ?? 0;
     }
@@ -140,7 +140,7 @@ export async function reincidencia(
     .eq('tenant_id', tenantId)
     .gte('created_at', sinceIso);
   if (tkErr) {
-    infraLogger.warn({ err: tkErr.message, tenantId }, 'graph: erro ao listar tickets');
+    infraLogger.error({ err: tkErr.message, tenantId }, 'graph: erro ao listar tickets (retornando [] — pode reportar "nenhuma reincidência" indevidamente)');
     return [];
   }
 
@@ -177,7 +177,7 @@ export async function capacidade(
     .select('id, name, total_ports, used_ports')
     .eq('tenant_id', tenantId);
   if (ctoErr) {
-    infraLogger.warn({ err: ctoErr.message, tenantId }, 'graph: erro ao listar CTOs');
+    infraLogger.error({ err: ctoErr.message, tenantId }, 'graph: erro ao listar CTOs (retornando [] — pode reportar "nenhuma CTO saturada" indevidamente)');
     return [];
   }
   const rows: CapacidadeRow[] = [];

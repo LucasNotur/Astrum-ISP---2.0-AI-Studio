@@ -42,7 +42,7 @@ export async function identifyCustomerByCpfOrPhone(
     .maybeSingle();
 
   if (error) {
-    infraLogger.warn({ err: error.message, tenantId }, 'voice-identify: erro na consulta — tratado como não identificado');
+    infraLogger.error({ err: error.message, tenantId }, 'voice-identify: erro na consulta — tratado como não identificado');
     return null;
   }
   return data?.id ?? null;

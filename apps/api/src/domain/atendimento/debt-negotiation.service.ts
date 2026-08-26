@@ -3,6 +3,7 @@
  * Menu de opções parametrizado por tenant (desconto à vista + parcelamento).
  * Paridade com Mundiale. O negociador com alçada real fica no D-03 do PLANO_A.
  */
+import { infraLogger } from '../../infrastructure/logging/logger';
 import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 
 export interface NegotiationPolicy {
@@ -44,11 +45,18 @@ export async function buildNegotiationMenu(
   tenantId: string,
   debtCents: number,
 ): Promise<NegotiationMenu> {
-  const { data: policyRow } = await db
+  const { data: policyRow, error: policyErr } = await db
     .from('negotiation_policies')
     .select('max_discount_pct, max_installments, enabled')
     .eq('tenant_id', tenantId)
     .maybeSingle();
+
+  if (policyErr) {
+    infraLogger.error(
+      { tenantId, err: policyErr.message },
+      'P1-03: erro ao buscar política de negociação — caindo para DEFAULT_POLICY (pode ignorar tenant com negociação desabilitada)',
+    );
+  }
 
   const policy: NegotiationPolicy = policyRow ?? DEFAULT_POLICY;
 

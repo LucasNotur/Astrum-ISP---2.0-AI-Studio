@@ -178,13 +178,16 @@ export const defaultPorts: FineTunePorts = {
   db: supabase,
   getBaselineScore: async (_tenantId) => {
     // Placeholder: em produção lê avg_score do spec tracker (IA-42)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('ai_performance_logs')
       .select('value')
       .eq('metric', 'eval_avg_score')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
+    if (error) {
+      infraLogger.warn({ tenantId: _tenantId, err: error }, 'D-10: falha ao consultar ai_performance_logs para getBaselineScore — usando default 0.5');
+    }
     return (data as any)?.value ?? 0.5;
   },
   submitFineTuneJob: async (fileId, baseModel) => {

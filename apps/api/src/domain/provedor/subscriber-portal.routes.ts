@@ -81,10 +81,14 @@ export async function subscriberPortalRoutes(
       return reply.code(429).send({ error: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.' });
     }
 
-    const record = await lookupSubscriberByCpf(db, tenantId, body.data.cpf);
-    const authResult = authenticateSubscriber(body.data, record);
+    const { record, lookupError } = await lookupSubscriberByCpf(db, tenantId, body.data.cpf);
+    const authResult = authenticateSubscriber(body.data, record, { lookupError });
 
     if (!authResult.ok) {
+      if (authResult.reason === 'lookup_error') {
+        infraLogger.error({ tenantId }, 'Portal auth: falha de infraestrutura ao consultar o assinante');
+        return reply.code(500).send({ error: 'Erro interno. Tente novamente em instantes.' });
+      }
       await recordPortalFailure(tenantId, body.data.cpf, clientIp);
       infraLogger.info({ tenantId, reason: authResult.reason }, 'Portal auth falhou');
       return reply.code(401).send({ error: 'CPF ou contrato inválidos' });

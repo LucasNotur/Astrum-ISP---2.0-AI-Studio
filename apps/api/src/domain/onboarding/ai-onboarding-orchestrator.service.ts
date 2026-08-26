@@ -97,11 +97,24 @@ async function updateStep(
   // Carrega steps, atualiza o step específico, salva de volta
   const { data, error } = await db.from('ai_onboarding_jobs')
     .select('steps').eq('id', jobId).eq('tenant_id', tenantId).maybeSingle();
-  if (error || !data) return;
+  if (error) {
+    infraLogger.error(
+      { err: error.message, tenantId, jobId, stepName, table: 'ai_onboarding_jobs' },
+      'D-21: falha ao carregar job para atualizar step — progresso do wizard não será refletido',
+    );
+    return;
+  }
+  if (!data) return;
   const steps = (data as any).steps as StepResult[];
   const idx = steps.findIndex(s => s.step === stepName);
   if (idx >= 0) steps[idx] = { ...steps[idx]!, ...patch };
-  await db.from('ai_onboarding_jobs').update({ steps }).eq('id', jobId);
+  const { error: updateErr } = await db.from('ai_onboarding_jobs').update({ steps }).eq('id', jobId);
+  if (updateErr) {
+    infraLogger.error(
+      { err: updateErr.message, tenantId, jobId, stepName, table: 'ai_onboarding_jobs' },
+      'D-21: falha ao salvar step atualizado — progresso do wizard não será refletido',
+    );
+  }
 }
 
 // ── Executar onboarding ───────────────────────────────────────────────────────
@@ -113,9 +126,15 @@ export async function runOnboarding(
   ports: OnboardingOrchestratorPorts,
 ): Promise<OnboardingSummary> {
   const startedAt = Date.now();
-  await ports.db.from('ai_onboarding_jobs').update({
+  const { error: runningErr } = await ports.db.from('ai_onboarding_jobs').update({
     status: 'running', started_at: new Date().toISOString(),
   }).eq('id', jobId);
+  if (runningErr) {
+    infraLogger.warn(
+      { err: runningErr.message, tenantId, jobId, table: 'ai_onboarding_jobs' },
+      'D-21: falha ao marcar job como running — status pode ficar desatualizado na tela',
+    );
+  }
 
   const summary: OnboardingSummary = {
     customersImported: 0,
@@ -196,11 +215,17 @@ export async function runOnboarding(
 
   summary.durationMinutes = Math.round((Date.now() - startedAt) / 60_000);
 
-  await ports.db.from('ai_onboarding_jobs').update({
+  const { error: completedErr } = await ports.db.from('ai_onboarding_jobs').update({
     status: 'completed',
     completed_at: new Date().toISOString(),
     summary: summary as unknown as Record<string, unknown>,
   }).eq('id', jobId);
+  if (completedErr) {
+    infraLogger.warn(
+      { err: completedErr.message, tenantId, jobId, table: 'ai_onboarding_jobs' },
+      'D-21: falha ao marcar job como completed — status pode ficar desatualizado na tela',
+    );
+  }
 
   infraLogger.info({ tenantId, jobId, summary }, 'D-21: onboarding concluído');
   return summary;
@@ -213,26 +238,50 @@ export const defaultPorts: OnboardingOrchestratorPorts = {
 
   importCustomers: async (tenantId, erpConnector) => {
     // Aqui seria o ERP adapter; por ora retorna contagem existente
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('customers').select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId);
+    if (error) {
+      infraLogger.warn(
+        { err: error.message, tenantId, table: 'customers' },
+        'D-21: falha ao contar clientes existentes — customer_import vai reportar 0',
+      );
+    }
     return { count: (data as any)?.length ?? 0 };
   },
 
   mapNetworkGraph: async (tenantId) => {
-    const { data: ctos } = await supabase
+    const { data: ctos, error: ctosErr } = await supabase
       .from('network_ctos').select('id').eq('tenant_id', tenantId);
-    const { data: custs } = await supabase
+    if (ctosErr) {
+      infraLogger.warn(
+        { err: ctosErr.message, tenantId, table: 'network_ctos' },
+        'D-21: falha ao ler CTOs — network_mapping vai subcontar nós/edges',
+      );
+    }
+    const { data: custs, error: custsErr } = await supabase
       .from('customers').select('id').eq('tenant_id', tenantId);
+    if (custsErr) {
+      infraLogger.warn(
+        { err: custsErr.message, tenantId, table: 'customers' },
+        'D-21: falha ao ler clientes — network_mapping vai subcontar nós',
+      );
+    }
     return { nodes: (ctos?.length ?? 0) + (custs?.length ?? 0), edges: ctos?.length ?? 0 };
   },
 
   generateConstitution: async (tenantId) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('tenant_constitutions').select('id').eq('tenant_id', tenantId).maybeSingle();
+    if (error) {
+      infraLogger.warn(
+        { err: error.message, tenantId, table: 'tenant_constitutions' },
+        'D-21: falha ao checar constituição existente — pode tentar recriar uma já existente',
+      );
+    }
     if (data) return { generated: false }; // já existe
     // Gerar constituição padrão
-    await supabase.from('tenant_constitutions').insert({
+    const { error: insertErr } = await supabase.from('tenant_constitutions').insert({
       tenant_id: tenantId,
       principles: [
         'Seja educado e profissional',
@@ -240,6 +289,13 @@ export const defaultPorts: OnboardingOrchestratorPorts = {
         'Escale para humano quando não tiver certeza',
       ],
     });
+    if (insertErr) {
+      infraLogger.error(
+        { err: insertErr.message, tenantId, table: 'tenant_constitutions' },
+        'D-21: falha ao gerar constituição padrão do tenant',
+      );
+      return { generated: false };
+    }
     return { generated: true };
   },
 

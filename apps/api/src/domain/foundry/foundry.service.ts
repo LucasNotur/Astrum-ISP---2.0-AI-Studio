@@ -125,10 +125,11 @@ export async function activateAutomation(
   if (!auto) throw new Error('D-16: automação não encontrada');
   if ((auto as any).status === 'error') throw new Error('D-16: automação inválida (sql-guard falhou)');
 
-  await ports.db.from('automations').update({
+  const { error: updErr } = await ports.db.from('automations').update({
     status: 'active',
     updated_at: new Date().toISOString(),
   }).eq('id', automationId).eq('tenant_id', tenantId);
+  if (updErr) throw new Error(`D-16: falha ao ativar automação: ${updErr.message}`);
 
   // TODO: registrar no BullMQ repeat com a schedule (integrar com nightly-brain queue)
   infraLogger.info({ tenantId, automationId }, 'D-16: automação ativada');

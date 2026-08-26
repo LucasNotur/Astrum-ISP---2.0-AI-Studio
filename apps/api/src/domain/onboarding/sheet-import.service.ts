@@ -102,12 +102,17 @@ export async function importSheet(
     }
     seenCpfs.add(cpf);
 
-    const { data: existing } = await ports.db
+    const { data: existing, error: existingErr } = await ports.db
       .from('customers')
       .select('id')
       .eq('tenant_id', tenantId)
       .eq('cpf', cpf)
       .maybeSingle();
+
+    if (existingErr) {
+      result.errors.push({ row: i + 2, reason: `erro ao checar duplicidade: ${existingErr.message}` });
+      continue;
+    }
 
     if (existing) {
       result.duplicatesSkipped++;

@@ -14,6 +14,7 @@ import {
   type ValorGeradoDb,
 } from './valor-gerado.service';
 import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
+import { infraLogger } from '../../infrastructure/logging/logger';
 
 const PeriodSchema = z.object({
   period: z.enum(['7d', '30d', '90d', '1y']).default('30d'),
@@ -57,15 +58,20 @@ export async function valorGeradoRoutes(
   app.get('/api/v2/valor/status', async (_request, reply) => {
     // busca incidentes ativos (últimas 24h sem resolved_at)
     const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data: incidents } = await (supabase as any)
+    const { data: incidents, error } = await (supabase as any)
       .from('status_incidents')
       .select('id, title, component, severity, status, started_at, resolved_at')
       .or(`resolved_at.is.null,resolved_at.gte.${since24h}`)
       .order('started_at', { ascending: false })
       .limit(10);
 
+    if (error) {
+      infraLogger.error({ err: error }, 'P5-02: falha ao consultar status_incidents — status page pode estar incorreta');
+    }
+
     const activeIncidents = (incidents ?? []).filter((i: any) => i.status !== 'resolved');
-    const overallStatus =
+    const overallStatus = error
+      ? 'unknown' :
       activeIncidents.some((i: any) => i.severity === 'critical') ? 'outage' :
       activeIncidents.some((i: any) => i.severity === 'major')    ? 'degraded' :
       activeIncidents.length > 0                                   ? 'minor_issues' :

@@ -109,12 +109,14 @@ export async function erpAdminRoutes(app: FastifyInstance) {
         return reply.code(422).send({ error: `provider ${provider} ainda não implementado` });
       }
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('tenant_erp_credentials')
         .select('credentials_encrypted')
         .eq('tenant_id', tenantId)
         .eq('provider', provider)
         .maybeSingle();
+
+      if (error) return reply.code(500).send({ error: 'Erro ao buscar credenciais' });
 
       if (!data?.credentials_encrypted) {
         return reply.code(404).send({ error: 'Credencial não encontrada para este provider' });

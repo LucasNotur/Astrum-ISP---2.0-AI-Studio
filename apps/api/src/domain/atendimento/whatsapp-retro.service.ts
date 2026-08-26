@@ -186,8 +186,11 @@ export async function runRetroAnalysis(
   const db = ports.db;
 
   // H6-02: vocabulário do tenant (default ISP) — a chave da multi-verticalidade
-  const { data: tenantRow } = await db
+  const { data: tenantRow, error: tenantErr } = await db
     .from('tenants').select('extra').eq('id', tenantId).maybeSingle();
+  if (tenantErr) {
+    atendimentoLogger.warn({ tenantId, error: tenantErr }, 'D-23 retro: falha ao ler tenant — usando vocabulário default');
+  }
   const buckets = resolveIssueBuckets(tenantRow?.extra?.issue_buckets ?? null);
 
   // Clientes que têm conversa (o retroativo só analisa quem falou)
@@ -210,7 +213,7 @@ export async function runRetroAnalysis(
   let written = 0;
 
   for (const [customerId, convIds] of byCustomer) {
-    const [{ data: msgs }, { data: invs }] = await Promise.all([
+    const [{ data: msgs, error: msgsErr }, { data: invs, error: invsErr }] = await Promise.all([
       db.from('messages')
         .select('role, content, created_at')
         .in('conversation_id', convIds)
@@ -220,6 +223,12 @@ export async function runRetroAnalysis(
         .eq('tenant_id', tenantId)
         .eq('customer_id', customerId),
     ]);
+    if (msgsErr) {
+      atendimentoLogger.warn({ tenantId, customerId, error: msgsErr }, 'D-23 retro: falha ao ler mensagens do contato');
+    }
+    if (invsErr) {
+      atendimentoLogger.warn({ tenantId, customerId, error: invsErr }, 'D-23 retro: falha ao ler faturas do contato');
+    }
 
     const profile = buildContactProfile(
       (msgs ?? []) as RetroMessage[],
@@ -233,15 +242,22 @@ export async function runRetroAnalysis(
     }
 
     // Grava no JSONB extra do cliente (merge preservando o que já existe)
-    const { data: current } = await db
+    const { data: current, error: currentErr } = await db
       .from('customers').select('extra')
       .eq('id', customerId).eq('tenant_id', tenantId).maybeSingle();
+    if (currentErr) {
+      atendimentoLogger.warn({ tenantId, customerId, error: currentErr }, 'D-23 retro: falha ao ler extra atual do cliente');
+    }
     const { error: upErr } = await db
       .from('customers')
       .update({ extra: { ...(current?.extra ?? {}), retro_profile: profile } })
       .eq('id', customerId)
       .eq('tenant_id', tenantId);
-    if (!upErr) written++;
+    if (!upErr) {
+      written++;
+    } else {
+      atendimentoLogger.error({ tenantId, customerId, error: upErr }, 'D-23 retro: falha ao gravar perfil calculado do cliente');
+    }
   }
 
   const topIssuesGlobal = [...globalIssues.entries()]

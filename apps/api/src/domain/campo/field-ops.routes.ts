@@ -23,6 +23,7 @@ import { suggestTechnicians, type DispatchTech, type DispatchOs } from './dispat
 import { classifyFieldPhoto } from '../../infrastructure/vision/vision.service';
 import { sendMessage } from '../../adapters/whatsapp/whatsapp.adapter';
 import { resolveTenantKeys } from '../../lib/tenant-keys';
+import { infraLogger } from '../../infrastructure/logging/logger';
 
 const OS_EVENTS = [
   'criada', 'atribuida', 'aceita', 'a_caminho', 'chegou',
@@ -31,12 +32,16 @@ const OS_EVENTS = [
 
 /** Resolve o técnico logado a partir do user_id. Null se o usuário não é técnico. */
 async function getTech(tenantId: string, userId: string): Promise<{ id: string; base_id: string | null } | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('technicians')
     .select('id, base_id')
     .eq('tenant_id', tenantId)
     .eq('user_id', userId)
     .maybeSingle();
+  if (error) {
+    infraLogger.error({ error, tenantId, userId }, 'field-ops: falha ao consultar technicians');
+    throw new Error('Falha ao verificar técnico');
+  }
   return (data as any) ?? null;
 }
 
@@ -125,23 +130,26 @@ const validatePhotoSchema = z.object({
  * (circuit breaker + fallback). Retorna true se enviado. Fail-safe: nunca lança.
  */
 async function notifyOnTheWay(tenantId: string, serviceOrderId: string, technicianId: string): Promise<boolean> {
-  const { data: os } = await supabase
+  const { data: os, error: osErr } = await supabase
     .from('service_orders').select('customer_id, customer_name')
     .eq('tenant_id', tenantId).eq('id', serviceOrderId).maybeSingle();
+  if (osErr) infraLogger.warn({ error: osErr, tenantId, serviceOrderId }, 'field-ops: notifyOnTheWay — falha ao consultar service_orders');
   if (!os) return false;
 
   let phone: string | null = null;
   if (os.customer_id) {
-    const { data: cust } = await supabase
+    const { data: cust, error: custErr } = await supabase
       .from('customers').select('phone').eq('tenant_id', tenantId).eq('id', os.customer_id).maybeSingle();
+    if (custErr) infraLogger.warn({ error: custErr, tenantId, customerId: os.customer_id }, 'field-ops: notifyOnTheWay — falha ao consultar customers');
     phone = normalizePhone(cust?.phone);
   }
   if (!phone) return false;
 
-  const [{ data: tech }, keys] = await Promise.all([
+  const [{ data: tech, error: techErr }, keys] = await Promise.all([
     supabase.from('technicians').select('name').eq('tenant_id', tenantId).eq('id', technicianId).maybeSingle(),
     resolveTenantKeys(tenantId),
   ]);
+  if (techErr) infraLogger.warn({ error: techErr, tenantId, technicianId }, 'field-ops: notifyOnTheWay — falha ao consultar technicians');
 
   const content = buildOnTheWayMessage({
     customerName: os.customer_name, technicianName: tech?.name,
@@ -156,17 +164,20 @@ async function notifyOnTheWay(tenantId: string, serviceOrderId: string, technici
 
 /** Carrega os técnicos do tenant no formato de dispatch (com carga + última posição). */
 async function loadDispatchTechs(tenantId: string): Promise<DispatchTech[]> {
-  const { data: techs } = await supabase
+  const { data: techs, error: techsErr } = await supabase
     .from('technicians').select('id, name, skills, status').eq('tenant_id', tenantId);
+  if (techsErr) infraLogger.error({ error: techsErr, tenantId }, 'field-ops: loadDispatchTechs — falha ao consultar technicians');
   return Promise.all((techs ?? []).map(async (t: any) => {
-    const { data: loc } = await supabase
+    const { data: loc, error: locErr } = await supabase
       .from('technician_locations').select('latitude, longitude')
       .eq('tenant_id', tenantId).eq('technician_id', t.id)
       .order('recorded_at', { ascending: false }).limit(1).maybeSingle();
-    const { count } = await supabase
+    if (locErr) infraLogger.error({ error: locErr, tenantId, technicianId: t.id }, 'field-ops: loadDispatchTechs — falha ao consultar technician_locations');
+    const { count, error: countErr } = await supabase
       .from('service_orders').select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId).eq('assigned_to', t.id)
       .not('status', 'in', '(concluido,cancelado,completed,cancelled)');
+    if (countErr) infraLogger.error({ error: countErr, tenantId, technicianId: t.id }, 'field-ops: loadDispatchTechs — falha ao contar service_orders ativas');
     return {
       id: t.id, name: t.name, skills: (t.skills ?? []) as string[], status: t.status ?? 'offline',
       lat: loc?.latitude ?? null, lng: loc?.longitude ?? null, activeOrders: count ?? 0,
@@ -187,13 +198,17 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     const userId = getUserId((request as any).user) ?? '';
 
     // Resolve o técnico logado (technicians.user_id).
-    const { data: tech } = await supabase
+    const { data: tech, error: techError } = await supabase
       .from('technicians')
       .select('id')
       .eq('tenant_id', tenantId)
       .eq('user_id', userId)
       .maybeSingle();
 
+    if (techError) {
+      infraLogger.error({ error: techError, tenantId, userId }, 'field-ops: falha ao consultar technicians (agenda)');
+      return reply.code(500).send({ code: 'INTERNAL_ERROR', message: 'Falha ao verificar técnico.' });
+    }
     if (!tech) return reply.code(404).send({ code: 'NOT_A_TECHNICIAN', message: 'Usuário não é um técnico.' });
 
     let query = supabase
@@ -224,13 +239,17 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     const serviceOrderId = (request.params as any).id as string;
     const body = (request as any).validatedBody as z.infer<typeof transitionBodySchema>;
 
-    const { data: tech } = await supabase
+    const { data: tech, error: techError } = await supabase
       .from('technicians')
       .select('id')
       .eq('tenant_id', tenantId)
       .eq('user_id', userId)
       .maybeSingle();
 
+    if (techError) {
+      infraLogger.error({ error: techError, tenantId, userId }, 'field-ops: falha ao consultar technicians (transition)');
+      return reply.code(500).send({ code: 'INTERNAL_ERROR', message: 'Falha ao verificar técnico.' });
+    }
     if (!tech) return reply.code(404).send({ code: 'NOT_A_TECHNICIAN', message: 'Usuário não é um técnico.' });
 
     const result = await applyTransition({
@@ -283,25 +302,31 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     const body = (request as any).validatedBody as z.infer<typeof optimizeBodySchema>;
     const date = body.date ?? new Date().toISOString().slice(0, 10);
 
-    const { data: tech } = await supabase
+    const { data: tech, error: techError } = await supabase
       .from('technicians')
       .select('id, base_id')
       .eq('tenant_id', tenantId)
       .eq('user_id', userId)
       .maybeSingle();
 
+    if (techError) {
+      infraLogger.error({ error: techError, tenantId, userId }, 'field-ops: falha ao consultar technicians (route/optimize)');
+      return reply.code(500).send({ code: 'INTERNAL_ERROR', message: 'Falha ao verificar técnico.' });
+    }
     if (!tech) return reply.code(404).send({ code: 'NOT_A_TECHNICIAN', message: 'Usuário não é um técnico.' });
 
     // Ponto de partida: base do técnico → primeira base do tenant → primeira OS.
     let start: GeoPoint | null = null;
     if (tech.base_id) {
-      const { data: base } = await supabase
+      const { data: base, error: baseErr } = await supabase
         .from('bases').select('latitude, longitude').eq('id', tech.base_id).maybeSingle();
+      if (baseErr) infraLogger.warn({ error: baseErr, tenantId, baseId: tech.base_id }, 'field-ops: falha ao consultar base do técnico');
       if (base?.latitude != null && base?.longitude != null) start = { latitude: base.latitude, longitude: base.longitude };
     }
     if (!start) {
-      const { data: base } = await supabase
+      const { data: base, error: baseErr } = await supabase
         .from('bases').select('latitude, longitude').eq('tenant_id', tenantId).limit(1).maybeSingle();
+      if (baseErr) infraLogger.warn({ error: baseErr, tenantId }, 'field-ops: falha ao consultar base do tenant');
       if (base?.latitude != null && base?.longitude != null) start = { latitude: base.latitude, longitude: base.longitude };
     }
 
@@ -370,8 +395,9 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     const optimized = optimizeRoute(start, stops, { startMinutes });
 
     // Persiste o plano do dia (idempotente: limpa o anterior do mesmo técnico+data).
-    const { data: prior } = await supabase
+    const { data: prior, error: priorErr } = await supabase
       .from('route_plans').select('id').eq('tenant_id', tenantId).eq('technician_id', tech.id).eq('date', date);
+    if (priorErr) infraLogger.warn({ error: priorErr, tenantId, technicianId: tech.id, date }, 'field-ops: falha ao consultar route_plans anteriores');
     for (const p of prior ?? []) {
       await supabase.from('route_stops').delete().eq('route_plan_id', (p as any).id);
       await supabase.from('route_plans').delete().eq('id', (p as any).id);
@@ -389,11 +415,15 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     if (planErr || !plan) return reply.code(500).send({ code: 'PLAN_SAVE_ERROR', message: 'Falha ao salvar rota.' });
 
     if (optimized.order.length > 0) {
-      await supabase.from('route_stops').insert(
+      const { error: stopsErr } = await supabase.from('route_stops').insert(
         optimized.order.map((s, i) => ({
           tenant_id: tenantId, route_plan_id: plan.id, service_order_id: s.serviceOrderId, position: i + 1,
         })),
       );
+      if (stopsErr) {
+        infraLogger.error({ error: stopsErr, tenantId, routePlanId: plan.id }, 'field-ops: falha ao persistir route_stops');
+        return reply.code(500).send({ code: 'ROUTE_STOPS_SAVE_ERROR', message: 'Falha ao salvar paradas da rota.' });
+      }
     }
 
     return reply.code(200).send({
@@ -456,23 +486,28 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     const tenantId = getTenantId((request as any).user) ?? '';
     const userId = getUserId((request as any).user) ?? '';
 
-    const { data: tech } = await supabase
+    const { data: tech, error: techError } = await supabase
       .from('technicians')
       .select('vehicle, plate, vehicle_id')
       .eq('tenant_id', tenantId)
       .eq('user_id', userId)
       .maybeSingle();
 
+    if (techError) {
+      infraLogger.error({ error: techError, tenantId, userId }, 'field-ops: falha ao consultar technicians (vehicle)');
+      return reply.code(500).send({ code: 'INTERNAL_ERROR', message: 'Falha ao verificar técnico.' });
+    }
     if (!tech) return reply.code(404).send({ code: 'NOT_A_TECHNICIAN', message: 'Usuário não é um técnico.' });
 
     let vehicle: any = null;
     if ((tech as any).vehicle_id) {
-      const { data: v } = await supabase
+      const { data: v, error: vErr } = await supabase
         .from('fleet_vehicles')
         .select('model, plate, fuel_pct, tank_liters, odometer_km, fuel_type')
         .eq('tenant_id', tenantId)
         .eq('id', (tech as any).vehicle_id)
         .maybeSingle();
+      if (vErr) infraLogger.warn({ error: vErr, tenantId, vehicleId: (tech as any).vehicle_id }, 'field-ops: falha ao consultar fleet_vehicles');
       vehicle = v ?? null;
     }
     // Fallback: campos texto no próprio technicians (sem registro de frota).
@@ -637,6 +672,12 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
       supabase.from('service_order_materials').select('name, serial_number, quantity, unit').eq('tenant_id', tenantId).eq('service_order_id', serviceOrderId),
     ]);
 
+    const dossieError = os.error || events.error || media.error || checklist.error || materials.error;
+    if (dossieError) {
+      infraLogger.error({ error: dossieError, tenantId, serviceOrderId }, 'field-ops: dossie — falha ao consultar dados da OS');
+      throw new Error('Falha ao carregar dossiê da OS');
+    }
+
     if (!os.data) return reply.code(404).send({ code: 'OS_NOT_FOUND', message: 'OS não encontrada.' });
 
     const timeline: OsTimelineEvent[] = (events.data ?? []).map((e: any) => ({ event: e.event, at: e.created_at }));
@@ -667,7 +708,11 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     if (q.from) query = (query as any).gte('started_at', q.from);
     if (q.to) query = (query as any).lte('started_at', q.to);
 
-    const { data } = await query;
+    const { data, error } = await query;
+    if (error) {
+      infraLogger.error({ error, tenantId }, 'field-ops: reports/km — falha ao consultar technician_shifts');
+      throw new Error('Falha ao carregar relatório de km');
+    }
     const perDay: DayKm[] = (data ?? []).map((s: any) => ({ day: String(s.started_at).slice(0, 10), km: Number(s.computed_km) }));
     return { by_day: aggregateKmByDay(perDay), total_km: Math.round(perDay.reduce((a, d) => a + d.km, 0) * 100) / 100 };
   });
@@ -679,13 +724,22 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const tenantId = getTenantId((request as any).user) ?? '';
 
-    const { data: orders } = await supabase
+    const { data: orders, error: ordersErr } = await supabase
       .from('service_orders').select('id, type').eq('tenant_id', tenantId).in('status', ['concluido', 'completed']).limit(500);
+
+    if (ordersErr) {
+      infraLogger.error({ error: ordersErr, tenantId }, 'field-ops: reports/tempo — falha ao consultar service_orders');
+      throw new Error('Falha ao carregar relatório de tempo');
+    }
 
     const items: TypedDuration[] = [];
     for (const o of orders ?? []) {
-      const { data: evs } = await supabase
+      const { data: evs, error: evsErr } = await supabase
         .from('service_order_events').select('event, created_at').eq('tenant_id', tenantId).eq('service_order_id', (o as any).id);
+      if (evsErr) {
+        infraLogger.error({ error: evsErr, tenantId, serviceOrderId: (o as any).id }, 'field-ops: reports/tempo — falha ao consultar service_order_events');
+        throw new Error('Falha ao carregar relatório de tempo');
+      }
       const timeline: OsTimelineEvent[] = (evs ?? []).map((e: any) => ({ event: e.event, at: e.created_at }));
       const d = computeOsDurations(timeline);
       if (d.execucaoMin != null) items.push({ type: (o as any).type ?? 'servico', execucaoMin: d.execucaoMin });
@@ -714,6 +768,12 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
       supabase.from('field_photo_diagnoses').select('equipment, issue').eq('tenant_id', tenantId).eq('service_order_id', serviceOrderId),
     ]);
 
+    const summaryError = os.error || events.error || checklist.error || materials.error || diagnoses.error;
+    if (summaryError) {
+      infraLogger.error({ error: summaryError, tenantId, serviceOrderId }, 'field-ops: summary — falha ao consultar dados da OS');
+      throw new Error('Falha ao carregar dados para o resumo da OS');
+    }
+
     if (!os.data) return reply.code(404).send({ code: 'OS_NOT_FOUND', message: 'OS não encontrada.' });
 
     const timeline: OsTimelineEvent[] = (events.data ?? []).map((e: any) => ({ event: e.event, at: e.created_at }));
@@ -739,9 +799,13 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
       if (llm) { summary = llm; source = 'llm'; }
     }
 
-    await supabase.from('service_orders')
+    const { error: summarySaveErr } = await supabase.from('service_orders')
       .update({ ai_summary: summary, updated_at: new Date().toISOString() })
       .eq('tenant_id', tenantId).eq('id', serviceOrderId);
+    if (summarySaveErr) {
+      infraLogger.error({ error: summarySaveErr, tenantId, serviceOrderId }, 'field-ops: summary — falha ao salvar ai_summary');
+      return reply.code(500).send({ code: 'SUMMARY_SAVE_ERROR', message: 'Falha ao salvar o resumo da OS.' });
+    }
 
     return reply.code(200).send({ summary, source });
   });
@@ -768,11 +832,14 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
     // Registra a foto "depois" (a prova fica salva mesmo se a validação reprovar).
     if (body.register !== false) {
       const tech = await getTech(tenantId, userId);
-      await supabase.from('service_order_media').insert({
+      const { error: mediaErr } = await supabase.from('service_order_media').insert({
         tenant_id: tenantId, service_order_id: serviceOrderId, technician_id: tech?.id ?? null,
         kind: 'depois', url: body.image_url,
         note: validation.valid ? 'validada por IA' : `revisar: ${validation.reason}`,
       });
+      if (mediaErr) {
+        infraLogger.error({ error: mediaErr, tenantId, serviceOrderId }, 'field-ops: validate-photo — falha ao registrar foto "depois"');
+      }
     }
 
     return reply.code(200).send({
@@ -792,13 +859,18 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const tenantId = getTenantId((request as any).user) ?? '';
 
-    const { data: pending } = await supabase
+    const { data: pending, error: pendingErr } = await supabase
       .from('service_orders')
       .select('id, customer_name, address, latitude, longitude, type, status, assigned_to')
       .eq('tenant_id', tenantId)
       .in('status', ['pendente', 'open'])
       .order('created_at', { ascending: true })
       .limit(100);
+
+    if (pendingErr) {
+      infraLogger.error({ error: pendingErr, tenantId }, 'field-ops: dispatch/board — falha ao consultar service_orders pendentes');
+      throw new Error('Falha ao carregar board de dispatch');
+    }
 
     const techs = await loadDispatchTechs(tenantId);
 
@@ -840,10 +912,13 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
       .eq('tenant_id', tenantId).eq('id', serviceOrderId);
     if (upErr) return reply.code(500).send({ code: 'ASSIGN_ERROR', message: 'Falha ao atribuir OS.' });
 
-    await supabase.from('service_order_events').insert({
+    const { error: eventErr } = await supabase.from('service_order_events').insert({
       tenant_id: tenantId, service_order_id: serviceOrderId, technician_id: body.technicianId,
       event: 'atribuida', metadata: { assigned_by: userId },
     });
+    if (eventErr) {
+      infraLogger.warn({ error: eventErr, tenantId, serviceOrderId }, 'field-ops: assign — falha ao registrar evento de atribuição');
+    }
 
     return reply.code(200).send({ ok: true, service_order_id: serviceOrderId, technician_id: body.technicianId });
   });
@@ -929,18 +1004,24 @@ export async function fieldOpsRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const tenantId = getTenantId((request as any).user) ?? '';
 
-    const { data: techs } = await supabase
+    const { data: techs, error: techsErr } = await supabase
       .from('technicians').select('id, name, status, current_task, vehicle, plate').eq('tenant_id', tenantId);
+    if (techsErr) {
+      infraLogger.error({ error: techsErr, tenantId }, 'field-ops: live — falha ao consultar technicians');
+      throw new Error('Falha ao carregar mapa ao vivo');
+    }
 
     const live = await Promise.all((techs ?? []).map(async (t: any) => {
-      const { data: loc } = await supabase
+      const { data: loc, error: locErr } = await supabase
         .from('technician_locations').select('latitude, longitude, recorded_at')
         .eq('tenant_id', tenantId).eq('technician_id', t.id)
         .order('recorded_at', { ascending: false }).limit(1).maybeSingle();
-      const { count } = await supabase
+      if (locErr) infraLogger.error({ error: locErr, tenantId, technicianId: t.id }, 'field-ops: live — falha ao consultar technician_locations');
+      const { count, error: countErr } = await supabase
         .from('service_orders').select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId).eq('assigned_to', t.id)
         .not('status', 'in', '(concluido,cancelado,completed,cancelled)');
+      if (countErr) infraLogger.error({ error: countErr, tenantId, technicianId: t.id }, 'field-ops: live — falha ao contar service_orders ativas');
       return {
         technician_id: t.id, name: t.name, status: t.status, vehicle: t.vehicle, plate: t.plate,
         last_location: loc ?? null, active_orders: count ?? 0,
