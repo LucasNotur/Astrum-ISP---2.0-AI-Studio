@@ -2,8 +2,6 @@ import { adminDb as db } from "./firebaseAdmin";
 import admin from "./firebaseAdmin";
 import { logger } from "./logger";
 import { encryptCpf as _encryptCpf, decryptCpf as _decryptCpf } from "./fieldCipher";
-import { getEmbeddingProvider } from './embeddingProvider';
-import { getVectorStore } from './vectorStore';
 import { decryptString, looksEncrypted } from './erpCredentialCipher';
 
 /**
@@ -58,65 +56,6 @@ export const getIntegrationKeys = async (tenantId: string = "default"): Promise<
   }
 };
 
-export async function getGeminiKey(tenantId: string = 'default'): Promise<string> {
-  try {
-    const keys = await getIntegrationKeys(tenantId);
-    if (keys?.gemini_api_key) return keys.gemini_api_key;
-    if (keys?.geminiGlobal) return keys.geminiGlobal;
-  } catch {}
-  
-  const envKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (envKey && envKey !== 'MY_GEMINI_API_KEY' && !envKey.includes('placeholder')) {
-    return envKey;
-  }
-  
-  console.warn("getGeminiKey fallback failed - envKey type/val:", typeof envKey, envKey ? 'present (but rejected)' : 'missing');
-  throw new Error(
-    'Gemini API Key não configurada. ' +
-    'Configure em Configurações → Provedores de IA no painel '
-  );
-}
-
-export async function getOpenAIKey(tenantId: string = 'default'): Promise<string> {
-  try {
-    const keys = await getIntegrationKeys(tenantId);
-    if (keys?.openai_api_key) return keys.openai_api_key;
-    if (keys?.openaiChat) return keys.openaiChat;
-    if (keys?.openaiGlobal) return keys.openaiGlobal;
-  } catch {}
-  
-  const envKey = process.env.OPENAI_API_KEY;
-  if (envKey && envKey.trim() !== '' && 
-      !envKey.includes('placeholder') &&
-      !envKey.includes('sua_chave')) {
-    return envKey;
-  }
-  
-  throw new Error(
-    'OpenAI API Key não configurada. ' +
-    'Configure em Configurações → Provedores de IA no painel.'
-  );
-}
-
-export async function getAnthropicKey(tenantId: string = 'default'): Promise<string> {
-  try {
-    const keys = await getIntegrationKeys(tenantId);
-    if (keys?.anthropic_api_key) return keys.anthropic_api_key;
-    if (keys?.anthropicGlobal) return keys.anthropicGlobal;
-  } catch {}
-  
-  const envKey = process.env.ANTHROPIC_API_KEY;
-  if (envKey && envKey.trim() !== '' &&
-      !envKey.includes('placeholder')) {
-    return envKey;
-  }
-  
-  throw new Error(
-    'Anthropic API Key não configurada. ' +
-    'Configure em Configurações → Provedores de IA no painel.'
-  );
-}
-
 export const getSystemPrompts = async (tenantId: string = 'default') => {
   try {
     const versionsRef = db.collection('prompts').doc(tenantId).collection('versions');
@@ -139,75 +78,6 @@ export const getSystemPrompts = async (tenantId: string = 'default') => {
     logger.error("error_fetching_system_prompts_admin", { error: err.message });
     return null;
   }
-};
-
-export const searchKnowledgeBase = async (
-  searchTerm: string,
-  tenantId: string = "default"
-): Promise<{ text: string; title: string; score: number }[]> => {
-  try {
-    const embeddingProvider = await getEmbeddingProvider(tenantId);
-    const vectorStore = await getVectorStore(tenantId);
-    const queryEmbedding = await embeddingProvider.embed(searchTerm, tenantId);
-    const results = await vectorStore.search(queryEmbedding, tenantId, 3);
-    const MIN_SCORE = parseFloat(process.env.VECTOR_MIN_SCORE ?? '0.7');
-    const relevant = results.filter((r: any) => r.score >= MIN_SCORE);
-
-    if (relevant.length === 0) return [];
-
-    return relevant.map((r: any) => ({
-      text: r.text,
-      title: r.metadata.title,
-      score: r.score
-    }));
-  } catch (err: any) {
-    logger.warn('vector_search_failed_fallback_admin', { error: err.message, tenant_id: tenantId });
-    const snapshot = await db.collection('knowledge_base')
-      .where('tenant_id', '==', tenantId)
-      .limit(3)
-      .get();
-    return snapshot.docs.map(d => ({
-      text: d.data().content,
-      title: d.data().title,
-      score: 0.5
-    }));
-  }
-};
-
-export const addToKnowledgeBase = async (
-  article: { title: string; content: string; category: string; tenantId: string }
-): Promise<string> => {
-  const docRef = await db.collection('knowledge_base').add({
-    title: article.title,
-    content: article.content,
-    category: article.category,
-    tenant_id: article.tenantId,
-    created_at: admin.firestore.FieldValue.serverTimestamp(),
-    vector_indexed: false
-  });
-
-  try {
-    const embeddingProvider = await getEmbeddingProvider(article.tenantId);
-    const vectorStore = await getVectorStore(article.tenantId);
-    const embedding = await embeddingProvider.embed(`${article.title}\n\n${article.content}`, article.tenantId);
-
-    await vectorStore.upsert({
-      id: docRef.id,
-      text: article.content,
-      embedding,
-      metadata: {
-        tenant_id: article.tenantId,
-        category: article.category,
-        title: article.title
-      }
-    }, article.tenantId);
-
-    await docRef.update({ vector_indexed: true, vector_indexed_at: admin.firestore.FieldValue.serverTimestamp() });
-  } catch (err) {
-    logger.warn('Initial vector store indexing failed admin', { error: err });
-  }
-
-  return docRef.id;
 };
 
 export const deleteKBArticle = async (id: string) => {
