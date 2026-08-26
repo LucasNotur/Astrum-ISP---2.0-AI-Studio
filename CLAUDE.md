@@ -26,10 +26,14 @@
 - **R3 — LLMs:** GPT-4o-mini para conversação, GPT-4o para orquestração/raciocínio. O fallback
   multi-provider foi **portado** para `apps/api/src/infrastructure/ai/providers/model-router.ts`
   (failover multi-provider + circuit breaker, validado em produção 2026-08-23) — **regra
-  cumprida**. O `src/ai-provider/` legado (adapters openai/anthropic/gemini) ainda não foi
-  deletado: a L1 (2026-08-25) achou um importador vivo na re-verificação
-  (`embeddingProvider.ts` ← `dbAdmin.ts` ← whatsappSender/erpAdapter) e parou a deleção daquele
-  alvo por segurança — resolver essa cadeia de import fica para uma tarefa futura de faxina.
+  cumprida**. O `src/ai-provider/` legado (adapters openai/anthropic/gemini) foi **deletado por
+  completo em 2026-08-26** (commit `f0c0472`): a cadeia de import que a L1 (2026-08-25) tinha
+  achado viva (`embeddingProvider.ts` ← `dbAdmin.ts` ← whatsappSender/erpAdapter) era, na
+  prática, código morto — as únicas chamadoras de `getEmbeddingProvider`/`getVectorStore`
+  (`searchKnowledgeBase`/`addToKnowledgeBase` em `dbAdmin.ts`) nunca eram chamadas por ninguém,
+  já substituídas pelo RAG real do `apps/api` (`embedding.service.ts`, `qdrant.adapter.ts`,
+  `rag-query.service.ts`, em produção). Removidas as duas funções mortas + `src/ai-provider/`
+  inteiro + `src/lib/embeddingProvider.ts`/`vectorStore.ts`.
 
 - **R4 — Backend:** toda lógica nova vai em `apps/api` (Fastify/DDD). **Proibido criar feature nova
   em `/src`** (backend legado) — lá só se corrige bug crítico de produção.
