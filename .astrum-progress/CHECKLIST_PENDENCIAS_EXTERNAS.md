@@ -204,11 +204,22 @@
   3 não tinham teste dedicado antes (gap pré-existente) — corrigidas sem teste
   novo de rota; registrado como follow-up.
 
-  **⚠️ Achado colateral, NÃO corrigido (fora de escopo, registrado como tarefa
-  separada):** mais ~54 arquivos em `apps/api` usam esse mesmo client Supabase
-  anônimo — alguns podem ter o mesmo bug de gravação silenciosa, precisa de
-  auditoria dedicada tabela-por-tabela (RLS varia). Ver task "Audit anon Supabase
-  client usage vs RLS across apps/api" spawned nesta sessão.
+  **✅ RESOLVIDO 2026-08-26 (commit `2880100`).** Auditoria confirmou 45 arquivos
+  (não ~54) ainda usando o client anônimo — e, direto no Postgres, que `anon`
+  não tem NENHUM grant em NENHUMA tabela desde a 092 (`authenticated` tem 791).
+  Ou seja: não era "alguns podem ter o mesmo bug" — todos os 45 tinham, sem
+  exceção; a única variável era se a falha aparecia (erro checado, 500 visível)
+  ou ficava escondida (erro ignorado, `200 OK` com dado zerado/vazio). 27 dos 45
+  eram do tipo silencioso — portal do assinante 100% fora do ar, guardrail
+  financeiro de negociação bypassado, dashboard de ROI sempre zerado, painel de
+  segurança mostrando falso "tudo ok", app do técnico com 404 pra técnico real,
+  entre outros. Fix mecânico idêntico ao dos 3 já corrigidos (`supabaseAdmin as
+  supabase`) nos 45 + 14 arquivos de teste que mockavam só o `default` export.
+  Suite completa 2763/2763 verde. Ver `astrum-anon-client-fix` na memória do
+  Claude Code pro relatório completo (achados + severidade por arquivo).
+  **Ainda pendente, registrado como follow-up separado (não mecânico):** os
+  padrões de `error` ignorado silenciosamente continuam frágeis contra
+  qualquer falha futura, não só esta — corrigir isso é arquivo por arquivo.
 
 ---
 
