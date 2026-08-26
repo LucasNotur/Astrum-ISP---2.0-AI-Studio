@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   extractWebchatConfig,
   validateWebchatMessage,
-  webchatCustomerIdentifier,
   WebchatMessageValidationError,
 } from './webchat.service';
 
@@ -65,12 +64,6 @@ describe('webchat.service', () => {
     it('faz trim dos campos', () => {
       expect(validateWebchatMessage({ tenantId: ' t-1 ', sessionId: ' s-1 ', text: ' oi ' }))
         .toEqual({ tenantId: 't-1', sessionId: 's-1', text: 'oi' });
-    });
-  });
-
-  describe('webchatCustomerIdentifier', () => {
-    it('prefixa com webchat_', () => {
-      expect(webchatCustomerIdentifier('abc123')).toBe('webchat_abc123');
     });
   });
 });

@@ -27,8 +27,8 @@ vi.mock('../../infrastructure/database/supabase.client', () => {
   return { supabaseAdmin, default: supabaseAdmin };
 });
 
-vi.mock('../../infrastructure/queue/bullmq.client', () => ({
-  enqueueMessage: vi.fn().mockResolvedValue({ id: 'job-1' }),
+vi.mock('../../../../../packages/queue/src/queues', () => ({
+  messageQueue: { add: vi.fn().mockResolvedValue({ id: 'job-1' }) },
 }));
 
 vi.mock('../../infrastructure/cache/redis.client', () => ({
@@ -37,7 +37,7 @@ vi.mock('../../infrastructure/cache/redis.client', () => ({
 
 import { webchatRoutes } from './webchat.routes';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
-import { enqueueMessage } from '../../infrastructure/queue/bullmq.client';
+import { messageQueue } from '../../../../../packages/queue/src/queues';
 import { redis } from '../../infrastructure/cache/redis.client';
 
 async function buildApp() {
@@ -104,15 +104,28 @@ describe('webchatRoutes', () => {
       expect(res.json()).toEqual({ timeout: true });
       expect(h.insertedTicket).toMatchObject({
         tenant_id: 't-1',
-        customer_id: 'webchat_s-1',
         status: 'open',
+        extra: { source: 'webchat', session_id: 's-1' },
       });
-      expect(enqueueMessage).toHaveBeenCalledWith('t-1', expect.objectContaining({
-        tenantId: 't-1',
-        from: 'webchat_s-1',
-        text: 'oi',
-        source: 'webchat',
-      }));
+      // customer_id é uuid no banco — nunca gravado com o sessionId (não-UUID).
+      expect(h.insertedTicket.customer_id).toBeUndefined();
+      expect(messageQueue.add).toHaveBeenCalledWith(
+        'inbound',
+        expect.objectContaining({
+          tenantId: 't-1',
+          senderPhone: 's-1',
+          messageContent: 'oi',
+          channel: 'webchat',
+        }),
+        expect.objectContaining({ jobId: expect.stringMatching(/^webchat:/) }),
+      );
+
+      // Regressão: a busca por ticket já aberto usa extra->>session_id — não mais
+      // `customer_id` (coluna uuid; sessionId nunca foi um UUID válido, o filtro
+      // antigo `.eq('customer_id', ...)` sempre dava erro de sintaxe silencioso).
+      const builder = (supabaseAdmin.from as any).mock.results[0].value;
+      expect(builder.eq).toHaveBeenCalledWith('extra->>session_id', 's-1');
+      expect(builder.eq).not.toHaveBeenCalledWith('customer_id', expect.anything());
     }, 20000);
 
     it('ticket já aberto -> não cria outro', async () => {

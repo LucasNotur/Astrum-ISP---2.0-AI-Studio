@@ -1,10 +1,10 @@
 import type { FastifyInstance } from 'fastify';
+import { randomUUID } from 'node:crypto';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { atendimentoLogger } from '../../infrastructure/logging/logger';
 import {
   extractWebchatConfig,
   validateWebchatMessage,
-  webchatCustomerIdentifier,
   WebchatMessageValidationError,
 } from './webchat.service';
 
@@ -44,42 +44,60 @@ export async function webchatRoutes(app: FastifyInstance) {
       throw e;
     }
     const { tenantId, sessionId, text } = input;
-    const customerIdentifier = webchatCustomerIdentifier(sessionId);
 
     // Ticket de rastreio (paridade com o legado) — cria só se não houver um aberto.
-    const { data: openTicket } = await supabaseAdmin
+    // Visitante anônimo: `customer_id` é uuid no banco e sessionId não é um UUID
+    // válido (era gravado como `webchat_${sessionId}`, insert sempre falhava com
+    // "invalid input syntax for type uuid" — erro nunca checado, silencioso).
+    // Rastreado por `extra->>session_id` em vez de uma FK inventada.
+    const { data: openTicket, error: findErr } = await supabaseAdmin
       .from('tickets')
       .select('id')
       .eq('tenant_id', tenantId)
-      .eq('customer_id', customerIdentifier)
+      .eq('extra->>session_id', sessionId)
       .in('status', ['open', 'in-progress'])
       .limit(1)
       .maybeSingle();
-
-    if (!openTicket) {
-      await supabaseAdmin.from('tickets').insert({
-        tenant_id: tenantId,
-        customer_id: customerIdentifier,
-        title: 'Chat via Site',
-        status: 'open',
-        extra: { source: 'webchat' },
-      });
+    if (findErr) {
+      atendimentoLogger.warn({ err: findErr, tenantId }, '[webchat] falha ao buscar ticket de rastreio existente');
     }
 
-    // Enfileira pro messageWorker (legado) processar — fila por tenant
-    // (`messages-${tenantId}`), MESMO mecanismo do CSAT/SLA (jobs.routes.ts).
-    // O legado (`src/workers/messageWorker.ts`) já trata `source==='webchat'`
-    // como caso de primeira classe — nenhuma mudança de pipeline de IA aqui.
-    const { enqueueMessage } = await import('../../infrastructure/queue/bullmq.client');
-    await enqueueMessage(tenantId, {
-      tenantId,
-      from: customerIdentifier,
-      to: tenantId,
-      text,
-      source: 'webchat',
-    });
+    if (!openTicket) {
+      const { error: insertErr } = await supabaseAdmin.from('tickets').insert({
+        tenant_id: tenantId,
+        title: 'Chat via Site',
+        status: 'open',
+        extra: { source: 'webchat', session_id: sessionId },
+      });
+      if (insertErr) {
+        atendimentoLogger.warn({ err: insertErr, tenantId }, '[webchat] falha ao criar ticket de rastreio');
+      }
+    }
 
-    // Long-poll: aguarda até 15s pela resposta que o worker grava no Redis.
+    // Enfileira na fila real `astrum-messages`, consumida por
+    // packages/queue/src/workers/message.worker.ts — mesmo pipeline do WhatsApp
+    // (evolution-webhook.routes.ts::buildMessageJob). O helper
+    // enqueueMessage/getTenantQueue (fila por tenant `messages-${tenantId}`) que
+    // esta rota usava antes não tem NENHUM worker consumindo — o job ficava
+    // parado pra sempre e a mensagem nunca chegava na IA. O payload também
+    // estava no shape errado (`from`/`to`/`source` em vez de
+    // `senderPhone`/`messageContent`/`channel` de `MessageJobData`).
+    const messageId = randomUUID();
+    const { messageQueue } = await import('../../../../../packages/queue/src/queues');
+    await messageQueue.add(
+      'inbound',
+      {
+        tenantId,
+        senderPhone: sessionId,
+        messageContent: text,
+        channel: 'webchat',
+        messageId,
+      },
+      { jobId: `webchat:${messageId}` },
+    );
+
+    // Long-poll: aguarda até 15s pela resposta que sendChannelResponse grava no
+    // Redis (channel-sender.service.ts, caso 'webchat').
     const { redis } = await import('../../infrastructure/cache/redis.client');
     const responseKey = `webchat_response:${sessionId}`;
     const start = Date.now();

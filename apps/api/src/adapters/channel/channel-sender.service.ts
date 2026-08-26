@@ -4,6 +4,11 @@ import { sendEmail } from '../email/email.adapter';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { atendimentoLogger } from '../../infrastructure/logging/logger';
 
+/** TTL do slot de resposta no Redis — cobre a janela do long-poll (webchat.routes.ts,
+ * REPLY_TIMEOUT_MS=15s) com folga; evita chave órfã se o visitante fechar a aba
+ * antes do poll consumir. */
+const WEBCHAT_RESPONSE_TTL_SECONDS = 30;
+
 /**
  * P2-03 — Roteador de canal.
  * Todos os canais chegam pela mesma fila (astrum-messages); este serviço
@@ -78,12 +83,22 @@ export async function sendChannelResponse(opts: SendChannelResponseOpts): Promis
       break;
     }
 
-    case 'webchat':
+    case 'webchat': {
+      // O widget (WebchatPage.tsx) faz long-poll em POST /api/v2/webchat/message
+      // (webchat.routes.ts) esperando a resposta aqui — não usa WebSocket. `recipientId`
+      // é o sessionId do visitante (mesmo valor usado como `senderPhone` no job).
+      const { redis } = await import('../../infrastructure/cache/redis.client');
+      const responseKey = `webchat_response:${recipientId}`;
+      await (redis as any).rpush(responseKey, content);
+      await (redis as any).expire(responseKey, WEBCHAT_RESPONSE_TTL_SECONDS);
+      atendimentoLogger.info({ tenantId, conversationId }, 'Resposta webchat publicada no Redis');
+      break;
+    }
+
     case 'facebook':
     case 'telephony':
-      // Webchat usa WebSocket (já implementado no wsPublisher).
       // Telephony usa Twilio Realtime (IA-08). Aqui só registramos.
-      atendimentoLogger.info({ tenantId, channel }, `Canal ${channel}: resposta via WebSocket/Twilio (sem ação aqui)`);
+      atendimentoLogger.info({ tenantId, channel }, `Canal ${channel}: resposta via Twilio (sem ação aqui)`);
       break;
 
     default:

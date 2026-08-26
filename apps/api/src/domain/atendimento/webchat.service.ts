@@ -58,8 +58,3 @@ export function validateWebchatMessage(body: any): WebchatMessageInput {
 
   return { tenantId, sessionId, text };
 }
-
-/** Identificador de cliente sintético pro visitante anônimo do widget. Pura. */
-export function webchatCustomerIdentifier(sessionId: string): string {
-  return `webchat_${sessionId}`;
-}

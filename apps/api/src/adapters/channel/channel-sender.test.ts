@@ -28,6 +28,9 @@ vi.mock('../../infrastructure/logging/logger', () => ({
   atendimentoLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+const redisMock = { rpush: vi.fn(), expire: vi.fn() };
+vi.mock('../../infrastructure/cache/redis.client', () => ({ redis: redisMock }));
+
 // ── testes ─────────────────────────────────────────────────────────────────
 
 describe('sendChannelResponse', () => {
@@ -128,15 +131,27 @@ describe('sendChannelResponse', () => {
     expect(atendimentoLogger.warn).toHaveBeenCalled();
   });
 
-  it('loga e não lança erro para canal webchat', async () => {
+  it('webchat: publica a resposta no Redis usando o sessionId (recipientId) como chave, com TTL', async () => {
     const { sendChannelResponse } = await import('./channel-sender.service');
-    await expect(
-      sendChannelResponse({
-        channel: 'webchat',
-        recipientId: 'session-abc',
-        content: 'OK',
-        tenantId: 'tenant-1',
-      }),
-    ).resolves.toBeUndefined();
+
+    await sendChannelResponse({
+      channel: 'webchat',
+      recipientId: 'session-abc',
+      content: 'OK',
+      tenantId: 'tenant-1',
+    });
+
+    expect(redisMock.rpush).toHaveBeenCalledWith('webchat_response:session-abc', 'OK');
+    expect(redisMock.expire).toHaveBeenCalledWith('webchat_response:session-abc', 30);
+  });
+
+  it('webchat: chaves de sessões diferentes não se cruzam', async () => {
+    const { sendChannelResponse } = await import('./channel-sender.service');
+
+    await sendChannelResponse({ channel: 'webchat', recipientId: 'session-A', content: 'msg A', tenantId: 't-1' });
+    await sendChannelResponse({ channel: 'webchat', recipientId: 'session-B', content: 'msg B', tenantId: 't-1' });
+
+    expect(redisMock.rpush).toHaveBeenNthCalledWith(1, 'webchat_response:session-A', 'msg A');
+    expect(redisMock.rpush).toHaveBeenNthCalledWith(2, 'webchat_response:session-B', 'msg B');
   });
 });
