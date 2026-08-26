@@ -1,13 +1,17 @@
 import { FastifyInstance } from 'fastify';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { BUDGETS_MS } from '../../infrastructure/observability/latency-budget';
+import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 
 export async function latencyRoutes(app: FastifyInstance) {
   app.addHook('onRequest', async (req, reply) => {
     await (app as any).authenticate(req, reply);
   });
 
-  app.get('/api/v2/ia/latency/report', async (req) => {
+  // node_latency_daily não tem dimensão de tenant (achado S2, PLANO_ACAO_100_OPERACIONAL.md)
+  // — qualquer tenant autenticado enxergaria a latência agregada global. Restrito a
+  // super_admin (mesmo padrão de dlq.routes.ts pra dado de infraestrutura, não de negócio).
+  app.get('/api/v2/ia/latency/report', { preHandler: [requirePermission('reports', 'admin')] }, async (req) => {
     const days = Number((req.query as any).days) || 7;
     const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
 

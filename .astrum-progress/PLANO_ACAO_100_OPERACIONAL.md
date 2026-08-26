@@ -469,6 +469,11 @@ diferente (`{type:'new_message',...}` via Redis pub/sub). **Não existe servidor
 em lugar nenhum do `apps/api`** (grep confirma). Ou seja: além dos 6 `supabase.from(`
 documentados, o ChatPage nunca recebe mensagem nova nem indicador de "digitando" em tempo
 real — o socket.io-client conecta a nada. Isso é maior que o achado original da F1-B.
+**✅ RESOLVIDO (commit `85a5850`, 2026-08-26, migration 116 `tickets.conversation_id`):**
+realtime trocado pro WS nativo já existente (`/ws/conversations/:id`); socket.io-client
+morto removido. Indicador de "digitando" via presence do WhatsApp foi cortado de
+propósito (nunca teve canal real no backend). Ver `astrum-chatpage-messages-quebrado` na
+memória do Claude Code.
 
 **🔴 Achado novo #2 (bug de produção, worker já rodando) — `snooze.worker.ts` quebrado:**
 `packages/queue/src/workers/snooze.worker.ts` (o worker "v2" que a L1 manteve como
@@ -479,6 +484,11 @@ produção (`snooze-check-repeat`); a query real do PostgREST rejeita coluna ine
 seja, **o cron do snooze provavelmente erra silenciosamente a cada execução** desde que foi
 promovido a "v2 real" — precisa investigação separada (não confirmei o comportamento exato
 do erro em runtime, só a incompatibilidade de schema).
+**✅ RESOLVIDO (commit `f5fe51f`, 2026-08-26):** migration 115 criou as colunas reais; o
+worker passou a usar `assigned_to` (coluna que já existia) em vez de `assigned_operator_id`;
+nova rota `POST /api/v2/tickets/:id/snooze`. De brinde, corrigido no mesmo arquivo
+(`tickets.routes.ts`): o PATCH `/api/v2/tickets/:id` não tinha `.eq('id', id)` — todo PATCH
+atualizava TODOS os tickets do tenant. Ver `astrum-snooze-consertado` na memória.
 
 **Verificação:** `typecheck:legacy` + `apps/api typecheck` limpos, build ok. Suites: root
 **3505 passed / 0 failed** (isolado — timeout de sempre sob carga), apps/api **2755 passed /
@@ -1325,6 +1335,21 @@ Tudo o mais é independente entre si.
   repo. Rodar `npm run db:migrate` hoje re-executaria as 10 (nem todas idempotentes — ex.:
   `097_departments_table.sql`). Por isso a 114 foi aplicada via MCP. Precisa de um
   `db:baseline` (ou equivalente) para ressincronizar o tracking — não feito aqui (escopo).
+  **✅ RESOLVIDO (2026-08-26).** Verificado via MCP (`information_schema`/`pg_proc`) um por
+  um — sem usar `--baseline` cego, que marcaria tudo pendente como aplicado sem checar:
+  `097_departments_table`, `105_appsec02_storage_private_bucket`,
+  `106_super_admin_requires_aal2`, `107_apps_api_mfa`, `108_atendimento_emergency_stop`,
+  `109_tenants_integration_keys_enabled_modules`, `110_cobranca_emergency_stop`,
+  `113_s2_secdef_rpc_surface_e_denyall`, `114_b1_fk_indexes_e_limpeza`,
+  `115_tickets_snooze_columns`, `116_tickets_conversation_id` — todas confirmadas já
+  aplicadas de verdade (colunas/tabelas/funções existem), tracking sincronizado
+  (`INSERT INTO schema_migrations`) sem reexecutar SQL nenhum. `097_svix_message_id.sql`
+  **continua genuinamente pendente** — o próprio arquivo diz "NÃO APLICADA AINDA... aplicar
+  quando o dono aprovar"; confirmado via MCP que a coluna `svix_message_id` não existe.
+  Fica para o Lucas decidir se aprova. Achado extra: a linha antiga
+  `105_whatsapp_health_snapshots.sql` no tracking não corresponde a nenhum arquivo em disco
+  hoje (renomeado/substituído em algum momento por colisão de numeração) — linha órfã
+  inofensiva, não removida (não atrapalha o runner).
 - **[F1-INV, 2026-08-24]** Fora do escopo do grep pedido (`src/pages`+`src/components`+
   `src/hooks`), existem mais ~85 ocorrências de `supabase.from(`/`supabase.rpc(` em
   `src/lib/db.ts` (~35), `src/lib/supabaseDb.ts` (~18), `src/App.tsx` (~15),
@@ -1335,6 +1360,9 @@ Tudo o mais é independente entre si.
   `fastify.post('\api\v2\field\os:id/transition', ...)`, e mais nas linhas 485, 594, 615,
   692, 744, 817, 851, 871, 892) — parece bug de find/replace no Windows; provavelmente
   quebra essas rotas em runtime. Impacto real não investigado.
+  **✅ RESOLVIDO — confirmado no código atual (2026-08-26): todas as 21 rotas do arquivo
+  usam `/api/v2/field/...` com barra normal. Não achei o commit exato do fix (não estava
+  descrito em nenhuma mensagem), mas o bug não existe mais.**
 - **[F1-INV, 2026-08-24]** `SettingsPage.tsx` linhas 1040–1726: 10 integrações (MK-Auth,
   RD Station, Pipedrive, HubSpot, RadiusNet, Asaas, Gerencianet, Qdrant, Instagram,
   Facebook) ainda gravam em `tenants.integrations` (coluna plaintext antiga) via client
@@ -1379,6 +1407,14 @@ Tudo o mais é independente entre si.
   Antes de migrar essas 7, alguém (produto + engenharia) precisa decidir, por caso: criar
   migration com a coluna/tabela que falta, ou tratar como feature morta e remover da UI.
   Não é uma tarefa "portar query pra rota" — é desenho de schema.
+  **✅ `ChatPage.tsx:368` (insert de mensagem) e `:420` (`evo_msg_ids`) RESOLVIDOS
+  (commit `85a5850`, migration 116 `tickets.conversation_id`) — ver achado novo #1 na
+  F1-EXTRA abaixo.** `:452` (`snoozed_until/snooze_reason/snoozed_by`) também **RESOLVIDO**
+  (migration 115, commit `f5fe51f` — achado novo #2 na F1-EXTRA). `:513` (`document/plan`
+  em `customers`) também **RESOLVIDO** — `PUT /api/v2/customers/:id`, ver "✅ Corrigido"
+  na F1-EXTRA acima. Pendentes de decisão de produto: `ChatPage.tsx:217`
+  (`tenants.closing_reasons/forms`), `:472` (`tickets.closing_reason`), e os 2 de
+  `WhatsAppPage.tsx` (`:97`, `:99`).
 - **[F1-C, 2026-08-25 — schema real ≠ o que o código assume, verificado via MCP
   `execute_sql` contra `information_schema.columns` ANTES de escrever qualquer rota]**
   26 das 31 ocorrências de `SettingsPage.tsx` (+ 1 fora do grep, ver linha 148 abaixo)
@@ -1443,6 +1479,9 @@ Tudo o mais é independente entre si.
   decidir**: corrigir antes do push (mapear pra colunas reais ou pra fonte alternativa) ou
   documentar como known-issue e abrir tarefa separada — mas não pode pushar sem uma decisão
   explícita, porque hoje essas 4 rotas retornam 500 pra qualquer chamada real.
+  **✅ RESOLVIDO (commit `ec10b97`, "fix(cobranca+dashboard): corrige 4 rotas com colunas
+  inexistentes") — confirmado no código atual (2026-08-26): as 4 rotas mapeiam pras colunas
+  reais, comentário `AUD-G (2026-08-25)` documenta a correção inline.**
 - **[F1-D, 2026-08-25 — schema real ≠ o que o código assume, verificado via MCP]** Mesma
   família de gap já documentada na F1-C, encontrada de novo em mais 2 páginas:
   - `AIConfigPage.tsx` (linha 301→321 pré-migração, agora só o residual em `loadConfig`) —
@@ -1544,6 +1583,10 @@ Tudo o mais é independente entre si.
   `grep -rn "from '.*supabase.client'" apps/api/src | grep -v supabaseAdmin` antes de dar a
   frente de client anônimo por encerrada. Não corrigido aqui (regra global 1 — escopo da S2 é
   RLS/grants, e a correção é troca de client + checagem de `error`, escopo da S1).
+  **✅ RESOLVIDO (commit `2880100`, 2026-08-26):** `outbox.service.ts` incluído no lote de
+  45 arquivos migrados de client anônimo pra `supabaseAdmin` — confirmado no código atual
+  (`import { supabaseAdmin as supabase } from '../database/supabase.client'`). Ver
+  `astrum-anon-client-fix` na memória.
 - **[S2, 2026-08-25 — grants TRUNCATE/TRIGGER/REFERENCES para `authenticated` são
   sistêmicos]** Confirmação e generalização do achado colateral da C1: o `ALTER DEFAULT
   PRIVILEGES` do projeto dá a `authenticated` também `TRUNCATE`, `TRIGGER` e `REFERENCES`
@@ -1557,12 +1600,29 @@ Tudo o mais é independente entre si.
   + ajuste do `ALTER DEFAULT PRIVILEGES` para não reintroduzir em tabela nova. Mitigador atual
   (não é solução): `authenticated` é NOLOGIN — só se chega nele via PostgREST (que não expõe
   TRUNCATE) ou via `SET ROLE` numa conexão de servidor confiável.
+  **✅ RESOLVIDO (migration 117, aplicada via MCP + registrada em schema_migrations,
+  2026-08-26).** `REVOKE TRUNCATE, TRIGGER, REFERENCES` de `anon`+`authenticated` em todas
+  as tabelas do `public` (confirmado via `information_schema.role_table_grants`: 113→0
+  tabelas com essas 3 permissões para `authenticated`; `anon` já estava em 0). SELECT/
+  INSERT/UPDATE/DELETE mantidos intactos — `get_advisors` rodado depois não mostrou nenhum
+  WARN novo. `ALTER DEFAULT PRIVILEGES FOR ROLE postgres` ajustado (migrations futuras
+  rodando como `postgres`, o caminho normal do projeto, não reintroduzem as 3 permissões).
+  **Gap que ficou:** `ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin` deu "permission
+  denied to change default privileges" mesmo pra `postgres` — só o próprio `supabase_admin`
+  pode alterar os próprios defaults. Tabela nova criada por `supabase_admin` (fora do fluxo
+  normal de migration deste projeto) ainda nasceria com as 3 permissões — documentado no
+  cabeçalho da migration 117.
 - **[S2, 2026-08-25 — `node_latency_daily` não tem dimensão de tenant]** A tabela é
   `(node, day, p50, p95, count)` — sem `tenant_id` — e `GET /api/v2/ia/latency/report`
   (`apps/api/src/domain/ia/latency.routes.ts`) a serve a qualquer usuário autenticado, sem
   filtro possível. Ou seja: qualquer tenant vê a latência agregada global dos nós do grafo de
   IA. Não é PII e o dado é de infraestrutura, mas é observabilidade cross-tenant por desenho —
   decidir se a rota vira super_admin-only ou se a tabela ganha `tenant_id`. Fora do escopo da S2.
+  **✅ RESOLVIDO (2026-08-26):** decisão tomada pela opção mais simples e sem custo de
+  schema — rota restrita a `super_admin` (`requirePermission('reports', 'admin')`, mesmo
+  padrão já usado em `dlq.routes.ts` pra dado de infraestrutura). Confirmado por grep que
+  nenhum frontend consome essa rota hoje (endpoint ainda sem consumidor), então não há
+  fluxo de tenant legítimo pra quebrar. Teste novo `latency.routes.test.ts` (2/2 verde).
 - **[S2, 2026-08-25 — WARN de Auth fora do escopo]** O advisor de segurança tem 1 WARN não
   relacionado às funções: `auth_leaked_password_protection` (checagem de senha vazada contra o
   HaveIBeenPwned desligada). É um toggle do painel Supabase (Auth → Password), não DDL — não dá
