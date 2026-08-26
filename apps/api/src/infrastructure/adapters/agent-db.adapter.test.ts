@@ -20,7 +20,7 @@ describe('agentDbAdapter — regressão S1 (client anônimo tinha zero grants, u
     expect(supabaseFrom).toHaveBeenCalledWith('customers');
   });
 
-  it('createTicket usa supabaseAdmin', async () => {
+  it('createTicket usa supabaseAdmin e grava conversation_id (coluna real — migration 116)', async () => {
     const { agentDbAdapter } = await import('./agent-db.adapter');
     await agentDbAdapter.createTicket({
       tenant_id: 'tenant-1',
@@ -32,6 +32,31 @@ describe('agentDbAdapter — regressão S1 (client anônimo tinha zero grants, u
       conversation_id: 'conv-1',
     });
     expect(supabaseFrom).toHaveBeenCalledWith('tickets');
+    const callIdx = supabaseFrom.mock.calls.findIndex((c) => c[0] === 'tickets');
+    const insertMock = supabaseFrom.mock.results[callIdx].value.insert;
+    expect(insertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        conversation_id: 'conv-1',
+        extra: { source: 'whatsapp' },
+      }),
+    );
+    expect(insertMock).not.toHaveBeenCalledWith(expect.objectContaining({ source: 'whatsapp' }));
+  });
+
+  it('createTicket propaga erro do insert (antes era ignorado silenciosamente)', async () => {
+    supabaseFrom.mockReturnValueOnce({
+      insert: vi.fn(async () => ({ error: { message: 'coluna inexistente' } })),
+    } as any);
+    const { agentDbAdapter } = await import('./agent-db.adapter');
+    await expect(agentDbAdapter.createTicket({
+      tenant_id: 'tenant-1',
+      customer_id: 'cust-1',
+      title: 'x',
+      description: 'x',
+      priority: 'high',
+      source: 'whatsapp',
+      conversation_id: 'conv-1',
+    })).rejects.toThrow(/coluna inexistente/);
   });
 
   it('recordSafetyVeto usa supabaseAdmin', async () => {

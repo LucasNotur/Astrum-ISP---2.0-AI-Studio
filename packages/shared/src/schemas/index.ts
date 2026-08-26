@@ -68,6 +68,19 @@ export const snoozeTicketSchema = z.object({
   reason: z.string().min(1).max(500),
 });
 
+export const sendTicketMessageSchema = z.object({
+  content: z.string().min(1).max(5000),
+  isInternal: z.boolean().optional(),
+  attachment: z.object({
+    url: z.string().min(1),
+    type: z.string().min(1),
+    name: z.string().optional(),
+  }).optional(),
+  // 'system' pra logs de auditoria (ex.: "IA reativada pelo operador X") — nunca
+  // 'user', esse endpoint é só pro lado do operador/negócio, não do cliente.
+  role: z.enum(['assistant', 'system']).default('assistant'),
+});
+
 // ── Customers ──────────────────────────────────────
 
 export const createCustomerSchema = z.object({

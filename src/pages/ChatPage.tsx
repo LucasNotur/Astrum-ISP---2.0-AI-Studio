@@ -35,14 +35,13 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/src/lib/utils";
 import { useAppStore } from "@/src/store/useAppStore";
-import { updateTicketStatus, toggleTicketAI } from "@/src/lib/db";
+import { updateTicketStatus, toggleTicketAI, sendMessage } from "@/src/lib/db";
 import { supabase } from "@/src/lib/supabase";
 import { apiGet, apiPost, apiPut } from "@/src/lib/apiClient";
 import { uploadAttachment as uploadToStorage, getSignedUrl } from "@/src/lib/storage";
 import { useSignedMediaUrls, resolveMediaUrl } from "@/src/hooks/useSignedMediaUrls";
 import { CustomerHistorySidebar } from "@/src/components/CustomerHistorySidebar";
 import { MaskedSensitiveData } from "@/src/components/MaskedSensitiveData";
-import { io as socketIoClient, Socket } from "socket.io-client";
 import { KanbanBoard } from "@/src/components/KanbanBoard";
 import {
   summarizeTicketHistory as summarizeTicket,
@@ -133,44 +132,6 @@ function ticketLabel(ticket: any, customers: any[]): string {
   return ticket.subject;
 }
 
-// ─── Hooks ───────────────────────────────────────────────────────────────────
-
-function useSocketTyping(
-  socket: Socket | null,
-  selectedTicket: any,
-  customers: any[],
-  tenantId: string,
-) {
-  const [typingStatus, setTypingStatus] = useState("");
-
-  React.useEffect(() => {
-    if (!socket || !selectedTicket || !tenantId) return;
-    const phone = customers.find((c) => c.id === selectedTicket.customerId)?.phone;
-    if (!phone) return;
-    const remoteJid = `${phone}@s.whatsapp.net`;
-    socket.emit("join_chat", { tenantId, remoteJid });
-    return () => {
-      socket.emit("leave_chat", { tenantId, remoteJid });
-      setTypingStatus("");
-    };
-  }, [socket, selectedTicket?.id, tenantId, customers]);
-
-  React.useEffect(() => {
-    if (!socket) return;
-    const handler = (data: { status: string }) => {
-      setTypingStatus(
-        data.status === "composing" ? "digitando..."
-          : data.status === "recording" ? "gravando áudio..."
-          : "",
-      );
-    };
-    socket.on("typing_status", handler);
-    return () => { socket.off("typing_status", handler); };
-  }, [socket]);
-
-  return typingStatus;
-}
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function ChatPage() {
@@ -182,17 +143,6 @@ export function ChatPage() {
   } = useAppStore();
 
   const tenantId = userProfile?.tenantId ?? "";
-
-  // ── Socket ──
-  const [socket, setSocket] = useState<Socket | null>(null);
-  React.useEffect(() => {
-    let url = window.location.origin;
-    if (url.includes("5173") || url.includes("localhost")) url = "http://localhost:3000";
-    const s = socketIoClient(url);
-    setSocket(s);
-    return () => { s.close(); };
-  }, []);
-  const typingStatus = useSocketTyping(socket, selectedTicket, customers, tenantId);
 
   // ── Departments (SLA) ──
   // F1-B — antes derivava department_id (coluna inexistente em tickets) via Supabase
@@ -361,15 +311,7 @@ export function ChatPage() {
     }
 
     try {
-      const { data: msgRef } = await supabase.from("messages").insert({
-        ticket_id:   selectedTicket.id,
-        body:        text,
-        sender_type: "human",
-        agent_id:    userProfile?.uid ?? null,
-        agent_name:  userProfile?.name ?? "Agente",
-        attachment:  attachment ?? null,
-        is_internal: isInternalNote,
-      }).select().single();
+      await sendMessage(selectedTicket.id, text, "human", undefined, attachment ?? undefined, { isInternal: isInternalNote });
 
       if (!selectedTicket.human_responded && (selectedTicket.status === "escalated" || selectedTicket.shouldEscalate)) {
         // Tenant do JWT; ticketId vai no path. Marca human_responded (migration 099).
@@ -406,15 +348,11 @@ export function ChatPage() {
               textMessage: { text },
             };
 
-        const resData = await apiPost<any>("/api/v2/evolution/proxy", {
+        await apiPost<any>("/api/v2/evolution/proxy", {
           path:           attachment ? `/message/sendMedia/${evolutionInstance}` : `/message/sendText/${evolutionInstance}`,
           method:         "POST",
           body:           payload,
         });
-        const evoId = resData?.key?.id ?? resData?.message?.key?.id;
-        if (evoId && msgRef?.id) {
-          await supabase.from("messages").update({ evo_msg_ids: [evoId] }).eq("id", msgRef.id);
-        }
       }
     } catch {
       toast.error("Erro ao enviar mensagem.");
@@ -774,11 +712,6 @@ export function ChatPage() {
                       <span className="font-semibold text-sm truncate">
                         {customerName(selectedTicket, customers)}
                       </span>
-                      {typingStatus && (
-                        <span className="text-xs text-[--color-astrum-fiber] italic animate-pulse">
-                          {typingStatus}
-                        </span>
-                      )}
                     </div>
                     <div className="flex items-center gap-1.5">
                       <ChannelBadge channel={selectedTicket.channel ?? selectedTicket.source ?? "whatsapp"} />

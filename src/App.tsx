@@ -2143,7 +2143,7 @@ export default function App() {
     setSelectedFile(null);
 
     // Add human message to DB
-    const msgRefId = await sendMessage(
+    await sendMessage(
       selectedTicket.id,
       text,
       "human",
@@ -2179,17 +2179,13 @@ export default function App() {
             };
         }
 
-        const resData = await apiPost<any>(`/api/v2/evolution/proxy`, {
+        await apiPost<any>(`/api/v2/evolution/proxy`, {
             path: attachmentData
               ? `/message/sendMedia/${integrationKeys.evolutionInstance}`
               : `/message/sendText/${integrationKeys.evolutionInstance}`,
             method: "POST",
             body: payload,
         });
-        if (msgRefId && (resData?.key?.id || resData?.message?.key?.id)) {
-           const evoId = resData?.key?.id || resData?.message?.key?.id;
-           await supabase.from("messages").update({ evo_msg_ids: [evoId] }).eq("id", (msgRefId as any).id ?? msgRefId);
-        }
       } catch (err) {
          console.error("Falha requisição Evolution:", err);
       }

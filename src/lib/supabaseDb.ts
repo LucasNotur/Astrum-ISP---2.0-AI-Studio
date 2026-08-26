@@ -109,44 +109,127 @@ export async function deleteTicket(id: string) {
 }
 
 // ─── Messages ─────────────────────────────────────────────────────────────────
+//
+// F1-AUD/realtime-fix — a thread de mensagens do ticket usa `conversation_id`
+// (não `ticket_id`, coluna que nunca existiu — ver migration 116) via
+// GET/POST /api/v2/tickets/:id/messages, e o realtime é o WebSocket nativo
+// real (/ws/conversations/:id) — não o socket.io-client antigo, que apontava
+// pra um servidor Socket.IO que nunca existiu no backend.
+
+function dbRoleToSenderType(role: string, fromAi: boolean): 'customer' | 'ai' | 'human' | 'system' {
+  if (role === 'user') return 'customer';
+  if (role === 'system') return 'system';
+  return fromAi ? 'ai' : 'human';
+}
+
+function transformMessageRow(row: any) {
+  return {
+    id: row.id,
+    content: row.content,
+    text: row.content, // alias — o modal de ticket do App.tsx lê `m.text`, o ChatPage lê `m.content`
+    senderType: dbRoleToSenderType(row.role, !!row.from_ai),
+    is_internal: !!row.extra?.isInternal,
+    attachment: row.extra?.attachment ?? null,
+    createdAt: row.created_at,
+  };
+}
+
+function wsUrlFor(path: string, token: string): string {
+  const base = (typeof window !== 'undefined' && window.location.origin) || '';
+  const wsBase = base.replace(/^http/, 'ws');
+  return `${wsBase}${path}?token=${encodeURIComponent(token)}`;
+}
+
+/** Abre o WS de uma conversa e escuta `new_message`. Chama `onMessage` a cada uma. */
+async function connectConversationSocket(
+  conversationId: string,
+  onMessage: (row: any) => void,
+): Promise<WebSocket | null> {
+  const { getApiAccessToken } = await import('./apiAuth');
+  const token = await getApiAccessToken();
+  if (!token) return null;
+
+  const ws = new WebSocket(wsUrlFor(`/ws/conversations/${conversationId}`, token));
+  ws.onmessage = (ev) => {
+    try {
+      const data = JSON.parse(ev.data);
+      if (data.type !== 'new_message') return;
+      onMessage({
+        id: data.id,
+        role: data.role,
+        content: data.content,
+        from_ai: data.fromAi,
+        extra: { isInternal: data.isInternal, attachment: data.attachment },
+        created_at: data.timestamp,
+      });
+    } catch {
+      // ignora eventos malformados
+    }
+  };
+  return ws;
+}
 
 export function getMessages(
   ticketId: string,
   callback: (messages: any[]) => void,
 ): Unsub {
-  const load = async () => {
-    const { data } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('ticket_id', ticketId)
-      .order('created_at', { ascending: true });
-    if (data) callback(data);
+  let closed = false;
+  let ws: WebSocket | null = null;
+  let list: any[] = [];
+
+  (async () => {
+    const { apiGet } = await import('./apiClient');
+    let res: { messages: any[]; conversationId: string | null };
+    try {
+      res = await apiGet(`/api/v2/tickets/${ticketId}/messages`);
+    } catch (err) {
+      console.error('getMessages', err);
+      return;
+    }
+    if (closed) return;
+
+    list = res.messages.map(transformMessageRow);
+    callback(list);
+    if (!res.conversationId) return;
+
+    ws = await connectConversationSocket(res.conversationId, (row) => {
+      if (list.some((m) => m.id === row.id)) return; // já veio no fetch inicial
+      list = [...list, transformMessageRow(row)];
+      callback(list);
+    });
+    if (closed) ws?.close();
+  })();
+
+  return () => {
+    closed = true;
+    ws?.close();
   };
-  load();
-
-  const ch = channel(`messages:${ticketId}`)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `ticket_id=eq.${ticketId}` }, load)
-    .subscribe();
-
-  return () => { supabase.removeChannel(ch); };
 }
 
 export async function sendMessage(
   ticketId: string,
   text: string,
   senderType: 'customer' | 'ai' | 'human' | 'system',
-  category?: string,
-  attachment?: { url: string; type: string; base64?: string },
+  _category?: string,
+  attachment?: { url: string; type: string; name?: string; base64?: string },
+  opts?: { isInternal?: boolean },
 ) {
-  const { data, error } = await supabase.from('messages').insert({
-    ticket_id: ticketId,
-    sender_type: senderType,
-    body: text,
-    category: category ?? null,
-    attachment: attachment ?? null,
-  }).select().single();
-  if (error) console.error('sendMessage', error);
-  return data;
+  const { apiPost } = await import('./apiClient');
+  try {
+    const { message } = await apiPost<{ message: any; conversationId: string }>(
+      `/api/v2/tickets/${ticketId}/messages`,
+      {
+        content: text,
+        isInternal: !!opts?.isInternal,
+        role: senderType === 'system' ? 'system' : 'assistant',
+        ...(attachment ? { attachment: { url: attachment.url, type: attachment.type, name: (attachment as any).name } } : {}),
+      },
+    );
+    return message;
+  } catch (err) {
+    console.error('sendMessage', err);
+    return null;
+  }
 }
 
 // ─── Invoices ─────────────────────────────────────────────────────────────────

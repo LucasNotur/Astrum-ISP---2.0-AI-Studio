@@ -35,13 +35,23 @@ vi.mock('./supabase', () => {
   };
 });
 
+vi.mock('./apiClient', () => ({
+  apiGet: vi.fn(),
+  apiPost: vi.fn(),
+}));
+vi.mock('./apiAuth', () => ({
+  getApiAccessToken: vi.fn().mockResolvedValue('tok-123'),
+}));
+
 import { supabase } from './supabase';
+import { apiGet, apiPost } from './apiClient';
 import {
   updateCustomer,
   createCustomer,
   updateTicketStatus,
   toggleTicketAI,
   createTicket,
+  getMessages,
   sendMessage,
   createInvoice,
   logAudit,
@@ -143,25 +153,126 @@ describe('createTicket', () => {
 });
 
 // ─── Messages ─────────────────────────────────────────────────────────────────
+// F1-AUD/realtime-fix: `messages` não tem `ticket_id`/`sender_type`/`body` (nunca
+// existiram — ver migration 116). getMessages/sendMessage agora passam por
+// GET/POST /api/v2/tickets/:id/messages (apps/api) + WS real, não mais o
+// supabase.from direto nem o socket.io-client morto.
+
+class FakeWebSocket {
+  static instances: FakeWebSocket[] = [];
+  url: string;
+  onmessage: ((ev: { data: string }) => void) | null = null;
+  closed = false;
+  constructor(url: string) {
+    this.url = url;
+    FakeWebSocket.instances.push(this);
+  }
+  close() { this.closed = true; }
+}
+(globalThis as any).WebSocket = FakeWebSocket;
+
+async function flushPromises() {
+  for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
+}
+
+describe('getMessages', () => {
+  beforeEach(() => {
+    FakeWebSocket.instances = [];
+    (apiGet as any).mockReset();
+  });
+
+  it('busca via GET /api/v2/tickets/:id/messages e mapeia role/from_ai -> senderType', async () => {
+    (apiGet as any).mockResolvedValue({
+      conversationId: 'conv-1',
+      messages: [
+        { id: 'm1', role: 'user', content: 'oi', from_ai: false, extra: {}, created_at: 't1' },
+        { id: 'm2', role: 'assistant', content: 'oi cliente', from_ai: true, extra: {}, created_at: 't2' },
+        { id: 'm3', role: 'assistant', content: 'resposta humana', from_ai: false, extra: { isInternal: true }, created_at: 't3' },
+      ],
+    });
+    const cb = vi.fn();
+    const unsub = getMessages('tick-1', cb);
+    await flushPromises();
+
+    expect(apiGet).toHaveBeenCalledWith('/api/v2/tickets/tick-1/messages');
+    expect(cb).toHaveBeenCalledWith([
+      expect.objectContaining({ id: 'm1', senderType: 'customer' }),
+      expect.objectContaining({ id: 'm2', senderType: 'ai' }),
+      expect.objectContaining({ id: 'm3', senderType: 'human', is_internal: true }),
+    ]);
+    unsub();
+  });
+
+  it('abre WS pra conversationId e adiciona mensagens novas recebidas', async () => {
+    (apiGet as any).mockResolvedValue({ conversationId: 'conv-2', messages: [] });
+    const cb = vi.fn();
+    const unsub = getMessages('tick-2', cb);
+    await flushPromises();
+
+    expect(FakeWebSocket.instances).toHaveLength(1);
+    expect(FakeWebSocket.instances[0].url).toContain('/ws/conversations/conv-2');
+    expect(FakeWebSocket.instances[0].url).toContain('token=tok-123');
+
+    FakeWebSocket.instances[0].onmessage?.({
+      data: JSON.stringify({ type: 'new_message', id: 'm9', role: 'assistant', content: 'nova', fromAi: false, timestamp: 't9' }),
+    });
+
+    expect(cb).toHaveBeenLastCalledWith([
+      expect.objectContaining({ id: 'm9', senderType: 'human', content: 'nova' }),
+    ]);
+    unsub();
+    expect(FakeWebSocket.instances[0].closed).toBe(true);
+  });
+
+  it('não duplica se a mensagem do WS já veio no fetch inicial', async () => {
+    (apiGet as any).mockResolvedValue({
+      conversationId: 'conv-3',
+      messages: [{ id: 'm1', role: 'user', content: 'oi', from_ai: false, extra: {}, created_at: 't1' }],
+    });
+    const cb = vi.fn();
+    getMessages('tick-3', cb);
+    await flushPromises();
+    cb.mockClear();
+
+    FakeWebSocket.instances[0].onmessage?.({
+      data: JSON.stringify({ type: 'new_message', id: 'm1', role: 'user', content: 'oi', fromAi: false, timestamp: 't1' }),
+    });
+
+    expect(cb).not.toHaveBeenCalled();
+  });
+});
 
 describe('sendMessage', () => {
-  it('inserts message with correct fields', async () => {
-    q().single.mockResolvedValue({ data: { id: 'm-1' }, error: null });
-    await sendMessage('tick-1', 'Olá', 'human');
-    expect(q().insert).toHaveBeenCalledWith(expect.objectContaining({
-      ticket_id: 'tick-1',
-      body: 'Olá',
-      sender_type: 'human',
-      category: null,
-      attachment: null,
+  beforeEach(() => { (apiPost as any).mockReset(); });
+
+  it('posta content/role pra /api/v2/tickets/:id/messages (não mais supabase.from direto)', async () => {
+    (apiPost as any).mockResolvedValue({ message: { id: 'm-1' }, conversationId: 'conv-1' });
+    const result = await sendMessage('tick-1', 'Olá', 'human');
+    expect(apiPost).toHaveBeenCalledWith('/api/v2/tickets/tick-1/messages', expect.objectContaining({
+      content: 'Olá',
+      role: 'assistant',
+      isInternal: false,
     }));
+    expect(result).toEqual({ id: 'm-1' });
+  });
+
+  it('senderType "system" -> role "system" (log de auditoria)', async () => {
+    (apiPost as any).mockResolvedValue({ message: { id: 'm-2' }, conversationId: 'conv-1' });
+    await sendMessage('tick-1', 'log', 'system');
+    expect(apiPost).toHaveBeenCalledWith('/api/v2/tickets/tick-1/messages', expect.objectContaining({ role: 'system' }));
   });
 
   it('includes attachment when provided', async () => {
-    q().single.mockResolvedValue({ data: { id: 'm-2' }, error: null });
+    (apiPost as any).mockResolvedValue({ message: { id: 'm-3' }, conversationId: 'conv-1' });
     await sendMessage('tick-1', '', 'human', undefined, { url: 'http://x.com/f', type: 'image' });
-    const insertArg = (q().insert as any).mock.calls[0][0];
-    expect(insertArg.attachment).toMatchObject({ url: 'http://x.com/f', type: 'image' });
+    const body = (apiPost as any).mock.calls[0][1];
+    expect(body.attachment).toMatchObject({ url: 'http://x.com/f', type: 'image' });
+  });
+
+  it('retorna null em erro (não lança — chamador decide o toast)', async () => {
+    (apiPost as any).mockRejectedValue(new Error('500'));
+    const result = await sendMessage('tick-1', 'x', 'human');
+    expect(result).toBeNull();
   });
 });
 

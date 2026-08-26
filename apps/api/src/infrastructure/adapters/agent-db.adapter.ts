@@ -17,7 +17,17 @@ export const agentDbAdapter: IDatabasePort = {
   },
 
   async createTicket(input: ITicketInput): Promise<void> {
-    await supabase.from('tickets').insert(input);
+    const { error } = await supabase.from('tickets').insert({
+      tenant_id: input.tenant_id,
+      customer_id: input.customer_id,
+      title: input.title,
+      description: input.description,
+      priority: input.priority,
+      status: 'open',
+      conversation_id: input.conversation_id,
+      extra: { source: input.source },
+    });
+    if (error) throw new Error(`Erro ao criar ticket de escalação: ${error.message}`);
   },
 
   // IA-21: grava fila de revisão humana quando o classificador veta uma resposta.

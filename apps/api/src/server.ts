@@ -137,6 +137,9 @@ export async function buildServer() {
   const { ticketRoutes } = await import('./domain/atendimento/tickets.routes');
   await app.register(ticketRoutes);
 
+  const { ticketMessagesRoutes } = await import('./domain/atendimento/ticket-messages.routes');
+  await app.register(ticketMessagesRoutes);
+
   const { documentRoutes } = await import('./domain/ia/documents.routes');
   await app.register(documentRoutes);
 

@@ -304,9 +304,9 @@ export class ToolsExecutor {
       title,
       description,
       priority,
-      category,
       status: 'open',
       created_by: 'ai_agent',
+      extra: { category },
     }).select('id').single();
 
     if (error) return { error: 'Erro ao criar ticket' };

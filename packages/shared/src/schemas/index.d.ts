@@ -67,6 +67,19 @@ export declare const snoozeTicketSchema: z.ZodObject<{
     snoozedUntil: z.ZodString;
     reason: z.ZodString;
 }, z.core.$strip>;
+export declare const sendTicketMessageSchema: z.ZodObject<{
+    content: z.ZodString;
+    isInternal: z.ZodOptional<z.ZodBoolean>;
+    attachment: z.ZodOptional<z.ZodObject<{
+        url: z.ZodString;
+        type: z.ZodString;
+        name: z.ZodOptional<z.ZodString>;
+    }, z.core.$strip>>;
+    role: z.ZodDefault<z.ZodEnum<{
+        assistant: "assistant";
+        system: "system";
+    }>>;
+}, z.core.$strip>;
 export declare const createCustomerSchema: z.ZodObject<{
     name: z.ZodString;
     email: z.ZodOptional<z.ZodString>;
