@@ -12,7 +12,7 @@
  *
  * Persistência via Supabase (tabela negotiation_policies + negotiation_agreements).
  */
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
 
 // ── Types ───────────────────────────────────────────────────────────────────

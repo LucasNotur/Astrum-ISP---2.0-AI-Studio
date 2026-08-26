@@ -13,7 +13,7 @@
  *
  * Flag NIGHTLY_BRAIN_ACT_ENABLED (default OFF): desligada = só sugere (E-01/E-02).
  */
-import supabase from '../../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../../infrastructure/database/supabase.client';
 import { iaLogger } from '../../../infrastructure/logging/logger';
 import type { SuggestedAction } from './nightly-brain.service';
 import { checkEvalGate, type EvalGateStatus } from './eval-gate.service';

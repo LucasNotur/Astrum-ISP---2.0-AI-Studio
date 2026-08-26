@@ -14,7 +14,7 @@
  *
  * Fundação: padrão de reexecução segura do replay (IA-46) + ports injetáveis.
  */
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
 
 // ── A política parametrizada (as alavancas da régua) ────────────────────────

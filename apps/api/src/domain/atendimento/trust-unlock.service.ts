@@ -2,7 +2,7 @@
  * P1-01 — Religue por confiança.
  * Política por tenant (max vezes/ano, teto de dívida). Auditável.
  */
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
 
 export interface TrustUnlockPolicy {

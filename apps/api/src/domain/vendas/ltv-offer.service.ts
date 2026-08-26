@@ -12,7 +12,7 @@
  *   - caso contrário     → 'standard'
  */
 import { computeLtv } from '../ml/ltv';
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 
 export type OfferTier = 'standard' | 'premium' | 'promotional';
 

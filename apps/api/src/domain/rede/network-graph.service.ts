@@ -1,4 +1,4 @@
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
 
 /**

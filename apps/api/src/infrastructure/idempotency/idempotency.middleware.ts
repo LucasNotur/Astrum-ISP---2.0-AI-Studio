@@ -1,7 +1,7 @@
 import fp from 'fastify-plugin';
 import { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { createHash } from 'crypto';
-import { supabaseClient } from '../database/supabase.client';
+import { supabaseAdmin as supabaseClient } from '../database/supabase.client';
 import { securityLogger } from '../logging/logger';
 
 export const REQUIRED_ROUTES = [

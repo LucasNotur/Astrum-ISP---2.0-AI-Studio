@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockClassifyFieldPhoto = vi.hoisted(() => vi.fn());
 
 vi.mock('../../infrastructure/database/supabase.client', () => ({
-  default: { from: vi.fn() },
+  supabaseAdmin: { from: vi.fn() },
 }));
 
 vi.mock('../../infrastructure/vision/vision.service', () => ({
@@ -74,7 +74,7 @@ describe('diagnosePlusAttach', () => {
     const updateChain = {
       eq: vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) }),
     };
-    const { default: supabase } = await import('../../infrastructure/database/supabase.client');
+    const { supabaseAdmin: supabase } = await import('../../infrastructure/database/supabase.client');
     vi.spyOn(supabase, 'from').mockReturnValue({
       insert: vi.fn().mockReturnValue(insertChain),
       update: vi.fn().mockReturnValue(updateChain),
@@ -98,7 +98,7 @@ describe('diagnosePlusAttach', () => {
     mockClassifyFieldPhoto.mockResolvedValue(null);
 
     const diagnosisId = 'diag-low-conf';
-    const { default: supabase } = await import('../../infrastructure/database/supabase.client');
+    const { supabaseAdmin: supabase } = await import('../../infrastructure/database/supabase.client');
     vi.spyOn(supabase, 'from').mockReturnValue({
       insert: vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({
@@ -126,7 +126,7 @@ describe('diagnosePlusAttach', () => {
       confidence: 0.45,
     });
 
-    const { default: supabase } = await import('../../infrastructure/database/supabase.client');
+    const { supabaseAdmin: supabase } = await import('../../infrastructure/database/supabase.client');
     vi.spyOn(supabase, 'from').mockReturnValue({
       insert: vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({
@@ -143,7 +143,7 @@ describe('diagnosePlusAttach', () => {
   it('lança erro quando insert falha', async () => {
     mockClassifyFieldPhoto.mockResolvedValue(null);
 
-    const { default: supabase } = await import('../../infrastructure/database/supabase.client');
+    const { supabaseAdmin: supabase } = await import('../../infrastructure/database/supabase.client');
     vi.spyOn(supabase, 'from').mockReturnValue({
       insert: vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({
@@ -164,7 +164,7 @@ describe('diagnosePlusAttach', () => {
       confidence: 0.88,
     });
 
-    const { default: supabase } = await import('../../infrastructure/database/supabase.client');
+    const { supabaseAdmin: supabase } = await import('../../infrastructure/database/supabase.client');
     vi.spyOn(supabase, 'from').mockReturnValue({
       insert: vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({
@@ -188,7 +188,7 @@ describe('listDiagnoses', () => {
       order: vi.fn().mockReturnThis(),
       limit: vi.fn().mockResolvedValue({ data: [], error: null }),
     };
-    const { default: supabase } = await import('../../infrastructure/database/supabase.client');
+    const { supabaseAdmin: supabase } = await import('../../infrastructure/database/supabase.client');
     vi.spyOn(supabase, 'from').mockReturnValue({
       select: vi.fn().mockReturnValue(chainable),
     } as any);
@@ -214,7 +214,7 @@ describe('listDiagnoses', () => {
       order: vi.fn().mockReturnThis(),
       limit: vi.fn().mockResolvedValue({ data: [row], error: null }),
     };
-    const { default: supabase } = await import('../../infrastructure/database/supabase.client');
+    const { supabaseAdmin: supabase } = await import('../../infrastructure/database/supabase.client');
     vi.spyOn(supabase, 'from').mockReturnValue({
       select: vi.fn().mockReturnValue(chainable),
     } as any);

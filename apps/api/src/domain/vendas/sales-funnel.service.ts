@@ -10,7 +10,7 @@
  *   → registering → scheduling → completed | abandoned
  *   (viability_failed encerra a negociação)
  */
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
 import { capacidade } from '../rede/network-graph.service';
 import { decryptCredentials } from '../../adapters/erp/credential-cipher';

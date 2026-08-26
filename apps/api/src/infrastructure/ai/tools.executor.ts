@@ -1,4 +1,4 @@
-import supabase from '../database/supabase.client';
+import { supabaseAdmin as supabase } from '../database/supabase.client';
 import { suspensionQueue } from '../../../../../packages/queue/src/queues';
 import { infraLogger } from '../logging/logger';
 import { getEnabledTools, recordToolUsage } from './tool-registry';

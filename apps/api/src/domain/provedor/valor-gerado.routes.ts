@@ -13,7 +13,7 @@ import {
   defaultValorGeradoDb,
   type ValorGeradoDb,
 } from './valor-gerado.service';
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 
 const PeriodSchema = z.object({
   period: z.enum(['7d', '30d', '90d', '1y']).default('30d'),

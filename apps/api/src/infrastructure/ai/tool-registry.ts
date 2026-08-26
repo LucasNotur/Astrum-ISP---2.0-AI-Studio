@@ -1,7 +1,7 @@
 import { redis } from '../cache/redis.client';
 import { infraLogger } from '../logging/logger';
 import { agentTools } from './vercel-ai.service';
-import supabase from '../database/supabase.client';
+import { supabaseAdmin as supabase } from '../database/supabase.client';
 
 /**
  * IA-19 — Tool registry dinâmico.

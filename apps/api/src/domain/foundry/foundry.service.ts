@@ -11,7 +11,7 @@
  * Fundação: tool registry (IA-19), sql-guard (IA-44), BullMQ, templates HSM.
  * Desbloqueio: 5+ tenants ativos pedindo coisas diferentes.
  */
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { callOpenAI } from '../../adapters/openai/openai.adapter';
 import { validateSql, SqlGuardError } from '../../infrastructure/sandbox/sql-guard';
 import { infraLogger } from '../../infrastructure/logging/logger';

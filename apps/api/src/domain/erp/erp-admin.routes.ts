@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { getTenantId } from '../../lib/jwt-claims';
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { encryptCredentials, decryptCredentials } from '../../adapters/erp/credential-cipher';
 import { createErpProvider, isErpImplemented } from '../../adapters/erp/erp.factory';
 import type { ERPProviderName, ERPCredentials } from '../../adapters/erp/erp.types';

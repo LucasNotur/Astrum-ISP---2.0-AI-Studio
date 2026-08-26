@@ -11,7 +11,7 @@
  * Fundação: guardrails, audit hash-chain (IA-06), nightly-brain (D-14).
  * Desbloqueio: ≥10 tenants + análise LGPD aprovada (mesmo gate do D-09).
  */
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
 
 export type SignalType = 'fraud' | 'firmware_defect' | 'phishing' | 'billing_scam' | 'security' | 'spam';

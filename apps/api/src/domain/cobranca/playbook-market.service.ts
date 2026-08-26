@@ -9,7 +9,7 @@
  * Fundação: D-02 (validador), IA-26 (execução), policy-backtest.service.ts.
  * Desbloqueio: ≥10 tenants + D-02 rodando com dados reais.
  */
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { backtestPolicy, type CobrancaPolicy } from './policy-backtest.service';
 import { infraLogger } from '../../infrastructure/logging/logger';
 

@@ -34,7 +34,7 @@ function makeChainable(lastEqValue: any) {
 const fromFn = vi.fn();
 
 vi.mock('../database/supabase.client', () => ({
-  default: { from: fromFn },
+  supabaseAdmin: { from: fromFn },
 }));
 
 vi.mock('./vercel-ai.service', () => ({

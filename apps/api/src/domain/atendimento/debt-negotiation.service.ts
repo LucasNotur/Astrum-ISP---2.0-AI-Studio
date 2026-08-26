@@ -3,7 +3,7 @@
  * Menu de opções parametrizado por tenant (desconto à vista + parcelamento).
  * Paridade com Mundiale. O negociador com alçada real fica no D-03 do PLANO_A.
  */
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 
 export interface NegotiationPolicy {
   max_discount_pct: number;

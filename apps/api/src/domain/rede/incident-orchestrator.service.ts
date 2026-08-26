@@ -12,7 +12,7 @@
  * `noc_auto_communicate` na tabela `tenants`.
  * Ports injetáveis: roda no tenant demo hoje, calibra com rede real depois.
  */
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
 import { detectAnomalies, anomalySeverity, type DataPoint } from './anomaly';
 import { buildNormalizationMessage } from './incident-correlation.service';

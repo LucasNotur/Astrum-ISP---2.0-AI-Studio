@@ -3,7 +3,7 @@ import { getTenantId, getUserId } from '../../lib/jwt-claims';
 import { z } from 'zod';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { validateBody, validateParams, validateQuery } from '../../infrastructure/validation/zod-validator';
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 
 /**
  * IA-21 — Rotas admin do Constitutional classifier.

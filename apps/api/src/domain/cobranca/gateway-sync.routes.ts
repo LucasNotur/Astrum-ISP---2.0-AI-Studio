@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { getTenantId } from '../../lib/jwt-claims';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
 import { decryptCredentials } from '../../adapters/erp/credential-cipher';
 import { AsaasAdapter, type AsaasCredentials, type AsaasCharge } from '../../adapters/gateway/asaas.adapter';

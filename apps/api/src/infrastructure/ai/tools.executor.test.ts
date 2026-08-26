@@ -22,7 +22,7 @@ function builder(table: string) {
 }
 
 vi.mock('../database/supabase.client', () => ({
-  default: { from: vi.fn((t: string) => builder(t)) },
+  supabaseAdmin: { from: vi.fn((t: string) => builder(t)) },
 }));
 vi.mock('../../../../../packages/queue/src/queues', () => ({
   suspensionQueue: { add: vi.fn().mockResolvedValue({ id: 'job1' }) },

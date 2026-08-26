@@ -12,7 +12,7 @@
  * Ports injetáveis (disciplina D6/cobrai-rules): 100% testável sem LLM.
  */
 import { randomUUID } from 'node:crypto';
-import supabase from '../../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../../infrastructure/database/supabase.client';
 import { iaLogger } from '../../../infrastructure/logging/logger';
 import { callOpenAI } from '../../../adapters/openai/openai.adapter';
 import { PERSONAS, getPersonas, type Persona } from './personas';

@@ -6,7 +6,7 @@
  * detectados/comunicados e a tendência de custo de IA (1ª vs última semana).
  * É o insumo do card no dashboard Valor Gerado (P5) — o dono lê em 30 segundos.
  */
-import supabase from '../../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../../infrastructure/database/supabase.client';
 
 export interface AutoevolucaoReport {
   month: string; // YYYY-MM

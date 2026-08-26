@@ -9,7 +9,7 @@
  * Fase 2 (futura) = probabilística: IA-24 alimenta o cenário com a CTO mais
  * provável de falhar. Ports injetáveis; roda no demo hoje, calibra depois.
  */
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
 
 // ── Tipos ────────────────────────────────────────────────────────────────────

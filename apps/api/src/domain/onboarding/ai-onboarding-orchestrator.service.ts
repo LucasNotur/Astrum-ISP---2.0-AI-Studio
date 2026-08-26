@@ -14,7 +14,7 @@
  * Fundação: conectores P0, ETL, D-05 (KB retroativa), IA-39 (constituição).
  * Desbloqueio: 2+ onboardings reais para calibrar.
  */
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
 
 export type OnboardingStep =

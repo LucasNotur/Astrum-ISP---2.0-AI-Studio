@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // ── Mocks ───────────────────────────────────────────────────────────────────
 
 vi.mock('../../infrastructure/database/supabase.client', () => ({
-  default: { from: vi.fn() },
+  supabaseAdmin: { from: vi.fn() },
 }));
 
 vi.mock('../../infrastructure/logging/logger', () => ({
@@ -18,7 +18,7 @@ vi.mock('../../../../../packages/queue/src/workers/indexing.worker', () => ({
   aiProcessingQueue: { add: vi.fn().mockResolvedValue({ id: 'mock-job' }) },
 }));
 
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { callOpenAI } from '../../adapters/openai/openai.adapter';
 import {
   findCandidateConversations,

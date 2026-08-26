@@ -9,7 +9,7 @@
  * Ports injetáveis para teste com HTTP mockado.
  */
 import { infraLogger } from '../../infrastructure/logging/logger';
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 

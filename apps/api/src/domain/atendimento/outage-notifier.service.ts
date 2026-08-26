@@ -3,7 +3,7 @@
  * Versão paridade: detecção manual (operador reporta a CTO/região),
  * Astrum busca afetados e envia. O autônomo completo (D-04) fica no PLANO_A.
  */
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
 import { sendWhatsAppResponse } from '../../adapters/whatsapp/message-sender.service';
 

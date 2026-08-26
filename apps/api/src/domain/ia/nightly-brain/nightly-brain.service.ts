@@ -10,7 +10,7 @@
  *        NIGHTLY_BRAIN_LLM (refino de texto via 4o-mini, default OFF).
  * Ports injetáveis (disciplina D6): 100% testável e rodável no tenant demo.
  */
-import supabase from '../../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../../infrastructure/database/supabase.client';
 import { iaLogger } from '../../../infrastructure/logging/logger';
 
 export function isNightlyBrainEnabled(): boolean {

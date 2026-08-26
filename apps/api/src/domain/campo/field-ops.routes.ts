@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { validateBody, validateQuery } from '../../infrastructure/validation/zod-validator';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { getTenantId, getUserId } from '../../lib/jwt-claims';
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { applyTransition, type OsEvent } from './os-lifecycle.service';
 import { osLifecyclePorts } from './os-lifecycle.repo';
 import { optimizeRoute, type RouteStop, type GeoPoint } from './route-optimizer.service';

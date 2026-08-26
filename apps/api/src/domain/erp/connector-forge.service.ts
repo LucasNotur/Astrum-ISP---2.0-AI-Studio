@@ -10,7 +10,7 @@
  * - IErpAdapter interface estável (erp.factory.ts)
  * - CI com vitest
  */
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { callOpenAI } from '../../adapters/openai/openai.adapter';
 import { infraLogger } from '../../infrastructure/logging/logger';
 

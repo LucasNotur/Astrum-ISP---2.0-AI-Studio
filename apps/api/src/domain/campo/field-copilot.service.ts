@@ -5,7 +5,7 @@
  * persiste o diagnóstico em field_photo_diagnoses e atualiza o ai_summary da OS
  * quando service_order_id for fornecido.
  */
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
 import { classifyFieldPhoto } from '../../infrastructure/vision/vision.service';
 

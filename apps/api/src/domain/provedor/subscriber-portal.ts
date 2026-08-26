@@ -51,7 +51,7 @@ export interface PortalDb {
   from: (table: string) => any;
 }
 
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 export const defaultPortalDb: PortalDb = supabase as any;
 
 /**

@@ -11,7 +11,7 @@
  * Fundação: sql-guard (IA-44), MCP (IA-17), DuckDB (analytics), nightly-brain.
  * Desbloqueio: dados reais + sql-guard ligado.
  */
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { callOpenAI } from '../../adapters/openai/openai.adapter';
 import { validateSql, SqlGuardError } from '../../infrastructure/sandbox/sql-guard';
 import { infraLogger } from '../../infrastructure/logging/logger';

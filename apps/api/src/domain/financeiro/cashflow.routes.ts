@@ -7,7 +7,7 @@ import type { FastifyInstance } from 'fastify';
 import { getTenantId } from '../../lib/jwt-claims';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { forecastCashflow } from './cashflow-forecast.service';
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 
 export async function cashflowRoutes(app: FastifyInstance) {
   app.get('/api/v2/financeiro/cashflow', {

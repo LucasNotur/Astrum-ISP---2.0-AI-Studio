@@ -7,7 +7,7 @@
  * Parser CSV simples (sem dependência externa no backend — papaparse é
  * frontend-only). Suporta ; e , como delimitador.
  */
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
 
 // ── Types ───────────────────────────────────────────────────────────────────

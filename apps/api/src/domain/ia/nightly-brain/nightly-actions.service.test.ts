@@ -9,7 +9,7 @@ vi.mock('../../../infrastructure/logging/logger', () => ({
   infraLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import supabase from '../../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../../infrastructure/database/supabase.client';
 import { executeSuggestedActions, recordExecutedActions, isNightlyActEnabled, type ActionPorts } from './nightly-actions.service';
 import { checkEvalGate, assertPromotionAllowed, loadBaseline, loadLatestResult } from './eval-gate.service';
 import type { SuggestedAction } from './nightly-brain.service';

@@ -2,7 +2,7 @@
  * PLANO I — implementação Supabase dos ports da máquina de estados da OS.
  * Separa a lógica pura (os-lifecycle.service) do I/O, no padrão de ports do projeto.
  */
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
 import {
   type OsLifecyclePorts,

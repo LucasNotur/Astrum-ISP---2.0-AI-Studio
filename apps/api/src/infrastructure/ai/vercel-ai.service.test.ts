@@ -101,7 +101,7 @@ describe('VercelAIService — Structured Outputs', () => {
   describe('ToolsExecutor', () => {
     beforeAll(() => {
       vi.mock('../database/supabase.client', () => ({
-        default: {
+        supabaseAdmin: {
           from: vi.fn().mockReturnValue({
             insert: vi.fn().mockReturnValue({
               select: vi.fn().mockReturnValue({

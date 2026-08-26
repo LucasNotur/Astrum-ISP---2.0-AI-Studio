@@ -10,7 +10,7 @@
  * Fase 2 (futura) = churn previsto (IA-07) e sazonalidade (IA-25) entram no
  * modelo; o botão "agir" cria a campanha de recuperação (IA-26).
  */
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
 import type { InvoiceRow } from '../cobranca/policy-backtest.service';
 import { summarizeHistory } from '../cobranca/policy-backtest.service';

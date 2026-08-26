@@ -1,4 +1,4 @@
-import supabase from '../database/supabase.client';
+import { supabaseAdmin as supabase } from '../database/supabase.client';
 import { Queue } from 'bullmq';
 import { getRedisClient } from '../cache/redis.client';
 import { infraLogger } from '../logging/logger';

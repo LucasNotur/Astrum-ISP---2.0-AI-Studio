@@ -9,7 +9,7 @@ vi.mock('../../infrastructure/logging/logger', () => ({
   iaLogger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { forecastCashflow } from './cashflow-forecast.service';
 
 const day = (offset: number) => new Date(Date.UTC(2026, 5, 15 + offset)).toISOString();

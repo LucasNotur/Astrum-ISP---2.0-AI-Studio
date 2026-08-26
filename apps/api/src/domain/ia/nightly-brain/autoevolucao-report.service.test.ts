@@ -5,7 +5,7 @@ vi.mock('../../../infrastructure/database/supabase.client', () => ({
   supabaseAdmin: { from: vi.fn() },
 }));
 
-import supabase from '../../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../../infrastructure/database/supabase.client';
 import { buildAutoevolucaoReport } from './autoevolucao-report.service';
 
 function chain(data: any[]) {

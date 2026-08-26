@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Fastify from 'fastify';
 
 vi.mock('../../infrastructure/database/supabase.client', () => ({
-  default: { from: vi.fn() },
+  supabaseAdmin: { from: vi.fn() },
 }));
 
 vi.mock('../../adapters/erp/credential-cipher', () => ({
@@ -15,7 +15,7 @@ vi.mock('../../adapters/erp/erp.factory', () => ({
   isErpImplemented: vi.fn(),
 }));
 
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { encryptCredentials, decryptCredentials } from '../../adapters/erp/credential-cipher';
 import { createErpProvider, isErpImplemented } from '../../adapters/erp/erp.factory';
 import { erpAdminRoutes } from './erp-admin.routes';

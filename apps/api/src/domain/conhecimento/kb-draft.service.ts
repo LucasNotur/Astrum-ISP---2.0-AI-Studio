@@ -5,7 +5,7 @@
  * gera rascunho de artigo via GPT-4o e coloca na fila de curadoria humana.
  * Curador aprova com 1 clique → artigo publicado no RAG automaticamente.
  */
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
 import { callOpenAI } from '../../adapters/openai/openai.adapter';
 import { aiProcessingQueue } from '../../../../../packages/queue/src/workers/indexing.worker';

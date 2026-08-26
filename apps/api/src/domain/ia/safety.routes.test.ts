@@ -22,7 +22,7 @@ vi.mock('../../infrastructure/validation/zod-validator', () => ({
 const fromMock = vi.fn();
 
 vi.mock('../../infrastructure/database/supabase.client', () => ({
-  default: { from: fromMock },
+  supabaseAdmin: { from: fromMock },
 }));
 
 async function buildApp() {

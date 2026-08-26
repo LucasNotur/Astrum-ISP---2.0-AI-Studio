@@ -5,7 +5,7 @@
  */
 import type { FastifyInstance } from 'fastify';
 import { getTenantId } from '../../../lib/jwt-claims';
-import supabase from '../../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../../infrastructure/database/supabase.client';
 import { requirePermission } from '../../../infrastructure/auth/rbac.middleware';
 import { runNightlyReflection } from './nightly-brain.service';
 import { scanForIncidents } from '../../rede/incident-orchestrator.service';

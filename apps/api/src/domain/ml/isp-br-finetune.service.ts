@@ -9,7 +9,7 @@
  * Desbloqueio: ≥5k exemplos rotulados de qualidade + eval ≥300 cenários.
  * Construído com dados sintéticos; calibrar quando combustível chegar.
  */
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { callOpenAI } from '../../adapters/openai/openai.adapter';
 import { infraLogger } from '../../infrastructure/logging/logger';
 

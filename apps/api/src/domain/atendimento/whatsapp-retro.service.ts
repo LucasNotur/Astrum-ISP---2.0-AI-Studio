@@ -12,7 +12,7 @@
  *
  * O perfil é gravado em customers.extra.retro_profile (JSONB — sem migration).
  */
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { atendimentoLogger } from '../../infrastructure/logging/logger';
 
 // ── Tipos ────────────────────────────────────────────────────────────────────

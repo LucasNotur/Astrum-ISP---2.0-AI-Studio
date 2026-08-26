@@ -10,7 +10,7 @@
  */
 import type { FastifyInstance } from 'fastify';
 import { getTenantId } from '../../../lib/jwt-claims';
-import supabase from '../../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../../infrastructure/database/supabase.client';
 import { iaLogger } from '../../../infrastructure/logging/logger';
 import { requirePermission } from '../../../infrastructure/auth/rbac.middleware';
 import { isWindTunnelEnabled, runWindTunnel, PERSONAS } from './wind-tunnel.service';

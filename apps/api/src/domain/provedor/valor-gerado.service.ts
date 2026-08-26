@@ -143,7 +143,7 @@ export async function generateCase(
 
 // ── Implementação Supabase (default) ──────────────────────────────────────────
 
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 
 export const defaultValorGeradoDb: ValorGeradoDb = {
   async getRecoveredCents(tenantId, since) {

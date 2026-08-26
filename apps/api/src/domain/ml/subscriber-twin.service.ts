@@ -15,7 +15,7 @@
  * feature store (IA-27).
  * Desbloqueio: 90d de histórico de ações/respostas no motor novo.
  */
-import supabase from '../../infrastructure/database/supabase.client';
+import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
 
 export type ActionType = 'price_change' | 'suspension' | 'offer' | 'upgrade' | 'downgrade';
