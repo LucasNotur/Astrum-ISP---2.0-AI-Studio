@@ -445,12 +445,10 @@ export function ChatPage() {
     if (isNaN(until.getTime())) { toast.error("Data/Hora inválida"); return; }
     setIsSnoozing(true);
     try {
-      await supabase.from("tickets").update({
-        status:        "snoozed",
-        snoozed_until: until.toISOString(),
-        snooze_reason: snoozeForm.reason,
-        snoozed_by:    userProfile?.id ?? "Operador",
-      }).eq("id", selectedTicket.id);
+      await apiPost(`/api/v2/tickets/${selectedTicket.id}/snooze`, {
+        snoozedUntil: until.toISOString(),
+        reason: snoozeForm.reason,
+      });
       toast.success("Ticket adiado.");
       setIsSnoozeOpen(false);
       setSelectedTicket(null);

@@ -48,6 +48,10 @@ export const updateTicketSchema = z.object({
     priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
     assignedTo: uuidSchema.optional(),
 });
+export const snoozeTicketSchema = z.object({
+    snoozedUntil: z.string().datetime({ offset: true }),
+    reason: z.string().min(1).max(500),
+});
 // ── Customers ──────────────────────────────────────
 export const createCustomerSchema = z.object({
     name: z.string().min(2).max(200),

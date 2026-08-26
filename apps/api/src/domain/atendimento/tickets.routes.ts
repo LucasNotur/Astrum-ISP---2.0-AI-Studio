@@ -1,9 +1,9 @@
 import type { FastifyInstance } from 'fastify';
-import { getTenantId } from '../../lib/jwt-claims';
+import { getTenantId, getUserId } from '../../lib/jwt-claims';
 import { validateBody, validateParams, validateQuery } from '../../infrastructure/validation/zod-validator';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { requirePlanCapacity } from '../onboarding/plan-limits.service';
-import { createTicketSchema, updateTicketSchema, paginationSchema, uuidSchema } from '../../../../../packages/shared/src/schemas';
+import { createTicketSchema, updateTicketSchema, snoozeTicketSchema, paginationSchema, uuidSchema } from '../../../../../packages/shared/src/schemas';
 import { tenantQuery } from '../../infrastructure/database/tenant-db.service';
 import { z } from 'zod';
 
@@ -58,11 +58,16 @@ export async function ticketRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const tenantId = getTenantId((request as any).user) ?? '';
     const { id } = (request as any).validatedParams;
-    const body = (request as any).validatedBody;
+    const { assignedTo, ...body } = (request as any).validatedBody;
 
     const { data, error } = await tenantQuery(tenantId)
       .from('tickets')
-      .update({ ...body, updated_at: new Date().toISOString() });
+      .update({
+        ...body,
+        ...(assignedTo !== undefined ? { assigned_to: assignedTo } : {}),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id);
 
     if (error) throw error;
     return reply.send(data);
@@ -85,6 +90,36 @@ export async function ticketRoutes(fastify: FastifyInstance) {
     const { error } = await tenantQuery(tenantId)
       .from('tickets')
       .update({ human_responded: true, human_responded_at: now, updated_at: now })
+      .eq('id', id);
+
+    if (error) throw error;
+    return reply.send({ success: true });
+  });
+
+  // Adia o ticket (snooze) — snooze.worker.ts reabre automaticamente quando
+  // snoozed_until vence. Colunas criadas na migration 115.
+  fastify.post('/api/v2/tickets/:id/snooze', {
+    onRequest: [fastify.authenticate],
+    preHandler: [
+      requirePermission('tickets', 'write'),
+      validateParams(z.object({ id: uuidSchema as any }) as any),
+      validateBody(snoozeTicketSchema as any),
+    ],
+  }, async (request, reply) => {
+    const tenantId = getTenantId((request as any).user) ?? '';
+    const userId = getUserId((request as any).user) ?? '';
+    const { id } = (request as any).validatedParams;
+    const { snoozedUntil, reason } = (request as any).validatedBody;
+
+    const { error } = await tenantQuery(tenantId)
+      .from('tickets')
+      .update({
+        status: 'snoozed',
+        snoozed_until: snoozedUntil,
+        snooze_reason: reason,
+        snoozed_by: userId,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', id);
 
     if (error) throw error;

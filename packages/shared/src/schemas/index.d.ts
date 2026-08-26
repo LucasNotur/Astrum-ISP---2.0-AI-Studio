@@ -63,6 +63,10 @@ export declare const updateTicketSchema: z.ZodObject<{
     }>>;
     assignedTo: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
+export declare const snoozeTicketSchema: z.ZodObject<{
+    snoozedUntil: z.ZodString;
+    reason: z.ZodString;
+}, z.core.$strip>;
 export declare const createCustomerSchema: z.ZodObject<{
     name: z.ZodString;
     email: z.ZodOptional<z.ZodString>;
@@ -96,9 +100,9 @@ export declare const sendMessageSchema: z.ZodObject<{
     conversationId: z.ZodOptional<z.ZodString>;
     customerId: z.ZodOptional<z.ZodString>;
     channel: z.ZodDefault<z.ZodEnum<{
-        facebook: "facebook";
         whatsapp: "whatsapp";
         webchat: "webchat";
+        facebook: "facebook";
     }>>;
 }, z.core.$strip>;
 export type LoginBody = z.infer<typeof loginBodySchema>;

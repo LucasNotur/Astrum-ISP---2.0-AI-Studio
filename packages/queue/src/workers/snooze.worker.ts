@@ -39,7 +39,7 @@ export async function processSnoozeJob(
 
   const { data: tickets } = await db
     .from('tickets')
-    .select('id, tenant_id, snoozed_until, snooze_reason, assigned_operator_id, snoozed_by')
+    .select('id, tenant_id, snoozed_until, snooze_reason, assigned_to, snoozed_by')
     .eq('status', 'snoozed')
     .lte('snoozed_until', now);
 
@@ -50,22 +50,21 @@ export async function processSnoozeJob(
   for (const ticket of tickets) {
     await db
       .from('tickets')
-      .update({ status: 'open', updated_at: now })
+      .update({
+        status: 'open',
+        snoozed_until: null,
+        snooze_reason: null,
+        snoozed_by: null,
+        updated_at: now,
+      })
       .eq('id', ticket.id);
-
-    await db.from('messages').insert({
-      conversation_id: ticket.id,
-      tenant_id: ticket.tenant_id,
-      sender_type: 'system',
-      content: `[SISTEMA]: O período de soneca terminou. O ticket foi reaberto. Motivo: ${ticket.snooze_reason ?? 'Não informado'}.`,
-    });
 
     try {
       await ports.publish('operator_alerts', JSON.stringify({
         type: 'TICKET_REACTIVATED',
         ticketId: ticket.id,
-        operatorId: ticket.assigned_operator_id ?? ticket.snoozed_by ?? 'supervisor',
-        message: `Ticket #${ticket.id.slice(0, 8)} reativado após soneca.`,
+        operatorId: ticket.assigned_to ?? ticket.snoozed_by ?? 'supervisor',
+        message: `Ticket #${ticket.id.slice(0, 8)} reativado após soneca. Motivo do adiamento: ${ticket.snooze_reason ?? 'Não informado'}.`,
       }));
     } catch {
       // Redis down — não bloqueia

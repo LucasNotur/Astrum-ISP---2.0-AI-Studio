@@ -24,8 +24,7 @@ function makeJob(data: any = {}): any {
   return { data, id: 'test-snooze' };
 }
 
-function makePorts(tickets: any[] = []): SnoozeWorkerPorts {
-  const inserted: any[] = [];
+function makePorts(tickets: any[] = []): SnoozeWorkerPorts & { updated: any[] } {
   const updated: any[] = [];
   return {
     db: {
@@ -34,7 +33,6 @@ function makePorts(tickets: any[] = []): SnoozeWorkerPorts {
           select: () => chain,
           eq: () => chain,
           lte: () => chain,
-          insert: (row: any) => { inserted.push(row); return Promise.resolve({ error: null }); },
           update: (data: any) => {
             updated.push(data);
             return { eq: () => Promise.resolve({ error: null }) };
@@ -49,6 +47,7 @@ function makePorts(tickets: any[] = []): SnoozeWorkerPorts {
       },
     } as any,
     publish: vi.fn().mockResolvedValue(1),
+    updated,
   };
 }
 
@@ -56,7 +55,7 @@ describe('S79 — Snooze Worker', () => {
   it('reabre ticket cujo snoozed_until já passou', async () => {
     const pastDate = new Date(Date.now() - 60 * 1000).toISOString();
     const ports = makePorts([
-      { id: 'tk-1', tenant_id: 't1', snoozed_until: pastDate, snooze_reason: 'Esperando pagamento', assigned_operator_id: 'op-1' },
+      { id: 'tk-1', tenant_id: 't1', snoozed_until: pastDate, snooze_reason: 'Esperando pagamento', assigned_to: 'op-1' },
     ]);
     const result = await processSnoozeJob(makeJob(), ports);
     expect(result.reactivated).toBe(1);
@@ -64,6 +63,14 @@ describe('S79 — Snooze Worker', () => {
       'operator_alerts',
       expect.stringContaining('TICKET_REACTIVATED'),
     );
+    const [, payload] = (ports.publish as any).mock.calls[0];
+    expect(JSON.parse(payload)).toMatchObject({ operatorId: 'op-1' });
+    expect(ports.updated[0]).toMatchObject({
+      status: 'open',
+      snoozed_until: null,
+      snooze_reason: null,
+      snoozed_by: null,
+    });
   });
 
   it('retorna 0 quando não há tickets snoozados vencidos', async () => {
