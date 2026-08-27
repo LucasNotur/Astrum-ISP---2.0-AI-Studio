@@ -1,5 +1,9 @@
 import { createOpenAIClient } from '../openai/openai.adapter';
 import { iaLogger } from '../../infrastructure/logging/logger';
+import { embedMany } from 'ai';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { getProviderApiKey } from '../../infrastructure/ai/providers/model-router';
+import { resolveTenantAiKeys } from '../../lib/tenant-keys';
 
 /**
  * Serviço de Embeddings usando text-embedding-3-small.
@@ -60,4 +64,68 @@ export async function generateEmbeddingsBatch(
   }
 
   return allEmbeddings;
+}
+
+const GOOGLE_EMBEDDING_MODEL = 'gemini-embedding-001';
+
+export type EmbeddingProvider = 'openai' | 'google';
+
+export interface EmbeddingBatchResult {
+  provider: EmbeddingProvider;
+  embeddings: number[][];
+}
+
+/**
+ * Embeddings via Gemini — fallback quando a OpenAI falha (sem crédito, rate
+ * limit, etc.). Mesmo padrão de resolução de chave do model-router.ts
+ * (buildLanguageModel): cria o client explicitamente com a key resolvida,
+ * não confia no lookup implícito de env var do SDK.
+ */
+async function generateEmbeddingsBatchGoogle(
+  texts: string[],
+  tenantId?: string
+): Promise<number[][]> {
+  const tenantKeys = tenantId ? await resolveTenantAiKeys(tenantId) : {};
+  const apiKey = getProviderApiKey('google', tenantKeys);
+  const google = createGoogleGenerativeAI({ apiKey });
+
+  const { embeddings } = await embedMany({
+    model: google.textEmbeddingModel(GOOGLE_EMBEDDING_MODEL),
+    values: texts,
+  });
+
+  iaLogger.info(
+    { tenantId, count: texts.length },
+    'Embeddings gerados via Gemini (fallback)'
+  );
+
+  return embeddings;
+}
+
+/**
+ * Igual a generateEmbeddingsBatch, mas cai pro Gemini se a OpenAI falhar (sem
+ * crédito, rate limit, erro de rede) em vez de propagar o erro direto.
+ *
+ * USADO SÓ pela ingestão de documentos (indexing.worker.ts). Os caminhos de
+ * busca/query (chat, RAG query) continuam usando generateEmbedding/
+ * generateEmbeddingsBatch (só-OpenAI) — fan-out de leitura é fase separada,
+ * não mexer nisso aqui.
+ */
+export async function generateEmbeddingsBatchWithFailover(
+  texts: string[],
+  tenantId?: string
+): Promise<EmbeddingBatchResult> {
+  if (texts.length === 0) return { provider: 'openai', embeddings: [] };
+
+  try {
+    const embeddings = await generateEmbeddingsBatch(texts, tenantId);
+    return { provider: 'openai', embeddings };
+  } catch (err) {
+    iaLogger.warn(
+      { err, tenantId, count: texts.length },
+      'Embeddings OpenAI falharam — tentando fallback Gemini'
+    );
+    const embeddings = await generateEmbeddingsBatchGoogle(texts, tenantId);
+    return { provider: 'google', embeddings };
+  }
 }

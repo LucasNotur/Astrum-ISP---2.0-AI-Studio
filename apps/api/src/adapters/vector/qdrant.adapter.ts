@@ -33,16 +33,28 @@ export function getQdrantClient(): QdrantClient {
   return client;
 }
 
-export function getTenantCollection(tenantId: string): string {
-  return `tenant_${tenantId.replace(/-/g, '_')}`;
+export type EmbeddingProviderName = 'openai' | 'google';
+
+/**
+ * Nome da coleção por tenant+provider. 'openai' mantém o nome SEM sufixo —
+ * é o nome que TODA coleção em produção já usa hoje, nenhuma precisa ser
+ * renomeada. Só 'google' ganha sufixo, é a única coleção nova.
+ */
+export function getTenantCollection(tenantId: string, provider: EmbeddingProviderName = 'openai'): string {
+  const base = `tenant_${tenantId.replace(/-/g, '_')}`;
+  return provider === 'openai' ? base : `${base}_${provider}`;
 }
 
 /**
  * Cria coleção para um tenant (idempotente — não falha se já existir).
  */
-export async function ensureCollection(tenantId: string): Promise<void> {
+export async function ensureCollection(
+  tenantId: string,
+  provider: EmbeddingProviderName = 'openai',
+  vectorSize: number = VECTOR_DIMENSIONS,
+): Promise<void> {
   const qdrant = getQdrantClient();
-  const collectionName = getTenantCollection(tenantId);
+  const collectionName = getTenantCollection(tenantId, provider);
 
   try {
     await qdrant.getCollection(collectionName);
@@ -54,7 +66,7 @@ export async function ensureCollection(tenantId: string): Promise<void> {
 
   await qdrant.createCollection(collectionName, {
     vectors: {
-      size: VECTOR_DIMENSIONS,
+      size: vectorSize,
       distance: DISTANCE_METRIC,
     },
     optimizers_config: {
@@ -69,7 +81,7 @@ export async function ensureCollection(tenantId: string): Promise<void> {
     field_schema: 'keyword',
   });
 
-  infraLogger.info({ collectionName, dimensions: VECTOR_DIMENSIONS }, 'Coleção Qdrant criada');
+  infraLogger.info({ collectionName, dimensions: vectorSize, provider }, 'Coleção Qdrant criada');
 }
 
 export interface VectorPoint {
@@ -87,6 +99,7 @@ export interface VectorPoint {
     chunk_text: string;
     file_type: string;
     created_at: string;
+    embedding_provider?: EmbeddingProviderName;
   };
 }
 
@@ -95,10 +108,11 @@ export interface VectorPoint {
  */
 export async function upsertPoints(
   tenantId: string,
-  points: VectorPoint[]
+  points: VectorPoint[],
+  provider: EmbeddingProviderName = 'openai',
 ): Promise<void> {
   const qdrant = getQdrantClient();
-  const collectionName = getTenantCollection(tenantId);
+  const collectionName = getTenantCollection(tenantId, provider);
 
   await qdrant.upsert(collectionName, {
     wait: true,
@@ -109,7 +123,7 @@ export async function upsertPoints(
     })),
   });
 
-  infraLogger.info({ tenantId, count: points.length }, 'Pontos inseridos no Qdrant');
+  infraLogger.info({ tenantId, provider, count: points.length }, 'Pontos inseridos no Qdrant');
 }
 
 export interface SearchResult {

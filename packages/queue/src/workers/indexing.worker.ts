@@ -2,7 +2,7 @@ import { Worker, Queue, type Job } from 'bullmq';
 import { connection, getRedisStatus } from '../../../../apps/api/src/infrastructure/cache/redis.client';
 import { setupDLQ } from '../../../../apps/api/src/infrastructure/queue/bullmq.client';
 import { chunkTechnicalManual } from '../../../../apps/api/src/infrastructure/rag/document-chunker.service';
-import { generateEmbeddingsBatch } from '../../../../apps/api/src/adapters/ai/embedding.service';
+import { generateEmbeddingsBatchWithFailover } from '../../../../apps/api/src/adapters/ai/embedding.service';
 import { ensureCollection, upsertPoints } from '../../../../apps/api/src/adapters/vector/qdrant.adapter';
 import { supabaseAdmin } from '../../../../apps/api/src/infrastructure/database/supabase.client';
 import { iaLogger } from '../../../../apps/api/src/infrastructure/logging/logger';
@@ -29,7 +29,7 @@ export const aiProcessingQueue: Pick<Queue, 'add'> = isMockRedis
   ? { add: async () => ({ id: 'mock' }) as any }
   : new Queue('astrum-ai-processing', { connection: connection as any });
 
-async function indexDocument(job: Job<IndexingJobData>): Promise<void> {
+export async function indexDocument(job: Job<IndexingJobData>): Promise<void> {
   const { tenantId, documentId, filename, fileType, textContent, entityType = 'document', articleId } = job.data;
 
   iaLogger.info({ tenantId, documentId, articleId, entityType, filename }, 'Iniciando indexação RAG');
@@ -38,12 +38,12 @@ async function indexDocument(job: Job<IndexingJobData>): Promise<void> {
   const chunks = chunkTechnicalManual(textContent);
   iaLogger.info({ documentId, chunksCount: chunks.length }, 'Documento dividido em chunks');
 
-  // 2. Garantir coleção no Qdrant
-  await ensureCollection(tenantId);
-
-  // 3. Gerar embeddings em batch
+  // 3. Gerar embeddings em batch (falha na OpenAI cai pro Gemini)
   const chunkTexts = chunks.map(c => c.text);
-  const embeddings = await generateEmbeddingsBatch(chunkTexts, tenantId);
+  const { provider, embeddings } = await generateEmbeddingsBatchWithFailover(chunkTexts, tenantId);
+
+  // 2. Garantir coleção no Qdrant (na coleção do provider que respondeu)
+  await ensureCollection(tenantId, provider, embeddings[0]?.length ?? 1536);
 
   // 4. Inserir no Qdrant (payload diferencia documento de artigo para permitir filtros futuros)
   const points = chunks.map((chunk, i) => {
@@ -62,16 +62,18 @@ async function indexDocument(job: Job<IndexingJobData>): Promise<void> {
       chunk_text: chunk.text,
       file_type: fileType,
       created_at: new Date().toISOString(),
+      embedding_provider: provider,
     },
   };
   });
 
-  await upsertPoints(tenantId, points);
+  await upsertPoints(tenantId, points, provider);
 
   // 5. Atualizar status na tabela correta
   if (entityType === 'article' && articleId) {
     await supabaseAdmin.from('knowledge_articles').update({
       ingest_status: 'indexed',
+      embedding_provider: provider,
       updated_at: new Date().toISOString(),
     }).eq('id', articleId);
     iaLogger.info({ tenantId, articleId, chunksCount: chunks.length }, '✅ Artigo KB indexado no RAG');
@@ -79,6 +81,7 @@ async function indexDocument(job: Job<IndexingJobData>): Promise<void> {
     await supabaseAdmin.from('knowledge_documents').update({
       status: 'indexed',
       chunks_count: chunks.length,
+      embedding_provider: provider,
       updated_at: new Date().toISOString(),
     }).eq('id', documentId);
     iaLogger.info({ tenantId, documentId, chunksCount: chunks.length }, '✅ Documento indexado no RAG');
