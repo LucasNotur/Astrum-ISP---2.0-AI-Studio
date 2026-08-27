@@ -46,4 +46,19 @@ Conteúdo da segunda seção.
     const chunks = chunkTechnicalManual(manual);
     expect(chunks.length).toBeGreaterThanOrEqual(2);
   });
+
+  it('chunkTechnicalManual não fragmenta listas numeradas linha a linha (regressão)', () => {
+    // Texto sem heading markdown, com passo-a-passo numerado — formato real de
+    // manual técnico extraído de PDF via pdf-parse (achado no smoke test de
+    // ingestão de 200 páginas: cada "1. ", "2. " virava seção própria).
+    const step = 'Verifique se a ONU esta energizada e o LED de sinal optico esta aceso em verde continuo antes de prosseguir com a instalacao. ';
+    const manual = Array.from({ length: 40 }, (_, i) => `${i + 1}. ${step}`).join('\n');
+
+    const chunks = chunkTechnicalManual(manual);
+
+    // ~40 linhas de ~130 chars = ~5200 chars: deve virar poucos chunks
+    // (tamanho-alvo ~1500-2000 chars), não 40 chunks de uma linha cada.
+    expect(chunks.length).toBeLessThan(10);
+    chunks.forEach(c => expect(c.text.length).toBeGreaterThan(200));
+  });
 });

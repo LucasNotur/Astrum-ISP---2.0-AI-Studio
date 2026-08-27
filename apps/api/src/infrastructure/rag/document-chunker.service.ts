@@ -108,11 +108,21 @@ export function chunkDocument(
 
 /**
  * Chunking especializado para manuais técnicos de ISP.
- * Preserva seções (headings) como pontos de quebra prioritários.
+ * Preserva seções (headings markdown) como pontos de quebra prioritários.
+ *
+ * NÃO trata linha numerada ("1. ", "2. ") como início de seção: texto extraído
+ * de PDF real (pdf-parse) quase nunca tem headings markdown, e manuais de ISP
+ * são recheados de passo-a-passo numerado ("1. Verifique a ONU. 2. Configure
+ * o roteador. ..."). Tratar cada linha desse tipo como nova "seção" fragmenta
+ * o documento inteiro em chunks de ~100 chars (achado real rodando
+ * `scripts/qa/pdf-ingestion-smoke.ts` com um manual sintético de 200 páginas:
+ * 3601 chunks de 116 chars em vez de ~200 chunks de ~2000 chars). Documentos
+ * sem heading markdown caem no fallback `chunkDocument` abaixo, que já quebra
+ * por parágrafo/frase com tamanho-alvo correto.
  */
 export function chunkTechnicalManual(text: string): DocumentChunk[] {
-  // Dividir por seções (headings markdown ou numeradas)
-  const sectionPattern = /(?=^#{1,3}\s|^\d+\.\s)/m;
+  // Dividir por seções (headings markdown)
+  const sectionPattern = /(?=^#{1,3}\s)/m;
   const sections = text.split(sectionPattern).filter(s => s.trim().length > 0);
 
   const allChunks: DocumentChunk[] = [];
