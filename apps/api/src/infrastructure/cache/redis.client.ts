@@ -172,6 +172,16 @@ function createRealRedisClient(opts: { commandTimeout?: number; retryStrategy: R
     // Tende a desaparecer de vez quando migrar pra uma VPS Linux (Docker
     // nativo, sem a camada de virtualização WSL2).
     connectTimeout: 15000,
+    // family: 4 força resolução IPv4 do host (mesmo quando a URL usa
+    // "localhost"). Achado ao vivo em 2026-08-27: nesta máquina Windows,
+    // "localhost" resolve pra IPv6 (::1) antes de IPv4, mas o port-forward
+    // do Docker Desktop pro container do Redis só escuta em 127.0.0.1 — sem
+    // isso, ioredis tenta ::1:6379 (nada escutando) e trava em ETIMEDOUT até
+    // o connectTimeout, indefinidamente (nunca cai pro IPv4). Ficou o backend
+    // inteiro fora do ar por 5h+ até ser diagnosticado. `fetch()`/undici (usado
+    // pelo Qdrant) tem Happy Eyeballs nativo e não sofre disso — só sockets
+    // TCP crus via net.connect (caso do ioredis) precisam do family forçado.
+    family: 4,
     ...(opts.commandTimeout ? { commandTimeout: opts.commandTimeout } : {}),
     retryStrategy: opts.retryStrategy,
     lazyConnect: false,
