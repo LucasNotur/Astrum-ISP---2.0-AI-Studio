@@ -17,9 +17,8 @@ import { Avatar, AvatarFallback } from '@/src/components/ui/avatar';
 import { cn } from '@/src/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/src/components/ui/dialog";
 import { useAppStore } from '@/src/store/useAppStore';
-import { supabase } from '@/src/lib/supabase';
 import { saveIntegrationKeys } from '@/src/lib/db';
-import { apiGet, apiPost, apiDelete } from '@/src/lib/apiClient';
+import { apiGet, apiPost, apiPatch, apiDelete } from '@/src/lib/apiClient';
 
 // Tendência de ban_signals na janela de 24h (primeiro vs último snapshot).
 function banTrend(history: any[] | undefined): { dir: 'up' | 'down' | 'stable' | 'none', first: number, last: number } {
@@ -84,42 +83,50 @@ export function WhatsAppConnectionsPage() {
     }
   }, [integrationKeys]);
 
-  const saveConnections = async (newConnections: any[]) => {
+  const saveConnections = async (newConnections: any[]): Promise<boolean> => {
+    // Backend primeiro: tenant sempre vem do JWT (nunca do body). Upsert por
+    // instance_name (UNIQUE real). `isNew` (flag local) marca conexões recém-
+    // criadas nesta sessão — só elas disparam provisionamento na Evolution API
+    // (provisionOnEvolution); re-save de conexões já salvas é idempotente.
+    const tId = companySettings?.tenant_id || user?.tenantId;
+    if (tId && tId !== 'default') {
+      for (const conn of newConnections) {
+        try {
+          await apiPost('/api/v2/whatsapp/instances', {
+            instanceName: conn.instanceName,
+            label: conn.alias,
+            isPrimary: !!conn.isDefault,
+            provisionOnEvolution: !!conn.isNew,
+          });
+          conn.isNew = false;
+        } catch (e) {
+          console.warn('Could not save whatsapp instance', e);
+          return false;
+        }
+      }
+    }
+
     const jsonStr = JSON.stringify(newConnections);
     setIntegrationKeys((prev: any) => ({ ...prev, whatsappInstances: jsonStr }));
     saveIntegrationKeys({ ...integrationKeys, whatsappInstances: jsonStr });
-    
-    const tId = companySettings?.tenant_id || user?.tenantId;
-    if (tId && tId !== 'default') {
-      const instanceNames = newConnections.map(c => c.instanceName);
-      try {
-        // S99 — salva instâncias na tabela tenant_evolution_instances (migration 022)
-        await supabase.from('tenants').update({ evolution_instances: instanceNames }).eq('id', tId);
-        for (const conn of newConnections) {
-          await supabase.from('tenant_evolution_instances').upsert({
-            tenant_id: tId,
-            instance_name: conn.instanceName,
-            label: conn.alias,
-            phone_number: conn.phoneNumber || null,
-            status: connStates[conn.id]?.status || 'disconnected',
-            ai_enabled: true,
-          }, { onConflict: 'tenant_id,instance_name' });
-        }
-      } catch(e) {
-        console.warn("Could not update tenants evolution_instances", e);
-      }
-    }
+    return true;
   };
 
-  const handleAddConnection = () => {
+  const handleAddConnection = async () => {
     if (!newConn.alias) {
       toast.error('Preencha o nome do usuário do WhatsApp.');
       return;
     }
     const generatedInstanceName = `astrum-${newConn.alias.replace(/\W+/g, '-').toLowerCase()}-${Date.now()}`;
-    const newArr = [...connections, { id: crypto.randomUUID(), instanceName: generatedInstanceName, alias: newConn.alias, isDefault: connections.length === 0 }];
+    const newArr = [...connections, { id: crypto.randomUUID(), instanceName: generatedInstanceName, alias: newConn.alias, isDefault: connections.length === 0, isNew: true }];
+    // Cria a instância na Evolution API e grava no backend (provisionOnEvolution
+    // default true) antes de fechar o diálogo — falha aqui não vira "sucesso mudo".
+    const ok = await saveConnections(newArr);
+    if (!ok) {
+      toast.error('Não foi possível criar a conexão. Verifique a Evolution API e tente novamente.');
+      return;
+    }
     setConnections(newArr);
-    saveConnections(newArr);
     setIsAddOpen(false);
     setNewConn({ instanceName: '', alias: '' });
     toast.success('Usuário de WhatsApp adicionado!');

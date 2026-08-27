@@ -50,7 +50,7 @@ export async function sendChannelResponse(opts: SendChannelResponseOpts): Promis
 
   switch (channel) {
     case 'whatsapp':
-      await sendWhatsAppResponse({ to: recipientId, content, tenantId, conversationId });
+      await sendWhatsAppResponse({ to: recipientId, content, tenantId, conversationId, instanceName });
       break;
 
     case 'instagram':

@@ -10,6 +10,9 @@ export interface WhatsAppMessage {
   /** Chaves resolvidas pelo tenant (sobrepõem env vars). */
   evolutionUrl?: string;
   evolutionApiKey?: string;
+  /** Nome da instância Evolution API — o path de envio exige
+   *  /message/sendText/{instance} na multi-instância. */
+  instanceName?: string;
 }
 
 export interface WhatsAppResponse {
@@ -21,8 +24,11 @@ export interface WhatsAppResponse {
 async function sendWhatsAppAPI(message: WhatsAppMessage): Promise<WhatsAppResponse> {
   const url = message.evolutionUrl || process.env.EVOLUTION_API_URL || 'http://localhost:8080';
   const apiKey = message.evolutionApiKey || process.env.EVOLUTION_API_KEY || 'dummy_key';
+  const path = message.instanceName
+    ? `/message/sendText/${message.instanceName}`
+    : '/message/sendText';
 
-  const response = await fetch(`${url}/message/sendText`, {
+  const response = await fetch(`${url}${path}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

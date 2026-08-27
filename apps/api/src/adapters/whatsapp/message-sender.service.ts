@@ -1,4 +1,5 @@
 import { sendMessage } from './whatsapp.adapter';
+import { resolveTenantKeys } from '../../lib/tenant-keys';
 import { atendimentoLogger } from '../../infrastructure/logging/logger';
 
 /**
@@ -40,10 +41,14 @@ export interface SendWhatsAppOptions {
   content: string;      // texto da resposta
   tenantId: string;
   conversationId?: string;
+  instanceName?: string;
 }
 
 export async function sendWhatsAppResponse(opts: SendWhatsAppOptions): Promise<void> {
-  const { to, content, tenantId, conversationId } = opts;
+  const { to, content, tenantId, conversationId, instanceName } = opts;
+
+  // Chaves BYOK do tenant resolvidas UMA vez (não por parte da mensagem).
+  const { evolutionUrl, evolutionApiKey } = await resolveTenantKeys(tenantId);
 
   // Dividir em partes se necessário
   const parts = splitMessage(content);
@@ -53,6 +58,9 @@ export async function sendWhatsAppResponse(opts: SendWhatsAppOptions): Promise<v
       to,
       content: parts[i] ?? '',
       tenantId,
+      instanceName,
+      evolutionUrl,
+      evolutionApiKey,
     });
 
     if (result.status === 'fallback') {

@@ -21,6 +21,7 @@ export interface ISaveMessageInput {
   content: string;
   fromAI?: boolean;
   tokensUsed?: number;
+  instanceName?: string;
 }
 
 export interface IConversationDbPort {

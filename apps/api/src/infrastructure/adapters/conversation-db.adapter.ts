@@ -51,6 +51,7 @@ export const conversationDbAdapter: IConversationDbPort = {
         content: opts.content,
         from_ai: opts.fromAI ?? false,
         tokens_used: opts.tokensUsed ?? 0,
+        instance_name: opts.instanceName ?? null,
       })
       .select('id')
       .single();
