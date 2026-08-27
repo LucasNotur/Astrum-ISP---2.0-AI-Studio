@@ -146,4 +146,50 @@ describe('customers.routes', () => {
       expect(res.statusCode).toBe(404);
     });
   });
+
+  describe('GET /api/v2/customers/:id/notes', () => {
+    it('sem tenant -> 401', async () => {
+      const app = await buildApp({});
+      const res = await app.inject({ method: 'GET', url: '/api/v2/customers/c1/notes' });
+      expect(res.statusCode).toBe(401);
+    });
+
+    it('lista as notas filtrando por cliente e tenant do JWT', async () => {
+      mockFrom({ data: [{ id: 'n1', body: 'Cliente ligou reclamando de lentidão' }], error: null });
+      const app = await buildApp();
+      const res = await app.inject({ method: 'GET', url: '/api/v2/customers/c1/notes' });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual([{ id: 'n1', body: 'Cliente ligou reclamando de lentidão' }]);
+      expect(supabaseAdmin.from).toHaveBeenCalledWith('customer_notes');
+      const chain = (supabaseAdmin.from as any).mock.results[0].value;
+      expect(chain.eq).toHaveBeenCalledWith('customer_id', 'c1');
+      expect(chain.eq).toHaveBeenCalledWith('tenant_id', 'tenant-1');
+    });
+  });
+
+  describe('POST /api/v2/customers/:id/notes', () => {
+    it('sem body -> 400', async () => {
+      const app = await buildApp();
+      const res = await app.inject({ method: 'POST', url: '/api/v2/customers/c1/notes', payload: {} });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('cria a nota com tenant/customer do JWT/params e created_by do usuário logado', async () => {
+      mockFrom({ data: { id: 'n1', body: 'Nota de teste' }, error: null });
+      const app = await buildApp({ userId: 'op-9', tenantId: 'tenant-1', role: 'operator' });
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v2/customers/c1/notes',
+        payload: { body: '  Nota de teste  ' },
+      });
+
+      expect(res.statusCode).toBe(201);
+      const chain = (supabaseAdmin.from as any).mock.results[0].value;
+      expect(chain.insert).toHaveBeenCalledWith({
+        tenant_id: 'tenant-1', customer_id: 'c1', body: 'Nota de teste', created_by: 'op-9',
+      });
+    });
+  });
 });

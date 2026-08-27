@@ -33,46 +33,10 @@ import { seedPopularAstrum, wipeSystemData } from '@/src/lib/seedAstrum';
 import { getTeamMembers as sbGetTeamMembers, upsertTenantOperator } from '@/src/lib/supabaseDb';
 import { MODULES_REGISTRY, MODULE_CATEGORIES } from '@/src/lib/modules-registry';
 
-const AVAILABLE_MENUS = [
-  { id: 'dashboard', label: 'Dashboard', group: 'Operação Diária' },
-  { id: 'customers', label: 'Clientes', group: 'Atendimento' },
-  { id: 'tickets', label: 'Tickets (Suporte)', group: 'Atendimento' },
-  { id: 'chat', label: 'Chat', group: 'Atendimento' },
-  { id: 'os', label: 'CRM Técnico / OS', group: 'Atendimento' },
-  { id: 'billing', label: 'Financeiro', group: 'Infra & Gestão' },
-  { id: 'inventory', label: 'Estoque', group: 'Infra & Gestão' },
-  { id: 'map', label: 'Mapa de Cobertura', group: 'Infra & Gestão' },
-  { id: 'team', label: 'Equipe', group: 'Infra & Gestão' },
-  { id: 'ai-config', label: 'Núcleo IA', group: 'Inteligência & Automação' },
-  { id: 'cobrai', label: 'CobrAI', group: 'Inteligência & Automação' },
-  { id: 'kb', label: 'Base de Conhecimento', group: 'Inteligência & Automação' },
-  { id: 'bi', label: 'Business Intelligence', group: 'Relatórios e Monitoria' },
-  { id: 'quality-monitor', label: 'Monitor de Qualidade', group: 'Relatórios e Monitoria' },
-  { id: 'observability', label: 'Logs e Auditoria IA', group: 'Relatórios e Monitoria' },
-  { id: 'monitoring', label: 'Monitoramento (Falhas)', group: 'Relatórios e Monitoria' },
-  { id: 'whatsapp', label: 'Conexões WhatsApp', group: 'Configurações Globais' },
-  { id: 'settings', label: 'Configurações Gerais', group: 'Configurações Globais' }
-];
-
-const ROLES = [
-  { id: 'admin', label: 'Desenvolvedor' },
-  { id: 'owner', label: 'Provedor (Admin)' },
-  { id: 'support', label: 'Suporte' },
-  { id: 'tecnico', label: 'Técnico' }
-];
-
-const DEFAULT_PERMISSIONS = {
-  admin: ['dashboard', 'customers', 'tickets', 'chat', 'os', 'billing', 'inventory', 'map', 'team', 'ai-config', 'cobrai', 'kb', 'bi', 'quality-monitor', 'observability', 'monitoring', 'whatsapp', 'settings'],
-  owner: ['dashboard', 'customers', 'tickets', 'chat', 'os', 'billing', 'inventory', 'map', 'team', 'ai-config', 'cobrai', 'kb', 'bi', 'quality-monitor', 'observability', 'monitoring', 'whatsapp', 'settings'],
-  support: ['dashboard', 'customers', 'tickets', 'chat', 'kb'],
-  tecnico: ['dashboard', 'os', 'kb', 'map']
-};
-
 export function SettingsPage() {
   const navigate = useNavigate();
   const {
     user,
-    rolePermissions,
     currentUserRole,
     integrationKeys,
     setIntegrationKeys,
@@ -202,85 +166,6 @@ export function SettingsPage() {
   
   const canAccessBilling = currentUserRole === 'admin' || currentUserRole === 'owner';
 
-  const [editingRolePermissions, setEditingRolePermissions] = useState<Record<string, Record<string, any>>>({});
-
-  useEffect(() => {
-    if (rolePermissions && Object.keys(rolePermissions).length > 0) {
-      setEditingRolePermissions(rolePermissions);
-    } else if (companySettings?.rolePermissions) {
-      // Convert old format to new format
-      const converted: Record<string, Record<string, any>> = {};
-      Object.keys(companySettings.rolePermissions).forEach(role => {
-         const perms = companySettings.rolePermissions[role];
-         converted[role] = {};
-         if (Array.isArray(perms)) {
-            perms.forEach((p: string) => converted[role][p] = ['read', 'manage']);
-         }
-      });
-      setEditingRolePermissions(converted);
-    } else {
-      // Convert default format
-      const converted: Record<string, Record<string, any>> = {};
-      Object.keys(DEFAULT_PERMISSIONS).forEach(role => {
-         const perms = (DEFAULT_PERMISSIONS as any)[role];
-         converted[role] = {};
-         if (Array.isArray(perms)) {
-            perms.forEach((p: string) => converted[role][p] = ['read', 'manage']);
-         }
-      });
-      setEditingRolePermissions(converted);
-    }
-  }, [rolePermissions, companySettings?.rolePermissions]);
-
-  const togglePermission = (role: string, menuId: string) => {
-    setEditingRolePermissions(prev => {
-      const rolePerms = { ...(prev[role] || {}) };
-      
-      const hasPerm = rolePerms[menuId] && (rolePerms[menuId] === '*' || (Array.isArray(rolePerms[menuId]) && rolePerms[menuId].length > 0));
-      
-      if (hasPerm) {
-         delete rolePerms[menuId];
-      } else {
-         rolePerms[menuId] = ['read', 'manage'];
-      }
-      
-      return { ...prev, [role]: rolePerms };
-    });
-  };
-
-  const savePermissions = async () => {
-    if (!tenantId || tenantId === 'DEFAULT_TENANT') {
-      toast.error('Tenant não identificado.');
-      return;
-    }
-    
-    try {
-      toast.info('Salvando permissões...', { id: 'save-perms' });
-      
-      // Save granular format in role_permissions collection
-      const promises = Object.keys(editingRolePermissions).map(async (role) => {
-         const perms = editingRolePermissions[role];
-         // Search by tenant_id and role_name
-         // S99 — role_permissions via Supabase
-         await supabase.from('role_permissions').upsert({
-            tenant_id: tenantId,
-            role_name: role,
-            permissions: perms,
-         }, { onConflict: 'tenant_id,role_name' });
-      });
-      
-      await Promise.all(promises);
-      
-      toast.success('Permissões salvas com sucesso!', { id: 'save-perms' });
-    } catch (error) {
-      console.error(error);
-      toast.error('Erro ao salvar as permissões.', { id: 'save-perms' });
-    }
-  };
-  
-  const [tenantTokenLimit, setTenantTokenLimit] = useState<number>(5000000);
-  const [workerConcurrency, setWorkerConcurrency] = useState<number>(3);
-
   const [expandVectorStore, setExpandVectorStore] = useState(false);
   const [vectorTestResult, setVectorTestResult] = useState<{success: boolean, error?: string} | null>(null);
   const [vectorConfig, setVectorConfig] = useState({ provider: 'qdrant', url: '', apiKey: '', collection: 'astrum_knowledge' });
@@ -320,10 +205,10 @@ export function SettingsPage() {
       toast.error('Tenant não identificado.');
       return;
     }
-    
+
     setIsSavingSso(true);
     try {
-      await supabase.from('tenants').update({ sso_config: { domain: ssoDomain.trim() } }).eq('id', tenantId);
+      await apiPut('/api/v2/settings/sso', { domain: ssoDomain.trim() });
       toast.success('Configurações de SSO salvas com sucesso!');
     } catch (e: any) {
       toast.error('Erro ao salvar as configurações: ' + e.message);
@@ -349,16 +234,19 @@ export function SettingsPage() {
 
   useEffect(() => {
     if (!tenantId || tenantId === 'DEFAULT_TENANT') return;
-    // S99 — theme from tenants table
-    supabase.from('tenants').select('theme').eq('id', tenantId).maybeSingle()
-      .then(({ data }) => { if (data?.theme) setThemeConfig((prev: any) => ({ ...prev, ...data.theme })); });
-    return () => {};
+    apiGet<typeof themeConfig>('/api/v2/settings/theme')
+      .then((data) => { if (data) setThemeConfig((prev) => ({ ...prev, ...data })); })
+      .catch(() => {});
   }, [tenantId]);
 
   const saveThemeConfig = async () => {
      setIsSavingTheme(true);
-     const { error } = await supabase.from('tenants').update({ theme: themeConfig }).eq('id', tenantId);
-     if (error) toast.error("Erro ao salvar tema."); else toast.success("Tema salvo com sucesso!");
+     try {
+       await apiPut('/api/v2/settings/theme', themeConfig);
+       toast.success("Tema salvo com sucesso!");
+     } catch {
+       toast.error("Erro ao salvar tema.");
+     }
      setIsSavingTheme(false);
   };
 
@@ -409,13 +297,16 @@ export function SettingsPage() {
       })
       .catch(e => setVectorTestResult({ success: false, error: e.message }));
       
-    // S99 — load config from Supabase
     const loadConfig = async () => {
-      const { data } = await supabase.from('tenants').select('vector_store_config,sso_config').eq('id', tenantId).maybeSingle();
-      if (data?.vector_store_config) setVectorConfig(data.vector_store_config);
-      if (data?.sso_config?.domain) setSsoDomain(data.sso_config.domain);
-      const { count } = await supabase.from('knowledge_articles').select('*', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('vector_indexed', true);
-      setIndexedCount(count ?? 0);
+      try {
+        const { indexedCount: idx, ...vector } = await apiGet<typeof vectorConfig & { indexedCount: number }>('/api/v2/settings/vector-store');
+        setVectorConfig(vector);
+        setIndexedCount(idx ?? 0);
+      } catch {}
+      try {
+        const { domain } = await apiGet<{ domain: string }>('/api/v2/settings/sso');
+        if (domain) setSsoDomain(domain);
+      } catch {}
     };
     loadConfig();
   }, [tenantId]);
@@ -439,8 +330,13 @@ export function SettingsPage() {
   };
 
   const saveVectorConfig = async () => {
-    const { error } = await supabase.from('tenants').update({ vector_store_config: vectorConfig }).eq('id', tenantId);
-    if (error) toast.error("Erro ao salvar config"); else { toast.success("Configuração do Banco Vetorial salva"); testVectorStore(); }
+    try {
+      await apiPut('/api/v2/settings/vector-store', vectorConfig);
+      toast.success("Configuração do Banco Vetorial salva");
+      testVectorStore();
+    } catch {
+      toast.error("Erro ao salvar config");
+    }
   };
 
   const startReindex = async () => {
@@ -460,24 +356,6 @@ export function SettingsPage() {
   };
 
   
-  useEffect(() => {
-    // S99 — tenant limits via Supabase (monthly_token_limit/worker_concurrency ainda não
-    // existem na tabela real — decisão de produto pendente, ver PLANO_ACAO_100_OPERACIONAL.md).
-    // Config de backup removida daqui: nunca teve backend real (Supabase já faz backup
-    // automático diário + PITR); a seção da tela foi retirada junto.
-    supabase.from('tenants').select('monthly_token_limit,worker_concurrency').eq('id', tenantId).maybeSingle().then(({ data }) => {
-      if (!data) return;
-      if (data.monthly_token_limit) setTenantTokenLimit(data.monthly_token_limit);
-      if (data.worker_concurrency) setWorkerConcurrency(data.worker_concurrency);
-    });
-    return () => {};
-  }, [tenantId]);
-
-  const saveTokenLimit = async (val: number, conc: number) => {
-    const { error } = await supabase.from('tenants').update({ monthly_token_limit: val, worker_concurrency: conc }).eq('id', tenantId);
-    if (error) toast.error("Erro ao salvar limites"); else toast.success("Limites salvos com sucesso!");
-  };
-
   const [webhookUrlDisplay, setWebhookUrlDisplay] = useState(`${window.location.origin}/api/webhook/evolution`);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState("general");
@@ -487,10 +365,9 @@ export function SettingsPage() {
 
   useEffect(() => {
      if (!tenantId || tenantId === 'DEFAULT_TENANT') return;
-     // S99 — holidays stored in tenants.holidays JSONB
-     supabase.from('tenants').select('holidays').eq('id', tenantId).maybeSingle()
-       .then(({ data }) => { const list = data?.holidays ?? []; setHolidays([...list].sort((a: any, b: any) => a.date.localeCompare(b.date))); });
-     return () => {};
+     apiGet<{ holidays: any[] }>('/api/v2/settings/holidays')
+       .then(({ holidays: list }) => setHolidays([...(list ?? [])].sort((a: any, b: any) => a.date.localeCompare(b.date))))
+       .catch(() => {});
   }, [tenantId]);
 
   const handleFetchHolidays = async () => {
@@ -502,9 +379,8 @@ export function SettingsPage() {
          );
          toast.success(`Foram carregados ${data.count} feriados nacionais de ${data.year}!`);
          // Recarrega a lista da fonte (o backend mesclou em tenants.holidays).
-         const { data: row } = await supabase.from('tenants').select('holidays').eq('id', tenantId).maybeSingle();
-         const list = row?.holidays ?? [];
-         setHolidays([...list].sort((a: any, b: any) => a.date.localeCompare(b.date)));
+         const { holidays: list } = await apiGet<{ holidays: any[] }>('/api/v2/settings/holidays');
+         setHolidays([...(list ?? [])].sort((a: any, b: any) => a.date.localeCompare(b.date)));
       } catch (e: any) {
          toast.error(e?.message || "Erro ao carregar feriados");
       } finally {
@@ -519,7 +395,7 @@ export function SettingsPage() {
       }
       try {
           const updated = [...holidays.filter((h: any) => h.date !== newHoliday.date), newHoliday];
-          await supabase.from('tenants').update({ holidays: updated }).eq('id', tenantId);
+          await apiPut('/api/v2/settings/holidays', { holidays: updated });
           setHolidays(updated.sort((a: any, b: any) => a.date.localeCompare(b.date)));
           toast.success("Feriado adicionado!");
           setNewHoliday({ date: '', name: '', type: 'municipal' });
@@ -531,7 +407,7 @@ export function SettingsPage() {
   const handleDeleteHoliday = async (date: string) => {
       try {
           const updated = holidays.filter((h: any) => h.date !== date);
-          await supabase.from('tenants').update({ holidays: updated }).eq('id', tenantId);
+          await apiPut('/api/v2/settings/holidays', { holidays: updated });
           setHolidays(updated);
           toast.success("Feriado removido");
       } catch(e) {
@@ -1794,7 +1670,6 @@ export function SettingsPage() {
                   <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="modules">Módulos</TabsTrigger>
                   <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="sso">SSO</TabsTrigger>
                   <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="custom_domain">Domínio</TabsTrigger>
-                  {isAstrum && <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="permissions">Permissões</TabsTrigger>}
                   <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="advanced">Avançado</TabsTrigger>
                 </TabsList>
                 
@@ -2166,60 +2041,6 @@ export function SettingsPage() {
                     </CardContent>
                   </Card>
                 </TabsContent>
-                {isAstrum && (<TabsContent value="permissions" className="mt-6">
-                  <Card className="border-none shadow-sm">
-                    <CardHeader className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <div>
-                        <CardTitle>Perfis e Permissões de Acesso</CardTitle>
-                        <CardDescription>Gerencie quais menus cada perfil pode visualizar e acessar.</CardDescription>
-                      </div>
-                      <Button onClick={savePermissions} className="gap-2">
-                        <Save size={18} /> Salvar Permissões
-                      </Button>
-                    </CardHeader>
-                    <CardContent className="overflow-x-auto">
-                      <table className="w-full text-sm text-left border-collapse">
-                        <thead className="text-xs text-muted-foreground uppercase bg-secondary/40 border-b border-border">
-                          <tr>
-                            <th className="px-4 py-3 min-w-[200px]">Menu / Módulo</th>
-                            {ROLES.map(role => (
-                              <th key={role.id} className="px-4 py-3 text-center">{role.label}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                          {Array.from(new Set(AVAILABLE_MENUS.map(m => m.group))).map((group) => (
-                            <React.Fragment key={group}>
-                              <tr className="bg-secondary/30">
-                                <td colSpan={ROLES.length + 1} className="px-4 py-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">{group}</td>
-                              </tr>
-                              {AVAILABLE_MENUS.filter(m => m.group === group).map(menu => (
-                                <tr key={menu.id} className="bg-card">
-                                  <td className="px-4 py-3 font-medium text-foreground flex items-center gap-2">
-                                    {menu.label}
-                                  </td>
-                                  {ROLES.map(role => {
-                                    const rolePerms = editingRolePermissions[role.id] || {};
-                                    const hasPerm = rolePerms[menu.id] && (rolePerms[menu.id] === '*' || (Array.isArray(rolePerms[menu.id]) && rolePerms[menu.id].length > 0));
-                                    return (
-                                      <td key={role.id} className="px-4 py-3 text-center">
-                                        <Switch 
-                                          checked={!!hasPerm}
-                                          onCheckedChange={() => togglePermission(role.id, menu.id)}
-                                        />
-                                      </td>
-                                    );
-                                  })}
-                                </tr>
-                              ))}
-                            </React.Fragment>
-                          ))}
-                        </tbody>
-                      </table>
-                    </CardContent>
-                  </Card>
-                </TabsContent>)}
-
                 <TabsContent value="sso" className="mt-6">
                   <Card className="border-none shadow-sm h-full">
                     <CardHeader className="border-b border-border pb-4">

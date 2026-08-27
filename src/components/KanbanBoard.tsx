@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
-import { supabase } from "@/src/lib/supabase";
+import { apiPatch } from "@/src/lib/apiClient";
 import { Avatar, AvatarFallback, AvatarImage } from "@/src/components/ui/avatar";
 import { cn } from "@/src/lib/utils";
 import { toast } from "sonner";
@@ -60,9 +60,11 @@ export function KanbanBoard({ tickets, customers, onTicketClick }: any) {
       });
 
       try {
-        await supabase.from("tickets").update({
-          pipeline_stage: destination.droppableId
-        }).eq("id", draggableId);
+        // migration 121 — pipeline_stage é estágio de vendas, ortogonal a
+        // tickets.status (ciclo de vida de suporte).
+        await apiPatch(`/api/v2/tickets/${draggableId}`, {
+          pipelineStage: destination.droppableId,
+        });
 
         // Automações de Funil Simuladas/Aprimoradas
         if (destination.droppableId === 'qualificado') {

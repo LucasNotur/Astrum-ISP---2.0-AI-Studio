@@ -90,6 +90,35 @@ describe('PATCH /api/v2/tickets/:id', () => {
       expect.not.objectContaining({ closingReason: expect.anything() }),
     );
   });
+
+  it('mapeia pipelineStage (camelCase) pra pipeline_stage (coluna real, migration 121, funil de vendas do KanbanBoard)', async () => {
+    mockFrom({ data: [{ id: 'tk-1' }], error: null });
+    const app = await buildApp();
+
+    await app.inject({
+      method: 'PATCH',
+      url: '/api/v2/tickets/f7544310-4a28-4a91-8d0f-ba8939b37c83',
+      payload: { pipelineStage: 'qualificado' },
+    });
+
+    const chain = (supabaseAdmin.from as any).mock.results[0].value;
+    expect(chain.update).toHaveBeenCalledWith(
+      expect.objectContaining({ pipeline_stage: 'qualificado' }),
+    );
+    expect(chain.update).toHaveBeenCalledWith(
+      expect.not.objectContaining({ pipelineStage: expect.anything() }),
+    );
+  });
+
+  it('rejeita pipelineStage fora do enum (schema Zod)', async () => {
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/v2/tickets/f7544310-4a28-4a91-8d0f-ba8939b37c83',
+      payload: { pipelineStage: 'inventado' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
 });
 
 describe('POST /api/v2/tickets/:id/snooze', () => {

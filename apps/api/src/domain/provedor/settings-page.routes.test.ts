@@ -251,4 +251,97 @@ describe('settings-page.routes', () => {
       expect(chain.eq).toHaveBeenCalledWith('id', 'tenant-1');
     });
   });
+
+  describe('GET/PUT /api/v2/settings/sso', () => {
+    it('GET sem tenant -> 401', async () => {
+      const app = await buildApp({});
+      expect((await app.inject({ method: 'GET', url: '/api/v2/settings/sso' })).statusCode).toBe(401);
+    });
+
+    it('GET devolve domain vazio quando não configurado', async () => {
+      mockFromSequence([{ data: { sso_config: {} }, error: null }]);
+      const app = await buildApp();
+      const res = await app.inject({ method: 'GET', url: '/api/v2/settings/sso' });
+      expect(res.json()).toEqual({ domain: '' });
+    });
+
+    it('PUT sem domain (string) -> 400', async () => {
+      const app = await buildApp();
+      const res = await app.inject({ method: 'PUT', url: '/api/v2/settings/sso', payload: {} });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('PUT salva sso_config filtrado por tenant do JWT', async () => {
+      mockFromSequence([{ data: null, error: null }]);
+      const app = await buildApp();
+      const res = await app.inject({ method: 'PUT', url: '/api/v2/settings/sso', payload: { domain: ' suaempresa.com.br ' } });
+      expect(res.statusCode).toBe(200);
+      const chain = (supabaseAdmin.from as any).mock.results[0].value;
+      expect(chain.update).toHaveBeenCalledWith({ sso_config: { domain: 'suaempresa.com.br' } });
+      expect(chain.eq).toHaveBeenCalledWith('id', 'tenant-1');
+    });
+  });
+
+  describe('GET/PUT /api/v2/settings/theme', () => {
+    it('GET devolve defaults mesclados com o que está salvo', async () => {
+      mockFromSequence([{ data: { theme: { primary_color: '#ff0000' } }, error: null }]);
+      const app = await buildApp();
+      const res = await app.inject({ method: 'GET', url: '/api/v2/settings/theme' });
+      expect(res.json()).toEqual(expect.objectContaining({ primary_color: '#ff0000', font_family: 'Inter' }));
+    });
+
+    it('PUT corpo vazio -> 400', async () => {
+      const app = await buildApp();
+      const res = await app.inject({ method: 'PUT', url: '/api/v2/settings/theme', payload: {} });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('PUT salva theme filtrado por tenant do JWT', async () => {
+      mockFromSequence([{ data: null, error: null }]);
+      const app = await buildApp();
+      await app.inject({ method: 'PUT', url: '/api/v2/settings/theme', payload: { primary_color: '#000', outroCampo: 'ignorado' } });
+      const chain = (supabaseAdmin.from as any).mock.results[0].value;
+      expect(chain.update).toHaveBeenCalledWith({ theme: { primary_color: '#000' } });
+      expect(chain.eq).toHaveBeenCalledWith('id', 'tenant-1');
+    });
+  });
+
+  describe('GET/PUT /api/v2/settings/vector-store', () => {
+    it('GET devolve config + indexedCount, filtrado por tenant do JWT', async () => {
+      mockFromSequence([
+        { data: { vector_store_config: { provider: 'qdrant', url: 'https://x' } }, error: null },
+        { count: 7 } as any,
+      ]);
+      const app = await buildApp();
+      const res = await app.inject({ method: 'GET', url: '/api/v2/settings/vector-store' });
+      expect(res.json()).toEqual(expect.objectContaining({ provider: 'qdrant', url: 'https://x', indexedCount: 7 }));
+    });
+
+    it('PUT salva vector_store_config filtrado por tenant do JWT', async () => {
+      mockFromSequence([{ data: null, error: null }]);
+      const app = await buildApp();
+      await app.inject({ method: 'PUT', url: '/api/v2/settings/vector-store', payload: { provider: 'pinecone' } });
+      const chain = (supabaseAdmin.from as any).mock.results[0].value;
+      expect(chain.update).toHaveBeenCalledWith({ vector_store_config: { provider: 'pinecone' } });
+      expect(chain.eq).toHaveBeenCalledWith('id', 'tenant-1');
+    });
+  });
+
+  describe('GET/PUT /api/v2/settings/embedding-config', () => {
+    it('GET devolve defaults mesclados', async () => {
+      mockFromSequence([{ data: { embedding_config: { model: 'text-embedding-3-large' } }, error: null }]);
+      const app = await buildApp();
+      const res = await app.inject({ method: 'GET', url: '/api/v2/settings/embedding-config' });
+      expect(res.json()).toEqual(expect.objectContaining({ model: 'text-embedding-3-large', provider: 'openai' }));
+    });
+
+    it('PUT salva embedding_config filtrado por tenant do JWT', async () => {
+      mockFromSequence([{ data: null, error: null }]);
+      const app = await buildApp();
+      await app.inject({ method: 'PUT', url: '/api/v2/settings/embedding-config', payload: { model: 'text-embedding-3-large' } });
+      const chain = (supabaseAdmin.from as any).mock.results[0].value;
+      expect(chain.update).toHaveBeenCalledWith({ embedding_config: { model: 'text-embedding-3-large' } });
+      expect(chain.eq).toHaveBeenCalledWith('id', 'tenant-1');
+    });
+  });
 });

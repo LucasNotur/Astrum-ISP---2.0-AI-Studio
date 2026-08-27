@@ -4,12 +4,12 @@
  * 092_p0_rls_hardening.sql. Rota serve o mesmo dado via `supabaseAdmin`, filtrando
  * por tenant do JWT.
  *
- * `enabled_modules`, `escalation_rules` e (2026-08-27) o perfil da empresa
- * (`/settings/company`) já migrados. Ainda pendentes: sso_config, theme,
- * vector_store_config, monthly_token_limit, worker_concurrency, holidays,
- * integrations (plaintext), role_permissions — colunas/tabelas que não existem
- * na base real ou schema divergente. Ver "Achados colaterais" no
- * PLANO_ACAO_100_OPERACIONAL.md — decisão de produto pendente, não migradas.
+ * `enabled_modules`, `escalation_rules`, o perfil da empresa (`/settings/company`)
+ * e (2026-08-27) sso/theme/vector-store já migrados. Ainda pendentes:
+ * monthly_token_limit, worker_concurrency (removidos da UI — duplicavam
+ * plan-limits.service.ts), integrations (plaintext, já migrado em sessão
+ * anterior), role_permissions (tela removida — RBAC é fixo por design, ver
+ * rbac.middleware.ts). Ver "Achados colaterais" no PLANO_ACAO_100_OPERACIONAL.md.
  */
 import type { FastifyInstance } from 'fastify';
 import { getTenantId } from '../../lib/jwt-claims';
@@ -24,6 +24,17 @@ const COMPANY_FIELD_TO_COLUMN: Record<(typeof COMPANY_FIELDS)[number], string> =
   workingHours: 'working_hours',
   timezone: 'timezone',
 };
+
+const THEME_DEFAULT = {
+  primary_color: '#3b82f6',
+  secondary_color: '#10b981',
+  font_family: 'Inter',
+  logo_url: '',
+  login_background_url: '',
+};
+
+const VECTOR_STORE_DEFAULT = { provider: 'qdrant', url: '', apiKey: '', collection: 'astrum_knowledge' };
+const EMBEDDING_CONFIG_DEFAULT = { provider: 'openai', apiKey: '', model: 'text-embedding-3-small', baseUrl: '', dimensions: 1536 };
 
 export async function settingsPageRoutes(app: FastifyInstance) {
   const auth = [async (req: any, reply: any) => { await (app as any).authenticate(req, reply); }];
@@ -136,6 +147,151 @@ export async function settingsPageRoutes(app: FastifyInstance) {
     const { error } = await supabaseAdmin
       .from('tenants')
       .update(update)
+      .eq('id', tenantId);
+    if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
+    return reply.send({ ok: true });
+  });
+
+  // GET/PUT /api/v2/settings/sso — domínio Google Workspace (SettingsPage.tsx, aba SSO).
+  // Migration 122 criou tenants.sso_config (jsonb, default {}).
+  app.get('/api/v2/settings/sso', { onRequest: auth }, async (req: any, reply: any) => {
+    const tenantId = getTenantId(req.user);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+
+    const { data, error } = await supabaseAdmin
+      .from('tenants')
+      .select('sso_config')
+      .eq('id', tenantId)
+      .maybeSingle();
+    if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
+    return reply.send({ domain: data?.sso_config?.domain ?? '' });
+  });
+
+  app.put('/api/v2/settings/sso', { onRequest: auth }, async (req: any, reply: any) => {
+    const tenantId = getTenantId(req.user);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+
+    const { domain } = (req.body ?? {}) as Record<string, unknown>;
+    if (typeof domain !== 'string') {
+      return reply.code(400).send({ code: 'BAD_REQUEST', message: 'domain obrigatório (string)' });
+    }
+
+    const { error } = await supabaseAdmin
+      .from('tenants')
+      .update({ sso_config: { domain: domain.trim() } })
+      .eq('id', tenantId);
+    if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
+    return reply.send({ ok: true });
+  });
+
+  // GET/PUT /api/v2/settings/theme — whitelabel (SettingsPage.tsx, aba Tema).
+  // Migration 122 criou tenants.theme (jsonb, default {}).
+  app.get('/api/v2/settings/theme', { onRequest: auth }, async (req: any, reply: any) => {
+    const tenantId = getTenantId(req.user);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+
+    const { data, error } = await supabaseAdmin
+      .from('tenants')
+      .select('theme')
+      .eq('id', tenantId)
+      .maybeSingle();
+    if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
+    return reply.send({ ...THEME_DEFAULT, ...(data?.theme ?? {}) });
+  });
+
+  app.put('/api/v2/settings/theme', { onRequest: auth }, async (req: any, reply: any) => {
+    const tenantId = getTenantId(req.user);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const theme: Record<string, unknown> = {};
+    for (const field of Object.keys(THEME_DEFAULT)) {
+      if (body[field] !== undefined) theme[field] = body[field];
+    }
+    if (Object.keys(theme).length === 0) {
+      return reply.code(400).send({ code: 'BAD_REQUEST', message: 'Nenhum campo válido enviado.' });
+    }
+
+    const { error } = await supabaseAdmin
+      .from('tenants')
+      .update({ theme })
+      .eq('id', tenantId);
+    if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
+    return reply.send({ ok: true });
+  });
+
+  // GET/PUT /api/v2/settings/vector-store — BYOK do banco vetorial (SettingsPage.tsx
+  // aba Base de Conhecimento + AIConfigPage.tsx, mesmo dado em ambas as telas).
+  // Migration 122 criou tenants.vector_store_config (jsonb, default {}).
+  app.get('/api/v2/settings/vector-store', { onRequest: auth }, async (req: any, reply: any) => {
+    const tenantId = getTenantId(req.user);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+
+    const [{ data, error }, indexedCount] = await Promise.all([
+      supabaseAdmin.from('tenants').select('vector_store_config').eq('id', tenantId).maybeSingle(),
+      supabaseAdmin
+        .from('knowledge_articles')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .eq('vector_indexed', true)
+        .then((r) => r.count ?? 0),
+    ]);
+    if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
+    return reply.send({ ...VECTOR_STORE_DEFAULT, ...(data?.vector_store_config ?? {}), indexedCount });
+  });
+
+  app.put('/api/v2/settings/vector-store', { onRequest: auth }, async (req: any, reply: any) => {
+    const tenantId = getTenantId(req.user);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const config: Record<string, unknown> = {};
+    for (const field of Object.keys(VECTOR_STORE_DEFAULT)) {
+      if (body[field] !== undefined) config[field] = body[field];
+    }
+    if (Object.keys(config).length === 0) {
+      return reply.code(400).send({ code: 'BAD_REQUEST', message: 'Nenhum campo válido enviado.' });
+    }
+
+    const { error } = await supabaseAdmin
+      .from('tenants')
+      .update({ vector_store_config: config })
+      .eq('id', tenantId);
+    if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
+    return reply.send({ ok: true });
+  });
+
+  // GET/PUT /api/v2/settings/embedding-config — provider/modelo de embedding
+  // (KnowledgeBasePage.tsx). Migration 122 criou tenants.embedding_config.
+  app.get('/api/v2/settings/embedding-config', { onRequest: auth }, async (req: any, reply: any) => {
+    const tenantId = getTenantId(req.user);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+
+    const { data, error } = await supabaseAdmin
+      .from('tenants')
+      .select('embedding_config')
+      .eq('id', tenantId)
+      .maybeSingle();
+    if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
+    return reply.send({ ...EMBEDDING_CONFIG_DEFAULT, ...(data?.embedding_config ?? {}) });
+  });
+
+  app.put('/api/v2/settings/embedding-config', { onRequest: auth }, async (req: any, reply: any) => {
+    const tenantId = getTenantId(req.user);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const config: Record<string, unknown> = {};
+    for (const field of Object.keys(EMBEDDING_CONFIG_DEFAULT)) {
+      if (body[field] !== undefined) config[field] = body[field];
+    }
+    if (Object.keys(config).length === 0) {
+      return reply.code(400).send({ code: 'BAD_REQUEST', message: 'Nenhum campo válido enviado.' });
+    }
+
+    const { error } = await supabaseAdmin
+      .from('tenants')
+      .update({ embedding_config: config })
       .eq('id', tenantId);
     if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
     return reply.send({ ok: true });

@@ -58,7 +58,7 @@ export async function ticketRoutes(fastify: FastifyInstance) {
   }, async (request, reply) => {
     const tenantId = getTenantId((request as any).user) ?? '';
     const { id } = (request as any).validatedParams;
-    const { assignedTo, closingReason, ...body } = (request as any).validatedBody;
+    const { assignedTo, closingReason, pipelineStage, ...body } = (request as any).validatedBody;
 
     const { data, error } = await tenantQuery(tenantId)
       .from('tickets')
@@ -66,6 +66,7 @@ export async function ticketRoutes(fastify: FastifyInstance) {
         ...body,
         ...(assignedTo !== undefined ? { assigned_to: assignedTo } : {}),
         ...(closingReason !== undefined ? { closing_reason: closingReason } : {}),
+        ...(pipelineStage !== undefined ? { pipeline_stage: pipelineStage } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq('id', id);

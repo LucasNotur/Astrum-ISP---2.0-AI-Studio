@@ -5,7 +5,7 @@
  * anônimo, bloqueado pela migration 092).
  */
 import type { FastifyInstance } from 'fastify';
-import { getTenantId } from '../../lib/jwt-claims';
+import { getTenantId, getUserId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 
 function tenantOf(req: any): string | null {
@@ -118,5 +118,43 @@ export async function customersRoutes(app: FastifyInstance) {
     if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
     if (!data) return reply.code(404).send({ code: 'NOT_FOUND' });
     return reply.send(data);
+  });
+
+  // GET /api/v2/customers/:id/notes — notas por cliente (CustomerDetailSheet.tsx).
+  // Migration 120 criou `customer_notes` — decisão do Lucas (2026-08-27): tabela
+  // nova, não reaproveitar `ai_reflections` (conceito diferente).
+  app.get('/api/v2/customers/:id/notes', { onRequest: auth }, async (req: any, reply: any) => {
+    const tenantId = tenantOf(req);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+    const { id } = req.params as { id: string };
+
+    const { data, error } = await supabaseAdmin
+      .from('customer_notes')
+      .select('*')
+      .eq('customer_id', id)
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false });
+    if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
+    return reply.send(data ?? []);
+  });
+
+  // POST /api/v2/customers/:id/notes — cria uma nota.
+  app.post('/api/v2/customers/:id/notes', { onRequest: auth }, async (req: any, reply: any) => {
+    const tenantId = tenantOf(req);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+    const { id } = req.params as { id: string };
+    const userId = getUserId(req.user);
+    const body = (req.body as { body?: string }) ?? {};
+    if (!body.body || !body.body.trim()) {
+      return reply.code(400).send({ code: 'BAD_REQUEST', message: 'body é obrigatório' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('customer_notes')
+      .insert({ tenant_id: tenantId, customer_id: id, body: body.body.trim(), created_by: userId })
+      .select()
+      .single();
+    if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
+    return reply.code(201).send(data);
   });
 }

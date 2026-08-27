@@ -111,9 +111,7 @@ export function AIConfigPage() {
   const [testResponses, setTestResponses] = useState<Record<string, string>>({});
   const [isValidating, setIsValidating] = useState<Record<string, boolean>>({});
 
-  const [tenantTokenLimit, setTenantTokenLimit] = useState(0);
   const [tenantPlan, setTenantPlan] = useState('basic');
-  const [workerConcurrency, setWorkerConcurrency] = useState(1);
   const [expandVectorStore, setExpandVectorStore] = useState(false);
   const [vectorTestResult, setVectorTestResult] = useState<{success: boolean, error?: string} | null>(null);
   const [vectorConfig, setVectorConfig] = useState({ provider: 'qdrant', url: '', apiKey: '', collection: 'astrum_knowledge' });
@@ -297,10 +295,13 @@ export function AIConfigPage() {
       .catch(e => setVectorTestResult({ success: false, error: e.message }));
       
     // F1-D — só os campos reais (cobrai_hourly_limit/window/stages/plan) via rota
-    // nova; `vector_store_config`/`monthly_token_limit`/`worker_concurrency` e
-    // `knowledge_articles.vector_indexed` continuam no Supabase direto (mesmo gap
-    // de schema já documentado na F1-C — colunas não existem, ver achado
-    // colateral no PLANO_ACAO_100_OPERACIONAL.md).
+    // nova; o resto de `tenants` (cobrai_enabled, transcription_config) continua no
+    // Supabase direto (mesmo gap de schema já documentado na F1-C, fora do escopo
+    // desta correção — ver achado colateral no PLANO_ACAO_100_OPERACIONAL.md).
+    // vector_store_config/monthly_token_limit/worker_concurrency/vector_indexed
+    // RESOLVIDOS (2026-08-27): monthly_token_limit/worker_concurrency removidos
+    // (duplicavam plan-limits.service.ts); vector_store_config agora via rota
+    // compartilhada com SettingsPage.tsx (mesma fonte de verdade).
     const loadConfig = async () => {
       try {
         const cobraiSettings = await apiGet<{ plan?: string; cobrai_hourly_limit?: number; cobrai_daily_limit?: number; cobrai_window?: any; cobrai_stages?: any }>(
@@ -312,18 +313,13 @@ export function AIConfigPage() {
         console.error(e);
       }
 
-      const { data: tenant } = await supabase.from('tenants').select('*').eq('id', tenantId).maybeSingle();
-      if (tenant) {
-        if (tenant.vector_store_config) setVectorConfig(tenant.vector_store_config);
-        if (tenant.monthly_token_limit) setTenantTokenLimit(tenant.monthly_token_limit);
-        if (tenant.worker_concurrency) setWorkerConcurrency(tenant.worker_concurrency);
+      try {
+        const { indexedCount: idx, ...vector } = await apiGet<typeof vectorConfig & { indexedCount: number }>('/api/v2/settings/vector-store');
+        setVectorConfig(vector);
+        setIndexedCount(idx ?? 0);
+      } catch (e) {
+        console.error(e);
       }
-      const { count } = await supabase
-        .from('knowledge_articles')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId)
-        .eq('vector_indexed', true);
-      setIndexedCount(count ?? 0);
     };
     loadConfig();
   }, []);
@@ -382,8 +378,18 @@ export function AIConfigPage() {
     }
   };
 
-  const saveVectorConfig = () =>
-    updateTenant({ vector_store_config: vectorConfig }, "Configuração do Banco Vetorial salva").then(testVectorStore);
+  // Mesma rota compartilhada com SettingsPage.tsx — uma fonte de verdade só pro BYOK
+  // do banco vetorial, em vez de cada tela gravar em tenants.vector_store_config
+  // direto (achado da F1-C, PLANO_ACAO_100_OPERACIONAL.md).
+  const saveVectorConfig = async () => {
+    try {
+      await apiPut('/api/v2/settings/vector-store', vectorConfig);
+      toast.success("Configuração do Banco Vetorial salva");
+      testVectorStore();
+    } catch {
+      toast.error("Erro ao salvar");
+    }
+  };
 
   const saveTranscriptionConfig = () =>
     updateTenant({ transcription_config: transcriptionConfig }, "Configuração de Transcrição salva");
@@ -403,9 +409,6 @@ export function AIConfigPage() {
       }
     }, 500);
   };
-
-  const saveTokenLimit = (limit: number, concurrency: number) =>
-    updateTenant({ monthly_token_limit: limit, worker_concurrency: concurrency }, "Limites salvos");
 
   const saveIntegrationKeys = async () => {
     try {
@@ -806,35 +809,6 @@ export function AIConfigPage() {
                   </TabsContent>
 
                   <TabsContent value="models" className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-zinc-50 dark:bg-zinc-800/50 p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 mb-6">
-                              <div className="grid gap-2">
-                                <Label className="font-semibold flex items-center gap-2">Limite Mensal de Tokens</Label>
-                                <div className="flex gap-2">
-                                  <Input 
-                                    type="number" 
-                                    value={tenantTokenLimit}
-                                    onChange={(e) => setTenantTokenLimit(parseInt(e.target.value) || 0)}
-                                  />
-                                </div>
-                                <p className="text-xs text-zinc-500">Impede custos excessivos de LLM bloqueando as chamadas quando o limite é atingido no mês.</p>
-                              </div>
-
-                              <div className="grid gap-2">
-                                <Label className="font-semibold flex items-center gap-2">Concorrência de processamento (1-10)</Label>
-                                <div className="flex gap-2">
-                                  <Input 
-                                    type="number" 
-                                    min="1"
-                                    max="10"
-                                    value={workerConcurrency}
-                                    onChange={(e) => setWorkerConcurrency(Math.min(10, Math.max(1, parseInt(e.target.value) || 1)))}
-                                  />
-                                  <Button onClick={() => saveTokenLimit(tenantTokenLimit, workerConcurrency)}>Salvar</Button>
-                                </div>
-                                <p className="text-xs text-zinc-500">Quantidade de mensagens processadas simultaneamente neste ISP.</p>
-                              </div>
-                            </div>
-
                             {[
                               { id: "chat", title: "Agente Conversacional (Chat)", desc: "Motor principal de conversação com o cliente.", icon: <Bot size={18} className="text-emerald-600" /> },
                               { id: "orchestrator", title: "Agente Orquestrador", desc: "Classifica o sentimento e a categoria da primeira mensagem.", icon: <Bot size={18} className="text-blue-600" /> },

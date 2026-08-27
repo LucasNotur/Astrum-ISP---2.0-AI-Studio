@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Phone, Mail, MapPin, Wifi, CreditCard, MessageSquare, Wrench, Brain, Calendar, Clock, ExternalLink, ChevronRight, Copy, Check, Tag } from 'lucide-react';
+import { X, Phone, Mail, MapPin, Wifi, CreditCard, MessageSquare, Wrench, Calendar, Clock, ExternalLink, ChevronRight, Copy, Check, Tag, StickyNote } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { Badge } from '@/src/components/ui/badge';
 import { Button } from '@/src/components/ui/button';
@@ -8,7 +8,8 @@ import { Avatar, AvatarFallback } from '@/src/components/ui/avatar';
 import { ScrollArea } from '@/src/components/ui/scroll-area';
 import { Skeleton } from '@/src/components/Skeleton';
 import { useAppStore } from '@/src/store/useAppStore';
-import { apiGet } from '@/src/lib/apiClient';
+import { apiGet, apiPost } from '@/src/lib/apiClient';
+import { Textarea } from '@/src/components/ui/textarea';
 import { toast } from 'sonner';
 
 interface CustomerDetailSheetProps {
@@ -116,6 +117,8 @@ export function CustomerDetailSheet({ open, onClose, customerId }: CustomerDetai
   const [customer, setCustomer] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [reflections, setReflections] = useState<any[]>([]);
+  const [newNote, setNewNote] = useState('');
+  const [isSavingNote, setIsSavingNote] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -141,15 +144,32 @@ export function CustomerDetailSheet({ open, onClose, customerId }: CustomerDetai
       } catch {
         setCustomer(null);
       }
-      // F1-D: NÃO migrado — a tabela `reflections` (notas por cliente) não existe
-      // no schema real (só `ai_reflections`, conceito/colunas diferentes —
-      // diário do Cérebro Noturno, não notas por entidade). Ver achado colateral
-      // no PLANO_ACAO_100_OPERACIONAL.md.
-      setReflections([]);
+      // RESOLVIDO (2026-08-27, migration 120): customer_notes é tabela nova,
+      // não reaproveita ai_reflections (conceito diferente — ver PLANO_ACAO_100_OPERACIONAL.md).
+      try {
+        setReflections(await apiGet<any[]>(`/api/v2/customers/${customerId}/notes`));
+      } catch {
+        setReflections([]);
+      }
       setLoading(false);
     };
     load();
   }, [open, customerId]);
+
+  const addNote = async () => {
+    if (!newNote.trim() || !customerId) return;
+    setIsSavingNote(true);
+    try {
+      const created = await apiPost<any>(`/api/v2/customers/${customerId}/notes`, { body: newNote.trim() });
+      setReflections((prev) => [created, ...prev]);
+      setNewNote('');
+      toast.success('Nota adicionada.');
+    } catch {
+      toast.error('Erro ao salvar a nota.');
+    } finally {
+      setIsSavingNote(false);
+    }
+  };
 
   const customerTickets = useMemo(
     () => tickets.filter((t) => t.customerId === customerId || t.customer_id === customerId),
@@ -209,10 +229,10 @@ export function CustomerDetailSheet({ open, onClose, customerId }: CustomerDetai
       events.push({
         id: `ref-${r.id}`,
         type: 'reflection',
-        title: r.title || 'Reflexão da IA',
+        title: 'Nota',
         description: r.body,
         date: new Date(r.created_at || Date.now()),
-        icon: <Brain size={14} />,
+        icon: <StickyNote size={14} />,
         color: 'bg-purple-500/10 text-purple-500',
       });
     }
@@ -473,12 +493,25 @@ export function CustomerDetailSheet({ open, onClose, customerId }: CustomerDetai
                     )}
 
                     {tab === 'timeline' && (
-                      <div className="space-y-0">
-                        {timeline.length === 0 ? (
-                          <p className="text-sm text-muted-foreground py-8 text-center">Nenhum evento registrado.</p>
-                        ) : (
-                          timeline.map((ev) => <TimelineItem key={ev.id} event={ev} />)
-                        )}
+                      <div className="space-y-4">
+                        <div className="flex gap-2">
+                          <Textarea
+                            value={newNote}
+                            onChange={(e) => setNewNote(e.target.value)}
+                            placeholder="Adicionar uma nota sobre este cliente…"
+                            className="min-h-[60px] text-sm"
+                          />
+                          <Button size="sm" onClick={addNote} disabled={!newNote.trim() || isSavingNote} className="self-end">
+                            Salvar
+                          </Button>
+                        </div>
+                        <div className="space-y-0">
+                          {timeline.length === 0 ? (
+                            <p className="text-sm text-muted-foreground py-8 text-center">Nenhum evento registrado.</p>
+                          ) : (
+                            timeline.map((ev) => <TimelineItem key={ev.id} event={ev} />)
+                          )}
+                        </div>
                       </div>
                     )}
 

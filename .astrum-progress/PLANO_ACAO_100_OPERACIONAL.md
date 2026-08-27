@@ -1427,6 +1427,12 @@ Tudo o mais é independente entre si.
   - `WhatsAppPage.tsx:99` — upsert em `tenant_evolution_instances` com `label,
     phone_number, ai_enabled`: a tabela real só tem `id, tenant_id, instance_name, status,
     created_at` — essas 3 colunas não existem.
+    **Decisão do Lucas (2026-08-27): multi-instância por tenant É roadmap real**
+    (departamentos com números diferentes) — não é caso de simplificar a UI pra 1:1.
+    Exige desenho de schema de verdade (tabela `tenant_evolution_instances` ganhar
+    `label`/`phone_number`/`ai_enabled` + o worker/webhook do Evolution API saber rotear
+    por instância, não só por tenant) — escopo grande, vira tarefa própria, não iniciada
+    nesta sessão.
   Antes de migrar essas 7, alguém (produto + engenharia) precisa decidir, por caso: criar
   migration com a coluna/tabela que falta, ou tratar como feature morta e remover da UI.
   Não é uma tarefa "portar query pra rota" — é desenho de schema.
@@ -1435,9 +1441,13 @@ Tudo o mais é independente entre si.
   F1-EXTRA abaixo.** `:452` (`snoozed_until/snooze_reason/snoozed_by`) também **RESOLVIDO**
   (migration 115, commit `f5fe51f` — achado novo #2 na F1-EXTRA). `:513` (`document/plan`
   em `customers`) também **RESOLVIDO** — `PUT /api/v2/customers/:id`, ver "✅ Corrigido"
-  na F1-EXTRA acima. Pendentes de decisão de produto: `ChatPage.tsx:217`
-  (`tenants.closing_reasons/forms`), `:472` (`tickets.closing_reason`), e os 2 de
-  `WhatsAppPage.tsx` (`:97`, `:99`).
+  na F1-EXTRA acima. `:472` (`tickets.closing_reason`) também **RESOLVIDO** (migration 118,
+  ver detalhe na F1-B acima). `ChatPage.tsx:217` (`tenants.closing_reasons/forms`):
+  **decisão do Lucas (2026-08-27) — motivos fixos bastam**, não fica customizável por
+  tenant; a leitura de `tenants.closing_reasons`/`forms` (sempre cai no fallback de 4
+  motivos hoje) fica como está, não migrada — não vale abrir rota pra algo que não vai
+  ser usado. `WhatsAppPage.tsx` (`:97`, `:99`) seguem pendentes — ver decisão de
+  multi-instância acima.
 - **[F1-C, 2026-08-25 — schema real ≠ o que o código assume, verificado via MCP
   `execute_sql` contra `information_schema.columns` ANTES de escrever qualquer rota]**
   26 das 31 ocorrências de `SettingsPage.tsx` (+ 1 fora do grep, ver linha 148 abaixo)
@@ -1446,25 +1456,49 @@ Tudo o mais é independente entre si.
   F1-B). Agrupadas por causa raiz:
   - **`tenants.sso_config`** (linhas 375, 402, 409, 460) — coluna não existe. SSO/domínio
     customizado fica sem persistência real.
+    **✅ RESOLVIDO (2026-08-27, migration 122).** Coluna criada; `saveSsoConfig`/load
+    migrados pra `GET/PUT /api/v2/settings/sso`.
   - **`tenants.theme`** (linhas 402, 409) — coluna não existe. Branding (cores/logo/fonte)
     nunca é salvo de fato.
+    **✅ RESOLVIDO (2026-08-27, migration 122).** Coluna criada; `saveThemeConfig`/load
+    migrados pra `GET/PUT /api/v2/settings/theme`.
   - **`tenants.vector_store_config`** (linhas 460, 488) — coluna não existe. Config do
     banco vetorial (Qdrant/provider/url/apiKey) não persiste.
+    **✅ RESOLVIDO (2026-08-27, migration 122).** Coluna criada; rota `GET/PUT
+    /api/v2/settings/vector-store` **compartilhada** entre `SettingsPage.tsx`,
+    `AIConfigPage.tsx` e `KnowledgeBasePage.tsx` (as 3 telas gravavam o mesmo campo com
+    lógica duplicada — agora 1 fonte de verdade só).
   - **`knowledge_articles.vector_indexed`** (linha 463) — coluna não existe na tabela real
     (`id, tenant_id, document_id, title, content, category, tags, ingest_status,
     legacy_id, extra, created_at, updated_at`); contagem de artigos indexados sempre falha.
+    **✅ RESOLVIDO (2026-08-27, migration 122).** Coluna criada (`boolean default false`);
+    contagem devolvida junto no `GET /api/v2/settings/vector-store` (`indexedCount`).
   - **`tenants.monthly_token_limit` / `worker_concurrency` / 7 campos `backup_*`**
     (linhas 511, 531, 784) — nenhuma dessas 9 colunas existe. Limites de IA e config de
     backup (bucket/projeto GCP/hora/retenção/status) não persistem.
+    **✅ RESOLVIDO, mas não como migração de schema (decisão do Lucas, 2026-08-27):**
+    backup removido da UI já em sessão anterior (nunca teve backend, Supabase já faz
+    backup automático). `monthly_token_limit`/`worker_concurrency` **removidos da UI**
+    (SettingsPage.tsx e AIConfigPage.tsx, duplicavam `plan-limits.service.ts` — que já
+    tem `maxMessagesPerMonth` por plano funcionando de verdade — e `worker_concurrency`
+    é global por tipo de worker no BullMQ, não por tenant; não fazia sentido dar a cada
+    ISP um botão de auto-aprovar mais gasto de IA na conta compartilhada da Astrum).
   - **`tenants.holidays`** (linhas 545, 559, 576, 588) — coluna não existe. Lista de
     feriados (nacional + manual) nunca é salva; `holidays.routes.ts` já reconhecia isso
     num comentário próprio (citado na F1-INV), agora confirmado que a causa não é só RLS —
     a coluna nunca existiu.
+    **✅ RESOLVIDO (2026-08-27, migration 122).** Coluna criada; add/remove/leitura
+    migrados pra `GET/PUT /api/v2/settings/holidays` (rota nova em `holidays.routes.ts`,
+    ao lado do `fetch-national` que já existia).
   - **`role_permissions`** (linha 303) — schema real é `(id, role, resource, action)`
     (RBAC global estático, tabela deny-all mencionada na S2 do plano), não
     `(tenant_id, role_name, permissions jsonb)` como o código assume. O upsert falharia
     mesmo com grants de `anon` restaurados — é tabela errada pro conceito, não coluna
     faltando. Matriz de permissões por role/tenant não tem onde ser persistida hoje.
+    **✅ RESOLVIDO — decisão do Lucas (2026-08-27): RBAC fixo, não por tenant.** A tela
+    "Matriz de Permissões" (`savePermissions`/`togglePermission`/aba "Permissões")
+    removida por inteiro — os 4 papéis fixos já são o que `rbac.middleware.ts` de fato
+    aplica hoje (hardcoded, não lê banco); a tela nunca esteve conectada a isso.
   - **`tenants.integrations`** (linhas 1040, 1217, 1242, 1267, 1345, 1368, 1400, 1680,
     1703, 1726 — os 10 provedores não portados pra `integration-keys` cifrada) — coluna
     não existe (só `integration_keys`, a nova/cifrada, existe). Já era achado colateral da
@@ -1524,8 +1558,18 @@ Tudo o mais é independente entre si.
     `tenants.vector_store_config`/`monthly_token_limit`/`worker_concurrency` não existem
     (idêntico ao achado da F1-C em SettingsPage). `knowledge_articles.vector_indexed`
     também não existe (idêntico ao achado da F1-C).
+    **✅ RESOLVIDO (2026-08-27)** — ver detalhe na entrada da F1-C acima (mesma migration
+    122 + rota compartilhada `/api/v2/settings/vector-store`; token limit/concurrency
+    removidos da UI).
   - `KnowledgeBasePage.tsx` (linhas 166, 175) — `tenants.embedding_config`/
     `vector_store_config` não existem.
+    **✅ RESOLVIDO (2026-08-27, migration 122)** — `embedding_config` incluída na mesma
+    migration por ser o par load/save de `vector_store_config` nesta tela; ambas via
+    `GET/PUT /api/v2/settings/embedding-config` + `/vector-store`. De brinde: o guard
+    `currentTenant?.id` no `loadConfigs` antigo (bug pré-existente — `currentTenant` é
+    string, `.id` sempre `undefined`, mesmo padrão já achado e comentado no próprio
+    arquivo pro `fetchKBArticles`) foi removido junto, já que o tenant agora resolve
+    server-side via JWT.
   - **Novo, não visto na F1-B/C:** `AIObservabilityPage.tsx` (linha 148, fora do grep de uma
     linha só) e `AIConfigPage.tsx` (linha 430, idem) leem `ai_performance_logs` esperando
     colunas `escalated`, `agent`, `active_flow`, `step`, `tool_called`, `input_summary`,
@@ -1539,13 +1583,24 @@ Tudo o mais é independente entre si.
     bruto) depende desses campos inexistentes. Mesmo gap provavelmente se repete em
     `AICostsPage.tsx` (2 ocorrências de `ai_performance_logs`, ver F1-D2) e
     `SentimentMetricsCard.tsx` — não confirmado ainda, mas mesma tabela.
+    **Decisão do Lucas (2026-08-27): vale instrumentar isso de verdade** (não ocultar a
+    seção) — mas é telemetria nova no LangGraph + tabela nova, escopo grande demais pra
+    entrar junto com os itens aditivos desta sessão. Vira tarefa própria (não iniciada).
   - `KanbanBoard.tsx` (linha 63) — `tickets.pipeline_stage` não existe; o board de vendas
     (Kanban) nunca persistiu o card na coluna certa, mesmo antes da migration 092.
+    **✅ RESOLVIDO (2026-08-27, migration 121).** Decisão do Lucas: estágios próprios (não
+    derivar de `tickets.status`) — o componente já tinha 4 colunas fixas de vendas
+    (lead/qualificado/proposta/fechado) sem equivalência nenhuma com o ciclo de vida de
+    suporte. Coluna com `CHECK` restringindo aos 4 valores; `KanbanBoard.tsx` migrado de
+    `supabase.from('tickets').update` direto (anon, bloqueado) pra
+    `PATCH /api/v2/tickets/:id` (schema `updateTicketSchema.pipelineStage` novo).
   - `CustomerDetailSheet.tsx` (linha 141) — tabela `reflections` (notas por cliente) não
     existe; só `ai_reflections` existe (diário do Cérebro Noturno, schema/conceito
     diferente: `reflection_date, metrics, hypotheses, actions`, sem `title/body/entity_id`).
-  Nenhuma dessas foi migrada — mesma decisão da F1-B/C (produto+engenharia decidem: criar
-  coluna/tabela, redirecionar pra JSONB livre, ou remover feature morta).
+    **✅ RESOLVIDO (2026-08-27, migration 120).** Decisão do Lucas: tabela nova
+    (`customer_notes`), não reaproveitar `ai_reflections`. Rotas `GET/POST
+    /api/v2/customers/:id/notes`; UI ganhou um formulário real de criar nota na aba
+    Timeline (antes só existia o slot de exibição, nunca teve como criar uma).
 - **[F1-D, 2026-08-25 — inventário F1-INV incompleto]** Ver seção "Achado crítico — o
   inventário F1-INV está incompleto" na F1-D acima. 18 ocorrências reais em 12 arquivos
   (`AICostsPage.tsx`, `WebhooksPage.tsx`, `SyntheticPage.tsx`, `EscalationRulesBuilder.tsx`,

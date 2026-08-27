@@ -62,6 +62,7 @@ export const updateTicketSchema = z.object({
   priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
   assignedTo: uuidSchema.optional(),
   closingReason: z.string().max(500).optional(),
+  pipelineStage: z.enum(['lead', 'qualificado', 'proposta', 'fechado']).optional(),
 });
 
 export const snoozeTicketSchema = z.object({

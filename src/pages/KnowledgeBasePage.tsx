@@ -10,7 +10,7 @@ import { Label } from "@/src/components/ui/label";
 import { supabase } from '@/src/lib/supabase';
 import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { createKBArticle, updateKBArticle, deleteKBArticle } from '@/src/lib/db';
-import { api, apiGet, apiPost } from '@/src/lib/apiClient';
+import { api, apiGet, apiPost, apiPut } from '@/src/lib/apiClient';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/components/ui/select";
 import { Textarea } from "@/src/components/ui/textarea";
@@ -164,22 +164,30 @@ export function KnowledgeBasePage() {
     }
   };
 
-  // F1-D: NÃO migrado — `tenants.embedding_config`/`vector_store_config` não
-  // existem no schema real (mesmo gap já achado na F1-C para vector_store_config).
-  // Ver achado colateral no PLANO_ACAO_100_OPERACIONAL.md.
+  // RESOLVIDO (2026-08-27, migration 122): mesma rota compartilhada com
+  // SettingsPage.tsx/AIConfigPage.tsx pro vector store (uma fonte de verdade só).
   const loadConfigs = async () => {
-    if (!currentTenant?.id) return;
-    const { data } = await supabase.from('tenants').select('embedding_config,vector_store_config').eq('id', currentTenant.id).maybeSingle();
-    if (data) {
-      if (data.embedding_config) setEmbeddingConfig(data.embedding_config);
-      if (data.vector_store_config) setVectorConfig(data.vector_store_config);
-    }
+    try {
+      const { indexedCount, ...vector } = await apiGet<typeof vectorConfig & { indexedCount: number }>('/api/v2/settings/vector-store');
+      void indexedCount;
+      setVectorConfig(vector);
+    } catch {}
+    try {
+      const embedding = await apiGet<typeof embeddingConfig>('/api/v2/settings/embedding-config');
+      setEmbeddingConfig(embedding);
+    } catch {}
   };
 
   const saveConfigs = async () => {
-    if (!currentTenant?.id) return;
-    await supabase.from('tenants').update({ embedding_config: embeddingConfig, vector_store_config: vectorConfig }).eq('id', currentTenant.id);
-    alert('Configurações salvas!');
+    try {
+      await Promise.all([
+        apiPut('/api/v2/settings/embedding-config', embeddingConfig),
+        apiPut('/api/v2/settings/vector-store', vectorConfig),
+      ]);
+      toast.success('Configurações salvas!');
+    } catch {
+      toast.error('Erro ao salvar configurações.');
+    }
   };
 
   const testEmbeddings = async () => {

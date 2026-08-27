@@ -63,6 +63,12 @@ export declare const updateTicketSchema: z.ZodObject<{
     }>>;
     assignedTo: z.ZodOptional<z.ZodString>;
     closingReason: z.ZodOptional<z.ZodString>;
+    pipelineStage: z.ZodOptional<z.ZodEnum<{
+        lead: "lead";
+        qualificado: "qualificado";
+        proposta: "proposta";
+        fechado: "fechado";
+    }>>;
 }, z.core.$strip>;
 export declare const snoozeTicketSchema: z.ZodObject<{
     snoozedUntil: z.ZodString;
