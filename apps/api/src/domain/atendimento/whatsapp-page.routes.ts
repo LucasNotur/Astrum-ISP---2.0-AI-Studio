@@ -14,7 +14,8 @@
 import type { FastifyInstance } from 'fastify';
 import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
-import { makeDefaultPorts } from '../../adapters/whatsapp/evolution-provision.service';
+import { makePortsFor } from '../../adapters/whatsapp/evolution-provision.service';
+import { resolveTenantKeys } from '../../lib/tenant-keys';
 
 function tenantOf(req: any): string | null {
   return getTenantId(req.user);
@@ -44,7 +45,9 @@ export async function whatsappPageRoutes(app: FastifyInstance) {
   // POST /api/v2/whatsapp/instances — cria conexão nova (upsert por instance_name,
   // que é o UNIQUE real da tabela — NÃO usar onConflict 'tenant_id,instance_name').
   // `provisionOnEvolution` (default true) cria a instância na Evolution API antes
-  // de gravar, sem duplicar a lógica de provisionamento no frontend.
+  // de gravar, sem duplicar a lógica de provisionamento no frontend. As credenciais
+  // são as do PRÓPRIO tenant (resolveTenantKeys, BYOK) — um tenant que hospeda a
+  // própria Evolution API não pode ter a instância criada no servidor global.
   app.post('/api/v2/whatsapp/instances', { onRequest: auth }, async (req: any, reply: any) => {
     const tenantId = tenantOf(req);
     if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
@@ -53,7 +56,8 @@ export async function whatsappPageRoutes(app: FastifyInstance) {
 
     if (provisionOnEvolution !== false) {
       try {
-        await makeDefaultPorts().createInstance(instanceName, evolutionWebhookUrl());
+        const { evolutionUrl, evolutionApiKey } = await resolveTenantKeys(tenantId);
+        await makePortsFor(evolutionUrl, evolutionApiKey).createInstance(instanceName, evolutionWebhookUrl());
       } catch (err) {
         return reply.code(502).send({ code: 'PROVISION_ERROR', message: (err as Error).message });
       }

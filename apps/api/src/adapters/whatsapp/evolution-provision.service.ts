@@ -42,10 +42,13 @@ export async function provisionEvolutionInstance(
   return { instanceName, instanceId, qrCode, webhookConfigured };
 }
 
-export function makeDefaultPorts(): EvolutionProvisionPorts {
-  const apiUrl = process.env.EVOLUTION_API_URL || 'http://localhost:8080';
-  const apiKey = process.env.EVOLUTION_API_KEY || '';
-
+/**
+ * Ports parametrizados por URL/API key explícitas — usado quando o chamador já
+ * resolveu as credenciais do tenant (BYOK, `resolveTenantKeys`). `makeDefaultPorts`
+ * é só o caso particular com o env global, mantido pro onboarding (S91) que ainda
+ * não tem BYOK configurado no momento do provisionamento.
+ */
+export function makePortsFor(apiUrl: string, apiKey: string): EvolutionProvisionPorts {
   return {
     async createInstance(name, webhookUrl) {
       const res = await fetch(`${apiUrl}/instance/create`, {
@@ -89,4 +92,11 @@ export function makeDefaultPorts(): EvolutionProvisionPorts {
         .eq('id', tenantId);
     },
   };
+}
+
+export function makeDefaultPorts(): EvolutionProvisionPorts {
+  return makePortsFor(
+    process.env.EVOLUTION_API_URL || 'http://localhost:8080',
+    process.env.EVOLUTION_API_KEY || '',
+  );
 }

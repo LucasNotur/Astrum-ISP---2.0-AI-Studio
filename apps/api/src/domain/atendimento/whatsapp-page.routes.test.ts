@@ -6,11 +6,16 @@ vi.mock('../../infrastructure/database/supabase.client', () => ({
 }));
 
 vi.mock('../../adapters/whatsapp/evolution-provision.service', () => ({
-  makeDefaultPorts: vi.fn(),
+  makePortsFor: vi.fn(),
+}));
+
+vi.mock('../../lib/tenant-keys', () => ({
+  resolveTenantKeys: vi.fn().mockResolvedValue({ evolutionUrl: 'https://evo.tenant.example', evolutionApiKey: 'tenant-key' }),
 }));
 
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
-import { makeDefaultPorts } from '../../adapters/whatsapp/evolution-provision.service';
+import { makePortsFor } from '../../adapters/whatsapp/evolution-provision.service';
+import { resolveTenantKeys } from '../../lib/tenant-keys';
 import { whatsappPageRoutes } from './whatsapp-page.routes';
 
 type AnyChain = { [k: string]: any };
@@ -42,9 +47,10 @@ async function buildApp(user: any = { userId: 'op-1', tenantId: 'tenant-1', role
 describe('whatsapp-page.routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (makeDefaultPorts as any).mockReturnValue({
+    (makePortsFor as any).mockReturnValue({
       createInstance: vi.fn().mockResolvedValue({ instanceId: 'inst-1' }),
     });
+    (resolveTenantKeys as any).mockResolvedValue({ evolutionUrl: 'https://evo.tenant.example', evolutionApiKey: 'tenant-key' });
   });
 
   describe('GET /api/v2/whatsapp/instances', () => {
@@ -105,7 +111,7 @@ describe('whatsapp-page.routes', () => {
       const res = await app.inject({ method: 'POST', url: '/api/v2/whatsapp/instances', payload: { label: 'Só label' } });
 
       expect(res.statusCode).toBe(400);
-      expect(makeDefaultPorts).not.toHaveBeenCalled();
+      expect(makePortsFor).not.toHaveBeenCalled();
       expect(supabaseAdmin.from).not.toHaveBeenCalled();
     });
 
@@ -117,7 +123,7 @@ describe('whatsapp-page.routes', () => {
 
       expect(res.statusCode).toBe(200);
       expect(res.json()).toEqual({ instance_name: 'astrum-x-123', label: 'Suporte' });
-      const ports = (makeDefaultPorts as any).mock.results[0].value;
+      const ports = (makePortsFor as any).mock.results[0].value;
       expect(ports.createInstance).toHaveBeenCalledWith('astrum-x-123', expect.stringContaining('/api/v2/webhook/evolution'));
       expect(supabaseAdmin.from).toHaveBeenCalledWith('tenant_evolution_instances');
       const chain = (supabaseAdmin.from as any).mock.results[0].value;
@@ -136,7 +142,7 @@ describe('whatsapp-page.routes', () => {
       const res = await app.inject({ method: 'POST', url: '/api/v2/whatsapp/instances', payload: { ...body, provisionOnEvolution: false } });
 
       expect(res.statusCode).toBe(200);
-      expect(makeDefaultPorts).not.toHaveBeenCalled();
+      expect(makePortsFor).not.toHaveBeenCalled();
     });
 
     it('isPrimary true vira is_primary: true no upsert', async () => {
@@ -153,7 +159,7 @@ describe('whatsapp-page.routes', () => {
     });
 
     it('falha do provisionamento na Evolution -> 502 e não grava', async () => {
-      (makeDefaultPorts as any).mockReturnValue({
+      (makePortsFor as any).mockReturnValue({
         createInstance: vi.fn().mockRejectedValue(new Error('Evolution down')),
       });
       const app = await buildApp();
