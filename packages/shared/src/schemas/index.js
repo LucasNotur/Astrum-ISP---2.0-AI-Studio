@@ -47,6 +47,7 @@ export const updateTicketSchema = z.object({
     status: z.enum(['open', 'in_progress', 'resolved', 'closed']).optional(),
     priority: z.enum(['low', 'medium', 'high', 'critical']).optional(),
     assignedTo: uuidSchema.optional(),
+    closingReason: z.string().max(500).optional(),
 });
 export const snoozeTicketSchema = z.object({
     snoozedUntil: z.string().datetime({ offset: true }),

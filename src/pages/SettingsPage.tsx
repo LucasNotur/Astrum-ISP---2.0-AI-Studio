@@ -18,7 +18,6 @@ import { Save, Bug, Database, BellRing, LogOut, Copy, RefreshCw, Settings as Set
 import { toast } from 'sonner';
 import { supabase } from '@/src/lib/supabase';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/src/lib/apiClient';
-import { QRCodeSVG } from 'qrcode.react';
 import { useAppStore } from '../store/useAppStore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import SubscriptionUsageWidget from '../../apps/frontend/src/modules/tenant/subscriptions/SubscriptionUsageWidget';
@@ -205,13 +204,6 @@ export function SettingsPage() {
 
   const [editingRolePermissions, setEditingRolePermissions] = useState<Record<string, Record<string, any>>>({});
 
-  const [totpFactorId, setTotpFactorId] = useState<string | null>(null);
-  const [totpSecret, setTotpSecret] = useState<string | null>(null);
-  const [totpUrl, setTotpUrl] = useState<string | null>(null);
-  const [totpPin, setTotpPin] = useState('');
-  const [isEnrollingMfa, setIsEnrollingMfa] = useState(false);
-  const [mfaError, setMfaError] = useState('');
-  
   useEffect(() => {
     if (rolePermissions && Object.keys(rolePermissions).length > 0) {
       setEditingRolePermissions(rolePermissions);
@@ -256,43 +248,6 @@ export function SettingsPage() {
     });
   };
 
-  const startMfaEnrollment = async () => {
-    setIsEnrollingMfa(true);
-    setMfaError('');
-    try {
-      const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' });
-      if (error) throw error;
-      setTotpFactorId(data.id);
-      setTotpSecret(data.totp.secret);
-      setTotpUrl(data.totp.uri);
-    } catch (e: any) {
-      setMfaError(e.message || 'Erro ao iniciar MFA');
-      setIsEnrollingMfa(false);
-    }
-  };
-
-  const confirmMfaEnrollment = async () => {
-    if (!totpFactorId || !totpPin) return;
-    try {
-      const { data: challenge, error: challengeErr } = await supabase.auth.mfa.challenge({ factorId: totpFactorId });
-      if (challengeErr) throw challengeErr;
-      const { error: verifyErr } = await supabase.auth.mfa.verify({
-        factorId: totpFactorId,
-        challengeId: challenge.id,
-        code: totpPin,
-      });
-      if (verifyErr) throw verifyErr;
-      toast.success('MFA ativado com sucesso!');
-      setIsEnrollingMfa(false);
-      setTotpFactorId(null);
-      setTotpSecret(null);
-      setTotpUrl(null);
-      setTotpPin('');
-    } catch (e: any) {
-      toast.error(e.message || 'Código inválido');
-    }
-  };
-
   const savePermissions = async () => {
     if (!tenantId || tenantId === 'DEFAULT_TENANT') {
       toast.error('Tenant não identificado.');
@@ -325,17 +280,6 @@ export function SettingsPage() {
   
   const [tenantTokenLimit, setTenantTokenLimit] = useState<number>(5000000);
   const [workerConcurrency, setWorkerConcurrency] = useState<number>(3);
-  const [backupConfig, setBackupConfig] = useState({
-    backup_enabled: false,
-    backup_bucket_name: '',
-    gcp_project_id: '',
-    backup_hour: '02h',
-    backup_retention_days: 30,
-    last_backup_at: null as any,
-    last_backup_status: null as string | null,
-    last_backup_size_mb: null as string | null,
-    last_backup_error: null as string | null
-  });
 
   const [expandVectorStore, setExpandVectorStore] = useState(false);
   const [vectorTestResult, setVectorTestResult] = useState<{success: boolean, error?: string} | null>(null);
@@ -517,22 +461,14 @@ export function SettingsPage() {
 
   
   useEffect(() => {
-    // S99 — tenant limits & backup config via Supabase
-    supabase.from('tenants').select('monthly_token_limit,worker_concurrency,backup_enabled,backup_bucket_name,gcp_project_id,backup_hour,backup_retention_days,last_backup_at,last_backup_status,last_backup_size_mb,last_backup_error').eq('id', tenantId).maybeSingle().then(({ data }) => {
+    // S99 — tenant limits via Supabase (monthly_token_limit/worker_concurrency ainda não
+    // existem na tabela real — decisão de produto pendente, ver PLANO_ACAO_100_OPERACIONAL.md).
+    // Config de backup removida daqui: nunca teve backend real (Supabase já faz backup
+    // automático diário + PITR); a seção da tela foi retirada junto.
+    supabase.from('tenants').select('monthly_token_limit,worker_concurrency').eq('id', tenantId).maybeSingle().then(({ data }) => {
       if (!data) return;
       if (data.monthly_token_limit) setTenantTokenLimit(data.monthly_token_limit);
       if (data.worker_concurrency) setWorkerConcurrency(data.worker_concurrency);
-      setBackupConfig({
-        backup_enabled: data.backup_enabled || false,
-        backup_bucket_name: data.backup_bucket_name || '',
-        gcp_project_id: data.gcp_project_id || '',
-        backup_hour: data.backup_hour || '02h',
-        backup_retention_days: data.backup_retention_days || 30,
-        last_backup_at: data.last_backup_at ? new Date(data.last_backup_at).toLocaleString('pt-BR') : null,
-        last_backup_status: data.last_backup_status || null,
-        last_backup_size_mb: data.last_backup_size_mb || null,
-        last_backup_error: data.last_backup_error || null
-      });
     });
     return () => {};
   }, [tenantId]);
@@ -789,18 +725,6 @@ export function SettingsPage() {
     }
   };
 
-  const saveBackupConfig = async (key: string, value: any) => {
-    try {
-      await supabase.from('tenants').update({ [key]: value }).eq('id', tenantId);
-      toast.success(`Configuração de backup atualizada!`);
-    } catch (e) {
-      toast.error("Erro ao salvar configuração.");
-    }
-  };
-
-  // Backup manual removido: /api/backup/trigger nunca teve backend e o backup do
-  // banco é automático (Supabase diário + PITR). A UI não expõe mais o botão.
-
   const fetchRedisStatus = async () => {
     try {
       const res = await fetch('/api/integrations/redis/status');
@@ -863,15 +787,24 @@ export function SettingsPage() {
   const saveCompanySettings = async () => {
     try {
       toast.info('Salvando configurações...', { id: 'save-settings' });
-      // Clean object to ensure no functions are passed to setDoc
-      const cleanSettings = JSON.parse(JSON.stringify(companySettings));
-      await supabase.from('tenants').update(cleanSettings).eq('id', tenantId);
+      // Allowlist explícita (migration 119 + PUT /api/v2/settings/company) — antes disto
+      // o código espalhava QUALQUER chave de companySettings como coluna direto no
+      // Supabase anônimo, e só `name` existia de fato na tabela (o update inteiro falhava).
+      const { name, logoUrl, supportEmail, supportPhone, workingHours, timezone } = companySettings;
+      await apiPut('/api/v2/settings/company', { name, logoUrl, supportEmail, supportPhone, workingHours, timezone });
       toast.success('Configurações salvas no banco de dados com sucesso!', { id: 'save-settings' });
     } catch (error) {
       console.error(error);
       toast.error('Erro ao salvar as configurações.', { id: 'save-settings' });
     }
   };
+
+  useEffect(() => {
+    if (!tenantId || tenantId === 'DEFAULT_TENANT') return;
+    apiGet<{ name: string; logoUrl: string; supportEmail: string; supportPhone: string; workingHours: string; timezone: string }>('/api/v2/settings/company')
+      .then((data) => setCompanySettings((prev: any) => ({ ...prev, ...data })))
+      .catch(() => {});
+  }, [tenantId]);
 
 
   useEffect(() => {
@@ -1859,7 +1792,6 @@ export function SettingsPage() {
                   <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="holidays">Feriados</TabsTrigger>
                   <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="theme">Tema</TabsTrigger>
                   <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="modules">Módulos</TabsTrigger>
-                  <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="security">Segurança</TabsTrigger>
                   <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="sso">SSO</TabsTrigger>
                   <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="custom_domain">Domínio</TabsTrigger>
                   {isAstrum && <TabsTrigger className="rounded-full px-3 text-xs font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-2" value="permissions">Permissões</TabsTrigger>}
@@ -1979,93 +1911,6 @@ export function SettingsPage() {
 
                 <TabsContent value="advanced" className="mt-6">
                   <div className="grid grid-cols-1 gap-6">
-                    <Card className="border-border shadow-sm">
-                      <CardHeader className="bg-secondary/40 border-b border-border rounded-t-xl">
-                        <CardTitle className="flex items-center gap-2">
-                          <Database size={18} className="text-astrum-fiber" /> 
-                          Backup Automático (Firestore)
-                        </CardTitle>
-                        <CardDescription>
-                          Configure o backup automático dos bancos de dados do sistema (Tickets, Logs, Os, Clientes).
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-6 pt-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <Label className="font-semibold text-foreground">Ativar Backup Automático</Label>
-                          <Switch 
-                            checked={backupConfig.backup_enabled} 
-                            onCheckedChange={(checked) => saveBackupConfig('backup_enabled', checked)} 
-                          />
-                        </div>
-
-                        {backupConfig.backup_enabled && (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-secondary/30 p-4 border border-border rounded-lg">
-                            <div className="space-y-2">
-                              <Label>ID do Projeto GCP</Label>
-                              <Input 
-                                placeholder="ex: meu-projeto-123" 
-                                value={backupConfig.gcp_project_id}
-                                onChange={(e) => setBackupConfig(prev => ({...prev, gcp_project_id: e.target.value}))}
-                                onBlur={(e) => saveBackupConfig('gcp_project_id', e.target.value)}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Nome do Bucket GCP</Label>
-                              <Input 
-                                placeholder="ex: meu-bucket-backups" 
-                                value={backupConfig.backup_bucket_name}
-                                onChange={(e) => setBackupConfig(prev => ({...prev, backup_bucket_name: e.target.value}))}
-                                onBlur={(e) => saveBackupConfig('backup_bucket_name', e.target.value)}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Horário do Backup</Label>
-                              <select 
-                                className="w-full text-sm border p-2 rounded-md bg-card border-border"
-                                value={backupConfig.backup_hour}
-                                onChange={(e) => {
-                                  setBackupConfig(prev => ({...prev, backup_hour: e.target.value}));
-                                  saveBackupConfig('backup_hour', e.target.value);
-                                }}
-                              >
-                                <option value="01h">01h</option>
-                                <option value="02h">02h</option>
-                                <option value="03h">03h</option>
-                                <option value="04h">04h</option>
-                                <option value="05h">05h</option>
-                              </select>
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Retenção em dias</Label>
-                              <Input 
-                                type="number"
-                                value={backupConfig.backup_retention_days}
-                                onChange={(e) => setBackupConfig(prev => ({...prev, backup_retention_days: parseInt(e.target.value)}))}
-                                onBlur={(e) => saveBackupConfig('backup_retention_days', parseInt(e.target.value))}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="pt-4 border-t border-border flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                          <div className="text-sm">
-                            <p className="text-muted-foreground mb-1">Último Backup: <span className="font-semibold text-foreground">{backupConfig.last_backup_at || 'Nunca'}</span></p>
-                            <div className="text-muted-foreground">
-                              Status: 
-                              {backupConfig.last_backup_status === 'success' && <Badge variant="secondary" className="ml-2 bg-astrum-signal/15 text-astrum-signal">Sucesso</Badge>}
-                              {backupConfig.last_backup_status === 'failed' && <Badge variant="secondary" className="ml-2 bg-astrum-red/15 text-astrum-red">{backupConfig.last_backup_error || 'Falha'}</Badge>}
-                              {!backupConfig.last_backup_status && <Badge variant="outline" className="ml-2 text-muted-foreground">N/A</Badge>}
-                              {backupConfig.last_backup_size_mb && <span className="ml-2 text-xs">({backupConfig.last_backup_size_mb})</span>}
-                            </div>
-                          </div>
-                          <p className="text-xs text-muted-foreground max-w-xs">
-                            O banco (Supabase) já faz backup automático diário + Point-in-Time Recovery.
-                            O backup manual para bucket externo não está ativo.
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
-
                     {isAstrum && (
                       <Card className="border-border shadow-sm">
                         <CardHeader className="bg-secondary/40 border-b border-border rounded-t-xl">
@@ -2374,64 +2219,6 @@ export function SettingsPage() {
                     </CardContent>
                   </Card>
                 </TabsContent>)}
-
-                <TabsContent value="security" className="mt-6">
-                  <Card className="border-none shadow-sm">
-                    <CardHeader>
-                      <CardTitle>Segurança da Conta</CardTitle>
-                      <CardDescription>
-                        Configure métodos de autenticação e proteção da sua conta.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <div className="flex flex-col space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="text-sm font-semibold">Autenticação de Dois Fatores (2FA)</h3>
-                            <p className="text-xs text-muted-foreground">Adicione uma camada extra de segurança utilizando o Google Authenticator ou similar.</p>
-                          </div>
-                          {!totpFactorId && (
-                             <Button onClick={startMfaEnrollment} disabled={isEnrollingMfa}>
-                               Ativar 2FA
-                             </Button>
-                          )}
-                        </div>
-
-                        {totpFactorId && totpUrl && (
-                           <div className="p-4 bg-secondary/40 rounded-md flex flex-col items-center gap-4">
-                             <p className="text-sm">Escaneie o QR Code abaixo com seu aplicativo de autenticação (ex: Google Authenticator)</p>
-                             <div className="bg-white p-2 rounded-md">
-                                <QRCodeSVG value={totpUrl} size={200} />
-                             </div>
-                             <div className="w-full max-w-sm space-y-2 mt-2">
-                                <Label>Código de 6 dígitos</Label>
-                                <Input 
-                                  value={totpPin} 
-                                  onChange={(e) => setTotpPin(e.target.value)} 
-                                  placeholder="123456" 
-                                  maxLength={6} 
-                                />
-                             </div>
-                             {mfaError && <p className="text-xs text-astrum-red">{mfaError}</p>}
-                             <div className="flex gap-2 w-full max-w-sm">
-                               <Button variant="outline" className="flex-1" onClick={() => {
-                                 setTotpFactorId(null);
-                                 setTotpSecret(null);
-                                 setTotpUrl(null);
-                                 setIsEnrollingMfa(false);
-                               }}>
-                                 Cancelar
-                               </Button>
-                               <Button className="flex-1" onClick={confirmMfaEnrollment} disabled={totpPin.length < 6}>
-                                 Verificar e Ativar
-                               </Button>
-                             </div>
-                           </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
 
                 <TabsContent value="sso" className="mt-6">
                   <Card className="border-none shadow-sm h-full">

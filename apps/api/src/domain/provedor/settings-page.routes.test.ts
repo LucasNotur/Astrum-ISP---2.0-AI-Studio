@@ -175,4 +175,80 @@ describe('settings-page.routes', () => {
       expect(chain.eq).toHaveBeenCalledWith('id', 'tenant-1');
     });
   });
+
+  describe('GET /api/v2/settings/company', () => {
+    it('sem tenant no JWT -> 401', async () => {
+      const app = await buildApp({});
+      const res = await app.inject({ method: 'GET', url: '/api/v2/settings/company' });
+      expect(res.statusCode).toBe(401);
+    });
+
+    it('devolve o perfil da empresa mapeado pra camelCase, filtrado por tenant_id', async () => {
+      mockFromSequence([{
+        data: {
+          name: 'Fibra Norte', logo_url: 'https://x/logo.png', support_email: 'sac@fibranorte.com.br',
+          support_phone: '(11) 4000-0000', working_hours: '08:00 - 20:00', timezone: 'America/Sao_Paulo',
+        },
+        error: null,
+      }]);
+      const app = await buildApp();
+
+      const res = await app.inject({ method: 'GET', url: '/api/v2/settings/company' });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({
+        name: 'Fibra Norte', logoUrl: 'https://x/logo.png', supportEmail: 'sac@fibranorte.com.br',
+        supportPhone: '(11) 4000-0000', workingHours: '08:00 - 20:00', timezone: 'America/Sao_Paulo',
+      });
+      const chain = (supabaseAdmin.from as any).mock.results[0].value;
+      expect(chain.eq).toHaveBeenCalledWith('id', 'tenant-1');
+    });
+
+    it('sem linha no banco -> devolve defaults vazios', async () => {
+      mockFromSequence([{ data: null, error: null }]);
+      const app = await buildApp();
+      const res = await app.inject({ method: 'GET', url: '/api/v2/settings/company' });
+      expect(res.json()).toEqual({
+        name: '', logoUrl: '', supportEmail: '', supportPhone: '', workingHours: '', timezone: 'America/Sao_Paulo',
+      });
+    });
+  });
+
+  describe('PUT /api/v2/settings/company', () => {
+    it('sem tenant no JWT -> 401', async () => {
+      const app = await buildApp({});
+      const res = await app.inject({ method: 'PUT', url: '/api/v2/settings/company', payload: { name: 'x' } });
+      expect(res.statusCode).toBe(401);
+    });
+
+    it('corpo sem nenhum campo válido -> 400', async () => {
+      const app = await buildApp();
+      const res = await app.inject({ method: 'PUT', url: '/api/v2/settings/company', payload: { unknownField: 'x' } });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('allowlist: só grava os 6 campos conhecidos, mapeados pra snake_case, ignora o resto', async () => {
+      mockFromSequence([{ data: null, error: null }]);
+      const app = await buildApp();
+
+      const res = await app.inject({
+        method: 'PUT',
+        url: '/api/v2/settings/company',
+        payload: {
+          name: 'Fibra Norte', logoUrl: 'https://x/logo.png', supportEmail: 'sac@fibranorte.com.br',
+          supportPhone: '(11) 4000-0000', workingHours: '08:00 - 20:00', timezone: 'America/Sao_Paulo',
+          rolePermissions: { admin: ['*'] }, id: 'outro-tenant', // campos que NÃO fazem parte da allowlist
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({ ok: true });
+      const chain = (supabaseAdmin.from as any).mock.results[0].value;
+      expect(chain.update).toHaveBeenCalledWith({
+        name: 'Fibra Norte', logo_url: 'https://x/logo.png', support_email: 'sac@fibranorte.com.br',
+        support_phone: '(11) 4000-0000', working_hours: '08:00 - 20:00', timezone: 'America/Sao_Paulo',
+      });
+      expect(chain.eq).toHaveBeenCalledWith('id', 'tenant-1');
+    });
+  });
 });

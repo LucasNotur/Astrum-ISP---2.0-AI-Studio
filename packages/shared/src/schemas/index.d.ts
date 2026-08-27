@@ -62,6 +62,7 @@ export declare const updateTicketSchema: z.ZodObject<{
         critical: "critical";
     }>>;
     assignedTo: z.ZodOptional<z.ZodString>;
+    closingReason: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export declare const snoozeTicketSchema: z.ZodObject<{
     snoozedUntil: z.ZodString;

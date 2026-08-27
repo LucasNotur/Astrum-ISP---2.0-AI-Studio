@@ -4,15 +4,26 @@
  * 092_p0_rls_hardening.sql. Rota serve o mesmo dado via `supabaseAdmin`, filtrando
  * por tenant do JWT.
  *
- * Só `enabled_modules` — as demais ~24 ocorrências de supabase.from( desta página
- * gravam/leem colunas que não existem na tabela `tenants` real (sso_config, theme,
- * vector_store_config, monthly_token_limit, worker_concurrency, backup_*, holidays,
- * integrations) ou miram tabelas com schema divergente (role_permissions). Ver
- * "Achados colaterais" no PLANO_ACAO_100_OPERACIONAL.md — não migradas nesta tarefa.
+ * `enabled_modules`, `escalation_rules` e (2026-08-27) o perfil da empresa
+ * (`/settings/company`) já migrados. Ainda pendentes: sso_config, theme,
+ * vector_store_config, monthly_token_limit, worker_concurrency, holidays,
+ * integrations (plaintext), role_permissions — colunas/tabelas que não existem
+ * na base real ou schema divergente. Ver "Achados colaterais" no
+ * PLANO_ACAO_100_OPERACIONAL.md — decisão de produto pendente, não migradas.
  */
 import type { FastifyInstance } from 'fastify';
 import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
+
+const COMPANY_FIELDS = ['name', 'logoUrl', 'supportEmail', 'supportPhone', 'workingHours', 'timezone'] as const;
+const COMPANY_FIELD_TO_COLUMN: Record<(typeof COMPANY_FIELDS)[number], string> = {
+  name: 'name',
+  logoUrl: 'logo_url',
+  supportEmail: 'support_email',
+  supportPhone: 'support_phone',
+  workingHours: 'working_hours',
+  timezone: 'timezone',
+};
 
 export async function settingsPageRoutes(app: FastifyInstance) {
   const auth = [async (req: any, reply: any) => { await (app as any).authenticate(req, reply); }];
@@ -79,6 +90,52 @@ export async function settingsPageRoutes(app: FastifyInstance) {
     const { error } = await supabaseAdmin
       .from('tenants')
       .update({ escalation_rules })
+      .eq('id', tenantId);
+    if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
+    return reply.send({ ok: true });
+  });
+
+  // GET /api/v2/settings/company — perfil da empresa (aba "Geral" da SettingsPage).
+  // Migration 119 criou logo_url/support_email/support_phone/working_hours/timezone.
+  app.get('/api/v2/settings/company', { onRequest: auth }, async (req: any, reply: any) => {
+    const tenantId = getTenantId(req.user);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+
+    const { data, error } = await supabaseAdmin
+      .from('tenants')
+      .select('name,logo_url,support_email,support_phone,working_hours,timezone')
+      .eq('id', tenantId)
+      .maybeSingle();
+    if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
+
+    return reply.send({
+      name: data?.name ?? '',
+      logoUrl: data?.logo_url ?? '',
+      supportEmail: data?.support_email ?? '',
+      supportPhone: data?.support_phone ?? '',
+      workingHours: data?.working_hours ?? '',
+      timezone: data?.timezone ?? 'America/Sao_Paulo',
+    });
+  });
+
+  // PUT /api/v2/settings/company — allowlist explícita (achado F1-C: o código antigo
+  // espalhava QUALQUER chave do estado do frontend como nome de coluna).
+  app.put('/api/v2/settings/company', { onRequest: auth }, async (req: any, reply: any) => {
+    const tenantId = getTenantId(req.user);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const update: Record<string, unknown> = {};
+    for (const field of COMPANY_FIELDS) {
+      if (body[field] !== undefined) update[COMPANY_FIELD_TO_COLUMN[field]] = body[field];
+    }
+    if (Object.keys(update).length === 0) {
+      return reply.code(400).send({ code: 'BAD_REQUEST', message: 'Nenhum campo válido enviado.' });
+    }
+
+    const { error } = await supabaseAdmin
+      .from('tenants')
+      .update(update)
       .eq('id', tenantId);
     if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
     return reply.send({ ok: true });

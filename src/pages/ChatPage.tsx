@@ -35,9 +35,9 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/src/lib/utils";
 import { useAppStore } from "@/src/store/useAppStore";
-import { updateTicketStatus, toggleTicketAI, sendMessage } from "@/src/lib/db";
+import { toggleTicketAI, sendMessage } from "@/src/lib/db";
 import { supabase } from "@/src/lib/supabase";
-import { apiGet, apiPost, apiPut } from "@/src/lib/apiClient";
+import { apiGet, apiPost, apiPut, apiPatch } from "@/src/lib/apiClient";
 import { uploadAttachment as uploadToStorage, getSignedUrl } from "@/src/lib/storage";
 import { useSignedMediaUrls, resolveMediaUrl } from "@/src/hooks/useSignedMediaUrls";
 import { CustomerHistorySidebar } from "@/src/components/CustomerHistorySidebar";
@@ -401,8 +401,12 @@ export function ChatPage() {
     if (!closingReason) { toast.error("Selecione o motivo de encerramento."); return; }
     if (!selectedTicket) return;
     try {
-      await supabase.from("tickets").update({ closing_reason: closingReason }).eq("id", selectedTicket.id);
-      await updateTicketStatus(selectedTicket.id, "resolved");
+      // migration 118 — closing_reason agora persiste de verdade via rota real
+      // (o insert direto pelo client anônimo falhava calado, coluna não existia).
+      await apiPatch(`/api/v2/tickets/${selectedTicket.id}`, {
+        status: "resolved",
+        closingReason: closingReason,
+      });
       toast.success("Ticket encerrado!");
       setIsClosingOpen(false);
       setSelectedTicket(null);

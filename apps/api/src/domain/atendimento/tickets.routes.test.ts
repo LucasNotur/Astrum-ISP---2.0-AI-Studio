@@ -71,6 +71,25 @@ describe('PATCH /api/v2/tickets/:id', () => {
       expect.not.objectContaining({ assignedTo: expect.anything() }),
     );
   });
+
+  it('mapeia closingReason (camelCase) pra closing_reason (coluna real, migration 118) e aceita status junto', async () => {
+    mockFrom({ data: [{ id: 'tk-1' }], error: null });
+    const app = await buildApp();
+
+    await app.inject({
+      method: 'PATCH',
+      url: '/api/v2/tickets/f7544310-4a28-4a91-8d0f-ba8939b37c83',
+      payload: { status: 'resolved', closingReason: 'Dúvida Sanada' },
+    });
+
+    const chain = (supabaseAdmin.from as any).mock.results[0].value;
+    expect(chain.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'resolved', closing_reason: 'Dúvida Sanada' }),
+    );
+    expect(chain.update).toHaveBeenCalledWith(
+      expect.not.objectContaining({ closingReason: expect.anything() }),
+    );
+  });
 });
 
 describe('POST /api/v2/tickets/:id/snooze', () => {

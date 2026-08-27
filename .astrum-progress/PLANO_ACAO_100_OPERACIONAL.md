@@ -439,13 +439,28 @@ gap já achado em AIConfigPage/KnowledgeBasePage), `monthly_token_limit`/`worker
 7 campos de `backup_*`, `holidays`, `role_permissions` (schema RBAC global, não por-tenant),
 `cleanSettings` (spread de `companySettings` inteiro, mistura campos reais e inventados) —
 nenhuma coluna real, precisa decisão de produto (criar coluna ou aposentar a feature) antes
-de qualquer rota. **Achado extra dentro deste grupo:** o comentário do próprio código em
+de qualquer rota.
+**✅ `cleanSettings`/`saveCompanySettings` RESOLVIDO (2026-08-27)** — ver detalhe na entrada
+da F1-C acima (migration 119 + `PUT/GET /api/v2/settings/company`). Os demais deste
+parágrafo (`sso_config`/`theme`/`vector_store_config`/limites de IA/`holidays`/
+`role_permissions`) continuam sem decisão de produto — não fizeram parte do lote aprovado.
+**Achado extra dentro deste grupo:** o comentário do próprio código em
 `saveBackupConfig` (linha ~801) já admite que a seção de backup manual "nunca teve backend"
 e é vestigial (Supabase já faz backup automático) — candidata a remoção, não a migração.
+**✅ RESOLVIDO (2026-08-27)** — card "Backup Automático" removido inteiro da aba Avançado
+(state `backupConfig`, handler `saveBackupConfig` e o `select` de colunas fantasma no
+`useEffect` de limites); `monthly_token_limit`/`worker_concurrency` (mesmo `useEffect`,
+gap diferente e ainda sem decisão) preservados intactos.
 Também dentro deste grupo: `supabase.auth.mfa.enroll/challenge/verify` (linhas ~263-284) —
 MFA via Supabase Auth, **sistema paralelo e morto**: o app tem seu próprio MFA real
 (`apps/api/src/domain/auth/mfa.routes.ts`, TOTP, já funcional), então esta tela de setup de
 MFA nunca funcionou e está desconectada do MFA de verdade.
+**✅ RESOLVIDO (2026-08-27)** — aba "Segurança" inteira removida (trigger + `TabsContent`
++ state/handlers `startMfaEnrollment`/`confirmMfaEnrollment`/`totpFactorId`/etc.): não
+sobrava nenhum outro conteúdo na aba depois de tirar o card morto. **Follow-up spawnado**
+pra construir a UI real de 2FA (QR code) contra os endpoints já funcionais do
+`apps/api/src/domain/auth/mfa.routes.ts` (`enroll`/`verify`/`disable` — hoje só `challenge`
+tem consumidor no frontend, no login).
 
 **⛔ NÃO corrigido — ChatPage.tsx, 5 ocorrências restantes:** todas em `messages`/`tickets`
 com nomes que não existem (`ticket_id`/`body`/`sender_type`/`evo_msg_ids` em vez de
@@ -1397,6 +1412,14 @@ Tudo o mais é independente entre si.
     `status='snoozed'`: nenhuma coluna existe E `'snoozed'` nem é valor aceito pelo CHECK
     constraint de `tickets.status` (só `open/in_progress/resolved/closed`).
   - `ChatPage.tsx:472` — update de `tickets.closing_reason`: coluna não existe.
+    **✅ RESOLVIDO (2026-08-27, migration 118).** Coluna criada; `confirmClosing` trocado
+    pra uma única chamada `apiPatch('/api/v2/tickets/:id', { status: 'resolved',
+    closingReason })` (schema `updateTicketSchema` + mapeamento camelCase→snake_case no
+    handler, mesmo padrão de `assignedTo`). Substituiu as 2 chamadas antigas (uma delas
+    era o `updateTicketStatus` de `src/lib/db.ts`/`supabaseDb.ts`, que continua com o
+    mesmo bug de client anônimo pros OUTROS ~15 callers espalhados pelo app — não
+    corrigido aqui, é o achado maior "~85 ocorrências em src/lib" já registrado acima,
+    fora de escopo desta tarefa pontual).
   - `ChatPage.tsx:513` — update de `customers` com `document`/`plan`/`tenantId`: colunas
     reais são `cpf`/`plan_id`/`tenant_id` (nomes diferentes, não é só RLS).
   - `WhatsAppPage.tsx:97` — `tenants.evolution_instances` (plural, array): a coluna real é
@@ -1448,6 +1471,11 @@ Tudo o mais é independente entre si.
     F1-INV como "grava em coluna plaintext antiga"; agora confirmado que nem a coluna
     antiga existe mais — o `update` falha por completo, não é um problema de cifra/schema
     novo vs. antigo, é ausência total de destino.
+    **✅ RESOLVIDO — já estava migrado quando revisitei em 2026-08-27** (não achei o
+    commit exato; aconteceu em alguma sessão entre 25/08 e 26/08 não documentada aqui).
+    Confirmado por grep: zero `supabase.from('tenants')` restantes em `SettingsPage.tsx`;
+    os 17 provedores (os 7 originais + os 10 desta lista) usam
+    `apiPut('/api/v2/settings/integration-keys', { keys })`.
   - **`saveCompanySettings`** (linha 858) — `supabase.from('tenants').update(cleanSettings)`
     espalha as chaves de `companySettings` (`name, logoUrl, supportEmail, supportPhone,
     workingHours, timezone` — default em `useAppStore.ts:227`) como nomes de coluna
@@ -1455,6 +1483,14 @@ Tudo o mais é independente entre si.
     (Postgres rejeita update com coluna inexistente). Padrão perigoso à parte do bug de
     schema: se algum dia a coluna existir, esse handler aceita gravar QUALQUER chave que
     estiver no estado do Zustand sem allowlist — vale revisitar quando for desenhado.
+    **✅ RESOLVIDO (2026-08-27, migration 119 + commit local).** Colunas `logo_url`,
+    `support_email`, `support_phone`, `working_hours`, `timezone` criadas em `tenants`.
+    `saveCompanySettings` reescrito com allowlist explícita (6 campos, nada mais) via
+    `PUT /api/v2/settings/company` (nova rota em `settings-page.routes.ts`); adicionado
+    também `GET /api/v2/settings/company` + load-on-mount — antes disso a tela nunca
+    recarregava o que foi salvo (Zustand sem persist, sempre voltava pro mock hardcoded
+    no reload). Testes novos cobrindo allowlist (campos desconhecidos são ignorados) e
+    tenant-scoping.
   - **`seedTicketsAndLogs`** (linha 153, mais a ocorrência em 148 não capturada pelo grep
     de uma linha só — `await supabase\n  .from('tickets')...`, mesmo padrão de quebra de
     linha já avisado na correção pós-F1-A) — ferramenta de dev/seed atrás de
