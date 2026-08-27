@@ -25,7 +25,7 @@
 
 import { extractText } from '../../apps/api/src/infrastructure/rag/document-extractor.service';
 import { chunkTechnicalManual } from '../../apps/api/src/infrastructure/rag/document-chunker.service';
-import { generateEmbeddingsBatch } from '../../apps/api/src/adapters/ai/embedding.service';
+import { generateEmbeddingsBatchWithFailover } from '../../apps/api/src/adapters/ai/embedding.service';
 import { ensureCollection, upsertPoints, getQdrantClient, getTenantCollection } from '../../apps/api/src/adapters/vector/qdrant.adapter';
 import crypto from 'node:crypto';
 
@@ -135,7 +135,7 @@ function fmtMs(ms: number): string {
 
 async function main() {
   const testTenantId = `qa-pdf-ingestion-${Date.now()}`;
-  const collectionName = getTenantCollection(testTenantId);
+  let collectionName = getTenantCollection(testTenantId); // atualizado depois de saber o provider real
   const errors: string[] = [];
   let createdCollection = false;
 
@@ -166,20 +166,22 @@ async function main() {
     const avgChunkSize = chunks.reduce((s, c) => s + c.text.length, 0) / chunks.length;
     console.log(`      tamanho médio do chunk: ${avgChunkSize.toFixed(0)} chars`);
 
-    // 4. Embeddings reais (OpenAI, batches de 100)
+    // 4. Embeddings reais (OpenAI, com failover pro Gemini se faltar crédito)
     t0 = Date.now();
     const chunkTexts = chunks.map(c => c.text);
-    const embeddings = await generateEmbeddingsBatch(chunkTexts, testTenantId);
-    console.log(`[4/5] Embeddings gerados: ${embeddings.length}/${chunks.length} em ${fmtMs(Date.now() - t0)}`);
+    const { provider, embeddings } = await generateEmbeddingsBatchWithFailover(chunkTexts, testTenantId);
+    console.log(`[4/5] Embeddings gerados via ${provider}: ${embeddings.length}/${chunks.length} em ${fmtMs(Date.now() - t0)}`);
     if (embeddings.length !== chunks.length) {
       errors.push(`Contagem de embeddings (${embeddings.length}) != contagem de chunks (${chunks.length}).`);
     }
-    const badVector = embeddings.findIndex(v => !Array.isArray(v) || v.length !== 1536);
-    if (badVector !== -1) errors.push(`Embedding no índice ${badVector} não tem 1536 dimensões.`);
+    const expectedDims = embeddings[0]?.length ?? 0;
+    const badVector = embeddings.findIndex(v => !Array.isArray(v) || v.length !== expectedDims);
+    if (badVector !== -1) errors.push(`Embedding no índice ${badVector} não tem ${expectedDims} dimensões (inconsistente com o restante do batch).`);
 
-    // 5. Upsert real no Qdrant
+    // 5. Upsert real no Qdrant (coleção do provider que respondeu)
     t0 = Date.now();
-    await ensureCollection(testTenantId);
+    collectionName = getTenantCollection(testTenantId, provider);
+    await ensureCollection(testTenantId, provider, expectedDims);
     createdCollection = true;
     const points = chunks.map((chunk, i) => ({
       id: crypto.randomUUID(),
@@ -194,10 +196,11 @@ async function main() {
         chunk_text: chunk.text,
         file_type: 'pdf',
         created_at: new Date().toISOString(),
+        embedding_provider: provider,
       },
     }));
-    await upsertPoints(testTenantId, points);
-    console.log(`[5/5] Upsert no Qdrant: ${points.length} pontos em ${fmtMs(Date.now() - t0)}`);
+    await upsertPoints(testTenantId, points, provider);
+    console.log(`[5/5] Upsert no Qdrant (${collectionName}): ${points.length} pontos em ${fmtMs(Date.now() - t0)}`);
 
     // Verificação: contagem real na coleção bate com o esperado
     const qdrant = getQdrantClient();
