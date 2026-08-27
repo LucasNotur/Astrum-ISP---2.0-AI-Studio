@@ -90,7 +90,7 @@ async function generateEmbeddingsBatchGoogle(
   const google = createGoogleGenerativeAI({ apiKey });
 
   const { embeddings } = await embedMany({
-    model: google.textEmbeddingModel(GOOGLE_EMBEDDING_MODEL),
+    model: google.embeddingModel(GOOGLE_EMBEDDING_MODEL),
     values: texts,
   });
 

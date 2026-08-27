@@ -28,7 +28,7 @@ vi.mock('ai', () => ({
 }));
 
 vi.mock('@ai-sdk/google', () => ({
-  createGoogleGenerativeAI: vi.fn(() => ({ textEmbeddingModel: mockTextEmbeddingModel })),
+  createGoogleGenerativeAI: vi.fn(() => ({ embeddingModel: mockTextEmbeddingModel })),
 }));
 
 import { generateEmbeddingsBatchWithFailover } from './embedding.service';
