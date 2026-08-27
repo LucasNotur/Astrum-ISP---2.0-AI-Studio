@@ -77,7 +77,25 @@
 - [x] Streaming SSE de respostas LLM
 - [x] Context Window (Sliding Window Compress)
 - [x] Fluxo end-to-end de atendimento (RAG + Salvar + Enviar)
-- [ ] Pipeline de ingestão PDF testado (200 páginas sem erros)
+- [~] Pipeline de ingestão PDF testado (200 páginas) — PARCIAL 2026-08-27. Criado
+  `scripts/qa/pdf-ingestion-smoke.ts` (gera PDF sintético de 200 páginas em
+  memória, sem dependência nova, roda extração+chunking+embeddings+Qdrant reais
+  contra um tenant de teste isolado, sempre limpa a coleção Qdrant no fim).
+  Extração (pdf-parse, 419k chars, ~1s) e chunking validados sem erro. **Bug
+  real achado e corrigido:** `chunkTechnicalManual` tratava qualquer linha "1. "
+  "2. " como nova seção — texto extraído de PDF quase nunca tem heading
+  markdown, e manuais de ISP são cheios de passo-a-passo numerado, então o
+  documento de 200 páginas virava 3601 chunks de ~116 chars (achado, não 320
+  chunks de ~1461 chars como deveria) — retrieval RAG praticamente inútil e
+  ~18x mais chamadas de embedding do que necessário. Corrigido (removido o
+  padrão numerado do split; cai no fallback `chunkDocument`, que já respeita
+  tamanho-alvo), teste de regressão em `document-chunker.service.test.ts`.
+  **Bloqueado:** embeddings (OpenAI) e upsert no Qdrant não puderam ser
+  validados de ponta a ponta — chave OpenAI local sem crédito (`insufficient_
+  quota`), mesmo bloqueio já registrado em `CHECKLIST_PENDENCIAS_EXTERNAS.md`
+  (S74). *Ação do Lucas:* colocar crédito na conta OpenAI usada em dev; depois
+  disso `npx tsx -r dotenv/config scripts/qa/pdf-ingestion-smoke.ts` valida o
+  pipeline inteiro em ~1-2 min.
 - [x] Hybrid Search (BM25 + Semântico) com score fusion
 - [x] HyDE para queries vagas implementado
 - [x] Zep/Mem0 para memória de longo prazo
