@@ -77,25 +77,51 @@
 - [x] Streaming SSE de respostas LLM
 - [x] Context Window (Sliding Window Compress)
 - [x] Fluxo end-to-end de atendimento (RAG + Salvar + Enviar)
-- [~] Pipeline de ingestão PDF testado (200 páginas) — PARCIAL 2026-08-27. Criado
-  `scripts/qa/pdf-ingestion-smoke.ts` (gera PDF sintético de 200 páginas em
-  memória, sem dependência nova, roda extração+chunking+embeddings+Qdrant reais
-  contra um tenant de teste isolado, sempre limpa a coleção Qdrant no fim).
-  Extração (pdf-parse, 419k chars, ~1s) e chunking validados sem erro. **Bug
-  real achado e corrigido:** `chunkTechnicalManual` tratava qualquer linha "1. "
-  "2. " como nova seção — texto extraído de PDF quase nunca tem heading
-  markdown, e manuais de ISP são cheios de passo-a-passo numerado, então o
-  documento de 200 páginas virava 3601 chunks de ~116 chars (achado, não 320
-  chunks de ~1461 chars como deveria) — retrieval RAG praticamente inútil e
-  ~18x mais chamadas de embedding do que necessário. Corrigido (removido o
-  padrão numerado do split; cai no fallback `chunkDocument`, que já respeita
-  tamanho-alvo), teste de regressão em `document-chunker.service.test.ts`.
-  **Bloqueado:** embeddings (OpenAI) e upsert no Qdrant não puderam ser
-  validados de ponta a ponta — chave OpenAI local sem crédito (`insufficient_
-  quota`), mesmo bloqueio já registrado em `CHECKLIST_PENDENCIAS_EXTERNAS.md`
-  (S74). *Ação do Lucas:* colocar crédito na conta OpenAI usada em dev; depois
-  disso `npx tsx -r dotenv/config scripts/qa/pdf-ingestion-smoke.ts` valida o
-  pipeline inteiro em ~1-2 min.
+- [~] Pipeline de ingestão PDF testado (200 páginas) — PARCIAL 2026-08-27,
+  código 100% validado, só falta crédito real pra ver o `✅ PASSOU` fim-a-fim.
+  Criado `scripts/qa/pdf-ingestion-smoke.ts` (gera PDF sintético de 200
+  páginas em memória, sem dependência nova, roda extração+chunking+embeddings
+  +Qdrant reais contra um tenant de teste isolado, sempre limpa a coleção
+  Qdrant no fim).
+  - **Extração + chunking:** validados sem erro (pdf-parse, 419k chars, ~1s).
+    **Bug real achado e corrigido:** `chunkTechnicalManual` tratava qualquer
+    linha "1. " "2. " como nova seção — texto extraído de PDF quase nunca tem
+    heading markdown, e manuais de ISP são cheios de passo-a-passo numerado,
+    então o documento de 200 páginas virava 3601 chunks de ~116 chars (achado,
+    não 320 chunks de ~1461 chars como deveria) — retrieval RAG praticamente
+    inútil e ~18x mais chamadas de embedding do que necessário. Corrigido
+    (removido o padrão numerado do split; cai no fallback `chunkDocument`, que
+    já respeita tamanho-alvo), teste de regressão em
+    `document-chunker.service.test.ts`.
+  - **Embeddings com failover:** achado no caminho — a chave OpenAI local
+    sem crédito nunca caía pro Gemini apesar do router de failover multi-
+    provider já existir (`model-router.ts`), porque embeddings nunca foram
+    ligados nele (caminho de código 100% separado, só chat usava). Implementada
+    Fase 1 (fan-out de embeddings por provider, ver
+    `HANDOFF_RAG_EMBEDDING_FAILOVER_FASE1.md`): `generateEmbeddingsBatchWithFailover`
+    tenta OpenAI, cai pro Gemini se falhar; coleção Qdrant separada por
+    provider (`tenant_X` = openai, sem migração; `tenant_X_google` = novo);
+    migration 124 (`embedding_provider` em `knowledge_documents`/
+    `knowledge_articles`). Rodando o smoke test com o failover: **confirmado
+    funcionando** — OpenAI recusou (`credit_balance_exhausted`), caiu pro
+    Gemini automaticamente, Gemini TAMBÉM recusou (`RESOURCE_EXHAUSTED`, free
+    tier estourado pela rajada de 320 textos) — comportamento correto e
+    esperado quando os dois provedores estão sem fôlego (propaga o erro, não
+    silencia). Fase 2 (fan-out também na LEITURA/busca, 3+ call sites
+    duplicados no repo) documentada mas não iniciada.
+  - **Achado colateral sério rodando isso:** o backend de produção estava
+    fora do ar havia 5h+ (desde 10:51 UTC) sem ninguém perceber — causa real:
+    `REDIS_URL` usa `localhost`, que nesta máquina Windows resolve pra IPv6
+    (`::1`) antes de IPv4, mas o Docker só expõe o Redis em `127.0.0.1`;
+    `ioredis` não tem fallback entre IPv4/IPv6 (diferente do `fetch()` do
+    Qdrant) e travava em `ETIMEDOUT` pra sempre. Corrigido: `.env` (fix
+    imediato) + `family: 4` forçado em `redis.client.ts` (fix definitivo, não
+    depende de ninguém lembrar de usar `127.0.0.1` no futuro). Produção
+    confirmada de volta no ar. Ver `astrum-redis-etimedout-boot` na memória.
+  - **Bloqueado (external, não é código):** OpenAI sem crédito + Gemini com
+    quota free-tier estourada ao mesmo tempo. *Ação do Lucas:* crédito em
+    qualquer um dos dois resolve; depois `npx tsx -r dotenv/config
+    scripts/qa/pdf-ingestion-smoke.ts` valida o pipeline inteiro em ~1-2 min.
 - [x] Hybrid Search (BM25 + Semântico) com score fusion
 - [x] HyDE para queries vagas implementado
 - [x] Zep/Mem0 para memória de longo prazo
