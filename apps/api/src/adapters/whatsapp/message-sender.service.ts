@@ -1,4 +1,6 @@
 import { sendMessage } from './whatsapp.adapter';
+import { makeMultiConnPorts } from './multi-connection-ports.adapter';
+import { sendViaAvailableConnection } from '../../domain/atendimento/multi-connection.service';
 import { resolveTenantKeys } from '../../lib/tenant-keys';
 import { atendimentoLogger } from '../../infrastructure/logging/logger';
 
@@ -50,27 +52,32 @@ export async function sendWhatsAppResponse(opts: SendWhatsAppOptions): Promise<v
   // Chaves BYOK do tenant resolvidas UMA vez (não por parte da mensagem).
   const { evolutionUrl, evolutionApiKey } = await resolveTenantKeys(tenantId);
 
-  // Dividir em partes se necessário
+  // Roteamento multi-conexão (Dossiê #58): responde pelo MESMO número que o
+  // cliente usou (preferredInstance) enquanto ele estiver saudável; se cair
+  // no meio do envio, faz failover pra outra conexão do tenant. Tenant sem
+  // nenhuma linha em tenant_evolution_instances (não devia acontecer pra
+  // quem já tem WhatsApp — migration 123 fez backfill — mas fail-open pra
+  // não regredir um caso de borda) cai pro envio direto de sempre.
+  const ports = makeMultiConnPorts(tenantId, evolutionUrl, evolutionApiKey, instanceName);
+  const hasRegisteredConnections = (await ports.listConnections(tenantId)).length > 0;
+
   const parts = splitMessage(content);
 
   for (let i = 0; i < parts.length; i++) {
-    const result = await sendMessage({
-      to,
-      content: parts[i] ?? '',
-      tenantId,
-      instanceName,
-      evolutionUrl,
-      evolutionApiKey,
-    });
+    const part = parts[i] ?? '';
+    const routed = hasRegisteredConnections
+      ? await sendViaAvailableConnection(tenantId, to, part, ports)
+      : await sendMessage({ to, content: part, tenantId, instanceName, evolutionUrl, evolutionApiKey })
+          .then((r) => ({ ok: r.status !== 'fallback', messageId: r.messageId, connectionId: instanceName }));
 
-    if (result.status === 'fallback') {
+    if (!routed.ok) {
       atendimentoLogger.warn(
-        { tenantId, conversationId, part: i + 1, total: parts.length },
-        'Mensagem WhatsApp em modo fallback (Evolution API indisponível)'
+        { tenantId, conversationId, part: i + 1, total: parts.length, error: (routed as any).error },
+        'Mensagem WhatsApp em modo fallback (Evolution API indisponível / nenhuma conexão saudável)'
       );
     } else {
       atendimentoLogger.info(
-        { tenantId, conversationId, messageId: result.messageId, part: i + 1 },
+        { tenantId, conversationId, messageId: routed.messageId, instanceUsed: routed.connectionId, part: i + 1 },
         'Mensagem WhatsApp enviada'
       );
     }
