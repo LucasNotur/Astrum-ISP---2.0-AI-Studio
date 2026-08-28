@@ -140,7 +140,24 @@
 - [x] Circuit Breaker em OpenAI, WhatsApp, pagamentos
 - [x] Rate Limiting (Token Bucket) em todas as rotas públicas
 - [x] Argon2id para todas as senhas de usuários
-- [ ] VPC: Supabase + Redis sem acesso público direto
+- [x] VPC: Supabase + Redis sem acesso público direto — VERIFICADO 2026-08-27.
+  **Redis/Qdrant:** já corretos por construção, conferido no binding de porta
+  AO VIVO (`docker port astrum-redis`/`astrum-qdrant`), não só no arquivo:
+  `127.0.0.1:6379`/`127.0.0.1:6333-6334` (só loopback), Redis com
+  `requirepass` obrigatório. Em produção (`docker-compose.yml`) nem chega a
+  publicar porta pro host — fica isolado numa rede Docker `internal: true`
+  (sem rota pra internet), só acessível entre containers. O túnel Cloudflare
+  (`~/.cloudflared/config.yml`) só expõe `api.astrumlabs.online` →
+  `localhost:3001`, nada mais é tunelado. **Supabase:** é cloud gerenciado,
+  não um "VPC" no sentido tradicional — a API REST fica pública por design
+  (RLS já é a barreira real, extensivamente auditada em sessões anteriores —
+  ver `astrum-anon-client-fix` na memória). O único ponto de acesso direto ao
+  Postgres é o pooler Supavisor (`tenant-rls.ts`, RLS por-tenant). **Decisão
+  do Lucas 2026-08-27:** não configurar Network Restrictions (allowlist de
+  IP) — IP público de casa (`138.84.56.249` no momento) é residencial/
+  dinâmico, restringir por IP arriscaria quebrar a conexão direta em
+  produção silenciosamente se o IP mudar (mesma classe de incidente do
+  outage de Redis desta sessão). Reavaliar só se/quando tiver IP fixo.
 
 ### Frontend & UI
 - [x] Frontend Auth migrado para JWT próprio
