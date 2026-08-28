@@ -27,7 +27,8 @@ import {
  *   NIGHTLY_BRAIN_ACT_ENABLED=true → executa ações (default false, só sugere)
  */
 
-const BRAIN_QUEUE = 'astrum:nightly-brain';
+// Achado 2026-08-28: BullMQ rejeita ':' em nome de fila — corrigido de 'astrum:nightly-brain'.
+const BRAIN_QUEUE = 'astrum-nightly-brain';
 const CRON_PATTERN = '0 3 * * *';
 const CRON_TZ = 'America/Sao_Paulo';
 

@@ -15,7 +15,8 @@ import { addSentryToWorker } from '../../../../apps/api/src/infrastructure/obser
  * Agendamento: cron a cada 15 minutos.
  */
 
-export const CTO_ALERT_QUEUE = 'astrum:cto-alerts';
+// Achado 2026-08-28: BullMQ rejeita ':' em nome de fila — corrigido de 'astrum:cto-alerts'.
+export const CTO_ALERT_QUEUE = 'astrum-cto-alerts';
 
 function isCtoAlertEnabled(): boolean {
   return (process.env.CTO_ALERT_ENABLED ?? '').trim().toLowerCase() === 'true';

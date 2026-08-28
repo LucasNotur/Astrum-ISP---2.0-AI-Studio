@@ -26,7 +26,8 @@ import type { PsiSeverity } from '../../../../apps/api/src/domain/ml/psi';
  * C1, 2026-08-25: engine única v2, sobe incondicional).
  */
 
-const DRIFT_QUEUE = 'astrum:drift';
+// Achado 2026-08-28: BullMQ rejeita ':' em nome de fila — corrigido de 'astrum:drift'.
+const DRIFT_QUEUE = 'astrum-drift';
 const CRON_PATTERN = '0 4 * * *';
 const CRON_TZ = 'America/Sao_Paulo';
 

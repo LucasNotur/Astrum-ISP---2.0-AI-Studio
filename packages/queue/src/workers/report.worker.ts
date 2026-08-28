@@ -14,7 +14,8 @@ import { addSentryToWorker } from '../../../../apps/api/src/infrastructure/obser
  * (PDF + email ficam como fase 2 — por ora persiste o JSON que a UI consome.)
  */
 
-const REPORT_QUEUE = 'astrum:report-generator';
+// Achado 2026-08-28: BullMQ rejeita ':' em nome de fila — corrigido de 'astrum:report-generator'.
+const REPORT_QUEUE = 'astrum-report-generator';
 const CRON_PATTERN = '0 23 * * *';
 const CRON_TZ = 'America/Sao_Paulo';
 

@@ -64,7 +64,8 @@ export async function processTelemetryJob(
   return { oltsPolled: olts.length, readingsStored, alertsFired };
 }
 
-const QUEUE_NAME = 'astrum:network-telemetry';
+// Achado 2026-08-28: BullMQ rejeita ':' em nome de fila — corrigido de 'astrum:network-telemetry'.
+const QUEUE_NAME = 'astrum-network-telemetry';
 
 export function createNetworkTelemetryWorker(ports?: TelemetryWorkerPorts) {
   const worker = new Worker(

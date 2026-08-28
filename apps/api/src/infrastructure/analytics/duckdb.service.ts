@@ -1,5 +1,6 @@
 import * as duckdb from 'duckdb-async';
 import path from 'node:path';
+import { mkdirSync } from 'node:fs';
 import { infraLogger } from '../logging/logger';
 
 /**
@@ -23,6 +24,14 @@ export async function getDuckDB(): Promise<duckdb.Database> {
   const dbPath = process.env.NODE_ENV === 'test'
     ? ':memory:'
     : path.resolve(process.cwd(), '.data', 'analytics.duckdb');
+
+  // Achado 2026-08-28: o diretório .data/ nunca era criado — DuckDB falhava
+  // com "Cannot open file" (ENOENT no diretório pai), e como initAnalyticsSchema()
+  // não tinha try/catch próprio em server.ts, isso derrubava em cascata o
+  // registro de TODOS os workers seguintes (message-worker, cobrai-worker,
+  // indexing-worker, documents-worker etc.) silenciosamente. Ver o try/catch
+  // isolado em server.ts pra essa segunda parte do fix.
+  if (dbPath !== ':memory:') mkdirSync(path.dirname(dbPath), { recursive: true });
 
   db = await duckdb.Database.create(dbPath);
 

@@ -18,7 +18,8 @@ import { supportsErpSales, type ERPProviderName, type ERPCredentials } from '../
  * cacheia no Redis (24h).
  */
 
-const PLANSYNC_QUEUE = 'astrum:plan-sync';
+// Achado 2026-08-28: BullMQ rejeita ':' em nome de fila — corrigido de 'astrum:plan-sync'.
+const PLANSYNC_QUEUE = 'astrum-plan-sync';
 const CRON_PATTERN = '0 0 * * *';
 const CRON_TZ = 'America/Sao_Paulo';
 

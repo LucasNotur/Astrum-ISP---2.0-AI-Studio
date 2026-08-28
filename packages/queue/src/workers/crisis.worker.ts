@@ -91,7 +91,8 @@ export async function processCrisisJob(
   return { tenantsChecked: tenants.length, incidentsCreated, messagessSent: messagesSent };
 }
 
-const QUEUE_NAME = 'astrum:crisis-detector';
+// Achado 2026-08-28: BullMQ rejeita ':' em nome de fila — corrigido de 'astrum:crisis-detector'.
+const QUEUE_NAME = 'astrum-crisis-detector';
 
 export function createCrisisWorker(ports?: CrisisWorkerPorts) {
   const worker = new Worker(

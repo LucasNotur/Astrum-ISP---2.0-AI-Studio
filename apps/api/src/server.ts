@@ -717,9 +717,24 @@ export async function startFastifyServer() {
     await scheduleWhatsappHealthSnapshotJobs();
     app.log.info('[whatsapp-health-snapshot] job recorrente agendado (a cada 15min)');
 
-    // Inicializar DuckDB Analytics Schema
-    const { initAnalyticsSchema } = await import('./infrastructure/analytics/analytics.schema');
-    await initAnalyticsSchema();
+    // Inicializar DuckDB Analytics Schema — non-fatal de propósito.
+    // Achado 2026-08-28: uma falha aqui (`.data/` faltando) derrubava em
+    // cascata TODOS os workers seguintes (message-worker, cobrai-worker,
+    // indexing-worker, documents-worker, crisis-worker...) porque esse
+    // await estava dentro do MESMO try/catch gigante que cobre o resto do
+    // bootstrap — o catch só loga fatal, não crasha o processo, então o
+    // backend ficava de pé (/api/v2/health respondendo "ok") sem processar
+    // NENHUMA mensagem de verdade. Analytics é OLAP best-effort (dado
+    // derivado do Supabase via ETL, não fonte da verdade) — nunca pode
+    // bloquear o essencial. Isolado no próprio try/catch.
+    try {
+      const { initAnalyticsSchema } = await import('./infrastructure/analytics/analytics.schema');
+      await initAnalyticsSchema();
+    } catch (err: any) {
+      app.log.error({ err }, 'DuckDB analytics: falha ao inicializar — seguindo sem analytics, workers essenciais não são afetados');
+      const { captureError } = await import('./infrastructure/observability/sentry.service');
+      captureError(err instanceof Error ? err : new Error(String(err)), { context: 'duckdb_analytics_boot' });
+    }
 
     // Iniciar poller do Outbox
     // @ts-ignore

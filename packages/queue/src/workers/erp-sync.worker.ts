@@ -17,7 +17,8 @@ import type { ERPProviderName, ERPCredentials } from '../../../../apps/api/src/a
  * Também roda a cada 30min para varrer pendências residuais.
  */
 
-const ERPSYNC_QUEUE = 'astrum:erp-sync';
+// Achado 2026-08-28: BullMQ rejeita ':' em nome de fila — corrigido de 'astrum:erp-sync'.
+const ERPSYNC_QUEUE = 'astrum-erp-sync';
 const CRON_PATTERN = '*/30 * * * *';
 const CRON_TZ = 'America/Sao_Paulo';
 

@@ -50,7 +50,8 @@ async function processTicket(job: Job<TicketJobData>): Promise<void> {
 }
 
 export function createTicketWorker() {
-  const worker = new Worker<TicketJobData>('astrum:tickets', processTicket, {
+  // Achado 2026-08-28: BullMQ rejeita ':' em nome de fila — corrigido de 'astrum:tickets'.
+  const worker = new Worker<TicketJobData>('astrum-tickets', processTicket, {
     connection: connection as any,
     concurrency: 5,
   });

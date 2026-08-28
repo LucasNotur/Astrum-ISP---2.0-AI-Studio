@@ -13,7 +13,8 @@ import { importWhatsAppHistory, type HistoryImportResult } from '../../../../app
  * On-demand: o operador agenda via rota ou painel; não tem cron.
  */
 
-const HISTORY_IMPORT_QUEUE = 'astrum:history-import';
+// Achado 2026-08-28: BullMQ rejeita ':' em nome de fila — corrigido de 'astrum:history-import'.
+const HISTORY_IMPORT_QUEUE = 'astrum-history-import';
 
 export interface HistoryImportJobData {
   tenantId: string;

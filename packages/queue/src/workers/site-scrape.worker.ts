@@ -15,7 +15,8 @@ import redis from '../../../../apps/api/src/infrastructure/cache/redis.client';
  * chunka conteúdo novo → knowledge_base para RAG. Notifica admin se mudou.
  */
 
-const SITESCRAPE_QUEUE = 'astrum:site-scrape';
+// Achado 2026-08-28: BullMQ rejeita ':' em nome de fila — corrigido de 'astrum:site-scrape'.
+const SITESCRAPE_QUEUE = 'astrum-site-scrape';
 const CRON_PATTERN = '0 2 * * 0';
 const CRON_TZ = 'America/Sao_Paulo';
 const CHUNK_SIZE = 1000;

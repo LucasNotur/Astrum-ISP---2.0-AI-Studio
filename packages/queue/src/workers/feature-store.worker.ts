@@ -17,7 +17,8 @@ import { computeAllForTenant } from '../../../../apps/api/src/domain/ml/feature-
  * Flag: FEATURE_STORE_ENABLED=true|false (default false).
  */
 
-const FEATURE_STORE_QUEUE = 'astrum:feature-store';
+// Achado 2026-08-28: BullMQ rejeita ':' em nome de fila — corrigido de 'astrum:feature-store'.
+const FEATURE_STORE_QUEUE = 'astrum-feature-store';
 const CRON_PATTERN = '0 2 * * *';
 const CRON_TZ = 'America/Sao_Paulo';
 

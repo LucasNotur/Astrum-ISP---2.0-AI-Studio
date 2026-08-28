@@ -87,7 +87,12 @@ export async function processSyntheticMonitorJob(
   return { probes: tenants.length, failures };
 }
 
-const QUEUE_NAME = 'astrum:synthetic-monitor';
+// Achado 2026-08-28: BullMQ rejeita ':' em nome de fila (QueueBase valida e
+// lança "Queue name cannot contain :") — com o nome antigo, tanto
+// createSyntheticMonitorWorker() quanto scheduleSyntheticMonitorJobs()
+// lançavam na construção, o que (antes do isolamento em server.ts) derrubava
+// em cascata todos os workers registrados depois deste no boot.
+const QUEUE_NAME = 'astrum-synthetic-monitor';
 
 export function createSyntheticMonitorWorker(ports?: SyntheticMonitorPorts) {
   const worker = new Worker(

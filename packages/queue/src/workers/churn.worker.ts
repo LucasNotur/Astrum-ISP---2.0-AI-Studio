@@ -16,7 +16,8 @@ import { computeChurnScore } from '../../../../apps/api/src/domain/ml/churn-scor
  * Flag: CHURN_ENGINE=on|off (default off).
  */
 
-const CHURN_QUEUE = 'astrum:churn';
+// Achado 2026-08-28: BullMQ rejeita ':' em nome de fila — corrigido de 'astrum:churn'.
+const CHURN_QUEUE = 'astrum-churn';
 
 function isChurnEngineEnabled(): boolean {
   return (process.env.CHURN_ENGINE ?? 'off').trim().toLowerCase() === 'on';

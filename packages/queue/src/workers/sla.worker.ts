@@ -15,7 +15,8 @@ import redis from '../../../../apps/api/src/infrastructure/cache/redis.client';
  * no Redis pub/sub e gera mensagem de sistema no ticket.
  */
 
-const SLA_QUEUE = 'astrum:sla-monitor';
+// Achado 2026-08-28: BullMQ rejeita ':' em nome de fila — corrigido de 'astrum:sla-monitor'.
+const SLA_QUEUE = 'astrum-sla-monitor';
 const CRON_PATTERN = '*/5 * * * *';
 
 export interface SlaJobData {

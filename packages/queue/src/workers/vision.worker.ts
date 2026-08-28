@@ -15,7 +15,8 @@ import redis from '../../../../apps/api/src/infrastructure/cache/redis.client';
  * grava resultado em vision_results e acumula custo no Redis.
  */
 
-const VISION_QUEUE = 'astrum:vision-processor';
+// Achado 2026-08-28: BullMQ rejeita ':' em nome de fila — corrigido de 'astrum:vision-processor'.
+const VISION_QUEUE = 'astrum-vision-processor';
 
 export interface VisionJobData {
   tenantId: string;

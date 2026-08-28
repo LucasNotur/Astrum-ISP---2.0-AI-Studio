@@ -15,7 +15,8 @@ import { addSentryToWorker } from '../../../../apps/api/src/infrastructure/obser
  * Grava em daily_metrics e daily_sentiment.
  */
 
-const FCR_QUEUE = 'astrum:fcr-calculator';
+// Achado 2026-08-28: BullMQ rejeita ':' em nome de fila — corrigido de 'astrum:fcr-calculator'.
+const FCR_QUEUE = 'astrum-fcr-calculator';
 const CRON_PATTERN = '0 1 * * *';
 const CRON_TZ = 'America/Sao_Paulo';
 

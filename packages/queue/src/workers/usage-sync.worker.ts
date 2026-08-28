@@ -15,7 +15,8 @@ import redis from '../../../../apps/api/src/infrastructure/cache/redis.client';
  * Alerta se custo excede o budget LLM do tenant.
  */
 
-const USAGESYNC_QUEUE = 'astrum:usage-sync';
+// Achado 2026-08-28: BullMQ rejeita ':' em nome de fila — corrigido de 'astrum:usage-sync'.
+const USAGESYNC_QUEUE = 'astrum-usage-sync';
 const CRON_PATTERN = '30 23 * * *';
 const CRON_TZ = 'America/Sao_Paulo';
 

@@ -15,7 +15,8 @@ import redis from '../../../../apps/api/src/infrastructure/cache/redis.client';
  * alerta no Redis pub/sub para notificar o operador.
  */
 
-const SNOOZE_QUEUE = 'astrum:snooze-checker';
+// Achado 2026-08-28: BullMQ rejeita ':' em nome de fila — corrigido de 'astrum:snooze-checker'.
+const SNOOZE_QUEUE = 'astrum-snooze-checker';
 const CRON_PATTERN = '* * * * *';
 
 export interface SnoozeJobData {}

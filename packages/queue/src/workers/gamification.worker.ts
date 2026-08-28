@@ -14,7 +14,8 @@ import { addSentryToWorker } from '../../../../apps/api/src/infrastructure/obser
  * Grava em operator_scores (upsert por operator+mês).
  */
 
-const GAMIFICATION_QUEUE = 'astrum:gamification';
+// Achado 2026-08-28: BullMQ rejeita ':' em nome de fila — corrigido de 'astrum:gamification'.
+const GAMIFICATION_QUEUE = 'astrum-gamification';
 const CRON_PATTERN = '0 2 * * *';
 const CRON_TZ = 'America/Sao_Paulo';
 
