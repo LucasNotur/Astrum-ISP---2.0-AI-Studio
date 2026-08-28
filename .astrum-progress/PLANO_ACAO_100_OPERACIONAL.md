@@ -1586,6 +1586,19 @@ Tudo o mais é independente entre si.
     **Decisão do Lucas (2026-08-27): vale instrumentar isso de verdade** (não ocultar a
     seção) — mas é telemetria nova no LangGraph + tabela nova, escopo grande demais pra
     entrar junto com os itens aditivos desta sessão. Vira tarefa própria (não iniciada).
+    **✅ RESOLVIDO (2026-08-28, migration 126, commit `a72b41b`).** Schema novo em
+    `ai_performance_logs` (`escalated`/`agent`/`active_flow`/`step`/`tool_called`/`result`/
+    `input_summary`/`provider`) mapeado 1:1 do `finalState` que o `langGraphService`
+    (`domain/agent/langgraph.service.ts`) já calculava por mensagem mas nunca gravava —
+    inclusive o caminho de erro fatal, que antes não gravava telemetria nenhuma. Rota nova
+    `GET /api/v2/ia/observability-logs` (tenant-scoped) substitui a leitura direta via
+    client anônimo. `AIObservabilityPage.tsx` migrada; a agregação de custo mensal
+    (gráfico 30d, breakdown por provider, limite via `tenants.ai_budget_usd_monthly` real
+    em vez do heurístico `50 * qtd`) também corrigida — filtrava por um campo `.month` que
+    nunca existiu nos dados reais e sempre renderizava zero. Tabela cross-tenant do
+    super-admin fica vazia (precisa de rota própria, fora do escopo). Suítes verdes
+    (backend 3613/3621 isolado — 8 falhas são o padrão de timeout sob carga total já
+    documentado: SignupPage/owasp-audit/langgraph, não-relacionadas).
   - `KanbanBoard.tsx` (linha 63) — `tickets.pipeline_stage` não existe; o board de vendas
     (Kanban) nunca persistiu o card na coluna certa, mesmo antes da migration 092.
     **✅ RESOLVIDO (2026-08-27, migration 121).** Decisão do Lucas: estágios próprios (não
