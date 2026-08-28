@@ -48,6 +48,18 @@ export function computeCostUsd(
   return Math.round(usd * 1_000_000) / 1_000_000;
 }
 
+/**
+ * IA-XX — Telemetria operacional (migration 126). Deriva o provider a partir
+ * do nome do model gravado — mesma convenção de MODEL_PRICING acima (uma
+ * fonte só decide "que modelo é esse").
+ */
+export function providerFromModel(model: string): string {
+  if (model.startsWith('gpt-')) return 'openai';
+  if (model.startsWith('gemini-')) return 'google';
+  if (model.startsWith('claude-')) return 'anthropic';
+  return 'unknown';
+}
+
 export interface RecordMessageCostOpts {
   tenantId: string;
   customerId?: string;
@@ -56,6 +68,14 @@ export interface RecordMessageCostOpts {
   tokensIn: number;
   tokensOut: number;
   useCase: string;
+  /** IA-XX — telemetria operacional (migration 126), todos opcionais e fail-open. */
+  agent?: string;
+  activeFlow?: string;
+  step?: string;
+  toolCalled?: string;
+  escalated?: boolean;
+  result?: 'ok' | 'fatal';
+  inputSummary?: string;
 }
 
 /**
@@ -83,6 +103,14 @@ export async function recordMessageCost(opts: RecordMessageCostOpts): Promise<vo
         cost_usd: costUsd,
         use_case: opts.useCase,
         // created_at default = now() (coluna tem DEFAULT NOW())
+        agent: opts.agent ?? null,
+        active_flow: opts.activeFlow ?? null,
+        step: opts.step ?? null,
+        tool_called: opts.toolCalled ?? null,
+        escalated: opts.escalated ?? false,
+        result: opts.result ?? null,
+        input_summary: opts.inputSummary ?? null,
+        provider: providerFromModel(opts.model),
       });
 
     if (error) {

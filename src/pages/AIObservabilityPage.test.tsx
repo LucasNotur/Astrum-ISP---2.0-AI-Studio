@@ -15,21 +15,17 @@ vi.mock('@/src/lib/apiAuth', () => ({
   getApiAccessToken: vi.fn().mockResolvedValue('tok'),
 }));
 
-vi.mock('@/src/lib/supabase', () => ({
-  supabase: {
-    // Query builder chainable: from(table).select('*').order(...).limit(...) → Promise
-    from: (table: string) => ({
-      select: () => ({
-        order: () => ({
-          limit: () => {
-            if (table === 'ai_ragas_scores') return mockRagasScores();
-            if (table === 'ai_guardrail_blocks') return mockGuardrailBlocks();
-            return mockPerfLogs();
-          },
-        }),
-      }),
-    }),
-  },
+// migration 126 — a página não lê mais o Supabase direto; tudo passa por apiGet
+// (observability-logs, ragas-scores, guardrail-blocks, ai-costs/budget).
+vi.mock('@/src/lib/apiClient', () => ({
+  apiGet: vi.fn((path: string) => {
+    if (path.includes('/observability-logs')) return mockPerfLogs();
+    if (path.includes('/ragas-scores')) return mockRagasScores();
+    if (path.includes('/guardrail-blocks')) return mockGuardrailBlocks();
+    if (path.includes('/ai-costs/budget')) return Promise.resolve({ ai_budget_usd_monthly: null });
+    if (path.includes('/ia/providers/status')) return Promise.resolve({ providers: [] });
+    return Promise.resolve(null);
+  }),
 }));
 
 const originalFetch = globalThis.fetch;
@@ -97,29 +93,24 @@ describe('AIObservabilityPage — IA-32 card Telemetria', () => {
     // ai_performance_logs precisa ter pelo menos 1 linha para que `metrics`
     // seja populado e a página renderize o conteúdo (senão cai no early-return
     // "Sem dados suficientes..." e o card Telemetria nunca aparece).
-    mockPerfLogs.mockResolvedValue({
-      data: [{
-        id: 'log-1',
-        created_at: '2026-07-07T12:00:00Z',
-        agent: 'agent-1',
-        active_flow: 'flow-1',
-        step: 'step-1',
-        escalated: false,
-        result: 'ok',
-        tool_called: null,
-        provider: 'openai',
-        tokens_used: 100,
-        cost_usd: 0.01,
-        tokens_in: 70,
-        tokens_out: 30,
-        custo_usd: 0.01,
-        token_count: 100,
-        month: '2026-07',
-        input_summary: 'test message',
-      }],
-    });
-    mockRagasScores.mockResolvedValue({ data: [] });
-    mockGuardrailBlocks.mockResolvedValue({ data: [] });
+    mockPerfLogs.mockResolvedValue([{
+      id: 'log-1',
+      created_at: '2026-07-07T12:00:00Z',
+      agent: 'agent-1',
+      active_flow: 'flow-1',
+      step: 'step-1',
+      escalated: false,
+      result: 'ok',
+      tool_called: null,
+      provider: 'openai',
+      tokens_used: 100,
+      cost_usd: 0.01,
+      tokens_in: 70,
+      tokens_out: 30,
+      input_summary: 'test message',
+    }]);
+    mockRagasScores.mockResolvedValue([]);
+    mockGuardrailBlocks.mockResolvedValue([]);
     mockProvidersStatus.mockResolvedValue({ failoverEnabled: false, providerOrder: [], providers: [] });
     mockAiCircuit.mockResolvedValue({ circuitStatus: {}, fallbacks: [] });
     mockOtelStatus.mockResolvedValue({

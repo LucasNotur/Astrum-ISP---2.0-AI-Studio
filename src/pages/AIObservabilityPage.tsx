@@ -14,7 +14,6 @@ import {
   Cell
 } from 'recharts';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/src/lib/supabase';
 import { getApiAccessToken } from '@/src/lib/apiAuth';
 import { apiGet } from '@/src/lib/apiClient';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/src/components/ui/card";
@@ -83,7 +82,7 @@ const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6'];
 
 export const AIObservabilityPage = () => {
   const [logs, setLogs] = useState<any[]>([]);
-  const [tokenUsage, setTokenUsage] = useState<any[]>([]);
+  const [budgetUsd, setBudgetUsd] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [circuitData, setCircuitData] = useState<{ circuitStatus: Record<string, string>, fallbacks: any[] } | null>(null);
   const [ragasScores, setRagasScores] = useState<any[]>([]);
@@ -142,37 +141,27 @@ export const AIObservabilityPage = () => {
     apiGet<any[]>('/api/v2/ia/ragas-scores').then((data) => { if (data) setRagasScores(data); }).catch(() => {});
     apiGet<any[]>('/api/v2/ia/guardrail-blocks').then((data) => { if (data) setGuardrailBlocks(data); }).catch(() => {});
 
-    // F1-D: NÃO migrado — `ai_performance_logs` aqui é lido como se guardasse
-    // escalated/agent/active_flow/step/tool_called/input_summary/provider, mas o
-    // schema real (verificado via MCP) só tem
-    // ticket_id/category/sentiment/response_time_ms/sla_compliant/is_critical/
-    // tokens_in/tokens_out/model/cost_usd/use_case — é outro modelo de dados, não
-    // um rename. Mesmo gap em AIConfigPage.tsx e AICostsPage.tsx. Ver achado
-    // colateral no PLANO_ACAO_100_OPERACIONAL.md.
-    // S99 — lê logs de AI do Supabase (ai_performance_logs)
-    supabase
-      .from('ai_performance_logs')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(200)
-      .then(({ data }) => {
+    // migration 126 — telemetria operacional real, gravada pelo langGraphService.
+    // Rota tenant-scoped (observability-data.routes.ts), substitui a leitura direta
+    // que batia no client anônimo (bloqueado por RLS) esperando colunas que não
+    // existiam. Ver PLANO_ACAO_100_OPERACIONAL.md (achado F1-D).
+    apiGet<any[]>('/api/v2/ia/observability-logs')
+      .then((data) => {
         if (data) {
           setLogs(data.map(r => ({
             ...r,
             timestamp: r.created_at ? new Date(r.created_at).toLocaleString('pt-BR') : '',
           })));
-          setTokenUsage(
-            data.reduce((acc: any[], r: any) => {
-              const key = r.provider || 'openai';
-              const ex = acc.find(x => x.provider === key);
-              if (ex) { ex.tokens += r.tokens_used || 0; ex.cost += r.cost_usd || 0; }
-              else acc.push({ provider: key, tokens: r.tokens_used || 0, cost: r.cost_usd || 0 });
-              return acc;
-            }, [])
-          );
-          setLoading(false);
         }
-      });
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+
+    // Orçamento mensal real do tenant (tenants.ai_budget_usd_monthly) em vez do
+    // heurístico "50 * qtd de meses com uso" que existia aqui antes.
+    apiGet<{ ai_budget_usd_monthly: number | null }>('/api/v2/ai-costs/budget')
+      .then((data) => { if (data) setBudgetUsd(data.ai_budget_usd_monthly ?? null); })
+      .catch(() => {});
 
     return () => {
       clearInterval(interval);
@@ -181,7 +170,7 @@ export const AIObservabilityPage = () => {
 
   // Compute Metrics
   const metrics = useMemo(() => {
-    if (!logs.length && !tokenUsage.length) return null;
+    if (!logs.length) return null;
 
     const total = logs.length;
     const escalations = logs.filter(l => l.escalated).length;
@@ -229,53 +218,48 @@ export const AIObservabilityPage = () => {
       total: toolMap[tool].total
     })).filter(t => t.errorRate > 0).sort((a, b) => b.errorRate - a.errorRate);
 
+    // Agregação de custo real, direto de `logs` (migration 126 — antes vinha de
+    // `tokenUsage`, um shape que nunca batia com o que a query realmente devolvia:
+    // `.month`/`.custo_usd`/`.provider_breakdown` não existiam em nenhuma linha,
+    // então este card sempre renderizou zero).
     const currentMonth = new Date().toISOString().slice(0, 7);
-    const thisMonthUsage = tokenUsage.filter(u => u.month === currentMonth);
-    const totalCostUsd = thisMonthUsage.reduce((acc, curr) => acc + (curr.custo_usd || 0), 0);
-    const limitUsd = 50 * Math.max(thisMonthUsage.length, 1); 
+    const thisMonthLogs = logs.filter(l => (l.created_at as string || '').slice(0, 7) === currentMonth);
+    const totalCostUsd = thisMonthLogs.reduce((acc, l) => acc + (l.cost_usd || 0), 0);
+    const limitUsd = budgetUsd ?? 50;
     const costProgress = Math.min((totalCostUsd / limitUsd) * 100, 100);
-    const avgCostPerTicket = total > 0 ? (totalCostUsd / total).toFixed(4) : "0.0000";
+    const avgCostPerTicket = thisMonthLogs.length > 0
+      ? (totalCostUsd / thisMonthLogs.length).toFixed(4)
+      : "0.0000";
 
     const providerBreakdownMap: Record<string, number> = {};
-    thisMonthUsage.forEach(u => {
-      if (u.provider_breakdown) {
-         Object.keys(u.provider_breakdown).forEach(k => {
-             providerBreakdownMap[k] = (providerBreakdownMap[k] || 0) + parseInt(u.provider_breakdown[k]);
-         });
-      }
+    thisMonthLogs.forEach(l => {
+      const key = l.provider || 'unknown';
+      providerBreakdownMap[key] = (providerBreakdownMap[key] || 0) + (l.tokens_used || 0);
     });
     const providerBreakdown = Object.keys(providerBreakdownMap).map(p => ({
        name: p, value: providerBreakdownMap[p]
     }));
 
-    // 30 day chart mapping
+    // 30 day chart mapping — custo real por dia, não mais estimativa proporcional.
     const last30Days = [...Array(30)].map((_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - i);
       return d.toISOString().split('T')[0];
     }).reverse();
-    const dayMap: Record<string, number> = {};
+    const costByDay: Record<string, number> = {};
     logs.forEach(l => {
-      const d = l.timestamp?.split(' ')[0] || l.timestamp?.split(',')[0];
-      if (d) {
-        // try to parse DD/MM/YYYY to YYYY-MM-DD
-        let formattedStr = d;
-        if (d.includes('/')) {
-           const parts = d.split('/');
-           formattedStr = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-        }
-        dayMap[formattedStr] = (dayMap[formattedStr] || 0) + 1;
-      }
+      const day = (l.created_at as string || '').slice(0, 10);
+      if (day) costByDay[day] = (costByDay[day] || 0) + (l.cost_usd || 0);
     });
-    // cost roughly proportional to logs interactions if we don't have daily cost
-    const costPerLog = total > 0 ? totalCostUsd / total : 0;
     const chart30Days = last30Days.map(day => ({
        date: day.split('-').slice(1).join('/'),
-       custo: dayMap[day] ? dayMap[day] * costPerLog : 0
+       custo: costByDay[day] || 0
     }));
 
-    // SuperAdmin Table
-    const tenantTable = tokenUsage.filter(u => u.month === currentMonth).sort((a,b) => (b.custo_usd||0) - (a.custo_usd||0));
+    // SuperAdmin Table — cross-tenant, precisa de rota própria (fora do escopo desta
+    // migração: a rota atual é tenant-scoped por desenho). Fica vazia, renderiza o
+    // fallback "Nenhum custo registrado" já existente.
+    const tenantTable: any[] = [];
 
     return {
       total,
@@ -292,7 +276,7 @@ export const AIObservabilityPage = () => {
       chart30Days,
       tenantTable
     };
-  }, [logs, tokenUsage]);
+  }, [logs, budgetUsd]);
 
   if (loading) {
     return <div className="p-8 flex justify-center"><p className="text-muted-foreground">Carregando métricas de IA...</p></div>;
@@ -307,7 +291,7 @@ export const AIObservabilityPage = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Observabilidade IA</h1>
-          <p className="text-muted-foreground">Monitore o desempenho, erros e funil dos agentes no Firestore.</p>
+          <p className="text-muted-foreground">Monitore o desempenho, erros e funil dos agentes de IA.</p>
         </div>
       </div>
 
@@ -448,7 +432,7 @@ export const AIObservabilityPage = () => {
             </CardHeader>
             <CardContent>
                <span className="text-3xl font-bold">${metrics.avgCostPerTicket}</span>
-               <p className="text-xs text-muted-foreground mt-1">Base global</p>
+               <p className="text-xs text-muted-foreground mt-1">Este mês</p>
             </CardContent>
          </Card>
          <Card>

@@ -235,6 +235,8 @@ export class LangGraphService {
         ? 'mini'
         : 'full';
       const model = tier === 'mini' ? 'gpt-4o-mini' : 'gpt-4o';
+      const steps = finalState.steps ?? [];
+      const toolNames = (finalState.toolsExecuted ?? []).map(t => t.name);
       recordMessageCost({
         tenantId: input.tenantId,
         customerId: input.customerId,
@@ -243,6 +245,15 @@ export class LangGraphService {
         tokensIn,
         tokensOut,
         useCase: 'agent_response',
+        // IA-XX — telemetria operacional (migration 126): mapeamento 1:1 do
+        // finalState que o grafo já calculou, nunca gravado antes.
+        agent: 'atendimento',
+        activeFlow: finalState.intent,
+        step: steps.length > 0 ? steps[steps.length - 1] : undefined,
+        toolCalled: toolNames.length > 0 ? toolNames.join(',') : undefined,
+        escalated: finalState.requiresHuman ?? false,
+        result: 'ok',
+        inputSummary: input.userMessage.slice(0, 200),
       }).catch((err) => {
         this.logger.warn({ err, tenantId: input.tenantId }, 'cost-record-failed');
       });
@@ -257,6 +268,26 @@ export class LangGraphService {
 
     } catch (err) {
       this.logger.error({ err, tenantId: input.tenantId }, 'LangGraph: fatal error');
+
+      // IA-XX — telemetria operacional (migration 126): antes deste fix, o
+      // caminho de erro fatal nunca gravava nada em ai_performance_logs —
+      // "Erros Fatais" na AIObservabilityPage sempre dava zero, mesmo com
+      // exceções reais acontecendo.
+      recordMessageCost({
+        tenantId: input.tenantId,
+        customerId: input.customerId,
+        conversationId: input.conversationId,
+        model: 'gpt-4o-mini',
+        tokensIn: 0,
+        tokensOut: 0,
+        useCase: 'agent_response',
+        agent: 'atendimento',
+        step: state.steps.length > 0 ? state.steps[state.steps.length - 1] : undefined,
+        escalated: true,
+        result: 'fatal',
+        inputSummary: input.userMessage.slice(0, 200),
+      }).catch(() => { /* fail-open, já logamos o erro fatal acima */ });
+
       return {
         response: 'Desculpe, ocorreu um erro interno. Um ticket foi aberto para nosso time.',
         steps: state.steps,

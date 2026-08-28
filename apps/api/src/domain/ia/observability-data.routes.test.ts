@@ -106,4 +106,45 @@ describe('observability-data.routes', () => {
       expect(res.statusCode).toBe(500);
     });
   });
+
+  describe('GET /api/v2/ia/observability-logs', () => {
+    it('sem tenant no JWT -> 401', async () => {
+      const app = await buildApp({});
+      const res = await app.inject({ method: 'GET', url: '/api/v2/ia/observability-logs' });
+      expect(res.statusCode).toBe(401);
+    });
+
+    it('lista logs do tenant, filtrado por tenant_id, com tokens_used calculado', async () => {
+      const rows = [
+        { id: 'l1', escalated: true, agent: 'atendimento', active_flow: 'support_technical', step: 'escalate', tool_called: null, result: 'ok', input_summary: 'cliente sem internet', provider: 'openai', model: 'gpt-4o', tokens_in: 100, tokens_out: 50, cost_usd: 0.001, created_at: '2026-08-28T10:00:00Z' },
+      ];
+      mockFrom({ data: rows, error: null });
+      const app = await buildApp();
+
+      const res = await app.inject({ method: 'GET', url: '/api/v2/ia/observability-logs' });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual([{ ...rows[0], tokens_used: 150 }]);
+      expect(supabaseAdmin.from).toHaveBeenCalledWith('ai_performance_logs');
+      const chain = (supabaseAdmin.from as any).mock.results[0].value;
+      expect(chain.eq).toHaveBeenCalledWith('tenant_id', 'tenant-1');
+    });
+
+    it('não vaza dado de outro tenant — filtro por tenant_id do JWT', async () => {
+      mockFrom({ data: [], error: null });
+      const app = await buildApp({ userId: 'op-2', tenantId: 'tenant-2', role: 'admin' });
+
+      await app.inject({ method: 'GET', url: '/api/v2/ia/observability-logs' });
+
+      const chain = (supabaseAdmin.from as any).mock.results[0].value;
+      expect(chain.eq).toHaveBeenCalledWith('tenant_id', 'tenant-2');
+    });
+
+    it('erro do Supabase -> 500', async () => {
+      mockFrom({ data: null, error: { message: 'boom' } });
+      const app = await buildApp();
+      const res = await app.inject({ method: 'GET', url: '/api/v2/ia/observability-logs' });
+      expect(res.statusCode).toBe(500);
+    });
+  });
 });

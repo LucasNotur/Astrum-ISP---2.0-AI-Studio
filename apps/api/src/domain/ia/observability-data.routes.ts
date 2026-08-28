@@ -45,4 +45,27 @@ export async function observabilityDataRoutes(app: FastifyInstance) {
     if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
     return reply.send(data ?? []);
   });
+
+  // GET /api/v2/ia/observability-logs — telemetria operacional real (migration 126).
+  // Substitui o `supabase.from('ai_performance_logs').select('*')` direto que
+  // AIObservabilityPage.tsx fazia com o client anônimo (bloqueado por RLS desde a
+  // 092) esperando colunas que, até esta rota, não existiam.
+  app.get('/api/v2/ia/observability-logs', { onRequest: auth }, async (req: any, reply: any) => {
+    const tenantId = tenantOf(req);
+    if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
+
+    const { data, error } = await supabaseAdmin
+      .from('ai_performance_logs')
+      .select('id,escalated,agent,active_flow,step,tool_called,result,input_summary,provider,model,tokens_in,tokens_out,cost_usd,created_at')
+      .eq('tenant_id', tenantId)
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (error) return reply.code(500).send({ code: 'DB_ERROR', message: error.message });
+
+    const logs = (data ?? []).map((r: any) => ({
+      ...r,
+      tokens_used: (r.tokens_in ?? 0) + (r.tokens_out ?? 0),
+    }));
+    return reply.send(logs);
+  });
 }
