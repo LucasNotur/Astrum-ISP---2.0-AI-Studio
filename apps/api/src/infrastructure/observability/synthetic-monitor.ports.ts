@@ -48,7 +48,11 @@ export const syntheticMonitorPorts: SyntheticMonitorPorts = {
         channel: 'webchat',
         messageId,
       },
-      { jobId: `synthetic-probe:${messageId}` },
+      // Achado 2026-08-28: BullMQ só aceita ':' em jobId customizado se for
+      // exatamente 2 ocorrências (formato interno de job repetitivo); com 1
+      // ':' (2 partes) ele lança "Custom Id cannot contain :" sempre — 100%
+      // das probes estavam falhando por causa disso.
+      { jobId: `synthetic-probe-${messageId}` },
     );
 
     const { redis } = await import('../cache/redis.client');

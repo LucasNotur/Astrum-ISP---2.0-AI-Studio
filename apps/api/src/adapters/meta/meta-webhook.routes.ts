@@ -127,7 +127,11 @@ const handleMetaWebhook = async (request: FastifyRequest, reply: FastifyReply) =
         instanceName: msg.pageId, // pageId para lookup no envio de resposta
       };
 
-      await messageQueue.add('inbound', job, { jobId: `meta:${msg.messageId}` });
+      // Achado 2026-08-28: BullMQ só aceita ':' em jobId customizado se for
+      // exatamente 2 ocorrências (formato interno de job repetitivo); com 1
+      // ':' (2 partes) ele lança "Custom Id cannot contain :" — toda mensagem
+      // Facebook/Instagram estava falhando ao enfileirar.
+      await messageQueue.add('inbound', job, { jobId: `meta-${msg.messageId}` });
       atendimentoLogger.info(
         { tenantId: resolved.tenantId, channel, messageId: msg.messageId },
         'Meta mensagem enfileirada',

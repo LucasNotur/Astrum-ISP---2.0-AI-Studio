@@ -73,7 +73,7 @@ describe('syntheticMonitorPorts', () => {
           messageContent: 'Qual o horário de atendimento?',
           channel: 'webchat',
         }),
-        expect.objectContaining({ jobId: expect.stringMatching(/^synthetic-probe:/) }),
+        expect.objectContaining({ jobId: expect.stringMatching(/^synthetic-probe-/) }),
       );
     });
 

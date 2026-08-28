@@ -93,7 +93,11 @@ export async function webchatRoutes(app: FastifyInstance) {
         channel: 'webchat',
         messageId,
       },
-      { jobId: `webchat:${messageId}` },
+      // Achado 2026-08-28: BullMQ só aceita ':' em jobId customizado se for
+      // exatamente 2 ocorrências (formato interno de job repetitivo); com 1
+      // ':' (2 partes) ele lança "Custom Id cannot contain :" — TODA mensagem
+      // via webchat estava falhando com 500 antes de sequer entrar na fila.
+      { jobId: `webchat-${messageId}` },
     );
 
     // Long-poll: aguarda até 15s pela resposta que sendChannelResponse grava no

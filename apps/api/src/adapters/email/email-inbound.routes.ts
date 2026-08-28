@@ -94,7 +94,11 @@ export async function emailInboundRoutes(app: FastifyInstance): Promise<void> {
     };
 
     const { messageQueue } = await import('../../../../../packages/queue/src/queues');
-    await messageQueue.add('inbound', job, { jobId: `email:${messageId}` });
+    // Achado 2026-08-28: BullMQ só aceita ':' em jobId customizado se for
+    // exatamente 2 ocorrências (formato interno de job repetitivo); com 1
+    // ':' (2 partes) ele lança "Custom Id cannot contain :" — todo e-mail
+    // inbound estava falhando ao enfileirar.
+    await messageQueue.add('inbound', job, { jobId: `email-${messageId}` });
 
     atendimentoLogger.info({ tenantId, from: fromEmail, messageId }, 'E-mail enfileirado');
     return reply.code(200).send({ status: 'queued', messageId });

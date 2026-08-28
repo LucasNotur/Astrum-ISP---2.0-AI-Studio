@@ -117,7 +117,7 @@ describe('webchatRoutes', () => {
           messageContent: 'oi',
           channel: 'webchat',
         }),
-        expect.objectContaining({ jobId: expect.stringMatching(/^webchat:/) }),
+        expect.objectContaining({ jobId: expect.stringMatching(/^webchat-/) }),
       );
 
       // Regressão: a busca por ticket já aberto usa extra->>session_id — não mais
