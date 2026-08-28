@@ -97,9 +97,10 @@ export default function HealthDashboardPage() {
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
-        const [healthRes, queueRes] = await Promise.allSettled([
+        const [healthRes, queueRes, probesRes] = await Promise.allSettled([
           fetch(`${baseUrl}/api/v2/health`, { headers }),
           fetch(`${baseUrl}/api/v2/cobranca/queue-stats`, { headers }),
+          fetch(`${baseUrl}/api/v2/observability/synthetic-probes`, { headers }),
         ]);
 
         const health = healthRes.status === "fulfilled" && healthRes.value.ok
@@ -110,11 +111,17 @@ export default function HealthDashboardPage() {
           ? await queueRes.value.json()
           : [];
 
+        // Restrito a super_admin no backend — operador comum recebe 403 e vê
+        // a seção vazia (mensagem "nenhuma probe registrada"), sem quebrar o resto do dashboard.
+        const probesData = probesRes.status === "fulfilled" && probesRes.value.ok
+          ? await probesRes.value.json()
+          : { probes: [] };
+
         setData({
           status: health.status,
           services: health.services || {},
           queues: Array.isArray(queues) ? queues : [],
-          probes: [],
+          probes: Array.isArray(probesData.probes) ? probesData.probes : [],
           costs: {
             tokenCostUsd: 0,
             messageCount: 0,

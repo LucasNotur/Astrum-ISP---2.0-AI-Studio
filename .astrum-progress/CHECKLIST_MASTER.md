@@ -255,7 +255,25 @@
   continuar acusando a falha real a cada push (não mascarado). Ver
   `astrum-lighthouse-ci-perf-gap` na memória do Claude Code.
 - [ ] LLM-as-a-Judge automatizado em cada deploy de prompts
-- [ ] Synthetic monitoring rodando 24/7
+- [x] Synthetic monitoring rodando 24/7 — **CONSERTADO 2026-08-28.** Estava marcado
+  pendente com razão: o worker (`synthetic-monitor.worker.ts`, S88/2026-07-21) rodava a
+  cada 15min via BullMQ desde sempre, mas `createSyntheticMonitorWorker()` era chamado
+  em `server.ts` **sem** o argumento `ports` — o processor caía direto no
+  `if (!ports) return`, então nunca probou nada, nunca alertou, nunca gravou nada. As
+  funções puras `evaluateProbe`/`computeIspHealth` (`health-score.ts`) eram código morto
+  (zero callers fora do teste). O dashboard (`HealthDashboardPage.tsx`) tinha
+  `probes: []`, `costs` e `whatsappUptime: 100` **hardcoded**. Implementados os 4 ports
+  reais em `apps/api/src/infrastructure/observability/synthetic-monitor.ports.ts`:
+  `listPilotTenants` (tenants com `is_sandbox=true` — hoje só "ISP Demo Astrolândia"),
+  `sendSyntheticMessage` (enfileira na fila real `astrum-messages` via canal `webchat`,
+  mesmo pipeline LangGraph+RAG+LLM do WhatsApp real, sem custo/efeito colateral de
+  WhatsApp — long-poll na resposta via Redis, timeout 15s), `recordProbeResult` (tabela
+  nova `synthetic_probe_results`, migration 125, RLS super_admin-only) e `alertOnFailure`
+  (Sentry via `captureWarning`, mesmo padrão do `healthcheck_monitor.mjs`). Rota nova
+  `GET /api/v2/observability/synthetic-probes` (super_admin) alimenta a seção "Sonda
+  Sintética" do dashboard com dado real (custo IA/resolução autônoma/WhatsApp uptime
+  continuam hardcoded — fora do escopo desta correção, são fontes de dado diferentes).
+  11 testes novos, suite completa `apps/api` verde, typecheck limpo.
 - [x] Frontend + Performance → GATE APROVADO
 
 ---

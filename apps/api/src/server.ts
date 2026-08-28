@@ -592,6 +592,10 @@ export async function buildServer() {
   const { threatNetworkRoutes } = await import('./domain/security/threat-network.routes');
   await app.register(threatNetworkRoutes);
 
+  // Últimas probes da sonda sintética 24/7 (super_admin) — HealthDashboardPage.tsx
+  const { syntheticMonitorRoutes } = await import('./infrastructure/observability/synthetic-monitor.routes');
+  await app.register(syntheticMonitorRoutes);
+
   // Health check com status dos serviços
   app.get('/api/v2/health', async () => {
     const { getLLMStatus } = await import('./adapters/ai/llm.adapter');
@@ -809,9 +813,13 @@ export async function startFastifyServer() {
     app.log.info('[usage-sync-worker] iniciado (23:30 BRT)');
 
     // S88 — Synthetic monitor worker (sonda E2E a cada 15min).
+    // Achado 2026-08-28: rodava como no-op desde 2026-07-21 — createSyntheticMonitorWorker()
+    // era chamado sem `ports`, o processor caía no `if (!ports) return`. Ver
+    // synthetic-monitor.ports.ts pros ports reais.
     // @ts-ignore
     const { createSyntheticMonitorWorker, scheduleSyntheticMonitorJobs } = await import('../../../packages/queue/src/workers/synthetic-monitor.worker');
-    createSyntheticMonitorWorker();
+    const { syntheticMonitorPorts } = await import('./infrastructure/observability/synthetic-monitor.ports');
+    createSyntheticMonitorWorker(syntheticMonitorPorts);
     await scheduleSyntheticMonitorJobs();
     app.log.info('[synthetic-monitor-worker] iniciado (*/15 * * * *)');
 
