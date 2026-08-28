@@ -171,7 +171,29 @@
 - [x] Pino.js: zero console.log no código de produção
 - [x] Playwright E2E Setup configurado
 - [x] E2E Tests: Chat + Knowledge + API + CobrAI
-- [ ] Lighthouse CI: Performance >85, Accessibility >90
+- [~] Lighthouse CI: Performance >85, Accessibility >90 — CI DESTRAVADA
+  2026-08-27, mas Performance real falha o próprio gate. Dois bugs de infra
+  achados e corrigidos (commit `820f206`): (1) `lighthouse.yml` só tinha
+  gatilho `pull_request` — o projeto faz push direto no main sem PR (ver
+  `feedback_git_workflow` na memória), então o job **nunca rodou uma vez
+  sequer** desde que foi criado (`gh run list` vazio); adicionado gatilho
+  `push:branches:[main]`, mesmo padrão do `ci.yml`. (2) `.lighthouserc.js`
+  usava `module.exports` (CommonJS) mas `package.json` tem `"type":
+  "module"` — quebrava com `ReferenceError: module is not defined in ES
+  module scope` assim que o `lhci` tentava carregar a config (nunca tinha
+  sido testado localmente, só existia commitado). Renomeado pra `.cjs`.
+  **Validado localmente** rodando `lhci autorun` contra o `dist/` real:
+  Accessibility **100**, Best Practices **96**, SEO **100** — todos passam
+  o gate. **Performance 52-53** (FALHA, precisa ≥85) — achado real, não é
+  bug de CI. Causa raiz: `src/App.tsx` (3552 linhas, carrega em TODA rota
+  inclusive login) importa estaticamente a biblioteca `recharts` inteira
+  (Line/Bar/Pie/Scatter/Radar/AreaChart) + `jsPDF`/`jspdf-autotable` +
+  `framer-motion` — ~3MB (730KB gzip) no bundle inicial mesmo em páginas
+  sem gráfico, FCP/LCP ~9.3s. **Decisão do Lucas 2026-08-27:** não mexer no
+  `App.tsx` agora (refactor de risco alto, arquivo monolítico sem cobertura
+  de teste visível) — deixar registrado como pendência nova, CI vai
+  continuar acusando a falha real a cada push (não mascarado). Ver
+  `astrum-lighthouse-ci-perf-gap` na memória do Claude Code.
 - [ ] LLM-as-a-Judge automatizado em cada deploy de prompts
 - [ ] Synthetic monitoring rodando 24/7
 - [x] Frontend + Performance → GATE APROVADO
