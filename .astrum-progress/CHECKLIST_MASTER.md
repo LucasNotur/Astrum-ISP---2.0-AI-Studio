@@ -42,7 +42,11 @@
 - [x] Dockerfile multi-stage testado localmente
 - [x] GitHub Actions: lint → vitest → playwright → build → deploy
 - [ ] Ephemeral environments por PR
-- [ ] Pulumi IaC: toda infraestrutura em código TypeScript
+- [ ] Pulumi IaC: toda infraestrutura em código TypeScript — **bloqueado até a migração pra VPS**
+  (decisão 2026-08-28: hoje Redis/Qdrant/backend rodam numa máquina Windows local, não em
+  nuvem, e Supabase já existe manualmente; não há o que o Pulumi provisione com ganho real
+  além de Cloudflare, e o Lucas preferiu esperar `PLANO_MIGRACAO_VPS.md` ser executado pra
+  declarar tudo de uma vez em vez de fazer só o pedaço Cloudflare agora)
 - [x] Graceful Shutdown: SIGTERM handler no Node.js
 ### Backend & Endpoints
 - [x] Zod em todas as rotas críticas
