@@ -1359,9 +1359,10 @@ Tudo o mais é independente entre si.
   `115_tickets_snooze_columns`, `116_tickets_conversation_id` — todas confirmadas já
   aplicadas de verdade (colunas/tabelas/funções existem), tracking sincronizado
   (`INSERT INTO schema_migrations`) sem reexecutar SQL nenhum. `097_svix_message_id.sql`
-  **continua genuinamente pendente** — o próprio arquivo diz "NÃO APLICADA AINDA... aplicar
-  quando o dono aprovar"; confirmado via MCP que a coluna `svix_message_id` não existe.
-  Fica para o Lucas decidir se aprova. Achado extra: a linha antiga
+  **✅ APLICADA 2026-08-28** (aprovada pelo Lucas, via MCP + tracking sincronizado). Coluna
+  `svix_message_id` confirmada em `webhook_deliveries`; código do `svix.service.ts`/
+  `webhook-config.routes.ts` já esperava por ela (grava no send, lê no retry) — suite
+  14/14 verde. Achado extra: a linha antiga
   `105_whatsapp_health_snapshots.sql` no tracking não corresponde a nenhum arquivo em disco
   hoje (renomeado/substituído em algum momento por colisão de numeração) — linha órfã
   inofensiva, não removida (não atrapalha o runner).

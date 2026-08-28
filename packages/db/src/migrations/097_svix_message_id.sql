@@ -1,8 +1,7 @@
 -- =============================================================================
 -- 097 — Svix: guardar o id da mensagem Svix em webhook_deliveries (reentrega manual).
 --
--- ⚠️ NÃO APLICADA AINDA — staged localmente (mesma disciplina das 094/095/096). Revisar +
--- aplicar com `npm run db:migrate` quando o dono aprovar. Idempotente (IF NOT EXISTS).
+-- ✅ APLICADA 2026-08-28 via MCP (aprovada pelo Lucas). Idempotente (IF NOT EXISTS).
 --
 -- PROBLEMA: a tela de Webhooks (src/pages/WebhooksPage.tsx → retryDelivery) reenvia uma
 -- entrega falha via POST /api/v2/webhooks/deliveries/:id/retry. Para reenviar de fato pela
