@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useMemo } from "react";
+﻿import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { applyTheme } from "./lib/themeManager";
 import {
@@ -102,33 +102,7 @@ import {
 import { Toaster } from "@/src/components/ui/sonner";
 import { toast } from "sonner";
 import { WorkflowVisualizer } from "./components/WorkflowVisualizer";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-  ScatterChart,
-  Scatter,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
-  AreaChart,
-  Area,
-} from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
 import { Skeleton } from "./components/Skeleton";
 import { cn } from "./lib/utils";
 import { OnboardingTour } from "./components/OnboardingTour";
@@ -218,8 +192,6 @@ import { loginToApi, submitApiMfaChallenge, clearApiTokens } from "./lib/apiAuth
 import { AppLayout } from "./components/layout/AppLayout";
 import { StatCard } from "./components/ui/StatCard";
 
-import { SignupPage } from "./pages/SignupPage";
-
 import { mainRoutes } from './routes/main.routes';
 
 import {
@@ -246,11 +218,17 @@ import {
 // --- App Component ---
 import { CustomerDetailsDialog } from "./components/CustomerDetailsDialog";
 
-import WebchatPage from "./pages/WebchatPage";
-import OperatorMobilePage from "./pages/OperatorMobilePage";
-import PortalPage from "./pages/PortalPage";
-import TechPreview from "./pages/TechPreview";
-import CardPreview from "./pages/CardPreview";
+// Code-splitting: essas 5 rotas standalone (fora do layout autenticado) só eram
+// alcançadas por early-return, mas o import estático ainda entrava no chunk de
+// entrada, carregado em TODA rota (inclusive /login). Convertidas pra lazy.
+const WebchatPage = lazy(() => import("./pages/WebchatPage"));
+const OperatorMobilePage = lazy(() => import("./pages/OperatorMobilePage"));
+const PortalPage = lazy(() => import("./pages/PortalPage"));
+const TechPreview = lazy(() => import("./pages/TechPreview"));
+const CardPreview = lazy(() => import("./pages/CardPreview"));
+const SignupPage = lazy(() => import("./pages/SignupPage").then((m) => ({ default: m.SignupPage })));
+
+const routeFallback = <div className="p-10 text-center text-muted-foreground">Carregando...</div>;
 
 const queryClient = new QueryClient();
 
@@ -259,43 +237,53 @@ export default function App() {
 
   if (routerLocation.pathname === '/tech-preview') {
       return (
-          <Routes>
-              <Route path="/tech-preview" element={<TechPreview />} />
-          </Routes>
+          <Suspense fallback={routeFallback}>
+            <Routes>
+                <Route path="/tech-preview" element={<TechPreview />} />
+            </Routes>
+          </Suspense>
       );
   }
 
   if (routerLocation.pathname === '/card-preview') {
       return (
-          <Routes>
-              <Route path="/card-preview" element={<CardPreview />} />
-          </Routes>
+          <Suspense fallback={routeFallback}>
+            <Routes>
+                <Route path="/card-preview" element={<CardPreview />} />
+            </Routes>
+          </Suspense>
       );
   }
 
   if (routerLocation.pathname.startsWith('/webchat') || routerLocation.pathname.startsWith('/operador-mobile')) {
       return (
-          <Routes>
-             <Route path="/webchat" element={<WebchatPage />} />
-             <Route path="/operador-mobile" element={<OperatorMobilePage />} />
-          </Routes>
+          <Suspense fallback={routeFallback}>
+            <Routes>
+               <Route path="/webchat" element={<WebchatPage />} />
+               <Route path="/operador-mobile" element={<OperatorMobilePage />} />
+            </Routes>
+          </Suspense>
       );
   }
 
   if (routerLocation.pathname.startsWith('/portal')) {
       return (
-          <Routes>
-              <Route path="/portal" element={<PortalPage />} />
-          </Routes>
+          <Suspense fallback={routeFallback}>
+            <Routes>
+                <Route path="/portal" element={<PortalPage />} />
+            </Routes>
+          </Suspense>
       );
   }
 
   if (routerLocation.pathname === '/register' || routerLocation.pathname === '/trial') {
       return (
-          <Routes>
-              <Route path="/register" element={<SignupPage />} />
-              <Route path="/trial" element={<SignupPage />} />
-          </Routes>
+          <Suspense fallback={routeFallback}>
+            <Routes>
+                <Route path="/register" element={<SignupPage />} />
+                <Route path="/trial" element={<SignupPage />} />
+            </Routes>
+          </Suspense>
       );
   }
 
@@ -1596,85 +1584,6 @@ export default function App() {
     }
   };
 
-  const handleExportInvoicePDF = (invoice: any) => {
-    const customer = customers.find((c) => c.id === invoice.customerId);
-    const doc = new jsPDF();
-
-    // Header
-    doc.setFontSize(22);
-    doc.setTextColor(40, 40, 40);
-    doc.text("Astrum - FATURA", 105, 20, { align: "center" });
-
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text(
-      `Data de Emissão: ${new Date().toLocaleDateString("pt-BR")}`,
-      105,
-      28,
-      { align: "center" },
-    );
-
-    // Customer Info
-    doc.setFontSize(12);
-    doc.setTextColor(0, 0, 0);
-    doc.text("DADOS DO CLIENTE", 20, 45);
-    doc.line(20, 47, 190, 47);
-
-    doc.setFontSize(10);
-    doc.text(`Nome: ${customer?.name || "N/A"}`, 20, 55);
-    doc.text(`Email: ${customer?.email || "N/A"}`, 20, 62);
-    doc.text(`Endereço: ${customer?.address || "N/A"}`, 20, 69);
-    doc.text(`Plano: ${customer?.plan || "N/A"}`, 20, 76);
-
-    // Invoice Info
-    doc.setFontSize(12);
-    doc.text("DETALHES DA FATURA", 20, 95);
-    doc.line(20, 97, 190, 97);
-
-    autoTable(doc, {
-      startY: 105,
-      head: [["Descrição", "Vencimento", "Status", "Valor"]],
-      body: [
-        [
-          `Mensalidade Internet - ${customer?.plan || "Plano"}`,
-          invoice.dueDate?.seconds
-            ? new Date(invoice.dueDate.seconds * 1000).toLocaleDateString(
-                "pt-BR",
-              )
-            : invoice.dueDate,
-          invoice.status.toUpperCase(),
-          `R$ ${invoice.amount.toFixed(2)}`,
-        ],
-      ],
-      theme: "striped",
-      headStyles: { fillColor: [40, 40, 40] },
-    });
-
-    const finalY = (doc as any).lastAutoTable.finalY + 10;
-
-    doc.setFontSize(14);
-    doc.text(`TOTAL: R$ ${invoice.amount.toFixed(2)}`, 190, finalY, {
-      align: "right",
-    });
-
-    // Footer
-    doc.setFontSize(8);
-    doc.setTextColor(150, 150, 150);
-    doc.text("Astrum - Soluções em Conectividade", 105, 280, {
-      align: "center",
-    });
-    doc.text(
-      "Este documento é uma representação digital de fatura.",
-      105,
-      285,
-      { align: "center" },
-    );
-
-    doc.save(
-      `fatura_${customer?.name.replace(/\s+/g, "_")}_${invoice.id?.slice(0, 5) || "INV"}.pdf`,
-    );
-    toast.success("PDF gerado com sucesso!");
-  };
 
   const handleRunDiagnostics = async (
     targetId?: string,
@@ -2304,47 +2213,6 @@ export default function App() {
       }
     };
     reader.readAsText(file);
-  };
-
-  const handleExportDashboardPDF = () => {
-    const doc = new jsPDF();
-
-    doc.setFontSize(22);
-    doc.text("Astrum - RELATÓRIO EXECUTIVO", 105, 20, { align: "center" });
-    doc.setFontSize(10);
-    doc.text(`Gerado em: ${new Date().toLocaleString("pt-BR")}`, 105, 28, {
-      align: "center",
-    });
-
-    doc.setFontSize(14);
-    doc.text("Métricas Principais", 20, 45);
-    doc.line(20, 47, 190, 47);
-
-    const activeCustomers = customers.filter(
-      (c) => c.status === "active",
-    ).length;
-    const totalMRR = customers
-      .filter((c) => c.status === "active")
-      .reduce((acc, c) => acc + (c.mrr || 0), 0);
-    const openTickets = tickets.filter((t) => t.status !== "resolved").length;
-
-    autoTable(doc, {
-      startY: 55,
-      head: [["Métrica", "Valor"]],
-      body: [
-        ["Total de Clientes Ativos", activeCustomers.toString()],
-        ["Faturamento Mensal (MRR)", `R$ ${totalMRR.toLocaleString("pt-BR")}`],
-        ["Tickets em Aberto", openTickets.toString()],
-        ["Taxa de Churn (Simulada)", "1.2%"],
-        ["Disponibilidade da Rede", "99.9%"],
-      ],
-      theme: "grid",
-    });
-
-    doc.save(
-      `relatorio_executivo_${new Date().toISOString().split("T")[0]}.pdf`,
-    );
-    toast.success("Relatório executivo gerado!");
   };
 
   if (loading) {

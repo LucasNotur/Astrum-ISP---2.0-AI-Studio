@@ -1,39 +1,40 @@
 import React, { lazy, Suspense } from 'react';
 import { Route, Navigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { DashboardPage } from '../pages/DashboardPage';
-const SmartHomePage = lazy(() => import('../pages/SmartHomePage'));
-import { SuperAdminPage } from '../pages/SuperAdminPage';
 import { SuperAdminRoute } from '../components/SuperAdminRoute';
-import { CustomersPage } from '../pages/CustomersPage';
-import { ServiceOrdersPage } from '../pages/ServiceOrdersPage';
-import { MapPage } from '../pages/MapPage';
-import { BillingPage } from '../pages/BillingPage';
-import { MonitoringPage } from '../pages/MonitoringPage';
-import { CobrAIPage } from '../pages/CobrAIPage';
-import { AIObservabilityPage } from '../pages/AIObservabilityPage';
-import { AICostsPage } from '../pages/AICostsPage';
-import { ERPIntegrationsPage } from '../pages/ERPIntegrationsPage';
-import { WebhooksPage } from '../pages/WebhooksPage';
-import { SecurityPage } from '../pages/SecurityPage';
-import QualityMonitorPage from '../pages/QualityMonitorPage';
-import TechnicianAppPage from '../pages/TechnicianAppPage';
-import FieldOpsPage from '../pages/FieldOpsPage';
-import { InventoryPage } from '../pages/InventoryPage';
-import { TicketsPage } from '../pages/TicketsPage';
-import { SalesPage } from '../pages/SalesPage';
-import { ValorGeradoPage } from '../pages/ValorGeradoPage';
 import { intelligenceRoutes } from './intelligence.routes';
+
+// Code-splitting: nenhuma página fica no chunk de entrada (App.tsx é carregado em
+// TODA rota, inclusive login) — cada rota só baixa seu próprio JS quando visitada.
+const SmartHomePage = lazy(() => import('../pages/SmartHomePage'));
+const DashboardPage = lazy(() => import('../pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
+const SuperAdminPage = lazy(() => import('../pages/SuperAdminPage').then((m) => ({ default: m.SuperAdminPage })));
+const CustomersPage = lazy(() => import('../pages/CustomersPage').then((m) => ({ default: m.CustomersPage })));
+const ServiceOrdersPage = lazy(() => import('../pages/ServiceOrdersPage').then((m) => ({ default: m.ServiceOrdersPage })));
+const MapPage = lazy(() => import('../pages/MapPage').then((m) => ({ default: m.MapPage })));
+const BillingPage = lazy(() => import('../pages/BillingPage').then((m) => ({ default: m.BillingPage })));
+const MonitoringPage = lazy(() => import('../pages/MonitoringPage').then((m) => ({ default: m.MonitoringPage })));
+const CobrAIPage = lazy(() => import('../pages/CobrAIPage').then((m) => ({ default: m.CobrAIPage })));
+const AIObservabilityPage = lazy(() => import('../pages/AIObservabilityPage').then((m) => ({ default: m.AIObservabilityPage })));
+const AICostsPage = lazy(() => import('../pages/AICostsPage').then((m) => ({ default: m.AICostsPage })));
+const ERPIntegrationsPage = lazy(() => import('../pages/ERPIntegrationsPage').then((m) => ({ default: m.ERPIntegrationsPage })));
+const WebhooksPage = lazy(() => import('../pages/WebhooksPage').then((m) => ({ default: m.WebhooksPage })));
+const SecurityPage = lazy(() => import('../pages/SecurityPage').then((m) => ({ default: m.SecurityPage })));
+const QualityMonitorPage = lazy(() => import('../pages/QualityMonitorPage'));
+const TechnicianAppPage = lazy(() => import('../pages/TechnicianAppPage'));
+const FieldOpsPage = lazy(() => import('../pages/FieldOpsPage'));
+const InventoryPage = lazy(() => import('../pages/InventoryPage').then((m) => ({ default: m.InventoryPage })));
+const TicketsPage = lazy(() => import('../pages/TicketsPage').then((m) => ({ default: m.TicketsPage })));
+const SalesPage = lazy(() => import('../pages/SalesPage').then((m) => ({ default: m.SalesPage })));
+const ValorGeradoPage = lazy(() => import('../pages/ValorGeradoPage').then((m) => ({ default: m.ValorGeradoPage })));
 const OnboardingWizardPage = lazy(() => import('../pages/OnboardingWizardPage'));
 const HealthDashboardPage = lazy(() => import('../pages/HealthDashboardPage'));
 const PortalPage = lazy(() => import('../pages/PortalPage'));
-import { WhatsAppConnectionsPage } from '../pages/WhatsAppPage';
-import { KnowledgeBasePage } from '../pages/KnowledgeBasePage';
-import { AIConfigPage } from '../pages/AIConfigPage';
-import { TeamPage } from '../pages/TeamPage';
-import { SettingsPage } from '../pages/SettingsPage';
-
-// U7-04: lazy loading nas 3 rotas mais pesadas para reduzir bundle inicial
+const WhatsAppConnectionsPage = lazy(() => import('../pages/WhatsAppPage').then((m) => ({ default: m.WhatsAppConnectionsPage })));
+const KnowledgeBasePage = lazy(() => import('../pages/KnowledgeBasePage').then((m) => ({ default: m.KnowledgeBasePage })));
+const AIConfigPage = lazy(() => import('../pages/AIConfigPage').then((m) => ({ default: m.AIConfigPage })));
+const TeamPage = lazy(() => import('../pages/TeamPage').then((m) => ({ default: m.TeamPage })));
+const SettingsPage = lazy(() => import('../pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 const ChatPage   = lazy(() => import('../pages/ChatPage').then((m) => ({ default: m.ChatPage })));
 const BIPage     = lazy(() => import('../pages/BIPage').then((m) => ({ default: m.BIPage })));
 const DesignPage = lazy(() => import('../pages/DesignPage').then((m) => ({ default: m.DesignPage })));
@@ -61,7 +62,7 @@ export function mainRoutes(currentUserRole: string) {
         path="/super-admin"
         element={
           <SuperAdminRoute>
-            <SuperAdminPage />
+            <L><SuperAdminPage /></L>
           </SuperAdminRoute>
         }
       />
@@ -88,33 +89,32 @@ export function mainRoutes(currentUserRole: string) {
         element={<Navigate to={currentUserRole === 'tecnico' ? '/tecnico' : '/home'} replace />}
       />
       <Route path="/home"             element={<L><SmartHomePage /></L>} />
-      <Route path="/dashboard"        element={<DashboardPage />} />
-      <Route path="/tecnico"          element={<TechnicianAppPage />} />
-      <Route path="/campo"            element={<FieldOpsPage />} />
-      {/* U7-04: ChatPage (~2000 linhas) e BIPage (Recharts pesado) → lazy */}
+      <Route path="/dashboard"        element={<L><DashboardPage /></L>} />
+      <Route path="/tecnico"          element={<L><TechnicianAppPage /></L>} />
+      <Route path="/campo"            element={<L><FieldOpsPage /></L>} />
       <Route path="/bi"               element={<L><BIPage /></L>} />
       <Route path="/chat"             element={<L><ChatPage /></L>} />
-      <Route path="/customers"        element={<CustomersPage />} />
-      <Route path="/os"               element={<ServiceOrdersPage />} />
-      <Route path="/map"              element={<MapPage />} />
-      <Route path="/billing"          element={<BillingPage />} />
-      <Route path="/monitoring"       element={<MonitoringPage />} />
-      <Route path="/quality-monitor"  element={<QualityMonitorPage />} />
-      <Route path="/cobrai"           element={<CobrAIPage />} />
-      <Route path="/observability"    element={<Animated id="observability"><AIObservabilityPage /></Animated>} />
-      <Route path="/ai-costs"         element={<Animated id="ai-costs"><AICostsPage /></Animated>} />
-      <Route path="/integrations"     element={<Animated id="integrations"><ERPIntegrationsPage /></Animated>} />
-      <Route path="/webhooks"         element={<Animated id="webhooks"><WebhooksPage /></Animated>} />
-      <Route path="/security"         element={<Animated id="security"><SecurityPage /></Animated>} />
-      <Route path="/inventory"        element={<Animated id="inventory"><InventoryPage /></Animated>} />
-      <Route path="/tickets"          element={<Animated id="tickets"><TicketsPage /></Animated>} />
-      <Route path="/sales"            element={<Animated id="sales"><SalesPage /></Animated>} />
-      <Route path="/valor"            element={<Animated id="valor"><ValorGeradoPage /></Animated>} />
-      <Route path="/whatsapp"         element={<WhatsAppConnectionsPage />} />
-      <Route path="/kb"               element={<KnowledgeBasePage />} />
-      <Route path="/ai-config"        element={<AIConfigPage />} />
-      <Route path="/team"             element={<TeamPage />} />
-      <Route path="/settings"         element={<SettingsPage />} />
+      <Route path="/customers"        element={<L><CustomersPage /></L>} />
+      <Route path="/os"               element={<L><ServiceOrdersPage /></L>} />
+      <Route path="/map"              element={<L><MapPage /></L>} />
+      <Route path="/billing"          element={<L><BillingPage /></L>} />
+      <Route path="/monitoring"       element={<L><MonitoringPage /></L>} />
+      <Route path="/quality-monitor"  element={<L><QualityMonitorPage /></L>} />
+      <Route path="/cobrai"           element={<L><CobrAIPage /></L>} />
+      <Route path="/observability"    element={<L><Animated id="observability"><AIObservabilityPage /></Animated></L>} />
+      <Route path="/ai-costs"         element={<L><Animated id="ai-costs"><AICostsPage /></Animated></L>} />
+      <Route path="/integrations"     element={<L><Animated id="integrations"><ERPIntegrationsPage /></Animated></L>} />
+      <Route path="/webhooks"         element={<L><Animated id="webhooks"><WebhooksPage /></Animated></L>} />
+      <Route path="/security"         element={<L><Animated id="security"><SecurityPage /></Animated></L>} />
+      <Route path="/inventory"        element={<L><Animated id="inventory"><InventoryPage /></Animated></L>} />
+      <Route path="/tickets"          element={<L><Animated id="tickets"><TicketsPage /></Animated></L>} />
+      <Route path="/sales"            element={<L><Animated id="sales"><SalesPage /></Animated></L>} />
+      <Route path="/valor"            element={<L><Animated id="valor"><ValorGeradoPage /></Animated></L>} />
+      <Route path="/whatsapp"         element={<L><WhatsAppConnectionsPage /></L>} />
+      <Route path="/kb"               element={<L><KnowledgeBasePage /></L>} />
+      <Route path="/ai-config"        element={<L><AIConfigPage /></L>} />
+      <Route path="/team"             element={<L><TeamPage /></L>} />
+      <Route path="/settings"         element={<L><SettingsPage /></L>} />
       <Route path="/health"      element={<L><HealthDashboardPage /></L>} />
       <Route path="/onboarding" element={<Suspense fallback={<div className="p-10 text-center text-muted-foreground">Carregando...</div>}><OnboardingWizardPage /></Suspense>} />
       <Route path="/portal" element={<L><PortalPage /></L>} />
