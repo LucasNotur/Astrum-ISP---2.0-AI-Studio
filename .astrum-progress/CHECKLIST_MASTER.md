@@ -109,6 +109,27 @@
     esperado quando os dois provedores estão sem fôlego (propaga o erro, não
     silencia). Fase 2 (fan-out também na LEITURA/busca, 3+ call sites
     duplicados no repo) documentada mas não iniciada.
+  - **🔴 P0 REAL achado e corrigido investigando a Fase 2 (2026-08-28):** ao
+    levantar os "3+ call sites de leitura" pra planejar o fan-out, achei que
+    o caminho que o agente REAL usa (`message.worker.ts` → `langGraphService`
+    → `agent.nodes.ts::nodeFetchContext` → `search.adapter.ts` →
+    `HybridSearchService`) buscava na coleção Qdrant `knowledge_{tenantId}`
+    — coleção que **nenhum código cria ou popula** (o único criador,
+    `CollectionSetupService`, é código morto, zero callers). A indexação real
+    (`indexing.worker.ts`) escreve em `tenant_{tenantId}` (esquema diferente,
+    sem named vectors). Resultado: **o retrieval RAG do fluxo agentic real
+    nunca funcionou** — todo erro de "coleção não existe" era engolido em
+    silêncio por `fetch-context.node.ts` (`.catch(() => { ragContext = ''
+    })`), indistinguível de "não achei nada relevante". Só não apareceu antes
+    porque 0 tenants reais têm tráfego WhatsApp conectado ainda. **Corrigido**
+    (`search.adapter.ts` trocado pra usar o mesmo pipeline já validado —
+    `embedding.service` + `qdrant.adapter::searchSimilar` — que
+    `chat-stream.routes.ts`/`rag-query.service.ts` já usavam de verdade).
+    Perde HyDE/fusão BM25 nessa troca (eram exclusivos do `HybridSearchService`
+    morto — ver itens desmarcados abaixo). Suite completa `apps/api`
+    2845/2845 verde, typecheck limpo. Ver `astrum-rag-collection-mismatch-fix`
+    na memória do Claude Code. Fase 2 (fan-out de provider na leitura) agora
+    parte de uma base que funciona de verdade — ainda não iniciada.
   - **Achado colateral sério rodando isso:** o backend de produção estava
     fora do ar havia 5h+ (desde 10:51 UTC) sem ninguém perceber — causa real:
     `REDIS_URL` usa `localhost`, que nesta máquina Windows resolve pra IPv6
@@ -122,8 +143,18 @@
     quota free-tier estourada ao mesmo tempo. *Ação do Lucas:* crédito em
     qualquer um dos dois resolve; depois `npx tsx -r dotenv/config
     scripts/qa/pdf-ingestion-smoke.ts` valida o pipeline inteiro em ~1-2 min.
-- [x] Hybrid Search (BM25 + Semântico) com score fusion
-- [x] HyDE para queries vagas implementado
+- [ ] Hybrid Search (BM25 + Semântico) com score fusion — DESMARCADO 2026-08-28
+  (estava `[x]` por engano). O código (`HybridSearchService`) existe e tem
+  teste unitário próprio verde, mas **nunca esteve conectado a nada real**:
+  buscava na coleção Qdrant `knowledge_{tenantId}`, que nenhum código cria ou
+  popula (`CollectionSetupService.createHybridCollection`/`migrateToHybrid`
+  são código morto, zero callers). Achado investigando a Fase 2 do fan-out de
+  embeddings — ver item abaixo "RAG do agente real corrigido". BM25/fusão RRF
+  ficam como pendência nova pra reconstruir de verdade (teria que popular
+  sparse vectors na ingestão, hoje `indexing.worker.ts` não gera nenhum).
+- [ ] HyDE para queries vagas implementado — DESMARCADO 2026-08-28, mesmo
+  motivo do item acima (`_generateHyDEDocument` só existe dentro do
+  `HybridSearchService`, nunca rodou de verdade em produção).
 - [x] Zep/Mem0 para memória de longo prazo
 - [ ] RAGAS score ≥ 0.75 no test set
 - [x] CobrAI Scheduler + Worker
