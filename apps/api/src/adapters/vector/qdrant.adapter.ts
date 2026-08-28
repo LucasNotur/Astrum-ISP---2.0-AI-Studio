@@ -135,6 +135,21 @@ export interface SearchResult {
 }
 
 /**
+ * Verifica se a coleção do tenant+provider existe (sem lançar). Usada pelo
+ * fan-out de leitura pra decidir se vale a pena gerar o embedding do outro
+ * provider e consultar a coleção dele.
+ */
+export async function collectionExists(tenantId: string, provider: EmbeddingProviderName): Promise<boolean> {
+  const qdrant = getQdrantClient();
+  try {
+    await qdrant.getCollection(getTenantCollection(tenantId, provider));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Busca os chunks mais relevantes para uma query.
  */
 export async function searchSimilar(
@@ -144,10 +159,11 @@ export async function searchSimilar(
     limit?: number;
     scoreThreshold?: number;
     documentId?: string; // filtrar por documento específico
-  } = {}
+  } = {},
+  provider: EmbeddingProviderName = 'openai',
 ): Promise<SearchResult[]> {
   const qdrant = getQdrantClient();
-  const collectionName = getTenantCollection(tenantId);
+  const collectionName = getTenantCollection(tenantId, provider);
 
   const filter = options.documentId ? {
     must: [{ key: 'document_id', match: { value: options.documentId } }],

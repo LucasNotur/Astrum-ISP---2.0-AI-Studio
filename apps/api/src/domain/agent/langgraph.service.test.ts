@@ -9,9 +9,6 @@ vi.mock('../../infrastructure/ai/vercel-ai.service', () => ({
   agentTools: [],
   isToolBatchingEnabled: () => false,
 }));
-vi.mock('../../infrastructure/rag/hybrid-search.service', () => ({
-  hybridSearchService: {}
-}));
 vi.mock('../../infrastructure/memory/memory-composer.service', () => ({
   memoryComposerService: {}
 }));

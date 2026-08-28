@@ -1,7 +1,6 @@
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { aiProcessingQueue, type IndexingJobData } from '../../../../../packages/queue/src/workers/indexing.worker';
-import { generateEmbedding } from '../../adapters/ai/embedding.service';
-import { searchSimilar } from '../../adapters/vector/qdrant.adapter';
+import { searchKnowledgeBase } from '../../infrastructure/rag/knowledge-search.service';
 
 export interface ReindexStatus {
   status: 'running' | 'completed';
@@ -79,8 +78,7 @@ export interface SearchTestResult {
 /** Busca de teste: embedda a query e retorna os chunks mais próximos no Qdrant do tenant. */
 export async function runSearchTest(tenantId: string, query: string): Promise<SearchTestResult> {
   const start = Date.now();
-  const vector = await generateEmbedding(query, tenantId);
-  const hits = await searchSimilar(tenantId, vector, { limit: 5, scoreThreshold: 0.7 });
+  const hits = await searchKnowledgeBase(query, tenantId, { limit: 5, scoreThreshold: 0.7 });
   const latency_ms = Date.now() - start;
 
   return {

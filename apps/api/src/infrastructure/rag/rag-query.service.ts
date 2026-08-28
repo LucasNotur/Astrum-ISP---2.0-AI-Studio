@@ -1,5 +1,5 @@
-import { generateEmbedding } from '../../adapters/ai/embedding.service';
-import { searchSimilar, type SearchResult } from '../../adapters/vector/qdrant.adapter';
+import { type SearchResult } from '../../adapters/vector/qdrant.adapter';
+import { searchKnowledgeBase } from './knowledge-search.service';
 import { callLLM } from '../../adapters/ai/llm.adapter';
 import { iaLogger } from '../logging/logger';
 import { supabaseAdmin } from '../database/supabase.client';
@@ -103,13 +103,11 @@ export async function queryRAG(options: RAGQueryOptions): Promise<RAGQueryResult
 
   const tenantName = tenant?.name ?? 'nosso provedor';
 
-  // 1. Gerar embedding da query
-  const queryEmbedding = await generateEmbedding(query, tenantId);
-
-  // 2. Buscar chunks relevantes no Qdrant
+  // 1-2. Gerar embedding(s) da query e buscar chunks relevantes no Qdrant
+  // (fan-out por provider — ver knowledge-search.service.ts)
   let chunks: SearchResult[] = [];
   try {
-    chunks = await searchSimilar(tenantId, queryEmbedding, {
+    chunks = await searchKnowledgeBase(query, tenantId, {
       limit: maxContextChunks,
       scoreThreshold,
     });

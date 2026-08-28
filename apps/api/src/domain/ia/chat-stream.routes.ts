@@ -3,8 +3,7 @@ import { getTenantId, getUserId } from '../../lib/jwt-claims';
 import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { runGuardrails } from '../../infrastructure/guardrails/guardrails.pipeline';
 import { buildSystemPrompt } from '../../infrastructure/rag/system-prompt-builder.service';
-import { generateEmbedding } from '../../adapters/ai/embedding.service';
-import { searchSimilar } from '../../adapters/vector/qdrant.adapter';
+import { searchKnowledgeBase } from '../../infrastructure/rag/knowledge-search.service';
 import { vercelAIService } from '../../infrastructure/ai/vercel-ai.service';
 import { ToolsExecutor } from '../../infrastructure/ai/tools.executor';
 import { z } from 'zod';
@@ -45,8 +44,7 @@ export async function chatStreamRoutes(fastify: FastifyInstance) {
     // 2. RAG — buscar contexto relevante
     let ragContext = '';
     try {
-      const queryEmbedding = await generateEmbedding(guardrails.processedText, tenantId);
-      const chunks = await searchSimilar(tenantId, queryEmbedding, {
+      const chunks = await searchKnowledgeBase(guardrails.processedText, tenantId, {
         limit: 4,
         scoreThreshold: 0.72,
       });

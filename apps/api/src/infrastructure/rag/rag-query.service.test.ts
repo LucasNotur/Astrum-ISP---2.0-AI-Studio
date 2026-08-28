@@ -2,9 +2,11 @@ import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('../../adapters/ai/embedding.service', () => ({
   generateEmbedding: vi.fn().mockResolvedValue(new Array(1536).fill(0.1)),
+  generateEmbeddingGoogle: vi.fn().mockResolvedValue(new Array(768).fill(0.1)),
 }));
 
 vi.mock('../../adapters/vector/qdrant.adapter', () => ({
+  collectionExists: vi.fn().mockResolvedValue(false),
   searchSimilar: vi.fn().mockResolvedValue([
     {
       chunkText: 'Para reiniciar o roteador, pressione o botão reset por 10 segundos.',

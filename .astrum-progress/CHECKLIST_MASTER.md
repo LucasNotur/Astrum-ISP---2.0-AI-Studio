@@ -108,7 +108,7 @@
     tier estourado pela rajada de 320 textos) — comportamento correto e
     esperado quando os dois provedores estão sem fôlego (propaga o erro, não
     silencia). Fase 2 (fan-out também na LEITURA/busca, 3+ call sites
-    duplicados no repo) documentada mas não iniciada.
+    duplicados no repo) — ver item ✅ CONCLUÍDA abaixo.
   - **🔴 P0 REAL achado e corrigido investigando a Fase 2 (2026-08-28):** ao
     levantar os "3+ call sites de leitura" pra planejar o fan-out, achei que
     o caminho que o agente REAL usa (`message.worker.ts` → `langGraphService`
@@ -128,8 +128,33 @@
     Perde HyDE/fusão BM25 nessa troca (eram exclusivos do `HybridSearchService`
     morto — ver itens desmarcados abaixo). Suite completa `apps/api`
     2845/2845 verde, typecheck limpo. Ver `astrum-rag-collection-mismatch-fix`
-    na memória do Claude Code. Fase 2 (fan-out de provider na leitura) agora
-    parte de uma base que funciona de verdade — ainda não iniciada.
+    na memória do Claude Code.
+  - **✅ Fase 2 CONCLUÍDA (2026-08-28)** — fan-out de provider na leitura +
+    consolidação dos call sites duplicados. Criado
+    `infrastructure/rag/knowledge-search.service.ts::searchKnowledgeBase` —
+    ponto único de busca: gera embedding OpenAI e busca `tenant_{id}`
+    sempre; se a coleção `tenant_{id}_google` existir (`collectionExists`,
+    novo em `qdrant.adapter.ts`), gera embedding via Gemini
+    (`generateEmbeddingGoogle`, novo em `embedding.service.ts`) e busca ela
+    também, fundindo os dois conjuntos de resultado por score (não dá pra
+    combinar os VETORES entre provedores, só os resultados já rankeados).
+    4 call sites migrados pra usar o serviço único: `chat-stream.routes.ts`,
+    `infrastructure/rag/rag-query.service.ts` (`queryRAG`),
+    `infrastructure/adapters/search.adapter.ts` (o mesmo corrigido no item
+    acima) e `knowledge-reindex.service.ts::runSearchTest`. Código morto
+    deletado (zero callers confirmado via grep antes de apagar):
+    `domain/ia/rag-query.service.ts` (classe `RagQueryService` nunca
+    importada em lugar nenhum), `infrastructure/rag/hybrid-search.service.ts`
+    + seu teste (`HybridSearchService`, só tinha o caller morto acima),
+    `infrastructure/rag/collection-setup.service.ts` (`CollectionSetupService`,
+    criava a coleção `knowledge_` que nunca foi usada). Teste novo
+    (`knowledge-search.service.test.ts`, 5 casos: openai-only, fan-out com
+    merge por score, truncamento no limit, fallback gracioso se a busca
+    Google falhar, array vazio). `deleteCustomerPoints` (LGPD) ficou de fora
+    do fan-out — o payload dos vetores nunca teve campo `customer_id` (só
+    `document_id`/`article_id`), então já é 100% no-op hoje em qualquer
+    coleção; mexer quebraria o contrato de teste existente sem ganho real.
+    Suite completa `apps/api` 2844/2844 verde, typecheck limpo.
   - **Achado colateral sério rodando isso:** o backend de produção estava
     fora do ar havia 5h+ (desde 10:51 UTC) sem ninguém perceber — causa real:
     `REDIS_URL` usa `localhost`, que nesta máquina Windows resolve pra IPv6

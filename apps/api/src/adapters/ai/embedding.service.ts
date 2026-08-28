@@ -103,13 +103,26 @@ async function generateEmbeddingsBatchGoogle(
 }
 
 /**
+ * Embedding único via Gemini — usado pelo fan-out de LEITURA (Fase 2):
+ * gera o vetor de busca para consultar a coleção `tenant_{id}_google`
+ * quando ela existir (documentos cujo embedding de ingestão caiu no
+ * fallback Gemini). Não usar pra ingestão — lá é `generateEmbeddingsBatchGoogle`
+ * via `generateEmbeddingsBatchWithFailover`.
+ */
+export async function generateEmbeddingGoogle(text: string, tenantId?: string): Promise<number[]> {
+  const embeddings = await generateEmbeddingsBatchGoogle([text], tenantId);
+  return embeddings[0] || [];
+}
+
+/**
  * Igual a generateEmbeddingsBatch, mas cai pro Gemini se a OpenAI falhar (sem
  * crédito, rate limit, erro de rede) em vez de propagar o erro direto.
  *
  * USADO SÓ pela ingestão de documentos (indexing.worker.ts). Os caminhos de
- * busca/query (chat, RAG query) continuam usando generateEmbedding/
- * generateEmbeddingsBatch (só-OpenAI) — fan-out de leitura é fase separada,
- * não mexer nisso aqui.
+ * busca/query usam generateEmbedding (OpenAI) + generateEmbeddingGoogle
+ * (Gemini, só quando a coleção `_google` existe) via
+ * `knowledge-search.service.ts::searchKnowledgeBase` — fan-out de leitura,
+ * não failover (as duas coleções podem coexistir, ver Fase 2).
  */
 export async function generateEmbeddingsBatchWithFailover(
   texts: string[],

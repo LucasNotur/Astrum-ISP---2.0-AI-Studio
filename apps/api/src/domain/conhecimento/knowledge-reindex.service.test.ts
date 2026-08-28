@@ -12,10 +12,12 @@ vi.mock('../../../../../packages/queue/src/workers/indexing.worker', () => ({
 
 vi.mock('../../adapters/ai/embedding.service', () => ({
   generateEmbedding: vi.fn().mockResolvedValue([0.1, 0.2, 0.3]),
+  generateEmbeddingGoogle: vi.fn().mockResolvedValue([0.4, 0.5, 0.6]),
 }));
 
 vi.mock('../../adapters/vector/qdrant.adapter', () => ({
   searchSimilar: vi.fn().mockResolvedValue([]),
+  collectionExists: vi.fn().mockResolvedValue(false),
 }));
 
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
@@ -193,7 +195,12 @@ describe('runSearchTest', () => {
     const result = await runSearchTest('tenant-1', 'como configuro o roteador?');
 
     expect(generateEmbedding).toHaveBeenCalledWith('como configuro o roteador?', 'tenant-1');
-    expect(searchSimilar).toHaveBeenCalledWith('tenant-1', [0.1, 0.2, 0.3], { limit: 5, scoreThreshold: 0.7 });
+    expect(searchSimilar).toHaveBeenCalledWith(
+      'tenant-1',
+      [0.1, 0.2, 0.3],
+      { limit: 5, scoreThreshold: 0.7, documentId: undefined },
+      'openai',
+    );
     expect(result.results).toEqual([
       { title: 'Artigo A', score: 0.91, text: 'Texto do chunk' },
       { title: 'Artigo B', score: 0.75, text: 'Outro chunk' },
