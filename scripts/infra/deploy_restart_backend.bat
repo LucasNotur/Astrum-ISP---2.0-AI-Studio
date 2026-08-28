@@ -94,22 +94,29 @@ if !errorlevel! neq 0 (
 )
 schtasks /run /tn "AstrumBackendRun" >nul
 
-:: Orcamento 300s - achado ao vivo em 2026-08-23 (2 rodadas): 90s e depois 180s
-:: AINDA deram falso-negativo quando lancado pelo proprio CI (schtasks/run direto
-:: na hora, sem cache quente, parece ser mais lento que relancar manual logo em
-:: seguida - suspeita de cold start: npx/tsx/esbuild resolvendo do zero + Redis
-:: ETIMEDOUT/retry). O timeout.exe quebrado (trocado por ping) mascarava isso ha
-:: semanas. Falso-negativo aqui so atrasa a notificacao de sucesso do deploy - o
-:: backend sobe de verdade minutos depois de qualquer forma, sem ninguem saber.
+:: Orcamento 480s (2026-08-28, subiu de 300s) - achado ao vivo em 2026-08-23
+:: (2 rodadas): 90s e depois 180s AINDA deram falso-negativo quando lancado
+:: pelo proprio CI (schtasks/run direto na hora, sem cache quente, parece ser
+:: mais lento que relancar manual logo em seguida - suspeita de cold start:
+:: npx/tsx/esbuild resolvendo do zero + Redis ETIMEDOUT/retry). 300s tambem
+:: nao bastou algumas vezes depois disso (deploy do commit a8b88c9,
+:: 2026-08-28: 300s estourou, mas o healthcheck_monitor confirmou o backend
+:: de pe ~3min depois - nao travou, so foi mais lento que o orcamento).
+:: `logs/deploy.log` tem varios boots legitimos entre 200-260s, entao 300s
+:: era marginal demais - 480s da folga real sem esconder um travamento de
+:: verdade (isso ainda falharia). Investigar a causa raiz do cold start
+:: lento fica mais facil agora que `deploy_run_backend.bat` grava
+:: `logs/backend-boot.log` com o stdout/stderr real do processo. Ver
+:: astrum-pipeline-cicd na memoria do Claude Code.
 set /a "WAIT=0"
 :wait_loop
 ping -n 4 127.0.0.1 >nul
 set /a "WAIT+=3"
 curl -sf %HEALTH_BACKEND% >nul 2>nul
 if !errorlevel! equ 0 goto :health_ok
-if !WAIT! geq 300 (
-    echo [%date% %time%] ERRO: backend nao respondeu em 300s >> "%LOG_FILE%"
-    echo  X Backend nao respondeu em 300s - veja %LOG_FILE%
+if !WAIT! geq 480 (
+    echo [%date% %time%] ERRO: backend nao respondeu em 480s >> "%LOG_FILE%"
+    echo  X Backend nao respondeu em 480s - veja %LOG_FILE% e %LOG_DIR%\backend-boot.log
     endlocal
     exit /b 1
 )
