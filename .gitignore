@@ -10,6 +10,7 @@ dist/
 .turbo/
 playwright-report/
 stdout/
+.lighthouseci/
 vite.config.ts.timestamp-*.mjs
 .env*
 !.env.example

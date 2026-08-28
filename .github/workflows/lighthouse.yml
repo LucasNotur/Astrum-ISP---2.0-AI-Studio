@@ -1,6 +1,13 @@
 name: Lighthouse CI
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'index.html'
+      - 'vite.config.*'
+      - 'package.json'
   pull_request:
     branches: [main]
     paths:

@@ -44,7 +44,7 @@ Requisito: migrations 072 e 078 aplicadas no Supabase.
 
 ## 4. Coisas que JÁ estão prontas no código (sem env)
 
-- [x] Lighthouse CI config (`.lighthouserc.js`) — roda em PRs automaticamente
+- [x] Lighthouse CI config (`.lighthouserc.cjs`) — roda em push/PR no main (corrigido 2026-08-27: só tinha gatilho `pull_request`, mas o projeto faz push direto no main sem PR, então nunca rodava; config também estava em `.js` com `module.exports` colidindo com `"type": "module"` do `package.json`, quebrava ao carregar)
 - [x] Turbo cache otimizado (`turbo.json` com inputs)
 - [x] GitHub Actions: Lighthouse workflow (`.github/workflows/lighthouse.yml`)
 - [x] CI/CD: unit tests, build, E2E, eval, CodeQL, security audit
