@@ -9,9 +9,15 @@ const h = vi.hoisted(() => ({
   processMessage: vi.fn(),
   wsNewMessage: vi.fn().mockResolvedValue(undefined),
   isEmergencyStopped: vi.fn().mockResolvedValue(false),
+  isMessageProcessed: vi.fn().mockResolvedValue(false),
+  markMessageProcessed: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('../../../../apps/api/src/infrastructure/cache/redis.client', () => ({ default: {}, connection: {} }));
+vi.mock('../../../../apps/api/src/infrastructure/cache/redis.client', () => ({ default: {}, connection: {}, getRedisClient: () => ({}) }));
+vi.mock('../../../../apps/api/src/infrastructure/queue/idempotency.service', () => ({
+  isMessageProcessed: h.isMessageProcessed,
+  markMessageProcessed: h.markMessageProcessed,
+}));
 vi.mock('../../../../apps/api/src/infrastructure/queue/bullmq.client', () => ({ setupDLQ: vi.fn() }));
 vi.mock('../../../../apps/api/src/infrastructure/observability/sentry-worker.helper', () => ({ addSentryToWorker: vi.fn() }));
 vi.mock('../../../../apps/api/src/infrastructure/logging/logger', () => ({
@@ -64,6 +70,9 @@ describe('message.worker — gate de handoff (conversa em mãos humanas)', () =>
     h.isEmergencyStopped.mockResolvedValue(false);
     h.saveMessage.mockResolvedValue('saved-user-msg');
     h.getOrCreate.mockResolvedValue('conv-1');
+    h.isMessageProcessed.mockResolvedValue(false);
+    h.markMessageProcessed.mockResolvedValue(undefined);
+    h.escalateConversation.mockResolvedValue(undefined);
   });
 
   it('conversa escalada → salva a msg do cliente e NÃO chama a IA nem envia resposta', async () => {
@@ -117,5 +126,58 @@ describe('message.worker — gate de handoff (conversa em mãos humanas)', () =>
     expect(h.processMessage).not.toHaveBeenCalled();
     expect(h.sendChannel).not.toHaveBeenCalled();
     expect(h.findEscalated).not.toHaveBeenCalled();
+  });
+});
+
+describe('message.worker — idempotência (retry at-least-once do BullMQ)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    h.isEmergencyStopped.mockResolvedValue(false);
+    h.saveMessage.mockResolvedValue('saved-user-msg');
+    h.getOrCreate.mockResolvedValue('conv-1');
+    h.findEscalated.mockResolvedValue(null);
+    h.isMessageProcessed.mockResolvedValue(false);
+    h.markMessageProcessed.mockResolvedValue(undefined);
+    h.escalateConversation.mockResolvedValue(undefined);
+    h.processMessage.mockResolvedValue({
+      response: 'Sua fatura vence dia 10.', steps: ['generate'],
+      requiresHuman: false, toolsExecuted: [], tokensUsed: 5,
+    });
+  });
+
+  it('job já processado → ignora sem rodar IA, sem enviar, sem nem checar emergência', async () => {
+    h.isMessageProcessed.mockResolvedValue(true);
+
+    await processMessage(makeJob({ messageId: 'm-dup' }));
+
+    expect(h.isMessageProcessed).toHaveBeenCalledWith(expect.anything(), 't1', 'm-dup');
+    expect(h.isEmergencyStopped).not.toHaveBeenCalled();
+    expect(h.processMessage).not.toHaveBeenCalled();
+    expect(h.sendChannel).not.toHaveBeenCalled();
+    expect(h.markMessageProcessed).not.toHaveBeenCalled();
+  });
+
+  it('caminho normal → marca como processado DEPOIS de enviar', async () => {
+    await processMessage(makeJob({ messageId: 'm-ok' }));
+
+    expect(h.sendChannel).toHaveBeenCalled();
+    expect(h.markMessageProcessed).toHaveBeenCalledWith(expect.anything(), 't1', 'm-ok');
+    // ordem: envio antes da marcação (não pode marcar sem ter enviado)
+    const sendOrder = h.sendChannel.mock.invocationCallOrder[0];
+    const markOrder = h.markMessageProcessed.mock.invocationCallOrder[0];
+    expect(markOrder).toBeGreaterThan(sendOrder);
+  });
+
+  it('falha ao escalar APÓS o envio não propaga (senão o retry reenviaria a resposta)', async () => {
+    h.processMessage.mockResolvedValue({
+      response: 'Vou transferir você para um especialista.', steps: ['escalate'],
+      requiresHuman: true, toolsExecuted: [], tokensUsed: 10,
+    });
+    h.escalateConversation.mockRejectedValue(new Error('db down'));
+
+    // não deve lançar
+    await expect(processMessage(makeJob({ messageId: 'm-esc' }))).resolves.toBeUndefined();
+    expect(h.sendChannel).toHaveBeenCalled();
+    expect(h.markMessageProcessed).toHaveBeenCalledWith(expect.anything(), 't1', 'm-esc');
   });
 });

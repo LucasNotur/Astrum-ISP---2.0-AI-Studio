@@ -7,6 +7,8 @@ import { getConversationContext, ConversationMessage } from '../../../../apps/ap
 import { getOrCreateConversation, findEscalatedConversation, saveMessage, escalateConversation } from '../../../../apps/api/src/infrastructure/adapters/conversation-db.adapter';
 import { sendChannelResponse } from '../../../../apps/api/src/adapters/channel/channel-sender.service';
 import { supabaseAdmin } from '../../../../apps/api/src/infrastructure/database/supabase.client';
+import { getRedisClient } from '../../../../apps/api/src/infrastructure/cache/redis.client';
+import { isMessageProcessed, markMessageProcessed } from '../../../../apps/api/src/infrastructure/queue/idempotency.service';
 import { atendimentoLogger } from '../../../../apps/api/src/infrastructure/logging/logger';
 import { addSentryToWorker } from '../../../../apps/api/src/infrastructure/observability/sentry-worker.helper';
 import { processInboundMedia, type MediaDeps } from '../../../../apps/api/src/adapters/whatsapp/media-processor.service';
@@ -56,6 +58,24 @@ async function handleEmergencyStoppedMessage(job: Job<MessageJobData>): Promise<
 }
 
 export async function processMessage(job: Job<MessageJobData>): Promise<void> {
+  const { messageId } = job.data;
+  const idem = getRedisClient();
+
+  // IDEMPOTÊNCIA — o BullMQ re-executa o job inteiro se ele falhar DEPOIS de já
+  // ter enviado a resposta (canal instável, crash pós-envio). Sem essa guarda,
+  // a re-execução re-roda o LangGraph (custo de LLM de novo) e re-envia a mesma
+  // mensagem ao cliente. A chave "processado" é gravada logo após o envio ter
+  // sucesso (ver mais abaixo); aqui, na re-entrada, ela já existe → ignoramos o
+  // job. Sem messageId não há como deduplicar — processa normalmente (não deveria
+  // acontecer: MessageJobData.messageId é obrigatório).
+  if (messageId && (await isMessageProcessed(idem, job.data.tenantId, messageId))) {
+    atendimentoLogger.info(
+      { tenantId: job.data.tenantId, messageId, attempt: job.attemptsMade + 1 },
+      'Mensagem já processada — job ignorado (idempotência)',
+    );
+    return;
+  }
+
   const stopped = await isEmergencyStopped({
     findActive: async () => {
       const { data, error } = await supabaseAdmin
@@ -70,7 +90,9 @@ export async function processMessage(job: Job<MessageJobData>): Promise<void> {
     },
   });
   if (stopped) {
-    return handleEmergencyStoppedMessage(job);
+    await handleEmergencyStoppedMessage(job);
+    if (messageId) await markMessageProcessed(idem, job.data.tenantId, messageId);
+    return;
   }
 
   const { tenantId, customerId, senderPhone, messageContent, channel } = job.data;
@@ -101,6 +123,7 @@ export async function processMessage(job: Job<MessageJobData>): Promise<void> {
       role: 'user',
       timestamp: new Date().toISOString(),
     });
+    if (messageId) await markMessageProcessed(idem, tenantId, messageId);
     return;
   }
 
@@ -210,12 +233,29 @@ export async function processMessage(job: Job<MessageJobData>): Promise<void> {
     instanceName: job.data.instanceName,
   });
 
+  // IDEMPOTÊNCIA — marca como processado ASSIM QUE o envio teve sucesso, ANTES do
+  // handoff abaixo. Se algo depois disto lançar (ex.: o UPDATE de escalação), o
+  // BullMQ re-executa o job, mas a guarda no topo já intercepta e não reenvia a
+  // resposta. A janela residual (crash entre o envio e este SET) é de ~1ms num
+  // Redis local — aceitável; eliminá-la exigiria outbox transacional.
+  if (messageId) await markMessageProcessed(idem, tenantId, messageId);
+
   // 6. HANDOFF — a IA decidiu transferir para um humano. Marca a conversa como
   // 'escalated' DEPOIS de entregar a mensagem de transferência, para que as
   // próximas mensagens do cliente caiam no gate acima (IA silencia até o humano
   // encerrar). O ticket em si já foi criado pelo nó `escalate` do grafo.
+  // Best-effort: uma falha aqui NÃO pode disparar retry (reenviaria a resposta já
+  // entregue, agora barrada pela guarda de idempotência) — logamos em erro para
+  // um humano reconciliar o status da conversa se preciso.
   if (result.requiresHuman) {
-    await escalateConversation(conversationId, tenantId, 'IA solicitou atendimento humano');
+    try {
+      await escalateConversation(conversationId, tenantId, 'IA solicitou atendimento humano');
+    } catch (err) {
+      atendimentoLogger.error(
+        { tenantId, conversationId, messageId, err: (err as Error).message },
+        'Falha ao marcar conversa como escalada após o envio — handoff pode não silenciar a IA',
+      );
+    }
   }
 
   atendimentoLogger.info(
