@@ -414,6 +414,20 @@ por incerteza (risco de "corrigir" errado sem poder testar):**
 - [ ] Validar `outage_notifier.service.ts` enviando notificações reais via Evolution
 
 ### P3 — Funil de vendas
+
+> **Auditoria ponta-a-ponta do funil 2026-08-29 (commits `19c6deb`+`5bb4b53`):** 4
+> bugs corrigidos no `sales-funnel.service.ts`/`vendas.subgraph.ts` (fallback de
+> viabilidade lia shape errado do `capacidade()` → sempre "sem cobertura"; `ctoId`
+> nunca persistido → oferta D-07 morta; dead-end de "sem planos"; datas no passado).
+> Ver `astrum-sales-funnel-auditoria` na memória do Claude Code.
+> **Limitação conhecida deixada documentada (decisão do Lucas: não abrir tarefa
+> agora):** a calibração de oferta D-07 por ocupação de CTO (`computeCtOccupancy`)
+> só funciona ponta-a-ponta pro path do **grafo local** (onde `ctoId = network_ctos.id`).
+> Pro path **ERP**, o `ctoId` que a viabilidade devolve é o id da CTO no ERP
+> (`id_caixa_optica`/`id_cto`/`nearestCtoId`), que não casa com `network_ctos.id`
+> (UUID Supabase) → `computeCtOccupancy` retorna null → oferta cai em standard/premium
+> (degradação logada, não quebra). Resolver exigiria um mapa ERP-cto-id ↔ network_ctos.id.
+
 - [~] `checkViability` no IXC — implementado com `/webservice/v1/viabilidade`, testado (`ixc-sales.test.ts`), falta instância real
 - [~] `getPlans` no IXC — implementado com `/webservice/v1/plano_acesso`, testado (`ixc-sales.test.ts`), falta instância real
 - [~] `createPreRegistration` no IXC — implementado com `POST /webservice/v1/cliente`, testado (`ixc-sales.test.ts`), falta instância real
