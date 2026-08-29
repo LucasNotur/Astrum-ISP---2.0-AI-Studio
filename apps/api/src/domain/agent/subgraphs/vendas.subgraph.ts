@@ -90,6 +90,15 @@ export async function runVendasSubgraph(
 
       case 'presenting_plans': {
         const plans = await doGetPlans(tenantId, db);
+        if (plans.length === 0) {
+          infraLogger.warn({ tenantId, leadId: lead.id }, 'vendas: presenting_plans sem planos disponíveis — escalando para humano');
+          const { text } = await withFailover('mini', (model) => generate({
+            model: model as any,
+            system: SYSTEM_VENDAS,
+            prompt: `Não consegui carregar os planos disponíveis agora. Informe que um atendente vai continuar o atendimento e passar as opções.`,
+          }), tenantId);
+          return { response: text, requiresHuman: true, steps: [...state.steps, 'vendas_no_plans'] };
+        }
         const extracted = await extractPlanSelection(userMessage, plans);
         if (!extracted) {
           const { text } = await withFailover('mini', (model) => generate({
@@ -173,7 +182,7 @@ export async function runVendasSubgraph(
           const { text } = await withFailover('mini', (model) => generate({
             model: model as any,
             system: SYSTEM_VENDAS,
-            prompt: `O cliente enviou: "${userMessage}". Peça uma data específica para a instalação (ex.: "segunda-feira dia 15/07/2026, pela manhã").`,
+            prompt: `O cliente enviou: "${userMessage}". Peça uma data específica para a instalação, de hoje em diante (ex.: "segunda-feira dia 15/07/2026, pela manhã"). Se ele tiver informado uma data que já passou, explique gentilmente que precisa ser uma data futura.`,
           }), tenantId);
           return response(text, state.steps, 'vendas_scheduling');
         }
@@ -293,6 +302,15 @@ async function handleViability(
   }
 
   const plans = await doGetPlans(tenantId, db);
+  if (plans.length === 0) {
+    infraLogger.warn({ tenantId, leadId: lead.id, address: lead.address }, 'vendas: viabilidade OK mas nenhum plano disponível — escalando para humano');
+    const { text } = await withFailover('mini', (model) => generate({
+      model: model as any,
+      system: SYSTEM_VENDAS,
+      prompt: `Há cobertura no endereço "${lead.address}", mas não consegui carregar os planos disponíveis agora. Informe que um atendente vai passar as opções em instantes.`,
+    }), tenantId);
+    return { response: text, requiresHuman: true, steps: [...state.steps, 'vendas_no_plans'] };
+  }
   const { text } = await withFailover('mini', (model) => generate({
     model: model as any,
     system: SYSTEM_VENDAS,
@@ -363,18 +381,29 @@ async function extractPersonalData(
   }
 }
 
+/**
+ * Aceita a data só se for hoje ou no futuro (ISO `YYYY-MM-DD`, comparação
+ * lexicográfica). Rejeita datas passadas (ex.: cliente diz "ontem" ou uma data
+ * de mês já vencido) devolvendo null — o estágio de agendamento então re-pergunta
+ * por uma data válida em vez de abrir uma OS no passado.
+ */
+export function parseFutureDate(isoDate: string | null | undefined, today: string): string | null {
+  if (!isoDate) return null;
+  return isoDate >= today ? isoDate : null;
+}
+
 async function extractDate(message: string): Promise<string | null> {
   try {
     const today = new Date().toISOString().slice(0, 10);
     const { object } = await withFailover('mini', (model) => generateObject({
       model: model as any,
       schema: z.object({
-        isoDate: z.string().nullable().describe(`Data no formato YYYY-MM-DD ou null. Hoje é ${today}.`),
+        isoDate: z.string().nullable().describe(`Data no formato YYYY-MM-DD ou null. Hoje é ${today}. Nunca retorne uma data anterior a hoje.`),
       }),
-      system: `Extraia a data de agendamento da mensagem. Hoje é ${today}.`,
+      system: `Extraia a data de agendamento da mensagem. Hoje é ${today}. Datas de instalação devem ser de hoje em diante.`,
       prompt: message,
     }));
-    return object.isoDate;
+    return parseFutureDate(object.isoDate, today);
   } catch {
     return null;
   }

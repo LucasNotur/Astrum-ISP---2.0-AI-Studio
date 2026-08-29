@@ -8,7 +8,7 @@ vi.mock('../../../lib/tenant-keys', () => ({
   resolveTenantAiKeys: vi.fn(async () => ({})),
 }));
 
-import { runVendasSubgraph, type VendasSubgraphDeps } from './vendas.subgraph';
+import { runVendasSubgraph, parseFutureDate, type VendasSubgraphDeps } from './vendas.subgraph';
 import type { MultiAgentState } from '../multi-agent.state';
 import type { SalesLead, SalesFunnelDb } from '../../vendas/sales-funnel.service';
 
@@ -196,6 +196,45 @@ describe('runVendasSubgraph — stage: viability_failed', () => {
 
     expect(out.steps).toContain('vendas_viability_failed');
     expect(deps.generateTextFn).toHaveBeenCalled();
+  });
+});
+
+describe('parseFutureDate', () => {
+  it('aceita hoje e datas futuras', () => {
+    expect(parseFutureDate('2026-08-29', '2026-08-29')).toBe('2026-08-29');
+    expect(parseFutureDate('2026-12-01', '2026-08-29')).toBe('2026-12-01');
+  });
+  it('rejeita datas passadas (não abre OS no passado)', () => {
+    expect(parseFutureDate('2026-08-28', '2026-08-29')).toBeNull();
+    expect(parseFutureDate('2020-01-01', '2026-08-29')).toBeNull();
+  });
+  it('rejeita null/undefined', () => {
+    expect(parseFutureDate(null, '2026-08-29')).toBeNull();
+    expect(parseFutureDate(undefined, '2026-08-29')).toBeNull();
+  });
+});
+
+describe('runVendasSubgraph — sem planos disponíveis escala para humano (dead-end)', () => {
+  it('presenting_plans com getPlans vazio → requiresHuman em vez de loop', async () => {
+    const deps = makeDeps({
+      funnelDb: makeDb(PRESENTING_PLANS_LEAD),
+      getPlansFn: vi.fn().mockResolvedValue([]),
+    });
+    const out = await runVendasSubgraph(BASE_STATE, deps);
+    expect(out.requiresHuman).toBe(true);
+    expect(out.steps).toContain('vendas_no_plans');
+  });
+
+  it('checking_viability com viabilidade OK mas planos vazios → requiresHuman', async () => {
+    const checkingLead: SalesLead = { ...COLLECTING_LEAD, stage: 'checking_viability', address: 'Rua X, 1' };
+    const deps = makeDeps({
+      funnelDb: makeDb(checkingLead),
+      checkViabilityFn: vi.fn().mockResolvedValue({ available: true, ctoId: 'c1' }),
+      getPlansFn: vi.fn().mockResolvedValue([]),
+    });
+    const out = await runVendasSubgraph(BASE_STATE, deps);
+    expect(out.requiresHuman).toBe(true);
+    expect(out.steps).toContain('vendas_no_plans');
   });
 });
 
