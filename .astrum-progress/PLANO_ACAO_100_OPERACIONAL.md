@@ -1730,9 +1730,14 @@ Tudo o mais é independente entre si.
   fluxo de tenant legítimo pra quebrar. Teste novo `latency.routes.test.ts` (2/2 verde).
 - **[S2, 2026-08-25 — WARN de Auth fora do escopo]** O advisor de segurança tem 1 WARN não
   relacionado às funções: `auth_leaked_password_protection` (checagem de senha vazada contra o
-  HaveIBeenPwned desligada). É um toggle do painel Supabase (Auth → Password), não DDL — não dá
-  pra resolver por migration. Ligar leva ~1 min e vale, ainda mais com o `/trial` aberto ao
-  público.
+  HaveIBeenPwned desligada). É um toggle do painel Supabase (Auth → Passwords), não DDL — não dá
+  pra resolver por migration.
+  **⚠️ Investigado 2026-08-29 (Lucas não achou o toggle no painel):** confirmado via MCP
+  (`get_organization`) que a organização (Aljava) está no **plano Free** — "Leaked password
+  protection" é recurso exclusivo do plano **Pro ou superior** (confirmado via busca na doc
+  oficial); no Free o toggle fica oculto/desabilitado. Não é o Lucas procurando errado. Sem
+  upgrade de plano, este item fica genuinamente bloqueado — não vale a pena resolver só por
+  isso. Fica registrado, não é mais "1 min e pronto".
 - **[D2, 2026-08-25 — grep prescrito na spec não cobre dependência hoisted consumida só pelo
   `apps/api`]** O passo 1 da D2 pedia grep restrito a
   `src scripts vite.config.ts vite.preview.config.mts`. Nesse monorepo (npm workspaces, um
