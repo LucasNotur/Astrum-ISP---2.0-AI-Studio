@@ -412,21 +412,22 @@ por incerteza (risco de "corrigir" errado sem poder testar):**
 > (offline, sem credencial, já testável) das Fases B/C (validação ao vivo + webhook,
 > bloqueadas em credencial). Resumo dos gaps abaixo; detalhe e DoD no plano.
 
-- [ ] **`contract.service.ts` é throw-safe (fail-open) mas NÃO funciona
-  ponta-a-ponta** (auditado 2026-08-29, ampliado ao registrar o plano):
-  - **PDF placeholder inválido** (`buildContractBase64`: header fake + texto puro,
-    sem xref/trailer) — provedores rejeitam. Precisa geração real (recomendado
-    `pdf-lib`). → Fase A1.
-  - **Fluxo Clicksign incompleto (não só a URL):** a v1 exige `/documents` →
-    `/signers` → `/lists`, não signer inline no create. `contractUrl`
-    (`app.clicksign.com/${key}`) provável errada. → Fase A4/B1.
-  - **Fluxo D4Sign incompleto:** só `documents/upload`; falta `createlist` +
-    `sendtosigner`. Sobe mas nunca vai pra assinatura. → Fase A4/B2.
-  - **`externalKey` não persistido** (sem coluna) → sem reconciliar webhook depois.
-    → Fase A3 (migration `contract_external_key`).
-  - **Sem webhook de assinatura:** nada move `pending_signature` → `signed`. → Fase C.
-  - Robustez OK: BYOK fail-open (`{}`), `sendVia*` capturam e devolvem `failed` sem
-    lançar — não derruba o agendamento já concluído no subgrafo (`vendas.subgraph.ts:226`).
+- [x] **Fase A — offline — CONCLUÍDA 2026-08-29.** PDF real via jsPDF (era
+  placeholder inválido), template com 7 cláusulas, migration 127
+  (`contract_external_key`) aplicada no cloud + persistida no subgraph, e sequências
+  completas dos 2 provedores (Clicksign `/documents`→`/signers`→`/lists`; D4Sign
+  `upload`→`createlist`→`sendtosigner`) com HTTP mockado nos testes. 13 testes no
+  `contract.service.test.ts`.
+- [ ] **Fase B — validação ao vivo — BLOQUEADA em credencial.** Os shapes de
+  request/response dos provedores estão marcados como PROVÁVEIS no código; precisam
+  de conta/sandbox Clicksign (`CLICKSIGN_API_KEY`) e/ou D4Sign (`tokenAPI`) pra
+  confirmar e ajustar (inclusive a URL de assinatura real). Decidir qual provedor
+  ship primeiro (recomendação no plano: Clicksign).
+- [ ] **Fase C — webhook de assinatura — precisa segredo HMAC do provedor.** Rota
+  `POST /webhooks/contracts/:provider` que casa pelo `contract_external_key` e move
+  `pending_signature` → `signed`. Hoje nada marca um contrato como assinado.
+- Robustez OK: BYOK fail-open (`{}`), `sendVia*` capturam e devolvem `failed` sem
+  lançar — não derruba o agendamento já concluído no subgrafo (`vendas.subgraph.ts:226`).
 
 ### P1 — Religue por confiança
 - [ ] Testar `trust_unlock_policies` com tenant real (verificar fallback para DEFAULT_POLICY se não existir)

@@ -63,23 +63,22 @@
 
 ## Fases
 
-### Fase A — Offline (sem credencial) — pode ser feita já, com teste Vitest
+### Fase A — Offline (sem credencial) — CONCLUÍDA 2026-08-29
 
-- [ ] **A1 — PDF real.** Trocar `buildContractBase64` por geração via `pdf-lib`
-  (após decisão): documento A4 com os termos (contratante/CPF, endereço, plano,
-  valor, data). Teste: o base64 decodifica num PDF válido (`%PDF` no header, tem
-  `xref`/`trailer`, abre num parser). Sem credencial.
-- [ ] **A2 — Template default de verdade.** Corpo de contrato mínimo porém real
-  (cláusulas essenciais de prestação de serviço de internet), não 5 linhas. Puro,
-  testável.
-- [ ] **A3 — Migration `contract_external_key`.** Adicionar coluna em `sales_leads`
-  (`text`, nullable) + persistir `contractResult.externalKey` no subgraph. Destrava
-  a reconciliação por webhook (Fase C). Aplicável no Supabase local pela IA.
-- [ ] **A4 — Shape completo dos fluxos (código, sem validar).** Implementar as
-  chamadas que faltam — Clicksign (`/documents` → `/signers` → `/lists`), D4Sign
-  (`upload` → `createlist` → `sendtosigner`) — com o `ContractHttpClient` injetável
-  e **testes de unidade mockando o HTTP** (assertam a sequência e os payloads).
-  Marcar no código que a sequência é *provável*, pendente de validação ao vivo (B).
+- [x] **A1 — PDF real.** `buildContractBase64` gera via **jsPDF** (já era dep da raiz,
+  evitou adicionar `pdf-lib`; validado gerando PDF com header/xref/trailer/%%EOF no
+  Node). Teste assegura PDF estruturalmente válido. Função pura, exportada.
+- [x] **A2 — Template default de verdade.** 7 cláusulas essenciais (objeto, preço,
+  instalação, vigência, comodato, LGPD, aceite) com word-wrap. Default único da
+  Astrum; por-tenant fica pra fase posterior (decisão em aberto).
+- [x] **A3 — Migration `contract_external_key`.** `127_sales_leads_contract_external_key.sql`
+  (coluna `text` nullable) — **aplicada no Supabase cloud e verificada**. Subgraph
+  persiste `contractResult.externalKey`. Destrava a reconciliação por webhook (Fase C).
+- [x] **A4 — Shape completo dos fluxos.** Clicksign (`/documents` → `/signers` →
+  `/lists`) e D4Sign (`upload` → `createlist` → `sendtosigner`) implementados com
+  `ContractHttpClient` injetável; leitura de resposta defensiva + fallback de URL.
+  Testes mockam o HTTP e assertam sequência/payloads. **Shapes marcados como
+  PROVÁVEIS no código — pendentes de validação ao vivo (Fase B).**
 
 ### Fase B — Precisa credencial (validação ao vivo) — BLOQUEADA no Lucas
 

@@ -241,6 +241,9 @@ export async function runVendasSubgraph(
                 contract_status: contractResult.status === 'sent' ? 'pending_signature' : contractResult.status as any,
                 contract_url: contractResult.contractUrl,
                 contract_provider: contractResult.provider,
+                // P3-03 Fase A: id do documento no provedor — base pra reconciliar
+                // o webhook de assinatura (Fase C). Migration 127.
+                contract_external_key: contractResult.externalKey ?? null,
               });
               contractMsg = ` O contrato foi enviado para ${lead.email ?? 'o seu WhatsApp'} — assine digitalmente para confirmar.`;
             }

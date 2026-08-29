@@ -52,6 +52,7 @@ export interface SalesLead {
   contract_status?: string;
   contract_url?: string | null;
   contract_provider?: string | null;
+  contract_external_key?: string | null;
   // D-07 — oferta calibrada por LTV
   source?: string | null;
   cto_occupancy_pct?: number | null;
