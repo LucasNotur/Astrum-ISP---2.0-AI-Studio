@@ -10,6 +10,9 @@
  * invoiceId, action, ... }`. Funções PURAS + testáveis; a rota faz o I/O (Supabase/fila).
  */
 
+import type { CobraiRule } from '../ports/cobranca.port';
+import { interpolateTemplate } from './cobrai-rules.service';
+
 export type CobraiStage = 'D_MINUS_5' | 'D_ZERO' | 'D_PLUS_3' | 'D_PLUS_15' | 'D_PLUS_30';
 
 const DAY_MS = 86_400_000;
@@ -37,6 +40,9 @@ export interface DispatchInput {
   stage: CobraiStage;
   invoiceId?: string;
   amountCents?: number;
+  /** Sem estes dois o worker pula o job (`send_message sem phone ou message`). */
+  customerPhone?: string;
+  messageContent?: string;
 }
 
 export interface CobraiEnqueue {
@@ -54,6 +60,46 @@ export function buildCobraiEnqueue(input: DispatchInput): CobraiEnqueue {
       invoiceId: input.invoiceId ?? '',
       action: 'send_message',
       amountCents: input.amountCents,
+      ...(input.customerPhone ? { customerPhone: input.customerPhone } : {}),
+      ...(input.messageContent ? { messageContent: input.messageContent } : {}),
     },
   };
+}
+
+/**
+ * Escolhe a regra `send_message` apropriada para o atraso atual da fatura:
+ * a mais avançada já alcançada (maior `daysOverdue` <= atraso). Se a fatura
+ * ainda não atingiu nem a primeira régua, usa a primeira (lembrete inicial).
+ * `null` se o tenant não tem nenhuma regra de envio de mensagem.
+ */
+export function pickSendMessageRule(rules: CobraiRule[], overdueDays: number): CobraiRule | null {
+  const sendRules = rules
+    .filter((r) => r.action === 'send_message')
+    .sort((a, b) => a.daysOverdue - b.daysOverdue);
+  if (sendRules.length === 0) return null;
+  let picked: CobraiRule = sendRules[0]!;
+  for (const r of sendRules) {
+    if (r.daysOverdue <= overdueDays) picked = r;
+  }
+  return picked;
+}
+
+export interface CobraiMessageVars {
+  customerName: string;
+  amountCents: number;
+  invoiceId: string;
+  overdueDays: number;
+}
+
+/** Interpola o template da régua com as mesmas variáveis usadas pelo scheduler. */
+export function buildCobraiMessage(template: string, vars: CobraiMessageVars): string {
+  const amountBRL = (vars.amountCents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  return interpolateTemplate(template, {
+    customerName: vars.customerName,
+    amountBRL,
+    amountCents: vars.amountCents,
+    daysOverdue: vars.overdueDays,
+    paymentLink: `https://pagar.astrum.com.br/${vars.invoiceId}`,
+    invoiceId: vars.invoiceId,
+  });
 }
