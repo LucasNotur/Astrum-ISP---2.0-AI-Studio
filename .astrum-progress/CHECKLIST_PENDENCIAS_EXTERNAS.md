@@ -113,44 +113,67 @@ por incerteza (risco de "corrigir" errado sem poder testar):**
     ${Buffer.from(creds.token).toString('base64')}`) já está correto — não
     era bug, nenhuma mudança de código necessária.
 - [ ] **Voalle/Elleven** — validar `VoalleAdapter` contra instância real (segue
-  pendente — sem doc oficial pública nem ambiente de teste; o link indexado
-  pelo Google pro Postman da Voalle, `postman.com/desenvelite/voalle-integrator`,
-  não existe mais, redireciona pra home do Postman).
-  **Cache corrigido 2026-08-29** (achado arquitetural: `access_token` só valia
-  dentro da mesma instância, reautenticando quase toda chamada já que
-  `erp.factory.ts` cria instância nova por chamada) — resolvido com
-  `erp-oauth-cache.service.ts`, cache Redis compartilhado por tenant+provider.
-  **Reescrito por completo 2026-08-29** — a versão anterior do auth (OAuth
-  client_credentials em JSON contra `/oauth/token` no mesmo host) era inteiramente
-  inventada. Única fonte encontrada: SDK Go de terceiros
-  **`github.com/raykavin/elleven-go`** ("Unofficial Elleven Third-Party API",
-  MIT, teste por módulo) — não é doc oficial da Voalle, mas os detalhes são
-  específicos demais pra chute (secret de plataforma real hardcoded, portas
-  exatas, caminho exato do campo `syndata` na UI). Achados:
+  pendente, sem ambiente de teste gratuito — a doc oficial existe mas exige
+  cliente pagante). **Cache corrigido 2026-08-29** (`erp-oauth-cache.service.ts`,
+  Redis compartilhado por tenant+provider — sem isso `erp.factory.ts` cria
+  instância nova por chamada e reautentica quase sempre). **Reescrito por
+  completo 2026-08-29** contra o SDK Go de terceiros
+  `github.com/raykavin/elleven-go` (a versão OAuth anterior, JSON contra
+  `/oauth/token` no mesmo host, era inventada).
+  **Confirmado contra doc oficial 2026-08-29 (mesma sessão seguinte)** — achei
+  a doc Postman oficial de verdade: não é a URL morta indexada pelo Google
+  (`postman.com/desenvelite/voalle-integrator`), é
+  `documenter.getpostman.com/view/16282829/TzzBqFw1` ("API's para Terceiros -
+  ERPVoalle", 137 endpoints), achada buscando o nome do produto em vez da URL
+  antiga. A página é SPA e não aparece pro `WebFetch`/`get_page_text` (só a
+  Introdução) — a collection real vem de
+  `documenter.gw.postman.com/api/collections/{id}/{token}`, achada no HTML
+  cru. **Tudo que já tínhamos do SDK bateu exatamente** com a doc oficial
+  (portas, form fields do auth, paths) — e a doc trouxe 2 correções reais que
+  o SDK não expunha:
   - Auth roda numa **porta separada do resto da API** no mesmo host (`:45700`
-    auth, `:45715` API, default do SDK, overridável).
-  - `POST {authUrl}/connect/token`, **form-urlencoded** (não JSON — é o padrão
-    OAuth2/RFC 6749), com `grant_type=client_credentials&scope=syngw` mais um
-    **3º segredo, `syndata`** (Suite → Settings → Parameters →
-    Integration/Map) que a versão anterior nem pedia.
+    auth, `:45715` API — confirmado oficialmente, não só pelo SDK).
+  - `POST {authUrl}/connect/token`, form-urlencoded,
+    `grant_type=client_credentials&scope=syngw` + `client_id`/`client_secret`
+    (Suíte → Configurações → Usuários, usuário "Integrador") +
+    **3º segredo `syndata`** (Suíte → Configurações → Parâmetros →
+    Integração/Mapa).
   - Cliente: `GET /external/integrations/thirdparty/people/txid/{cpf}`.
   - Faturas: `GET .../getopentitlesbytxid/{cpf}` (abertas) e
-    `.../gettitlesbytxid/{cpf}` (todas, usado pra 2ª via). Boleto/PIX já vêm
-    prontos no título (`billet.pixQRCode`, `billet.typefulLine`) — sem link de
-    boleto PDF (só download binário via endpoint separado, não uma URL).
-  - Conexão: `.../getaccesspointstatusbyclient/{id}` — **status do
-    ACCESS POINT/OLT, não sessão RADIUS por cliente**, pior proxy que os
-    outros adapters.
-  - Desbloqueio: `.../contracts/unlock/{contractNumber}` — **usa número do
-    contrato, não CPF**, e o SDK não expõe resolução CPF→contrato — quem
-    chama `unlockCustomer` precisa já ter o número do contrato.
-  - Wizard atualizado: `url` (sem porta) + `clientId` + `clientSecret` +
-    `syndata`. Suite: 179/179 verde, typecheck limpo.
+    `.../gettitlesbytxid/{cpf}` (todas, usado pra 2ª via) — boleto/PIX prontos
+    no título (`billet.pixQRCode`, `billet.typefulLine`).
+  - **CORRIGIDO — link de boleto**: existe sim `GET .../GetBilletLink/{id_fatura}`
+    (`response.link`), que o SDK não expunha — a 1ª reescrita deixava
+    `boletoUrl` vazio "por honestidade" achando que não existia; existia, só
+    não estava na fonte usada. `GetBillet/{id}` continua sendo o PDF binário
+    direto, sem URL — não usado (`SecondCopyResult.boletoUrl` é string).
+  - Conexão: `.../getaccesspointstatusbyclient/{id}` — confirmado no response
+    de exemplo oficial (`{title, inMaintenance, maintenance, active}`) que é
+    mesmo **status do ACCESS POINT/OLT, não sessão RADIUS por cliente**.
+  - **CORRIGIDO — resolução CPF→contrato pro desbloqueio**: `unlockCustomer`
+    antes exigia que quem chamasse já soubesse o número do contrato (a API de
+    unlock usa `contractNumber`, não CPF, e o SDK não resolvia um a partir do
+    outro). Achei `POST .../contract/getpaged`
+    (`{txId: cpf, onlyActiveContracts: true, page: 1, pageSize: 1}` →
+    `response.data[0].contractNumber`) — `unlockCustomer` agora aceita CPF
+    como os outros métodos deste adapter, resolvendo o contrato sozinho.
+  - Wizard: `url` (sem porta) + `clientId` + `clientSecret` + `syndata`
+    (sem mudança nesta rodada). Suite Voalle: 20/20 verde, 135/135 na suite
+    ERP completa, typecheck limpo.
 - [ ] **MK Solutions / MK-Auth** — validar `MKAuthAdapter` contra instância
-  real (segue pendente, sem ambiente de teste gratuito — o demo público em
-  `mkauth-br.marracloud.com.br` não tem "Controle de usuários" no menu dessa
-  versão/instância, então não dá pra gerar `Client_id`/`Client_secret` de
-  teste, confirmado lendo o `menu.js.hhvm` completo).
+  real (segue pendente, sem ambiente de teste gratuito). **Reconfirmado
+  2026-08-29** navegando ao vivo no demo público (`mkauth-br.marracloud.com.br`,
+  login teste/teste) em vez de só ler o `menu.js.hhvm` estático — abri o menu
+  completo (PROVEDOR/CADASTROS/CLIENTES/FINANCEIRO/SUPORTE/CENTRAL/HOTSITE/
+  CONEXÕES, todas as seções) e tentei "Controle de funcionarios" (o item mais
+  próximo de "Controle de usuários" que existe nessa instância) — é só um
+  cadastro de RH (nome/CPF/endereço/salário), sem aba de login nem API. Não
+  existe *nenhum* jeito de gerar `Client_id`/`Client_secret` nesse demo,
+  confirmado por exploração interativa, não só leitura de código. Também
+  investiguei outro suposto demo (`demo.painelbr.com.br`, achado num fórum
+  MK-Auth) — não resolve DNS e a descrição do próprio fórum ("gerenciador de
+  domínios... hospedagem e revenda") não tem nada a ver com MK-Auth; provável
+  spam/post fora de tópico no fórum, descartado.
   **Reescrito por completo 2026-08-29** (decisão do Lucas: mesmo tratamento
   do Hubsoft — doc oficial sólida o bastante mesmo sem poder testar ao vivo).
   A API real é outra, confirmado contra o **OpenAPI completo baixado de

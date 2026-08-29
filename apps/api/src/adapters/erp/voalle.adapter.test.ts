@@ -42,26 +42,43 @@ describe('VoalleAdapter', () => {
     );
   });
 
-  it('generateSecondCopy — acha a fatura na lista completa e mapeia campos do billet', async () => {
-    const http = makeHttp([
-      { id: 'inv-outro', billet: { typefulLine: 'x' } },
-      {
-        id: 'inv-1',
-        billet: {
-          typefulLine: '34191.75301',
-          pixQRCode: 'pix123',
-          expirationDate: '2026-08-01',
-          amount: { value: 1234.56, finalValue: 1234.56 },
-        },
-      },
-    ]);
+  it('generateSecondCopy — acha a fatura na lista completa, mapeia billet e busca o link em GetBilletLink', async () => {
+    const http = vi.fn(async (url: string) => {
+      if (url.includes('/gettitlesbytxid/')) {
+        return {
+          ok: true, status: 200, statusText: 'OK',
+          json: async () => ({
+            success: true, messages: [], response: [
+              { id: 'inv-outro', billet: { typefulLine: 'x' } },
+              {
+                id: 'inv-1',
+                billet: {
+                  typefulLine: '34191.75301',
+                  pixQRCode: 'pix123',
+                  expirationDate: '2026-08-01',
+                  amount: { value: 1234.56, finalValue: 1234.56 },
+                },
+              },
+            ],
+          }),
+        };
+      }
+      if (url.includes('/GetBilletLink/')) {
+        return { ok: true, status: 200, statusText: 'OK', json: async () => ({ success: true, messages: null, response: { link: 'https://portal.voalle.test/check_bank/abc' } }) };
+      }
+      throw new Error('unexpected url ' + url);
+    }) as unknown as HttpClient;
     const adapter = new VoalleAdapter(creds, http);
     const result = await adapter.generateSecondCopy('11122233344', 'inv-1');
     expect(http).toHaveBeenCalledWith(
       `${API}/external/integrations/thirdparty/gettitlesbytxid/11122233344`,
       expect.anything(),
     );
-    expect(result.boletoUrl).toBe('');
+    expect(http).toHaveBeenCalledWith(
+      `${API}/external/integrations/thirdparty/GetBilletLink/inv-1`,
+      expect.anything(),
+    );
+    expect(result.boletoUrl).toBe('https://portal.voalle.test/check_bank/abc');
     expect(result.pixCopiaCola).toBe('pix123');
     expect(result.barcode).toBe('34191.75301');
     expect(result.dueDate).toBe('2026-08-01');
@@ -103,14 +120,30 @@ describe('VoalleAdapter', () => {
     await expect(adapter.getConnectionStatus('11122233344')).rejects.toThrow('não encontrado');
   });
 
-  it('unlockCustomer — POST em contracts/unlock com o número do contrato (não CPF)', async () => {
-    const http = makeHttp({ ok: true });
+  it('unlockCustomer — resolve o número do contrato via contract/getpaged (CPF), depois desbloqueia', async () => {
+    const http = vi.fn(async (url: string, init: any) => {
+      if (url.endsWith('/contract/getpaged')) {
+        const body = JSON.parse(init.body);
+        expect(body).toEqual({ txId: '11122233344', onlyActiveContracts: true, page: 1, pageSize: 1 });
+        return { ok: true, status: 200, statusText: 'OK', json: async () => ({ success: true, messages: null, response: { data: [{ contractNumber: 'CTR-123' }] } }) };
+      }
+      if (url.endsWith('/contracts/unlock/CTR-123')) {
+        return { ok: true, status: 200, statusText: 'OK', json: async () => ({ success: true, messages: null, response: {} }) };
+      }
+      throw new Error('unexpected url ' + url);
+    }) as unknown as HttpClient;
     const adapter = new VoalleAdapter(creds, http);
-    await adapter.unlockCustomer('CTR-123');
+    await adapter.unlockCustomer('111.222.333-44');
     expect(http).toHaveBeenCalledWith(
       `${API}/external/integrations/thirdparty/contracts/unlock/CTR-123`,
       expect.objectContaining({ method: 'POST' }),
     );
+  });
+
+  it('unlockCustomer — lança quando não há contrato ativo pro CPF', async () => {
+    const http = makeHttp({ data: [] });
+    const adapter = new VoalleAdapter(creds, http);
+    await expect(adapter.unlockCustomer('11122233344')).rejects.toThrow('nenhum contrato ativo encontrado');
   });
 
   it('lança quando API responde !ok', async () => {
