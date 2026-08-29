@@ -112,10 +112,36 @@ por incerteza (risco de "corrigir" errado sem poder testar):**
   real. Achado não corrigido: `unlockCustomer` chama `DELETE /api/cliente/bloquear`
   (bloquear = block) esperando que o método inverta a semântica do nome —
   nunca validado, pode estar fazendo o oposto do que deveria.
-- [ ] **SGP/TSMX** — validar `SGPAdapter` contra instância real. Achado não
-  corrigido: a API real do SGP pode exigir um `app_token` (identifica a
-  integração) além do `token` de usuário que o adapter já envia — sem ele,
-  toda chamada pode falhar por auth, mesmo com token de usuário válido.
+- [x] **SGP/TSMX — ✅ VALIDADO AO VIVO 2026-08-29** contra `demo.sgp.net.br`
+  (ambiente de demonstração público e self-service da própria TSMX, dados
+  fictícios isolados de produção — nenhum custo, nenhum contato comercial).
+  A suspeita da auditoria estática era parcialmente certa e o adapter foi
+  **reescrito por completo** (não era só um campo faltando):
+  - Autenticação real: `token` + `app` (nome EXATO da Aplicação cadastrada
+    no painel SGP, case-sensitive — ex.: "Chatbot") enviados como campos de
+    **form-data no corpo** — não como header, e o corpo NÃO é JSON.
+  - Endpoint único real: `POST /api/ura/clientes/` com `cpfcnpj` (sem
+    underscore, sem máscara) — devolve o cliente completo (cadastro +
+    TODOS os contratos + TODOS os títulos/boletos) numa resposta só. Os 5
+    endpoints antigos (`/api/v2/contratos`, `/financeiro/faturas`, etc.)
+    não existiam.
+  - A API só busca por CPF/CNPJ — não existe lookup por ID interno. Os
+    métodos do adapter (`getBillingStatus`/`generateSecondCopy`/
+    `getConnectionStatus`) agora esperam CPF no parâmetro `customerId`, não
+    o `customers.id` do Astrum. O chamador (`tools.executor.ts`) hoje passa
+    o id interno — precisa resolver `customers.cpf` antes de chamar o
+    adapter quando o provider for SGP (mesmo gap de `customers.cpf`/
+    `legacy_id` já registrado abaixo, não é bug novo).
+  - `unlockCustomer` continua lançando (não implementado) — testei vários
+    nomes de endpoint óbvios (`/api/ura/desbloqueio/`, `/confianca/`,
+    `/trust/`, etc.), nenhum existe no demo. A doc de um parceiro (Whazing)
+    confirma que existe um endpoint dedicado separado, só não achei o path.
+  - Frontend (`ERPIntegrationsPage.tsx`) e validação do wizard
+    (`erp-admin.routes.ts`) atualizados para exigir/coletar `credentials.app`
+    — antes disso um tenant configurando SGP não tinha nem como preencher
+    esse campo.
+  - Suite SGP: 127/127 verde (incluindo os novos testes de regressão contra
+    o shape real). Commit no main.
 - [ ] **Hubsoft** — validar `HubsoftAdapter` contra instância real. Achado não
   corrigido: o adapter assume um token Bearer estático (`creds.token`), mas a
   API real do Hubsoft usa OAuth2 (`/oauth/token`, com expiração) — não há

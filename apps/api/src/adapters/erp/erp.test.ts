@@ -155,7 +155,7 @@ describe('erp.factory', () => {
     expect(isErpImplemented('sgp')).toBe(true);
     expect(isErpImplemented('hubsoft')).toBe(true);
     expect(createErpProvider('voalle', { url: 'u', token: 't' }).name).toBe('voalle');
-    expect(createErpProvider('sgp', { url: 'u', token: 't' }).name).toBe('sgp');
+    expect(createErpProvider('sgp', { url: 'u', token: 't', app: 'Chatbot' }).name).toBe('sgp');
     expect(createErpProvider('hubsoft', { url: 'u', token: 't' }).name).toBe('hubsoft');
   });
 

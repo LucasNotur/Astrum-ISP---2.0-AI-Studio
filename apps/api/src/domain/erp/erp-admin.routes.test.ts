@@ -152,6 +152,32 @@ describe('erp-admin.routes', () => {
       expect(res.statusCode).toBe(400);
     });
 
+    // Validado ao vivo 2026-08-28 contra demo.sgp.net.br: a API real do SGP
+    // exige `app` além de url+token — sem isso, todo request falha com 403.
+    it('sgp sem credentials.app -> 400', async () => {
+      const app = await buildApp();
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v2/erp/credentials',
+        payload: { provider: 'sgp', credentials: { url: 'https://sgp.example.com', token: 'tok' } },
+      });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error).toMatch(/app/);
+    });
+
+    it('sgp com credentials.app -> 201', async () => {
+      (encryptCredentials as any).mockReturnValue('iv:tag:cipher');
+      (supabase.from as any).mockReturnValue(makeChain({ data: null, error: null }));
+
+      const app = await buildApp();
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v2/erp/credentials',
+        payload: { provider: 'sgp', credentials: { url: 'https://sgp.example.com', token: 'tok', app: 'Chatbot' } },
+      });
+      expect(res.statusCode).toBe(201);
+    });
+
     it('falha ao cifrar (ERP_CRED_KEY ausente) -> 500', async () => {
       (encryptCredentials as any).mockImplementation(() => { throw new Error('ERP_CRED_KEY não configurada'); });
       const app = await buildApp();

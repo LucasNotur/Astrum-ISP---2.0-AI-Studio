@@ -39,6 +39,7 @@ const ERP_PROVIDERS: ErpProvider[] = [
     fields: [
       { key: 'url', label: 'URL da API', placeholder: 'https://sgp.seudominio.com.br' },
       { key: 'token', label: 'Token', placeholder: 'seu-token-sgp', type: 'password' },
+      { key: 'app', label: 'Aplicação (nome exato cadastrado no SGP)', placeholder: 'ex.: Chatbot' },
     ],
   },
   {

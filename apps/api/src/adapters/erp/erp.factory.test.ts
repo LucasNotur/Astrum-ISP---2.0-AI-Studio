@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createErpProvider, isErpImplemented } from './erp.factory';
 
-const creds = { url: 'https://erp.test', token: 'tok' };
+const creds = { url: 'https://erp.test', token: 'tok', app: 'Chatbot' };
 
 describe('erp.factory', () => {
   it.each(['ixc', 'mkauth', 'voalle', 'sgp', 'hubsoft', 'radiusnet', 'rbx'] as const)(

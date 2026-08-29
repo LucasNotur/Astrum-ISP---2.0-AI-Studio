@@ -57,6 +57,13 @@ export async function erpAdminRoutes(app: FastifyInstance) {
       if (!credentials?.url || (!credentials?.token && !credentials?.clientSecret && !credentials?.password)) {
         return reply.code(400).send({ error: 'credentials.url e um segredo (token ou clientSecret) são obrigatórios' });
       }
+      // SGP — validado ao vivo 2026-08-28 (demo.sgp.net.br): a API real exige
+      // `app` (nome exato da Aplicação vinculada ao token no painel SGP,
+      // case-sensitive) além do token. Sem isso, todo request falha com 403
+      // "Credenciais de autenticação incorretas" mesmo com token válido.
+      if (provider === 'sgp' && !credentials?.app) {
+        return reply.code(400).send({ error: 'credentials.app é obrigatório para o SGP (nome da Aplicação cadastrada no painel SGP)' });
+      }
 
       let encrypted: string;
       try {
