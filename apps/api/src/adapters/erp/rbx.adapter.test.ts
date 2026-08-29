@@ -38,16 +38,25 @@ describe('RBXAdapter', () => {
     expect(init.headers.authentication_key).toBeUndefined();
   });
 
-  it('getBillingStatus — POST v2 get_unpaid_document com authentication_key no header', async () => {
+  it('getBillingStatus — POST v2 get_unpaid_document com authentication_key no header e account_number=1 (default)', async () => {
     const http = makeHttp({ status: 1, result: [{ id: 1, value_up: 114.63 }] });
     const adapter = new RBXAdapter(creds, http);
     const result = await adapter.getBillingStatus('330531');
     expect(http).toHaveBeenCalledWith(V2, expect.objectContaining({
       method: 'POST',
       headers: expect.objectContaining({ authentication_key: 'chave-integracao-123' }),
-      body: JSON.stringify({ get_unpaid_document: { customer_id: 330531 } }),
+      body: JSON.stringify({ get_unpaid_document: { customer_id: 330531, account_number: 1 } }),
     }));
     expect(result).toEqual([{ id: 1, value_up: 114.63 }]);
+  });
+
+  it('getBillingStatus — usa accountNumber da credencial quando informado', async () => {
+    const http = makeHttp({ status: 1, result: [] });
+    const adapter = new RBXAdapter({ ...creds, accountNumber: '3' }, http);
+    await adapter.getBillingStatus('330531');
+    expect(http).toHaveBeenCalledWith(V2, expect.objectContaining({
+      body: JSON.stringify({ get_unpaid_document: { customer_id: 330531, account_number: 3 } }),
+    }));
   });
 
   it('getBillingStatus — lança quando status=0 (erro de negócio)', async () => {
@@ -56,28 +65,46 @@ describe('RBXAdapter', () => {
     await expect(adapter.getBillingStatus('x')).rejects.toThrow('The field customer_id is required!');
   });
 
-  it('generateSecondCopy — POST v1 ConsultaLinhaDigitavelBoleto, mapeia campos com fallback', async () => {
-    const http = makeHttp({
-      boleto_url: 'https://boleto.rbx',
-      pix: 'pix-rbx-code',
-      barcode: '11111.22222',
-      vencimento: '2026-11-15',
-      valor: '89,90',
+  it('generateSecondCopy — combina get_unpaid_document (valor/vencimento) + get_barcode (linha) + get_banking_billet (PDF)', async () => {
+    const http = vi.fn(async (_url: string, init: any) => {
+      const body = JSON.parse(init.body);
+      if (body.get_unpaid_document) {
+        expect(body.get_unpaid_document).toEqual({ customer_id: 1, account_number: 1 });
+        return { ok: true, status: 200, statusText: 'OK', json: async () => ({ status: 1, result: [{ id: 12345, due_date: '2026-11-15', value_up: 89.9 }] }) };
+      }
+      if (body.get_barcode) {
+        expect(body.get_barcode).toEqual({ banking_billet_id: 12345, send_barcode: false });
+        return { ok: true, status: 200, statusText: 'OK', json: async () => ({ status: 1, result: '11111.22222 33333.444444 55555.666666 7 88888888888888' }) };
+      }
+      if (body.get_banking_billet) {
+        expect(body.get_banking_billet).toEqual({ document_id: 12345 });
+        return { ok: true, status: 200, statusText: 'OK', json: async () => ({ status: 1, result: { banking_billet_link: 'https://meurbx.com/routerbox/tmp/boleto_1.pdf', banking_billet_available: 15 } }) };
+      }
+      throw new Error('unexpected body ' + init.body);
     });
-    const adapter = new RBXAdapter(creds, http);
+    const adapter = new RBXAdapter(creds, http as unknown as HttpClient);
     const result = await adapter.generateSecondCopy('1', '12345');
-    expect(http).toHaveBeenCalledWith(V1, expect.objectContaining({
-      body: JSON.stringify({
-        ConsultaLinhaDigitavelBoleto: {
-          Autenticacao: { ChaveIntegracao: 'chave-integracao-123' },
-          DadosLinhaDigitavelEntrada: { Tipo: 'C', CliFor: 1, Documento: 12345 },
-        },
-      }),
-    }));
-    expect(result.boletoUrl).toBe('https://boleto.rbx');
-    expect(result.pixCopiaCola).toBe('pix-rbx-code');
-    expect(result.barcode).toBe('11111.22222');
+    expect(result.boletoUrl).toBe('https://meurbx.com/routerbox/tmp/boleto_1.pdf');
+    expect(result.pixCopiaCola).toBe('');
+    expect(result.barcode).toBe('11111.22222 33333.444444 55555.666666 7 88888888888888');
+    expect(result.dueDate).toBe('2026-11-15');
     expect(result.amountCents).toBe(8990);
+  });
+
+  it('generateSecondCopy — não quebra se get_barcode ou get_banking_billet falharem (campos ficam vazios)', async () => {
+    const http = vi.fn(async (_url: string, init: any) => {
+      const body = JSON.parse(init.body);
+      if (body.get_unpaid_document) {
+        return { ok: true, status: 200, statusText: 'OK', json: async () => ({ status: 1, result: [{ id: 12345, due_date: '2026-11-15', value_up: 50 }] }) };
+      }
+      return { ok: false, status: 500, statusText: 'Internal Server Error', json: async () => ({}) };
+    });
+    const adapter = new RBXAdapter(creds, http as unknown as HttpClient);
+    const result = await adapter.generateSecondCopy('1', '12345');
+    expect(result.boletoUrl).toBe('');
+    expect(result.barcode).toBe('');
+    expect(result.dueDate).toBe('2026-11-15');
+    expect(result.amountCents).toBe(5000);
   });
 
   it('getConnectionStatus — online quando get_online_customer retorna sessão', async () => {

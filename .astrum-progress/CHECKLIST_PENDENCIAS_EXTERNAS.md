@@ -346,6 +346,12 @@ por incerteza (risco de "corrigir" errado sem poder testar):**
     nunca leu — nem a versão antiga usava esses campos, só `url`+`token`).
     Agora pede `url` + `token`(RTOKEN).
   Suite: 9/9 verde, typecheck limpo.
+  **Reconfirmado 2026-08-29** relendo `radius.net.br/api/` endpoint por
+  endpoint (valores de `{status}` em `/cp` — 1=Pendente/2=Ativo/3=Inativo/
+  4=Pré-Ativo/5=Todos —, filtros de `/cbc`, shape de `/bc` e `/scp`, e
+  `IDSTATUS` de `/ascli` — 1=Ativo/2=Avisado/3=Bloqueado). Tudo bateu
+  exatamente com o código já escrito na 1ª rodada — zero mudança. Não achei
+  SDK comunitário nem demo público (é on-premise, sem 2ª fonte possível).
 - [ ] **RBX (RBXSoft)** — validar `RBXAdapter` contra instância real (segue
   pendente, sem ambiente de teste gratuito). **Reescrito por completo
   2026-08-29** — a versão S75 era inteiramente inventada (REST comum tipo
@@ -377,6 +383,27 @@ por incerteza (risco de "corrigir" errado sem poder testar):**
   - Formulário do wizard atualizado (rótulos indicando onde achar a chave —
     Empresa > Parâmetros > Web Services).
   Suite: 11/11 verde, typecheck limpo.
+  **2ª rodada 2026-08-29 — 2 bugs reais achados relendo a doc oficial ao vivo**
+  (`manual.rbxsoft.com/web_services/`, com exemplo de request/response real por
+  endpoint — mais granular que a página índice usada na 1ª rodada):
+  1. `getBillingStatus`/`get_unpaid_document` **faltava um campo obrigatório**
+     (`account_number` OU `account_list`, junto com `customer_id`) — sem isso
+     a chamada quebraria (`status: 0`) contra qualquer instância real. RBX não
+     documenta endpoint pra listar as contas correntes do cliente nem um valor
+     "todas" — assume conta `1` (caso comum), configurável via novo campo do
+     wizard "Número da conta corrente" (opcional).
+  2. `generateSecondCopy` usava `ConsultaLinhaDigitavelBoleto` (v1.0, **zero
+     exemplo documentado em qualquer lugar**, nomes de campo só suposição).
+     Substituído por 2 serviços v2.0 confirmados com exemplo real de
+     request/response: `get_barcode` (linha digitável — `result` é STRING
+     crua, não objeto) e `get_banking_billet` (link do PDF, em
+     `result.banking_billet_link`) — valor/vencimento vêm do
+     `get_unpaid_document` já usado em `getBillingStatus`. `send_barcode:
+     false` evita disparar SMS ao cliente como efeito colateral (a API manda
+     o SMS junto se você não desativar). RBX não documenta nenhum serviço de PIX —
+     `pixCopiaCola` fica sempre vazio (mesma limitação do MK-Auth pro PDF).
+  Suite: 13/13 verde (2 testes novos), 148/148 na suite ERP completa,
+  typecheck limpo.
 
 ### P1 — Religue por confiança
 - [ ] Testar `trust_unlock_policies` com tenant real (verificar fallback para DEFAULT_POLICY se não existir)

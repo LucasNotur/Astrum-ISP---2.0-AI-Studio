@@ -73,6 +73,7 @@ const ERP_PROVIDERS: ErpProvider[] = [
     fields: [
       { key: 'url', label: 'URL do RBXSoft ISP', placeholder: 'https://rbx.seudominio.com.br' },
       { key: 'token', label: 'Chave de integração (Empresa > Parâmetros > Web Services)', placeholder: 'sua-chave-de-integracao', type: 'password' },
+      { key: 'accountNumber', label: 'Número da conta corrente (opcional, padrão 1)', placeholder: '1' },
     ],
   },
 ];

@@ -26,6 +26,28 @@ import { parseAmountToCents, normalizeErpBaseUrl, ERP_HTTP_TIMEOUT_MS, type ERPP
  * `unlockCustomer`/bloqueio exigem contract_id, que a API não aceita junto
  * com customer_id isolado — resolvido internamente via `get_equipment_customer`
  * (sempre retorna contract_id, mesmo sem sessão ativa).
+ *
+ * **2ª rodada 2026-08-29 — 2 bugs reais achados relendo a doc oficial ao vivo**
+ * (`manual.rbxsoft.com/web_services/`, com exemplo de request/response real por
+ * endpoint, mais rigorosa que a página índice `developers.rbxsoft.com/v2/` usada
+ * na 1ª rodada):
+ *  1. `get_unpaid_document` exige `account_number` OU `account_list` além de
+ *     `customer_id` ("é permitido informar apenas um dos campos" — mas pelo
+ *     menos um é obrigatório) — a versão anterior só mandava `customer_id` e
+ *     quebraria contra uma instância real (erro de negócio, `status: 0`).
+ *     RBX não documenta endpoint pra listar as contas correntes de um cliente
+ *     nem indica um valor "todas" — assume conta `1` (caso comum de cliente
+ *     com uma única conta), configurável via `creds.accountNumber` pra quem
+ *     tiver mais de uma. Sem forma de confirmar isso sem instância real.
+ *  2. `generateSecondCopy` usava `ConsultaLinhaDigitavelBoleto` (v1.0) — serviço
+ *     sem NENHUM exemplo documentado em lugar nenhum (nem doc, nem Postman),
+ *     nomes de campo inteiramente supostos. A doc v2.0 real tem 2 serviços
+ *     confirmados com exemplo de request/response: `get_barcode` (linha
+ *     digitável — `result` é STRING crua) e `get_banking_billet` (link do PDF
+ *     — `result.banking_billet_link`). Nenhum dos dois devolve valor/vencimento;
+ *     isso vem do `get_unpaid_document` já usado em `getBillingStatus`. RBX não
+ *     documenta nenhum serviço de PIX — `pixCopiaCola` fica sempre vazio (mesma
+ *     limitação já documentada no MK-Auth pro link de boleto PDF).
  */
 export class RBXAdapter implements ERPProvider {
   readonly name = 'rbx' as const;
@@ -83,22 +105,35 @@ export class RBXAdapter implements ERPProvider {
   }
 
   async getBillingStatus(customerId: string) {
-    const data = await this.postV2('get_unpaid_document', { customer_id: Number(customerId) });
+    const data = await this.postV2('get_unpaid_document', {
+      customer_id: Number(customerId),
+      account_number: Number(this.creds.accountNumber ?? 1),
+    });
     this.assertRbxOk(data, 'consulta de documentos em aberto falhou');
     return data.result ?? [];
   }
 
-  /** Resposta da v1 não documentada — parsing defensivo com fallback de nomes de campo. */
+  /**
+   * Combina 3 chamadas v2.0 confirmadas contra a doc oficial — nenhuma sozinha
+   * tem os 5 campos: `get_unpaid_document` (valor/vencimento, via
+   * `getBillingStatus`), `get_barcode` (linha digitável) e `get_banking_billet`
+   * (link do PDF). `send_barcode: false` evita disparar SMS ao cliente como
+   * efeito colateral (a API manda SMS junto se você não desativar).
+   */
   async generateSecondCopy(customerId: string, invoiceId: string): Promise<SecondCopyResult> {
-    const r = await this.postV1('ConsultaLinhaDigitavelBoleto', {
-      DadosLinhaDigitavelEntrada: { Tipo: 'C', CliFor: Number(customerId), Documento: Number(invoiceId) },
-    });
+    const documentId = Number(invoiceId);
+    const [billing, barcodeRes, billetRes] = await Promise.all([
+      this.getBillingStatus(customerId).catch(() => [] as any[]),
+      this.postV2('get_barcode', { banking_billet_id: documentId, send_barcode: false }).catch(() => null),
+      this.postV2('get_banking_billet', { document_id: documentId }).catch(() => null),
+    ]);
+    const documento = (billing as any[]).find((d) => String(d?.id) === String(invoiceId));
     return {
-      boletoUrl: r?.LinkBoleto ?? r?.boleto_url ?? r?.link ?? '',
-      pixCopiaCola: r?.PixCopiaCola ?? r?.pix ?? '',
-      barcode: r?.LinhaDigitavel ?? r?.linha_digitavel ?? r?.barcode ?? '',
-      dueDate: r?.DataVencimento ?? r?.vencimento ?? '',
-      amountCents: parseAmountToCents(r?.Valor ?? r?.valor ?? '0'),
+      boletoUrl: billetRes?.result?.banking_billet_link ?? '',
+      pixCopiaCola: '',
+      barcode: typeof barcodeRes?.result === 'string' ? barcodeRes.result : '',
+      dueDate: documento?.due_date ?? '',
+      amountCents: parseAmountToCents(documento?.value_up ?? 0),
     };
   }
 
