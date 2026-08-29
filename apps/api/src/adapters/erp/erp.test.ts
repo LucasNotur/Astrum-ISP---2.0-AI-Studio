@@ -72,6 +72,23 @@ describe('IXCAdapter', () => {
     const ixc = new IXCAdapter(creds, httpOk({ registros: [{ online: 'S' }] }));
     expect((await ixc.getConnectionStatus('c1')).online).toBe(true);
   });
+
+  // Achado de auditoria 2026-08-28: IXC devolve HTTP 200 com `type:"error"`
+  // em erro de negócio — antes do fix, isso virava dado "válido" vazio.
+  it('generateSecondCopy lança quando o IXC devolve type:"error" (não manda boleto vazio)', async () => {
+    const ixc = new IXCAdapter(creds, httpOk({ type: 'error', message: 'boleto já pago' }));
+    await expect(ixc.generateSecondCopy('c1', 'inv1')).rejects.toThrow(/boleto já pago/);
+  });
+
+  it('getConnectionStatus lança quando o IXC devolve type:"error" (não reporta offline por engano)', async () => {
+    const ixc = new IXCAdapter(creds, httpOk({ type: 'error', message: 'permissão negada' }));
+    await expect(ixc.getConnectionStatus('c1')).rejects.toThrow(/permissão negada/);
+  });
+
+  it('checkViability lança quando o IXC devolve type:"error" (não reporta indisponível por engano)', async () => {
+    const ixc = new IXCAdapter(creds, httpOk({ type: 'error', message: 'parâmetro inválido' }));
+    await expect(ixc.checkViability('Rua X, 123')).rejects.toThrow(/parâmetro inválido/);
+  });
 });
 
 describe('parseAmountToCents — formatos de valor', () => {
@@ -106,6 +123,23 @@ describe('MKAuthAdapter', () => {
     const r = await new MKAuthAdapter(creds, http).generateSecondCopy('c1', 'inv1');
     expect(r.boletoUrl).toBe('https://b/inv1');
     expect(r.amountCents).toBe(5000);
+  });
+
+  // Achado de auditoria 2026-08-28: antes do fix, invoiceId não encontrado
+  // caía silenciosamente pro primeiro boleto da lista (risco de mandar a
+  // cobrança errada).
+  it('generateSecondCopy lança quando o invoiceId não está na lista (não manda o boleto de outra fatura)', async () => {
+    const http = httpOk([{ id: 'inv-outro', url: 'https://b/inv-outro', valor: '50,00' }]);
+    await expect(
+      new MKAuthAdapter(creds, http).generateSecondCopy('c1', 'inv1'),
+    ).rejects.toThrow(/inv1.*não encontrada/);
+  });
+
+  it('generateSecondCopy lança quando a lista de boletos vem vazia', async () => {
+    const http = httpOk([]);
+    await expect(
+      new MKAuthAdapter(creds, http).generateSecondCopy('c1', 'inv1'),
+    ).rejects.toThrow(/não encontrada/);
   });
 });
 

@@ -69,13 +69,58 @@
 ## VALIDAÇÕES CONTRA ERP REAL
 
 ### P0 — Conectores ERP (adapter implementado, API real não testada)
+
+**Auditoria estática 2026-08-28 (5 subagentes em paralelo, sem credencial real —
+código lido contra a própria doc pública de cada API):** achados corrigidos
+sem precisar de credencial (bugs de lógica interna, confirmados só lendo o
+código) e achados que **continuam pendentes** porque dependem de confirmar o
+formato real contra doc oficial/instância — não fixados por incerteza, não
+por preguiça. Ver `astrum-erp-adapters-auditoria` na memória do Claude Code
+pro relatório completo dos 5 subagentes.
+
+**✅ Corrigido nos 5 adapters (sistêmico, não dependia de doc externa):**
+timeout de 15s em toda chamada HTTP (nenhum tinha — ERP travado prendia o
+worker indefinidamente); normalização de URL com barra final; corpo de erro
+HTTP incluído na exceção (antes só status/statusText).
+
+**✅ Corrigido — IXC:** os métodos (exceto `suspendCustomer`, que já tratava)
+ignoravam o padrão `type:"error"` que o IXC devolve com HTTP 200 em erro de
+negócio — `generateSecondCopy` chegava a devolver um "boleto" com todos os
+campos vazios em vez de lançar. Agora todos os métodos de leitura/2ª via
+lançam quando `type==="error"`.
+
+**✅ Corrigido — MK-Auth:** `generateSecondCopy` caía pro **primeiro boleto da
+lista** quando o `invoiceId` pedido não era encontrado — risco real de mandar
+a cobrança de uma fatura diferente da que o cliente pediu. Agora lança.
+`res.json()` também não tratava resposta não-JSON (painéis PHP às vezes
+devolvem HTML de erro com status 200) — agora lança erro claro em vez de
+`SyntaxError` opaco.
+
+**⚠️ Continua pendente — precisa de doc oficial/instância real, NÃO fixado
+por incerteza (risco de "corrigir" errado sem poder testar):**
 - [ ] **IXC** — validar `IXCAdapter` contra instância real:
   - endpoints: `/webservice/v1/cliente`, `/fn_areceber`, `/radusuarios`, `/get_boleto`, `/cliente_desbloqueio_confianca`
   - P3 new: `/viabilidade`, `/plano_acesso`, `/cliente` (POST create), `/os` (POST create)
-- [ ] **Voalle/Elleven** — validar `VoalleAdapter` contra instância real
-- [ ] **MK Solutions / MK-Auth** — validar `MKAuthAdapter` contra instância real
-- [ ] **SGP/TSMX** — validar `SGPAdapter` contra instância real
-- [ ] **Hubsoft** — validar `HubsoftAdapter` contra instância real
+  - Suspeita (não confirmada): o campo único `token` deveria concatenar `api_client:token` antes do base64, e o wizard não valida esse formato.
+- [ ] **Voalle/Elleven** — validar `VoalleAdapter` contra instância real. Achado
+  arquitetural (não é bug de linha, precisa decisão de design): o cache de
+  `access_token` só vale dentro da mesma instância do adapter — como
+  `erp.factory.ts` cria uma instância nova por chamada, o modo OAuth
+  reautentica do zero quase sempre na prática. Corrigir exige cache
+  compartilhado por tenant (provavelmente Redis).
+- [ ] **MK Solutions / MK-Auth** — validar `MKAuthAdapter` contra instância
+  real. Achado não corrigido: `unlockCustomer` chama `DELETE /api/cliente/bloquear`
+  (bloquear = block) esperando que o método inverta a semântica do nome —
+  nunca validado, pode estar fazendo o oposto do que deveria.
+- [ ] **SGP/TSMX** — validar `SGPAdapter` contra instância real. Achado não
+  corrigido: a API real do SGP pode exigir um `app_token` (identifica a
+  integração) além do `token` de usuário que o adapter já envia — sem ele,
+  toda chamada pode falhar por auth, mesmo com token de usuário válido.
+- [ ] **Hubsoft** — validar `HubsoftAdapter` contra instância real. Achado não
+  corrigido: o adapter assume um token Bearer estático (`creds.token`), mas a
+  API real do Hubsoft usa OAuth2 (`/oauth/token`, com expiração) — não há
+  fluxo de obtenção/renovação implementado. Não implementado por incerteza
+  sobre o `grant_type` exato (password vs client_credentials).
 
 ### P1 — Religue por confiança
 - [ ] Testar `trust_unlock_policies` com tenant real (verificar fallback para DEFAULT_POLICY se não existir)

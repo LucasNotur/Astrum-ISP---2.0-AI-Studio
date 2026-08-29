@@ -1,4 +1,4 @@
-import { parseAmountToCents, type ERPProvider, type ERPSalesCapable, type ERPOperationsCapable, type ERPCredentials, type HttpClient, type SecondCopyResult, type ConnectionStatus, type ViabilityResult, type ErpPlan, type LeadRegistration } from './erp.types';
+import { parseAmountToCents, normalizeErpBaseUrl, readErpErrorBody, ERP_HTTP_TIMEOUT_MS, type ERPProvider, type ERPSalesCapable, type ERPOperationsCapable, type ERPCredentials, type HttpClient, type SecondCopyResult, type ConnectionStatus, type ViabilityResult, type ErpPlan, type LeadRegistration } from './erp.types';
 
 /**
  * IXC Adapter — port de src/lib/integrations/ixcClient.ts para apps/api.
@@ -7,11 +7,14 @@ import { parseAmountToCents, type ERPProvider, type ERPSalesCapable, type ERPOpe
 export class IXCAdapter implements ERPProvider, ERPSalesCapable, ERPOperationsCapable {
   readonly name = 'ixc' as const;
 
+  private readonly baseUrl: string;
+
   constructor(
     private readonly creds: ERPCredentials,
     private readonly http: HttpClient = fetch as unknown as HttpClient,
   ) {
     if (!creds?.url || !creds?.token) throw new Error('IXC: credenciais ausentes');
+    this.baseUrl = normalizeErpBaseUrl(creds.url);
   }
 
   private headers(extra: Record<string, string> = {}) {
@@ -23,27 +26,48 @@ export class IXCAdapter implements ERPProvider, ERPSalesCapable, ERPOperationsCa
   }
 
   private async post(path: string, body: unknown, listar = true) {
-    const res = await this.http(`${this.creds.url}${path}`, {
+    const res = await this.http(`${this.baseUrl}${path}`, {
       method: 'POST',
       headers: this.headers(listar ? { ixcsoft: 'listar' } : {}),
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(ERP_HTTP_TIMEOUT_MS),
     });
-    if (!res.ok) throw new Error(`IXC API Error: ${res.status} ${res.statusText}`);
+    if (!res.ok) {
+      const detail = await readErpErrorBody(res);
+      throw new Error(`IXC API Error: ${res.status} ${res.statusText}${detail ? ` — ${detail}` : ''}`);
+    }
     return res.json();
   }
 
+  /**
+   * O IXC devolve HTTP 200 mesmo em erro de negócio, com `type: "error"` no
+   * corpo (padrão já usado em suspendCustomer). Achado de auditoria 2026-08-28:
+   * os outros métodos ignoravam isso e devolviam o corpo de erro como se fosse
+   * dado válido — em generateSecondCopy isso significava um boleto "vazio"
+   * (não um erro) indo pro cliente.
+   */
+  private assertNoIxcError(data: any, context: string): void {
+    if (String(data?.type ?? '').toLowerCase() === 'error') {
+      throw new Error(`IXC: ${context} — ${data?.message ?? 'erro retornado pelo ERP'}`);
+    }
+  }
+
   async findCustomerByCpf(cpf: string) {
-    return this.post('/webservice/v1/cliente', {
+    const data = await this.post('/webservice/v1/cliente', {
       qtype: 'cliente.cnpj_cpf', query: cpf.replace(/\D/g, ''), oper: '=', page: '1', rp: '20',
       sortname: 'cliente.id', sortorder: 'desc',
     });
+    this.assertNoIxcError(data, 'busca de cliente por CPF falhou');
+    return data;
   }
 
   async getBillingStatus(customerId: string) {
-    return this.post('/webservice/v1/fn_areceber', {
+    const data = await this.post('/webservice/v1/fn_areceber', {
       qtype: 'fn_areceber.id_cliente', query: customerId, oper: '=', page: '1', rp: '50',
       sortname: 'fn_areceber.data_vencimento', sortorder: 'asc',
     });
+    this.assertNoIxcError(data, 'consulta de faturas falhou');
+    return data;
   }
 
   async getConnectionStatus(customerId: string): Promise<ConnectionStatus> {
@@ -51,6 +75,7 @@ export class IXCAdapter implements ERPProvider, ERPSalesCapable, ERPOperationsCa
       qtype: 'radusuarios.id_cliente', query: customerId, oper: '=', page: '1', rp: '20',
       sortname: 'radusuarios.id', sortorder: 'desc',
     });
+    this.assertNoIxcError(data, 'consulta de status de conexão falhou');
     const rows = data?.registros ?? [];
     const online = rows.some((r: any) => r?.online === 'S' || r?.status === 'online');
     return { online, raw: data };
@@ -60,11 +85,14 @@ export class IXCAdapter implements ERPProvider, ERPSalesCapable, ERPOperationsCa
     const data = await this.post('/webservice/v1/get_boleto', {
       boletos: invoiceId, juros: 'S', multa: 'S', atualiza_boleto: 'S', tipo_boleto: 'link',
     }, false);
+    this.assertNoIxcError(data, 'geração de 2ª via falhou');
     return normalizeIxcSecondCopy(data);
   }
 
   async unlockCustomer(customerId: string) {
-    return this.post('/webservice/v1/cliente_desbloqueio_confianca', { id_cliente: customerId }, false);
+    const data = await this.post('/webservice/v1/cliente_desbloqueio_confianca', { id_cliente: customerId }, false);
+    this.assertNoIxcError(data, 'desbloqueio de confiança falhou');
+    return data;
   }
 
   // ── P0-06 — ERPOperationsCapable ───────────────────────────────────────────
@@ -101,6 +129,7 @@ export class IXCAdapter implements ERPProvider, ERPSalesCapable, ERPOperationsCa
       qtype: 'viabilidade.endereco', query: address, oper: 'like', page: '1', rp: '5',
       sortname: 'viabilidade.id', sortorder: 'desc',
     });
+    this.assertNoIxcError(data, 'consulta de viabilidade falhou');
     const rows: any[] = data?.registros ?? [];
     if (!rows.length) return { available: false, raw: data };
     const first = rows[0];
@@ -119,6 +148,7 @@ export class IXCAdapter implements ERPProvider, ERPSalesCapable, ERPOperationsCa
       qtype: 'plano_acesso.ativo', query: '1', oper: '=', page: '1', rp: '100',
       sortname: 'plano_acesso.valor', sortorder: 'asc',
     });
+    this.assertNoIxcError(data, 'consulta de planos falhou');
     const rows: any[] = data?.registros ?? [];
     return rows.map(normalizeIxcPlan);
   }

@@ -1,5 +1,5 @@
 import type { ERPProvider, ERPCredentials, HttpClient, SecondCopyResult, ConnectionStatus } from './erp.types';
-import { parseAmountToCents } from './erp.types';
+import { parseAmountToCents, normalizeErpBaseUrl, readErpErrorBody, ERP_HTTP_TIMEOUT_MS } from './erp.types';
 
 /**
  * P0-02 — Voalle/Elleven adapter.
@@ -15,10 +15,18 @@ import { parseAmountToCents } from './erp.types';
  *     respeitando `expires_in`. É o fluxo que o form da SettingsPage envia.
  *  2. Token pré-gerado — credenciais trazem `token` (Bearer) já pronto; usado
  *     direto, sem token-exchange (compat com integrações antigas).
+ *
+ * ⚠️ Auditoria 2026-08-28: o cache de `accessToken`/`tokenExpiresAt` abaixo só
+ * vale DENTRO da mesma instância. Como `erp.factory.ts` cria uma instância nova
+ * por chamada (sem cache persistente por tenant), o modo OAuth reautentica do
+ * zero em quase toda operação na prática — não corrigido nesta rodada porque
+ * exige decisão de arquitetura (cache compartilhado, provavelmente Redis, por
+ * tenant) e não é um bug de lógica isolado. Ver CHECKLIST_PENDENCIAS_EXTERNAS.md.
  */
 export class VoalleAdapter implements ERPProvider {
   readonly name = 'voalle' as const;
 
+  private readonly baseUrl: string;
   private accessToken?: string;
   private tokenExpiresAt = 0;
 
@@ -31,6 +39,7 @@ export class VoalleAdapter implements ERPProvider {
     if (!creds?.url || (!hasToken && !hasOAuth)) {
       throw new Error('Voalle: credenciais ausentes (url + token OU clientId/clientSecret)');
     }
+    this.baseUrl = normalizeErpBaseUrl(creds.url);
   }
 
   /**
@@ -45,7 +54,7 @@ export class VoalleAdapter implements ERPProvider {
     // Cache OAuth ainda válido.
     if (this.accessToken && Date.now() < this.tokenExpiresAt) return this.accessToken;
 
-    const res = await this.http(`${this.creds.url}/oauth/token`, {
+    const res = await this.http(`${this.baseUrl}/oauth/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -53,8 +62,12 @@ export class VoalleAdapter implements ERPProvider {
         client_id: this.creds.clientId,
         client_secret: this.creds.clientSecret,
       }),
+      signal: AbortSignal.timeout(ERP_HTTP_TIMEOUT_MS),
     });
-    if (!res.ok) throw new Error(`Voalle OAuth Error: ${res.status} ${res.statusText}`);
+    if (!res.ok) {
+      const detail = await readErpErrorBody(res);
+      throw new Error(`Voalle OAuth Error: ${res.status} ${res.statusText}${detail ? ` — ${detail}` : ''}`);
+    }
     const data = await res.json();
     const token = data?.access_token ?? data?.token;
     if (!token) throw new Error('Voalle OAuth: resposta sem access_token');
@@ -72,21 +85,29 @@ export class VoalleAdapter implements ERPProvider {
   }
 
   private async get(path: string) {
-    const res = await this.http(`${this.creds.url}${path}`, {
+    const res = await this.http(`${this.baseUrl}${path}`, {
       method: 'GET',
       headers: await this.headers(),
+      signal: AbortSignal.timeout(ERP_HTTP_TIMEOUT_MS),
     });
-    if (!res.ok) throw new Error(`Voalle API Error: ${res.status} ${res.statusText}`);
+    if (!res.ok) {
+      const detail = await readErpErrorBody(res);
+      throw new Error(`Voalle API Error: ${res.status} ${res.statusText}${detail ? ` — ${detail}` : ''}`);
+    }
     return res.json();
   }
 
   private async post(path: string, body: unknown) {
-    const res = await this.http(`${this.creds.url}${path}`, {
+    const res = await this.http(`${this.baseUrl}${path}`, {
       method: 'POST',
       headers: await this.headers(),
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(ERP_HTTP_TIMEOUT_MS),
     });
-    if (!res.ok) throw new Error(`Voalle API Error: ${res.status} ${res.statusText}`);
+    if (!res.ok) {
+      const detail = await readErpErrorBody(res);
+      throw new Error(`Voalle API Error: ${res.status} ${res.statusText}${detail ? ` — ${detail}` : ''}`);
+    }
     return res.json();
   }
 

@@ -22,6 +22,33 @@ export interface ConnectionStatus {
 /** HTTP injetável (fetch em prod, mock em teste). */
 export type HttpClient = (url: string, init: any) => Promise<{ ok: boolean; status: number; statusText: string; json: () => Promise<any> }>;
 
+/**
+ * Timeout padrão pra toda chamada HTTP de adapter ERP — achado de auditoria
+ * 2026-08-28: nenhum dos 5 adapters (IXC/Voalle/MK-Auth/SGP/Hubsoft) tinha
+ * timeout, então um ERP travado/lento derruba o worker que espera a resposta
+ * indefinidamente.
+ */
+export const ERP_HTTP_TIMEOUT_MS = 15_000;
+
+/** Remove barra(s) finais da URL base salva pelo tenant — evita `//` na concatenação com o path do endpoint. */
+export function normalizeErpBaseUrl(url: string): string {
+  return String(url ?? '').replace(/\/+$/, '');
+}
+
+/**
+ * Extrai o corpo de uma resposta de erro HTTP pra enriquecer a exceção
+ * (best-effort — nunca lança, mesmo se o corpo não for JSON válido).
+ */
+export async function readErpErrorBody(res: { json: () => Promise<any> }): Promise<string> {
+  try {
+    const body = await res.json();
+    if (body === undefined || body === null) return '';
+    return typeof body === 'string' ? body : JSON.stringify(body);
+  } catch {
+    return '';
+  }
+}
+
 export interface ERPProvider {
   readonly name: ERPProviderName;
   findCustomerByCpf(cpf: string): Promise<any>;

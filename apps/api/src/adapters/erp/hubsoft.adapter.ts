@@ -1,5 +1,5 @@
 import type { ERPProvider, ERPCredentials, HttpClient, SecondCopyResult, ConnectionStatus } from './erp.types';
-import { parseAmountToCents } from './erp.types';
+import { parseAmountToCents, normalizeErpBaseUrl, readErpErrorBody, ERP_HTTP_TIMEOUT_MS } from './erp.types';
 
 /**
  * P0-05 — Hubsoft adapter.
@@ -8,15 +8,25 @@ import { parseAmountToCents } from './erp.types';
  * API REST do Hubsoft (ISP Manager). Integração com módulo financeiro e
  * controle de conexão via ONU/OLT.
  * HTTP injetável para teste.
+ *
+ * ⚠️ Auditoria 2026-08-28: o adapter assume um token Bearer estático e pronto
+ * (vindo de `creds.token`). A API real do Hubsoft usa OAuth2 (obtido via
+ * `/oauth/token`, com expiração) — não há fluxo de obtenção/renovação aqui.
+ * Não implementado nesta rodada por incerteza sobre o grant_type exato
+ * (password vs client_credentials, depende da versão) — validar contra doc
+ * oficial/instância real antes de codar (ver CHECKLIST_PENDENCIAS_EXTERNAS.md).
  */
 export class HubsoftAdapter implements ERPProvider {
   readonly name = 'hubsoft' as const;
+
+  private readonly baseUrl: string;
 
   constructor(
     private readonly creds: ERPCredentials,
     private readonly http: HttpClient = fetch as unknown as HttpClient,
   ) {
     if (!creds?.url || !creds?.token) throw new Error('Hubsoft: credenciais ausentes (url + token)');
+    this.baseUrl = normalizeErpBaseUrl(creds.url);
   }
 
   private headers() {
@@ -27,21 +37,29 @@ export class HubsoftAdapter implements ERPProvider {
   }
 
   private async get(path: string) {
-    const res = await this.http(`${this.creds.url}${path}`, {
+    const res = await this.http(`${this.baseUrl}${path}`, {
       method: 'GET',
       headers: this.headers(),
+      signal: AbortSignal.timeout(ERP_HTTP_TIMEOUT_MS),
     });
-    if (!res.ok) throw new Error(`Hubsoft API Error: ${res.status} ${res.statusText}`);
+    if (!res.ok) {
+      const detail = await readErpErrorBody(res);
+      throw new Error(`Hubsoft API Error: ${res.status} ${res.statusText}${detail ? ` — ${detail}` : ''}`);
+    }
     return res.json();
   }
 
   private async post(path: string, body: unknown) {
-    const res = await this.http(`${this.creds.url}${path}`, {
+    const res = await this.http(`${this.baseUrl}${path}`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(ERP_HTTP_TIMEOUT_MS),
     });
-    if (!res.ok) throw new Error(`Hubsoft API Error: ${res.status} ${res.statusText}`);
+    if (!res.ok) {
+      const detail = await readErpErrorBody(res);
+      throw new Error(`Hubsoft API Error: ${res.status} ${res.statusText}${detail ? ` — ${detail}` : ''}`);
+    }
     return res.json();
   }
 
