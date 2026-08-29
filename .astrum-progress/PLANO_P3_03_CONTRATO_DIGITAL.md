@@ -80,15 +80,64 @@
   Testes mockam o HTTP e assertam sequência/payloads. **Shapes marcados como
   PROVÁVEIS no código — pendentes de validação ao vivo (Fase B).**
 
-### Fase B — Precisa credencial (validação ao vivo) — BLOQUEADA no Lucas
+### Fase B — Validação ao vivo (precisa credencial) — RUNBOOK
 
-- [ ] **B1 — Clicksign ao vivo.** Conta/sandbox + `CLICKSIGN_API_KEY`. Validar a
-  sequência real, corrigir o shape da resposta e a `contractUrl` de verdade
-  (sign-key devolvida pela API). Ajustar os mocks da A4 pro shape confirmado.
-- [ ] **B2 — D4Sign ao vivo.** `tokenAPI` (+ cofre/`uuidSafe`). Validar
-  upload→createlist→sendtosigner ponta-a-ponta.
-- [ ] **B3 — Escolha do provedor MVP** (decisão acima) — o outro fica atrás de
-  flag/BYOK, sem validação ao vivo até haver demanda.
+> **Contexto pra quem for executar:** a Fase A deixou os fluxos completos porém com
+> os shapes de request/response **assumidos da doc pública** (marcados com `?.` +
+> fallback no código, e comentados como PROVÁVEIS). A Fase B é só confirmar cada
+> ponto ao vivo e ajustar onde a realidade divergir. Todo ajuste tem um teste
+> correspondente em `contract.service.test.ts` que já isola aquele ponto — mudar o
+> mock pro shape real e o teste segue guardando o comportamento.
+
+**B0 — Pré-requisitos (uma vez).**
+1. Criar conta **sandbox** do provedor escolhido (ver B3; recomendação: Clicksign).
+2. Pegar a API key e configurá-la por um dos dois caminhos:
+   - **BYOK (preferido, testa o caminho real do tenant):** Configurações →
+     Integrações → chave Clicksign/D4Sign do tenant de teste. Passa por
+     `resolveTenantContractKeys` → `fetchIntegrationKeys` (criptografada no banco).
+   - **Env global (atalho):** `CLICKSIGN_API_KEY` / `D4SIGN_API_KEY` no `.env` do
+     `apps/api`. Só cai aqui se o tenant não tiver chave própria.
+3. **Como disparar um envio real** sem depender do funil inteiro: escrever um
+   script pontual (`tsx`) que chama `sendContract(req, defaultHttp)` com um
+   `ContractRequest` fixo e um e-mail seu, e **logar `contractResult` + as respostas
+   cruas de cada passo** (adicionar um `infraLogger.info` temporário em cada `http.post`,
+   ou rodar com o `ContractHttpClient` default e capturar via proxy). Guardar os JSONs
+   crus — são a fonte da verdade pros ajustes abaixo.
+
+**B1 — Clicksign ao vivo.** Confirmar, na ordem das 3 chamadas de `sendViaClicksign`:
+- [ ] **`/documents`** — a resposta realmente aninha a key em `data.document.key`?
+  E o `content_base64`: a v1 quer o prefixo `data:application/pdf;base64,` (é o que
+  o código manda) ou o base64 cru? Ajustar se rejeitar.
+- [ ] **`/signers`** — key do signatário em `data.signer.key`? Campos aceitos
+  (`documentation`=CPF sem máscara, `auths: ['email']`, `has_documentation`,
+  `delivery`) batem? Se a conta exigir `birthday` ou outro campo obrigatório, somar.
+- [ ] **`/lists`** — vincula documento+signatário e **dispara a notificação por
+  e-mail de verdade**? Confirmar que a URL de assinatura sai de
+  `data.list.request_signature_key` e que o formato final
+  `https://app.clicksign.com/sign/<key>` é o que abre a tela de assinatura (é o
+  ponto mais incerto — pode ser outro host/rota). Corrigir a montagem da `contractUrl`.
+- [ ] Rodar ponta-a-ponta: receber o e-mail, assinar, e anotar o payload do webhook
+  que a Clicksign manda (insumo da Fase C).
+
+**B2 — D4Sign ao vivo.** Confirmar, na ordem das 3 chamadas de `sendViaD4sign`:
+- [ ] **`documents/upload`** — uuid em `data.uuid`? A conta exige **`cryptKey`** do
+  cofre na query além do `tokenAPI` (muitas exigem)? E `uuidSafe`: é o id do cofre
+  de destino (não um id qualquer — provável precisar do uuid real de uma pasta/cofre).
+- [ ] **`documents/{uuid}/createlist`** — os campos do signatário (`act`, `foreign`,
+  `certificadoicpbr`, `assinatura_presencial`, `docauthandselfie`) são aceitos com
+  esses valores? Algum obrigatório faltando?
+- [ ] **`documents/{uuid}/sendtosigner`** — dispara o e-mail? `workflow`/`skip_email`
+  corretos? Confirmar a URL de acompanhamento (`embed/viewblob/<uuid>` é view, não
+  necessariamente a tela de assinatura do signatário).
+- [ ] Ponta-a-ponta + anotar o payload do webhook D4Sign (insumo da Fase C).
+
+**B3 — Escolha do provedor MVP.** Fechar **um** dos dois pra produção; o outro fica
+atrás de BYOK sem validação ao vivo até haver demanda. Atualizar o comentário
+"PROVÁVEL" no topo de `contract.service.ts` removendo o aviso do provedor validado.
+
+**Saída da Fase B:** shapes confirmados no código, mocks de `contract.service.test.ts`
+ajustados pro shape real (sem inventar — copiar dos JSONs crus de B0), e os 2 payloads
+de webhook capturados (entram como fixtures da Fase C).
 
 ### Fase C — Webhook de assinatura (fecha o ciclo) — precisa segredo do webhook
 
