@@ -64,16 +64,15 @@ const ERP_PROVIDERS: ErpProvider[] = [
   {
     id: 'radiusnet', label: 'RadiusNet', icon: '📡',
     fields: [
-      { key: 'url', label: 'URL da API', placeholder: 'https://radiusnet.seudominio.com.br' },
-      { key: 'user', label: 'Usuário', placeholder: 'admin' },
-      { key: 'password', label: 'Senha', placeholder: '••••••••', type: 'password' },
+      { key: 'url', label: 'URL do RadiusNet (sem /radiusnet/... no final)', placeholder: 'https://radiusnet.seudominio.com.br' },
+      { key: 'token', label: 'RTOKEN (Cadastros > Empresas > API RadiusNet)', placeholder: 'seu-rtoken', type: 'password' },
     ],
   },
   {
     id: 'rbx', label: 'RBX', icon: '🔒',
     fields: [
-      { key: 'url', label: 'URL da API', placeholder: 'https://rbx.seudominio.com.br' },
-      { key: 'token', label: 'Token', placeholder: 'seu-token-rbx', type: 'password' },
+      { key: 'url', label: 'URL do RBXSoft ISP', placeholder: 'https://rbx.seudominio.com.br' },
+      { key: 'token', label: 'Chave de integração (Empresa > Parâmetros > Web Services)', placeholder: 'sua-chave-de-integracao', type: 'password' },
     ],
   },
 ];

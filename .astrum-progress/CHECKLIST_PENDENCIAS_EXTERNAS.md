@@ -239,6 +239,64 @@ por incerteza (risco de "corrigir" errado sem poder testar):**
   separado), `POST .../cliente/desbloqueio_confianca` (desbloqueio).
   `customerId` nos métodos = `id_cliente_servico` (serviço/plano, não
   cliente). Suite: 19/19 verde. Commit no main.
+- [ ] **RadiusNet** — validar `RadiusNetAdapter` contra instância real (segue
+  pendente, sem ambiente de teste gratuito — é software on-premise, cada ISP
+  tem o próprio host). **Reescrito por completo 2026-08-29** — a versão S75
+  era inteiramente inventada (`/api/clientes`, `/api/financeiro/segunda-via`,
+  Bearer token — nada disso existe). Corrigido contra a **doc oficial
+  publicada** (`radius.net.br/api/`, prosa completa com request/response
+  reais por endpoint, incluindo os JSONs de exemplo escondidos atrás de um
+  toggle "CLIQUE AQUI" só visível no HTML cru, não no texto renderizado):
+  - Auth: header `RTOKEN` cru (sem esquema Bearer/Basic). Path base fixo
+    `{host}/radiusnet/index.php/api/v1/...` — não é livre, o adapter monta
+    esse prefixo, o tenant só informa o host.
+  - Cliente: `GET /cp/{cpf}/{status}` (planos do cliente por CPF/CNPJ).
+  - Cobrança: `GET /cbc/{filtro}/{id_cliente}` (plano + avulsas juntos).
+    2ª via precisa de 3 chamadas combinadas — nenhum endpoint sozinho tem os
+    5 campos: `/cbc` pro valor/vencimento/linha digitável, `GET /bc/{id_cobranca}`
+    pro link do boleto PDF, `GET /scp/{id_cobranca}` pro Pix copia-e-cola.
+  - Desbloqueio: `PUT /ascli/` (body `IDCLI`+`IDSTATUS=2` urlencoded, muda
+    status pra "Avisado" — libera velocidade integral por um prazo
+    configurável no RadiusNet, não é desbloqueio permanente).
+  - **Sem endpoint de sessão RADIUS por cliente** — só `/cl`, lista paginada
+    de TODOS os clientes sem filtro por CPF/id. `getConnectionStatus` usa
+    status administrativo do plano (`/cp/{cpf}/2`, Ativo) como proxy, mesma
+    limitação já documentada nos outros adapters.
+  - Formulário do wizard corrigido: pedia `user`+`password` (que o adapter
+    nunca leu — nem a versão antiga usava esses campos, só `url`+`token`).
+    Agora pede `url` + `token`(RTOKEN).
+  Suite: 9/9 verde, typecheck limpo.
+- [ ] **RBX (RBXSoft)** — validar `RBXAdapter` contra instância real (segue
+  pendente, sem ambiente de teste gratuito). **Reescrito por completo
+  2026-08-29** — a versão S75 era inteiramente inventada (REST comum tipo
+  `/api/v1/cliente?cpf=`, que não existe). API real é RPC sobre HTTP:
+  achei a **doc oficial** (`developers.rbxsoft.com/v2/`) com um link de
+  download pra **collection Postman oficial** publicada na própria página,
+  baixada e lida por inteiro (194KB).
+  - Duas versões coexistem com auth e endpoint diferentes: **v2.0**
+    (`POST {host}/routerbox/ws_json/ws_json.php`, header `authentication_key`,
+    nome do serviço como chave raiz do corpo JSON) e **v1.0**
+    (`POST {host}/routerbox/ws/rbx_server_json.php`, auth embutida no corpo
+    em `Autenticacao.ChaveIntegracao`, sem exemplo de resposta documentado
+    em lugar nenhum).
+  - Conexão: `get_online_customer` (v2.0, confirmado com exemplo real) —
+    online = tem sessão RADIUS ativa retornada, esse aqui é sessão de
+    verdade, não proxy administrativo como os outros ERPs.
+  - Cobrança: `get_unpaid_document` (v2.0, confirmado com exemplo real).
+  - 2ª via/linha digitável: só existe em v1.0 (`ConsultaLinhaDigitavelBoleto`)
+    — **resposta não documentada em lugar nenhum**, parsing defensivo com
+    fallback de nomes de campo (mesmo tratamento usado quando não há doc).
+  - Busca por CPF: só existe em v1.0 (`ConsultaClientes`, filtro tipo SQL
+    livre) — **campo de filtro por CPF não confirmado** (a doc só mostra
+    exemplos com `Codigo`/`Nome`/`Cliente_Codigo`; usei `CPF` por ser a
+    suposição mais razoável, sem exemplo oficial).
+  - Bloqueio/desbloqueio (`contract_block`/`contract_unblock`) exigem
+    `customer_id` **e** `contract_id` juntos — a API não aceita só um.
+    `unlockCustomer` resolve o `contract_id` sozinho via
+    `get_equipment_customer` antes de chamar `contract_unblock`.
+  - Formulário do wizard atualizado (rótulos indicando onde achar a chave —
+    Empresa > Parâmetros > Web Services).
+  Suite: 11/11 verde, typecheck limpo.
 
 ### P1 — Religue por confiança
 - [ ] Testar `trust_unlock_policies` com tenant real (verificar fallback para DEFAULT_POLICY se não existir)

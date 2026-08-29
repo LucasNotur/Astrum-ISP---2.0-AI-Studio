@@ -11,7 +11,9 @@ function makeHttp(data: unknown, ok = true): HttpClient {
   });
 }
 
-const creds = { url: 'https://rbx.isp.test', token: 'user:pass123' };
+const creds = { url: 'https://rbx.isp.test', token: 'chave-integracao-123' };
+const V1 = 'https://rbx.isp.test/routerbox/ws/rbx_server_json.php';
+const V2 = 'https://rbx.isp.test/routerbox/ws_json/ws_json.php';
 
 describe('RBXAdapter', () => {
   it('lança se url ou token ausentes', () => {
@@ -19,71 +21,109 @@ describe('RBXAdapter', () => {
     expect(() => new RBXAdapter({ url: 'http://x', token: '' })).toThrow('RBX: credenciais ausentes');
   });
 
-  it('usa Basic auth com token em base64', async () => {
-    const http = makeHttp([]);
+  it('findCustomerByCpf — POST v1 ConsultaClientes com ChaveIntegracao no corpo (não header)', async () => {
+    const http = makeHttp({ status: 1 });
     const adapter = new RBXAdapter(creds, http);
     await adapter.findCustomerByCpf('111.222.333-44');
+    expect(http).toHaveBeenCalledWith(V1, expect.objectContaining({
+      method: 'POST',
+      body: JSON.stringify({
+        ConsultaClientes: {
+          Autenticacao: { ChaveIntegracao: 'chave-integracao-123' },
+          Filtro: "CPF = '11122233344'",
+        },
+      }),
+    }));
     const init = (http as any).mock.calls[0][1];
-    const expected = Buffer.from('user:pass123').toString('base64');
-    expect(init.headers['Authorization']).toBe(`Basic ${expected}`);
+    expect(init.headers.authentication_key).toBeUndefined();
   });
 
-  it('findCustomerByCpf — remove máscara CPF', async () => {
-    const http = makeHttp({ id: 1, nome: 'João' });
+  it('getBillingStatus — POST v2 get_unpaid_document com authentication_key no header', async () => {
+    const http = makeHttp({ status: 1, result: [{ id: 1, value_up: 114.63 }] });
     const adapter = new RBXAdapter(creds, http);
-    await adapter.findCustomerByCpf('111.222.333-44');
-    expect(http).toHaveBeenCalledWith(
-      'https://rbx.isp.test/api/v1/cliente?cpf=11122233344',
-      expect.anything(),
-    );
+    const result = await adapter.getBillingStatus('330531');
+    expect(http).toHaveBeenCalledWith(V2, expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({ authentication_key: 'chave-integracao-123' }),
+      body: JSON.stringify({ get_unpaid_document: { customer_id: 330531 } }),
+    }));
+    expect(result).toEqual([{ id: 1, value_up: 114.63 }]);
   });
 
-  it('generateSecondCopy — mapeia campos RBX', async () => {
+  it('getBillingStatus — lança quando status=0 (erro de negócio)', async () => {
+    const http = makeHttp({ status: 0, error_description: 'The field customer_id is required!' });
+    const adapter = new RBXAdapter(creds, http);
+    await expect(adapter.getBillingStatus('x')).rejects.toThrow('The field customer_id is required!');
+  });
+
+  it('generateSecondCopy — POST v1 ConsultaLinhaDigitavelBoleto, mapeia campos com fallback', async () => {
     const http = makeHttp({
-      link: 'https://boleto.rbx',
+      boleto_url: 'https://boleto.rbx',
       pix: 'pix-rbx-code',
       barcode: '11111.22222',
       vencimento: '2026-11-15',
       valor: '89,90',
     });
     const adapter = new RBXAdapter(creds, http);
-    const result = await adapter.generateSecondCopy('c1', 't1');
+    const result = await adapter.generateSecondCopy('1', '12345');
+    expect(http).toHaveBeenCalledWith(V1, expect.objectContaining({
+      body: JSON.stringify({
+        ConsultaLinhaDigitavelBoleto: {
+          Autenticacao: { ChaveIntegracao: 'chave-integracao-123' },
+          DadosLinhaDigitavelEntrada: { Tipo: 'C', CliFor: 1, Documento: 12345 },
+        },
+      }),
+    }));
     expect(result.boletoUrl).toBe('https://boleto.rbx');
     expect(result.pixCopiaCola).toBe('pix-rbx-code');
     expect(result.barcode).toBe('11111.22222');
     expect(result.amountCents).toBe(8990);
   });
 
-  it('getConnectionStatus — ativo=true detecta online', async () => {
-    const http = makeHttp({ ativo: true });
+  it('getConnectionStatus — online quando get_online_customer retorna sessão', async () => {
+    const http = makeHttp({ status: 1, result: [{ session_id: 'abc', customer_id: '330074' }] });
     const adapter = new RBXAdapter(creds, http);
-    const result = await adapter.getConnectionStatus('c1');
+    const result = await adapter.getConnectionStatus('330074');
+    expect(http).toHaveBeenCalledWith(V2, expect.objectContaining({
+      body: JSON.stringify({ get_online_customer: { customer_id: 330074 } }),
+    }));
     expect(result.online).toBe(true);
   });
 
-  it('getConnectionStatus — offline quando ativo=false', async () => {
-    const http = makeHttp({ ativo: false, status: 'suspenso' });
+  it('getConnectionStatus — offline quando result vem vazio (sem sessão ativa)', async () => {
+    const http = makeHttp({ status: 1, result: [] });
     const adapter = new RBXAdapter(creds, http);
-    const result = await adapter.getConnectionStatus('c1');
+    const result = await adapter.getConnectionStatus('330074');
     expect(result.online).toBe(false);
   });
 
-  it('unlockCustomer — POST com cliente_id no body', async () => {
-    const http = makeHttp({ success: true });
+  it('unlockCustomer — resolve contract_id via get_equipment_customer, depois chama contract_unblock', async () => {
+    const http = vi.fn(async (_url: string, init: any) => {
+      const body = JSON.parse(init.body);
+      if (body.get_equipment_customer) {
+        return { ok: true, status: 200, statusText: 'OK', json: async () => ({ status: 1, result: [{ contract_id: '9121' }] }) };
+      }
+      if (body.contract_unblock) {
+        return { ok: true, status: 200, statusText: 'OK', json: async () => ({ status: 1, result: 'ok' }) };
+      }
+      throw new Error('unexpected body ' + init.body);
+    });
+    const adapter = new RBXAdapter(creds, http as unknown as HttpClient);
+    await adapter.unlockCustomer('330593');
+    expect(http).toHaveBeenCalledWith(V2, expect.objectContaining({
+      body: JSON.stringify({ contract_unblock: { customer_id: 330593, contract_id: 9121 } }),
+    }));
+  });
+
+  it('unlockCustomer — lança quando não consegue resolver contract_id', async () => {
+    const http = makeHttp({ status: 1, result: [] });
     const adapter = new RBXAdapter(creds, http);
-    await adapter.unlockCustomer('c42');
-    expect(http).toHaveBeenCalledWith(
-      'https://rbx.isp.test/api/v1/cliente/desbloquear',
-      expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify({ cliente_id: 'c42' }),
-      }),
-    );
+    await expect(adapter.unlockCustomer('330593')).rejects.toThrow('não foi possível resolver o contract_id');
   });
 
   it('lança quando API responde !ok', async () => {
     const http = makeHttp({}, false);
     const adapter = new RBXAdapter(creds, http);
-    await expect(adapter.getBillingStatus('c1')).rejects.toThrow('RBX API Error: 500');
+    await expect(adapter.getBillingStatus('1')).rejects.toThrow('RBX API Error: 500');
   });
 });
