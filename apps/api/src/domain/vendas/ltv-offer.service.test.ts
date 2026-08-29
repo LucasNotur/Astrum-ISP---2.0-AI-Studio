@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { computeLtvOffer, computeCtOccupancy, type CtoDB } from './ltv-offer.service';
+import { computeLtvOffer, computeCtOccupancy, occupancyPctFromPorts, type CtoDB } from './ltv-offer.service';
 
 describe('computeLtvOffer', () => {
   it('returns promotional tier when CTO < 70% occupied', () => {
@@ -33,6 +33,53 @@ describe('computeLtvOffer', () => {
   it('returns standard when ctoOccupancyPct is null and price < 100', () => {
     const result = computeLtvOffer({ planPriceCents: 5000, ctoOccupancyPct: null });
     expect(result.offerTier).toBe('standard');
+  });
+
+  // D-07 caveat cto-id: path ERP não expõe total de portas → sem % de ocupação.
+  // Fallback por portas livres (proxy) para o tier 'promotional' ainda funcionar.
+  it('fallback por portas livres: promotional quando ocupação é null mas há >= 4 portas livres', () => {
+    const result = computeLtvOffer({ planPriceCents: 5000, ctoOccupancyPct: null, ctoAvailablePorts: 6 });
+    expect(result.offerTier).toBe('promotional');
+    expect(result.offerNotes).toContain('6 portas livres');
+  });
+
+  it('fallback por portas livres: standard quando há poucas portas livres (< 4)', () => {
+    const result = computeLtvOffer({ planPriceCents: 5000, ctoOccupancyPct: null, ctoAvailablePorts: 2 });
+    expect(result.offerTier).toBe('standard');
+  });
+
+  it('fallback NÃO se sobrepõe à % de ocupação quando ela existe (ocupação manda)', () => {
+    // ocupação alta (90%) + muitas portas livres não deveria dar promotional
+    const result = computeLtvOffer({ planPriceCents: 5000, ctoOccupancyPct: 90, ctoAvailablePorts: 50 });
+    expect(result.offerTier).toBe('standard');
+  });
+
+  it('fallback por portas livres perde para premium quando plano >= R$100 e sem ocupação', () => {
+    // ctoAvailablePorts null → sem sinal promotional → premium pelo preço
+    const result = computeLtvOffer({ planPriceCents: 15000, ctoOccupancyPct: null, ctoAvailablePorts: null });
+    expect(result.offerTier).toBe('premium');
+  });
+});
+
+describe('occupancyPctFromPorts', () => {
+  it('deriva ocupação exata de total + livres', () => {
+    expect(occupancyPctFromPorts(16, 4)).toBe(75); // 12 usadas de 16
+    expect(occupancyPctFromPorts(10, 10)).toBe(0);  // vazia
+    expect(occupancyPctFromPorts(10, 0)).toBe(100); // cheia
+  });
+
+  it('null quando o total é desconhecido/zero (path ERP sem total)', () => {
+    expect(occupancyPctFromPorts(undefined, 5)).toBeNull();
+    expect(occupancyPctFromPorts(null, 5)).toBeNull();
+    expect(occupancyPctFromPorts(0, 0)).toBeNull();
+  });
+
+  it('não quebra com livres > total (clampa usadas em 0)', () => {
+    expect(occupancyPctFromPorts(8, 20)).toBe(0);
+  });
+
+  it('arredonda para inteiro', () => {
+    expect(occupancyPctFromPorts(3, 2)).toBe(33); // 1/3 usada
   });
 
   it('LTV uses band=low: 5000 cents × 0.35 × 200 months = 350000', () => {

@@ -27,12 +27,19 @@ import { sendContract, type ContractHttpClient } from '../../vendas/contract.ser
 import {
   computeLtvOffer,
   computeCtOccupancy,
+  occupancyPctFromPorts,
   defaultCtoDb,
   type CtoDB,
   type LtvOfferResult,
 } from '../../vendas/ltv-offer.service';
 import { infraLogger } from '../../../infrastructure/logging/logger';
 import type { ErpPlan } from '../../../adapters/erp/erp.types';
+
+// CTO do grafo local usa UUID (network_ctos.id); a do ERP usa o id nativo do ERP
+// (id_caixa_optica/id_cto/nearestCtoId), que NÃO casa com network_ctos. Só vale
+// consultar computeCtOccupancy quando o id é um UUID local.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isLocalCtoId = (id: string): boolean => UUID_RE.test(id.trim());
 
 export interface VendasSubgraphDeps {
   funnelDb?: SalesFunnelDb;
@@ -46,6 +53,7 @@ export interface VendasSubgraphDeps {
   contractHttp?: ContractHttpClient;
   computeLtvOfferFn?: typeof computeLtvOffer;
   computeCtOccupancyFn?: typeof computeCtOccupancy;
+  extractPlanSelectionFn?: typeof extractPlanSelection;
 }
 
 export async function runVendasSubgraph(
@@ -64,6 +72,7 @@ export async function runVendasSubgraph(
   const generate = deps.generateTextFn ?? generateText;
   const doComputeLtvOffer = deps.computeLtvOfferFn ?? computeLtvOffer;
   const doComputeCtOccupancy = deps.computeCtOccupancyFn ?? computeCtOccupancy;
+  const doExtractPlanSelection = deps.extractPlanSelectionFn ?? extractPlanSelection;
 
   try {
     const lead = await getOrCreateLead(db, tenantId, conversationId);
@@ -99,7 +108,7 @@ export async function runVendasSubgraph(
           }), tenantId);
           return { response: text, requiresHuman: true, steps: [...state.steps, 'vendas_no_plans'] };
         }
-        const extracted = await extractPlanSelection(userMessage, plans);
+        const extracted = await doExtractPlanSelection(userMessage, plans);
         if (!extracted) {
           const { text } = await withFailover('mini', (model) => generate({
             model: model as any,
@@ -109,13 +118,29 @@ export async function runVendasSubgraph(
           return response(text, state.steps, 'vendas_presenting_plans');
         }
 
-        // D-07 — calcular LTV + ocupação da CTO para calibrar a oferta
+        // D-07 — calcular LTV + ocupação da CTO para calibrar a oferta.
+        // Ocupação prefere as contagens de porta do PRÓPRIO result de viabilidade
+        // (funciona pro path ERP e pro grafo local, sem depender de mapear o id da
+        // CTO do ERP → network_ctos.id). Só cai no lookup em network_ctos quando o
+        // ctoId é UUID local (grafo local, ou leads antigos sem totalPorts
+        // persistido); com um id de ERP esse lookup nunca casaria. Sem % de
+        // ocupação, o computeLtvOffer usa portas livres como proxy (path ERP).
         const viabilityRaw = lead.viability_raw as any;
         const ctoId: string | undefined = viabilityRaw?.ctoId;
-        const ctoOccupancyPct = ctoId
-          ? await doComputeCtOccupancy(ctoDb, tenantId, ctoId)
-          : null;
-        const ltvOffer = doComputeLtvOffer({ planPriceCents: extracted.priceCents, ctoOccupancyPct });
+        const availablePorts: number | null =
+          typeof viabilityRaw?.availablePorts === 'number' ? viabilityRaw.availablePorts : null;
+        const totalPorts: number | null =
+          typeof viabilityRaw?.totalPorts === 'number' ? viabilityRaw.totalPorts : null;
+
+        let ctoOccupancyPct = occupancyPctFromPorts(totalPorts, availablePorts);
+        if (ctoOccupancyPct === null && ctoId && isLocalCtoId(ctoId)) {
+          ctoOccupancyPct = await doComputeCtOccupancy(ctoDb, tenantId, ctoId);
+        }
+        const ltvOffer = doComputeLtvOffer({
+          planPriceCents: extracted.priceCents,
+          ctoOccupancyPct,
+          ctoAvailablePorts: availablePorts,
+        });
 
         await updateLead(db, lead.id, {
           stage: 'collecting_data',

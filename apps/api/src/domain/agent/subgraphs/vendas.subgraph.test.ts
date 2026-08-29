@@ -160,6 +160,77 @@ describe('runVendasSubgraph — stage: checking_viability (persistência do ctoI
   });
 });
 
+describe('runVendasSubgraph — D-07 calibração por ocupação da CTO (caveat cto-id)', () => {
+  // Lead em presenting_plans com viability_raw setado; captura o update que grava
+  // cto_occupancy_pct/offer_tier. Deixa o computeLtvOffer REAL rodar (é puro) e um
+  // extractPlanSelection determinístico (escolhe o 1º plano) pra chegar no D-07.
+  function makeD07Deps(viabilityRaw: any, planPriceCents: number, overrides: Partial<VendasSubgraphDeps> = {}) {
+    const lead: SalesLead = { ...PRESENTING_PLANS_LEAD, viability_raw: viabilityRaw } as any;
+    const chain = {
+      select: vi.fn().mockReturnThis(),
+      insert: vi.fn().mockReturnThis(),
+      update: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      not: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: lead }),
+      single: vi.fn().mockResolvedValue({ data: lead, error: null }),
+    };
+    const db = { from: vi.fn().mockReturnValue(chain) } as any;
+    const computeCtOccupancyFn = vi.fn().mockResolvedValue(50);
+    const deps = makeDeps({
+      funnelDb: db,
+      getPlansFn: vi.fn().mockResolvedValue([
+        { id: 'plan-1', name: 'Plano', downloadMbps: 100, uploadMbps: 20, priceCents: planPriceCents },
+      ]),
+      extractPlanSelectionFn: vi.fn(async (_msg: string, plans: any[]) => plans[0]),
+      computeCtOccupancyFn,
+      ...overrides,
+    });
+    const getUpdate = () =>
+      (chain.update.mock.calls as any[]).find(([p]) => p && 'offer_tier' in p)?.[0];
+    return { deps, computeCtOccupancyFn, getUpdate };
+  }
+
+  it('path ERP (ctoId não-UUID + portas livres, sem total) → NÃO consulta network_ctos, usa proxy de portas livres → promotional', async () => {
+    const { deps, computeCtOccupancyFn, getUpdate } = makeD07Deps(
+      { ctoId: 'id_caixa_optica-99', availablePorts: 6 }, // id do ERP, sem totalPorts
+      8990,
+    );
+    await runVendasSubgraph(BASE_STATE, deps);
+
+    expect(computeCtOccupancyFn).not.toHaveBeenCalled(); // id de ERP nunca casaria com network_ctos.id
+    const upd = getUpdate();
+    expect(upd.cto_occupancy_pct).toBeNull();
+    expect(upd.offer_tier).toBe('promotional');
+  });
+
+  it('path grafo local (ctoId UUID + totalPorts) → ocupação inline, sem round-trip em network_ctos', async () => {
+    const { deps, computeCtOccupancyFn, getUpdate } = makeD07Deps(
+      { ctoId: '11111111-1111-1111-1111-111111111111', totalPorts: 10, availablePorts: 8 }, // 20% ocupada
+      8990,
+    );
+    await runVendasSubgraph(BASE_STATE, deps);
+
+    expect(computeCtOccupancyFn).not.toHaveBeenCalled(); // total presente → não precisa do lookup
+    const upd = getUpdate();
+    expect(upd.cto_occupancy_pct).toBe(20);
+    expect(upd.offer_tier).toBe('promotional');
+  });
+
+  it('path local legado (ctoId UUID, SEM totalPorts persistido) → cai no lookup network_ctos', async () => {
+    const { deps, computeCtOccupancyFn, getUpdate } = makeD07Deps(
+      { ctoId: '22222222-2222-2222-2222-222222222222' }, // UUID, sem portas persistidas
+      8990,
+    );
+    await runVendasSubgraph(BASE_STATE, deps);
+
+    expect(computeCtOccupancyFn).toHaveBeenCalledWith(expect.anything(), 'tenant-test', '22222222-2222-2222-2222-222222222222');
+    const upd = getUpdate();
+    expect(upd.cto_occupancy_pct).toBe(50); // mock do computeCtOccupancy
+    expect(upd.offer_tier).toBe('promotional');
+  });
+});
+
 describe('runVendasSubgraph — stage: scheduling', () => {
   it('agenda instalação e retorna completed', async () => {
     const deps = makeDeps({

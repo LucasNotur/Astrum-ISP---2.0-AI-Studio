@@ -165,6 +165,7 @@ export async function checkViability(
       .map((c: any) => ({
         id: c.id,
         name: c.name,
+        totalPorts: Number(c.total_ports) || 0,
         availablePorts: (Number(c.total_ports) || 0) - (Number(c.used_ports) || 0),
       }))
       .filter((c: { availablePorts: number }) => c.availablePorts > 0)
@@ -178,6 +179,9 @@ export async function checkViability(
         ctoId: best.id,
         ctoName: best.name,
         availablePorts: best.availablePorts,
+        // Total preenchido no path local (sabemos via network_ctos) → D-07 usa a %
+        // de ocupação exata inline, sem o round-trip do computeCtOccupancy.
+        totalPorts: best.totalPorts,
         raw: { source: 'local_graph', ctosConsidered: considered },
       };
     }

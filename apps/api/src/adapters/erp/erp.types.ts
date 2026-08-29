@@ -76,6 +76,13 @@ export interface ViabilityResult {
   ctoId?: string;
   ctoName?: string;
   availablePorts?: number;
+  /**
+   * Total de portas da CTO. Só o grafo local preenche (sabe o total via
+   * network_ctos); os ERPs em geral só expõem portas livres, não o total — nesse
+   * caso fica undefined e a calibração D-07 cai no proxy por portas livres. Ver
+   * occupancyPctFromPorts / computeLtvOffer.
+   */
+  totalPorts?: number;
   raw?: unknown;
 }
 
