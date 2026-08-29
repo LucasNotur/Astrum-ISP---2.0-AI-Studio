@@ -13,14 +13,14 @@ import { RBXAdapter } from './rbx.adapter';
  * 7/7 adapters implementados: IXC, MK-Auth, Voalle, SGP, Hubsoft, RadiusNet, RBX.
  *
  * `tokenCache` (4º parâmetro, opcional) só é usado pelos adapters OAuth
- * (voalle/hubsoft) — os demais ignoram. Ver `erp-oauth-cache.service.ts`:
+ * (voalle/hubsoft/mkauth) — os demais ignoram. Ver `erp-oauth-cache.service.ts`:
  * sem ele, cada chamada aqui é uma instância nova sem cache persistente entre
  * si, então o modo OAuth reautenticaria do zero quase toda operação.
  */
 
 const IMPLEMENTED: Partial<Record<ERPProviderName, (c: ERPCredentials, h?: HttpClient, tc?: OAuthTokenCache) => ERPProvider>> = {
   ixc: (c, h) => new IXCAdapter(c, h),
-  mkauth: (c, h) => new MKAuthAdapter(c, h),
+  mkauth: (c, h, tc) => new MKAuthAdapter(c, h, tc),
   voalle: (c, h, tc) => new VoalleAdapter(c, h, tc),
   sgp: (c, h) => new SGPAdapter(c, h),
   hubsoft: (c, h, tc) => new HubsoftAdapter(c, h, tc),

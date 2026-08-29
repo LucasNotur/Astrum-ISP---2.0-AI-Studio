@@ -51,14 +51,14 @@ describe('ERPIntegrationsPage', () => {
     await openProviderCard('MKAuth');
 
     fireEvent.change(screen.getByPlaceholderText('https://mk.seudominio.com.br'), { target: { value: 'https://mk.example.com' } });
-    fireEvent.change(screen.getByPlaceholderText('admin'), { target: { value: 'admin' } });
+    fireEvent.change(screen.getByPlaceholderText('Client_id gerado em Controle de usuários → API'), { target: { value: 'cid-1' } });
     fireEvent.change(screen.getByPlaceholderText('••••••••'), { target: { value: 'segredo' } });
     fireEvent.click(screen.getByRole('button', { name: 'Salvar credenciais' }));
 
     await waitFor(() =>
       expect(apiPostMock).toHaveBeenCalledWith('/api/v2/erp/credentials', {
         provider: 'mkauth',
-        credentials: { url: 'https://mk.example.com', user: 'admin', password: 'segredo' },
+        credentials: { url: 'https://mk.example.com', clientId: 'cid-1', clientSecret: 'segredo' },
         active: true,
       }),
     );

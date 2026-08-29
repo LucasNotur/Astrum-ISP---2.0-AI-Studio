@@ -3,7 +3,6 @@ import crypto from 'node:crypto';
 import { encryptCredentials, decryptCredentials } from './credential-cipher';
 import { parseAmountToCents } from './erp.types';
 import { IXCAdapter, normalizeIxcSecondCopy } from './ixc.adapter';
-import { MKAuthAdapter } from './mkauth.adapter';
 import { createErpProvider, isErpImplemented } from './erp.factory';
 import type { HttpClient } from './erp.types';
 
@@ -108,40 +107,8 @@ describe('normalizeIxcSecondCopy — conversão de valor', () => {
   });
 });
 
-describe('MKAuthAdapter', () => {
-  const creds = { url: 'https://mk.isp.com', token: 'mkkey' };
-
-  it('usa header MK-Auth-Key', async () => {
-    const http = httpOk([{ id: '1' }]);
-    await new MKAuthAdapter(creds, http).findCustomerByCpf('12345678900');
-    const [, init] = (http as any).mock.calls[0];
-    expect(init.headers['MK-Auth-Key']).toBe('mkkey');
-  });
-
-  it('generateSecondCopy escolhe o boleto do invoiceId', async () => {
-    const http = httpOk([{ id: 'inv1', url: 'https://b/inv1', pix: 'P1', valor: '50,00' }]);
-    const r = await new MKAuthAdapter(creds, http).generateSecondCopy('c1', 'inv1');
-    expect(r.boletoUrl).toBe('https://b/inv1');
-    expect(r.amountCents).toBe(5000);
-  });
-
-  // Achado de auditoria 2026-08-28: antes do fix, invoiceId não encontrado
-  // caía silenciosamente pro primeiro boleto da lista (risco de mandar a
-  // cobrança errada).
-  it('generateSecondCopy lança quando o invoiceId não está na lista (não manda o boleto de outra fatura)', async () => {
-    const http = httpOk([{ id: 'inv-outro', url: 'https://b/inv-outro', valor: '50,00' }]);
-    await expect(
-      new MKAuthAdapter(creds, http).generateSecondCopy('c1', 'inv1'),
-    ).rejects.toThrow(/inv1.*não encontrada/);
-  });
-
-  it('generateSecondCopy lança quando a lista de boletos vem vazia', async () => {
-    const http = httpOk([]);
-    await expect(
-      new MKAuthAdapter(creds, http).generateSecondCopy('c1', 'inv1'),
-    ).rejects.toThrow(/não encontrada/);
-  });
-});
+// MKAuthAdapter: cobertura completa em mkauth.adapter.test.ts (reescrito
+// 2026-08-29 — a API real é outra, ver comentário no topo do adapter).
 
 describe('erp.factory', () => {
   it('resolve ixc e mkauth', () => {

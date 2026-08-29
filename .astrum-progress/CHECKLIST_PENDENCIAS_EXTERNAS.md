@@ -98,10 +98,20 @@ devolvem HTML de erro com status 200) — agora lança erro claro em vez de
 
 **⚠️ Continua pendente — precisa de doc oficial/instância real, NÃO fixado
 por incerteza (risco de "corrigir" errado sem poder testar):**
-- [ ] **IXC** — validar `IXCAdapter` contra instância real:
+- [ ] **IXC** — validar `IXCAdapter` contra instância real (segue pendente,
+  sem ambiente de teste gratuito):
   - endpoints: `/webservice/v1/cliente`, `/fn_areceber`, `/radusuarios`, `/get_boleto`, `/cliente_desbloqueio_confianca`
   - P3 new: `/viabilidade`, `/plano_acesso`, `/cliente` (POST create), `/os` (POST create)
-  - Suspeita (não confirmada): o campo único `token` deveria concatenar `api_client:token` antes do base64, e o wizard não valida esse formato.
+  - **Suspeita descartada 2026-08-29:** a dúvida era se `token` deveria
+    concatenar `api_client:token` antes do base64. Confirmado contra dois
+    SDKs comunitários independentes do IXC lidos direto do código-fonte
+    (`github.com/LSaints/ixc-sdk`, `src/resources/base.ts`: `` `Basic
+    ${btoa(this.apiKey)}` `` — só o token, sem concatenação; e
+    `github.com/isacna/ixc-soft-api`) mais a doc oficial (wiki.ixcsoft.com.br,
+    achada via busca — token tem o formato `id:chave`, é uma string única
+    que já vai inteira pro base64). O adapter atual (`Authorization: Basic
+    ${Buffer.from(creds.token).toString('base64')}`) já está correto — não
+    era bug, nenhuma mudança de código necessária.
 - [ ] **Voalle/Elleven** — validar `VoalleAdapter` contra instância real (segue
   pendente, sem ambiente de teste gratuito). **Corrigido 2026-08-29:** o achado
   arquitetural do cache (`access_token` só valia dentro da mesma instância,
@@ -112,33 +122,47 @@ por incerteza (risco de "corrigir" errado sem poder testar):**
   wizard de teste). Degrada bem se o Redis cair (adapter volta pro
   token-exchange normal). Suite: 165/165 verde. Commit no main.
 - [ ] **MK Solutions / MK-Auth** — validar `MKAuthAdapter` contra instância
-  real. Achado não corrigido: `unlockCustomer` chama `DELETE /api/cliente/bloquear`
-  (bloquear = block) esperando que o método inverta a semântica do nome —
-  nunca validado, pode estar fazendo o oposto do que deveria.
-  **⚠️ Achado maior 2026-08-29 — a API real é OUTRA, completamente diferente da
-  que o `MKAuthAdapter` usa hoje** (confirmado via doc oficial ao vivo,
-  Swagger em `postman.mk-auth.com.br/docs.php` — não resumo de IA, li a lista
-  de endpoints direto da UI renderizada):
-  - Auth real: `GET /api/` com **Basic Auth usando `Client_id:Client_Secret`**
-    (não usuário/senha do painel, não o header `MK-Auth-Key` que o adapter usa
-    hoje) → devolve um JWT usado como `Bearer` nas chamadas seguintes.
-  - `Client_id`/`Client_Secret` são gerados em **Cadastros → Controle de
-    usuários → [usuário] → aba API** (confirmado em
-    `wiki.mk-auth.com.br/doku.php?id=api_basic`).
-  - Endpoints reais de fatura: `GET /api/titulo/aberto/{cpf}`,
-    `/api/titulo/vencido/{cpf}`, `/api/titulo/show/{uuid}`,
-    `/api/titulo/titulos/{cpf}` — nenhum dos paths que o adapter usa hoje
-    (`/api/boleto`, `/api/cliente`) existe nessa API nova.
-  - Nenhum endpoint de status de conexão ou desbloqueio aparece na lista
-    completa — pode não existir nessa API (mesma limitação do achado antigo).
-  - **Tentei validar ao vivo e não consegui:** o demo público
-    (`mkauth-br.marracloud.com.br`, teste/teste) é só o painel administrativo;
-    não tem "Controle de usuários" no menu (confirmado lendo o `menu.js.hhvm`
-    completo da instância — não é limitação de navegação, o item genuinamente
-    não existe nessa versão/instância 23.07). Sem isso, não dá pra gerar
-    `Client_id`/`Client_secret` de teste. **Decisão do Lucas (2026-08-29): não
-    reescrever o adapter sem validação ao vivo** — fica documentado, não
-    tocado, mesmo tratamento do IXC/Hubsoft/Voalle.
+  real (segue pendente, sem ambiente de teste gratuito — o demo público em
+  `mkauth-br.marracloud.com.br` não tem "Controle de usuários" no menu dessa
+  versão/instância, então não dá pra gerar `Client_id`/`Client_secret` de
+  teste, confirmado lendo o `menu.js.hhvm` completo).
+  **Reescrito por completo 2026-08-29** (decisão do Lucas: mesmo tratamento
+  do Hubsoft — doc oficial sólida o bastante mesmo sem poder testar ao vivo).
+  A API real é outra, confirmado contra o **OpenAPI completo baixado de
+  `postman.mk-auth.com.br/openapi.yaml`** (11784 linhas, lido por inteiro —
+  não resumo/UI screenshot) + `wiki.mk-auth.com.br/doku.php?id=api_basic`:
+  - Auth: `GET /api/` com Basic Auth (`Client_id:Client_Secret`, gerados em
+    Cadastros → Controle de usuários → [usuário] → aba API). Resposta é uma
+    **string JWT crua no corpo** (não JSON com campo "token") — o adapter
+    decodifica o próprio claim `exp` do JWT pra saber quando expira (~10min
+    no exemplo oficial). `Authorization: Bearer <jwt>` nas chamadas seguintes.
+  - Clientes: `GET /api/cliente/listar/<campo>=<valor>` (filtro livre — usamos
+    `cpf_cnpj`) e `GET /api/cliente/show/{login}`.
+  - Títulos: `GET /api/titulo/aberto/{cpf_ou_login}` e
+    `GET /api/titulo/show/{uuid}`. **A API não devolve link de boleto PDF**
+    (campo `url` do título é sempre `null` no exemplo oficial) — só linha
+    digitável (`linhadig`) e PIX (`pix`/`pix_link`/`pix_qr`). `boletoUrl` no
+    `SecondCopyResult` fica vazio por honestidade (não inventamos link).
+  - Bloqueio/desbloqueio: **achado novo que a auditoria anterior (baseada só
+    na lista de endpoints) não pegou** — não existe endpoint dedicado, mas o
+    campo `bloqueado` ("sim"/"nao") do registro do cliente é editável via
+    `PUT /api/cliente/editar` com `{ uuid: <uuid_cliente>, bloqueado: "nao" }`.
+    `unlockCustomer` resolve o `uuid_cliente` via `cliente/show` primeiro (a
+    API não aceita `login` direto no `editar`), depois edita. Sem endpoint
+    equivalente ao `radusuarios` do IXC (sessão RADIUS ao vivo) —
+    `getConnectionStatus` usa `bloqueado` como proxy (bloqueio administrativo/
+    financeiro, não sessão de rede em tempo real), mesma limitação documentada
+    nos outros adapters.
+  - `customerId` nos métodos do adapter é tratado como o **login** do MK-Auth
+    (aceito tanto pelos endpoints de título quanto pelos de cliente).
+  - Autenticação dual-mode igual Voalle/Hubsoft: `clientId`+`clientSecret`
+    (troca via Basic Auth) OU `token` pré-gerado direto como Bearer. Cache de
+    JWT local + `tokenCache` Redis compartilhado (mesmo `erp-oauth-cache.service.ts`
+    do Voalle/Hubsoft) — sem isso o TTL curto do JWT (~10min) faria
+    reautenticar ainda mais que os outros dois.
+  - Formulário do wizard atualizado: `url` + `clientId` + `clientSecret`
+    (era `url` + `user` + `password`, campos que o adapter antigo nem lia).
+  Suite: 173/173 verde, typecheck limpo.
 - [x] **SGP/TSMX — ✅ VALIDADO AO VIVO 2026-08-29** contra `demo.sgp.net.br`
   (ambiente de demonstração público e self-service da própria TSMX, dados
   fictícios isolados de produção — nenhum custo, nenhum contato comercial).

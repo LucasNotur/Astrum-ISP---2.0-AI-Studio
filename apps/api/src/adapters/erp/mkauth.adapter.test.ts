@@ -11,69 +11,198 @@ function makeHttp(data: unknown, ok = true): HttpClient {
   });
 }
 
-const creds = { url: 'https://mk.isp.test', token: 'mk-key-abc' };
+// JWT sem assinatura real, só pro decodeJwtExpiry funcionar em teste: header.payload.sig
+// payload = { exp: 9999999999 } (ano 2286 — nunca expira nos testes).
+const FAKE_JWT = 'eyJhbGciOiJIUzUxMiJ9.eyJleHAiOjk5OTk5OTk5OTl9.sig';
+
+function makeAuthThenDataHttp(data: unknown, jwt = FAKE_JWT): HttpClient {
+  return vi.fn()
+    .mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK', text: async () => jwt, json: async () => { throw new Error('não deveria chamar json() na resposta de auth'); } })
+    .mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK', json: async () => data }) as unknown as HttpClient;
+}
+
+const creds = { url: 'https://mk.isp.test', clientId: 'cid-x', clientSecret: 'secret-y' };
+const tokenCreds = { url: 'https://mk.isp.test', token: 'pre-generated-jwt' };
 
 describe('MKAuthAdapter', () => {
-  it('lança se url ou token ausentes', () => {
-    expect(() => new MKAuthAdapter({ url: '', token: 'x' })).toThrow('MK-Auth: credenciais ausentes');
-    expect(() => new MKAuthAdapter({ url: 'http://x', token: '' })).toThrow('MK-Auth: credenciais ausentes');
+  it('lança se url ausente ou sem clientId/clientSecret nem token', () => {
+    expect(() => new MKAuthAdapter({ url: '', clientId: 'a', clientSecret: 'b' })).toThrow('MK-Auth: credenciais ausentes');
+    expect(() => new MKAuthAdapter({ url: 'http://x', clientId: 'só-id' } as any)).toThrow('MK-Auth: credenciais ausentes');
   });
 
-  it('usa header MK-Auth-Key — não Bearer', async () => {
-    const http = makeHttp([]);
+  it('aceita token pré-gerado sem clientId/clientSecret', () => {
+    expect(() => new MKAuthAdapter(tokenCreds)).not.toThrow();
+  });
+
+  it('token pré-gerado — usa direto como Bearer, sem chamar /api/', async () => {
+    const http = vi.fn().mockResolvedValue({ ok: true, status: 200, statusText: 'OK', json: async () => [] }) as unknown as HttpClient;
+    const adapter = new MKAuthAdapter(tokenCreds, http);
+    await adapter.findCustomerByCpf('00000000000');
+    expect((http as any).mock.calls[0][1].headers['Authorization']).toBe('Bearer pre-generated-jwt');
+    expect((http as any).mock.calls.some((c: any[]) => c[0].endsWith('/api/'))).toBe(false);
+  });
+
+  it('Basic Auth — troca client_id:client_secret em GET /api/ e usa o JWT cru da resposta como Bearer', async () => {
+    const http = makeAuthThenDataHttp({ total_registros: 1, clientes: [{ login: 'lise' }] });
+    const adapter = new MKAuthAdapter(creds, http);
+    const result = await adapter.findCustomerByCpf('123.456.789-00');
+
+    expect((http as any).mock.calls[0][0]).toBe('https://mk.isp.test/api/');
+    const authInit = (http as any).mock.calls[0][1];
+    expect(authInit.headers['Authorization']).toBe(`Basic ${Buffer.from('cid-x:secret-y').toString('base64')}`);
+
+    expect((http as any).mock.calls[1][0]).toBe('https://mk.isp.test/api/cliente/listar/cpf_cnpj=12345678900');
+    expect((http as any).mock.calls[1][1].headers['Authorization']).toBe(`Bearer ${FAKE_JWT}`);
+    expect(result).toEqual({ total_registros: 1, clientes: [{ login: 'lise' }] });
+  });
+
+  it('Basic Auth — cacheia o JWT entre chamadas (uma única troca em /api/)', async () => {
+    const http = vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK', text: async () => FAKE_JWT })
+      .mockResolvedValue({ ok: true, status: 200, statusText: 'OK', json: async () => [] }) as unknown as HttpClient;
+
+    const adapter = new MKAuthAdapter(creds, http);
+    await adapter.findCustomerByCpf('11111111111');
+    await adapter.getBillingStatus('lise');
+
+    const authCalls = (http as any).mock.calls.filter((c: any[]) => c[0].endsWith('/api/'));
+    expect(authCalls).toHaveLength(1);
+  });
+
+  it('Basic Auth — lança se a troca em /api/ falha', async () => {
+    const http = makeHttp({}, false);
+    const adapter = new MKAuthAdapter(creds, http);
+    await expect(adapter.findCustomerByCpf('00000000000')).rejects.toThrow('MK-Auth Auth Error: 500');
+  });
+
+  it('Basic Auth — lança se a resposta de /api/ vem vazia', async () => {
+    const http = vi.fn().mockResolvedValue({ ok: true, status: 200, statusText: 'OK', text: async () => '   ' }) as unknown as HttpClient;
+    const adapter = new MKAuthAdapter(creds, http);
+    await expect(adapter.findCustomerByCpf('00000000000')).rejects.toThrow('autenticação não retornou token');
+  });
+
+  it('tokenCache — usa o JWT cacheado sem fazer nova troca em /api/', async () => {
+    const http = vi.fn().mockResolvedValue({ ok: true, status: 200, statusText: 'OK', json: async () => [] }) as unknown as HttpClient;
+    const tokenCache = { get: vi.fn().mockResolvedValue('cached-jwt'), set: vi.fn() };
+
+    const adapter = new MKAuthAdapter(creds, http, tokenCache as any);
+    await adapter.findCustomerByCpf('00000000000');
+
+    expect(tokenCache.get).toHaveBeenCalled();
+    expect((http as any).mock.calls[0][1].headers['Authorization']).toBe('Bearer cached-jwt');
+    expect((http as any).mock.calls.some((c: any[]) => c[0].endsWith('/api/'))).toBe(false);
+  });
+
+  it('tokenCache — grava o JWT novo (TTL do claim exp, com 30s de folga)', async () => {
+    const http = makeAuthThenDataHttp([]);
+    const tokenCache = { get: vi.fn().mockResolvedValue(null), set: vi.fn() };
+
+    const adapter = new MKAuthAdapter(creds, http, tokenCache as any);
+    await adapter.findCustomerByCpf('00000000000');
+
+    expect(tokenCache.set).toHaveBeenCalledWith(FAKE_JWT, expect.any(Number));
+    const [, ttl] = (tokenCache.set as any).mock.calls[0];
+    expect(ttl).toBeGreaterThan(0);
+  });
+
+  it('findCustomerByCpf — filtra por cpf_cnpj sem máscara', async () => {
+    const http = makeAuthThenDataHttp({ clientes: [] });
     const adapter = new MKAuthAdapter(creds, http);
     await adapter.findCustomerByCpf('111.222.333-44');
-    const init = (http as any).mock.calls[0][1];
-    expect(init.headers['MK-Auth-Key']).toBe('mk-key-abc');
-    expect(init.headers['Authorization']).toBeUndefined();
+    expect((http as any).mock.calls[1][0]).toBe('https://mk.isp.test/api/cliente/listar/cpf_cnpj=11122233344');
   });
 
-  it('findCustomerByCpf — remove máscara CPF', async () => {
-    const http = makeHttp([]);
+  it('getBillingStatus — consulta títulos em aberto por login', async () => {
+    const http = makeAuthThenDataHttp({ Total: 0, titulos: [] });
     const adapter = new MKAuthAdapter(creds, http);
-    await adapter.findCustomerByCpf('111.222.333-44');
-    expect(http).toHaveBeenCalledWith(
-      'https://mk.isp.test/api/cliente?cliente_cpf=11122233344',
-      expect.anything(),
-    );
+    await adapter.getBillingStatus('lise');
+    expect((http as any).mock.calls[1][0]).toBe('https://mk.isp.test/api/titulo/aberto/lise');
   });
 
-  it('generateSecondCopy — mapeia campos MK-Auth', async () => {
-    const http = makeHttp({
-      registros: [{
-        id: 'bol-1',
-        url: 'https://boleto.mk',
-        pix: 'pix-mk',
-        linhadigitavel: '77777.88888',
-        datavenc: '2026-08-20',
-        valor: '119,90',
-      }],
+  it('generateSecondCopy — mapeia campos do título (sem link de boleto, só linha digitável/pix)', async () => {
+    const http = makeAuthThenDataHttp({
+      uuid_lanc: 'AE91D370',
+      url: null,
+      linhadig: '34191.77005 00065.727778 70144.370007 6 97780000011000',
+      pix: 'pix-copia-cola-real',
+      pix_link: 'https://provedor.app.br/pix/xyz',
+      datavenc: '2024-07-15 00:00:00',
+      valor: '110.00',
     });
     const adapter = new MKAuthAdapter(creds, http);
-    const result = await adapter.generateSecondCopy('c1', 'bol-1');
-    expect(result.boletoUrl).toBe('https://boleto.mk');
-    expect(result.pixCopiaCola).toBe('pix-mk');
-    expect(result.barcode).toBe('77777.88888');
-    expect(result.amountCents).toBe(11990);
+    const result = await adapter.generateSecondCopy('lise', 'AE91D370-DFAB-41CF-81C9-CAEFD69F3AFA');
+
+    expect((http as any).mock.calls[1][0]).toBe(
+      'https://mk.isp.test/api/titulo/show/AE91D370-DFAB-41CF-81C9-CAEFD69F3AFA',
+    );
+    expect(result.boletoUrl).toBe('');
+    expect(result.pixCopiaCola).toBe('pix-copia-cola-real');
+    expect(result.barcode).toBe('34191.77005 00065.727778 70144.370007 6 97780000011000');
+    expect(result.dueDate).toBe('2024-07-15 00:00:00');
+    expect(result.amountCents).toBe(11000);
   });
 
-  it('getConnectionStatus — ativo quando login=ativo', async () => {
-    const http = makeHttp([{ login: 'ativo' }]);
+  it('generateSecondCopy — cai pro pix_link quando pix vem vazio', async () => {
+    const http = makeAuthThenDataHttp({ pix: '', pix_link: 'https://provedor.app.br/pix/xyz', valor: '50.00' });
     const adapter = new MKAuthAdapter(creds, http);
-    const result = await adapter.getConnectionStatus('c1');
+    const result = await adapter.generateSecondCopy('lise', 'uuid-1');
+    expect(result.pixCopiaCola).toBe('https://provedor.app.br/pix/xyz');
+  });
+
+  it('getConnectionStatus — online quando bloqueado=nao', async () => {
+    const http = makeAuthThenDataHttp({ login: 'lise', bloqueado: 'nao' });
+    const adapter = new MKAuthAdapter(creds, http);
+    const result = await adapter.getConnectionStatus('lise');
+    expect((http as any).mock.calls[1][0]).toBe('https://mk.isp.test/api/cliente/show/lise');
     expect(result.online).toBe(true);
   });
 
-  it('getConnectionStatus — offline quando login!=ativo', async () => {
-    const http = makeHttp([{ login: 'bloqueado', status: 'inativo' }]);
+  it('getConnectionStatus — offline quando bloqueado=sim', async () => {
+    const http = makeAuthThenDataHttp({ login: 'lise', bloqueado: 'sim' });
     const adapter = new MKAuthAdapter(creds, http);
-    const result = await adapter.getConnectionStatus('c1');
+    const result = await adapter.getConnectionStatus('lise');
     expect(result.online).toBe(false);
   });
 
-  it('lança quando API responde !ok', async () => {
-    const http = makeHttp({}, false);
+  it('unlockCustomer — resolve uuid_cliente via show e edita bloqueado=nao', async () => {
+    const http = vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK', text: async () => FAKE_JWT }) // auth
+      .mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK', json: async () => ({ login: 'lise', uuid_cliente: 'UUID-123', bloqueado: 'sim' }) }) // show
+      .mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK', json: async () => ({ status: 'success' }) }) as unknown as HttpClient; // editar
+
     const adapter = new MKAuthAdapter(creds, http);
-    await expect(adapter.getBillingStatus('c1')).rejects.toThrow('MK-Auth API Error: 500');
+    const result = await adapter.unlockCustomer('lise');
+
+    expect((http as any).mock.calls[1][0]).toBe('https://mk.isp.test/api/cliente/show/lise');
+    expect((http as any).mock.calls[2][0]).toBe('https://mk.isp.test/api/cliente/editar');
+    const editInit = (http as any).mock.calls[2][1];
+    expect(editInit.method).toBe('PUT');
+    expect(JSON.parse(editInit.body)).toEqual({ uuid: 'UUID-123', bloqueado: 'nao' });
+    expect(result).toEqual({ status: 'success' });
+  });
+
+  it('unlockCustomer — lança se o cliente não tem uuid (não encontrado)', async () => {
+    const http = makeAuthThenDataHttp({ login: 'fantasma' });
+    const adapter = new MKAuthAdapter(creds, http);
+    await expect(adapter.unlockCustomer('fantasma')).rejects.toThrow('não encontrado');
+  });
+
+  it('lança quando API responde !ok (fora da autenticação)', async () => {
+    const http = vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK', text: async () => FAKE_JWT })
+      .mockResolvedValueOnce({ ok: false, status: 500, statusText: 'Internal Server Error', json: async () => ({}) }) as unknown as HttpClient;
+    const adapter = new MKAuthAdapter(creds, http);
+    await expect(adapter.getBillingStatus('lise')).rejects.toThrow('MK-Auth API Error: 500');
+  });
+
+  it('lança com mensagem clara quando a resposta não é JSON válido (painel PHP quebrado)', async () => {
+    const http = vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK', text: async () => FAKE_JWT })
+      .mockResolvedValueOnce({
+        ok: true, status: 200, statusText: 'OK',
+        json: async () => { throw new SyntaxError('Unexpected token <'); },
+      }) as unknown as HttpClient;
+    const adapter = new MKAuthAdapter(creds, http);
+    await expect(adapter.getBillingStatus('lise')).rejects.toThrow('MK-Auth: resposta não é JSON válido');
   });
 });

@@ -19,8 +19,12 @@ export interface ConnectionStatus {
   raw?: unknown;
 }
 
-/** HTTP injetável (fetch em prod, mock em teste). */
-export type HttpClient = (url: string, init: any) => Promise<{ ok: boolean; status: number; statusText: string; json: () => Promise<any> }>;
+/**
+ * HTTP injetável (fetch em prod, mock em teste). `text` é opcional — só o
+ * MK-Auth precisa (a resposta de autenticação é uma string JWT crua, não
+ * JSON); `fetch()` real sempre tem os dois, então isso nunca falta em prod.
+ */
+export type HttpClient = (url: string, init: any) => Promise<{ ok: boolean; status: number; statusText: string; json: () => Promise<any>; text?: () => Promise<string> }>;
 
 /**
  * Timeout padrão pra toda chamada HTTP de adapter ERP — achado de auditoria

@@ -77,6 +77,19 @@ export async function erpAdminRoutes(app: FastifyInstance) {
           error: 'credentials para hubsoft exigem token OU (clientId + clientSecret + username + password)',
         });
       }
+      // MK-Auth — reescrito 2026-08-29 (a API real usa Basic Auth Client_id:Client_Secret,
+      // não usuário/senha do painel). O check genérico acima aceita `clientSecret` sozinho
+      // como "segredo presente" — sem isso, salvaria uma credencial incompleta que só falha
+      // depois, no primeiro request de verdade.
+      if (
+        provider === 'mkauth' &&
+        !credentials?.token &&
+        !(credentials?.clientId && credentials?.clientSecret)
+      ) {
+        return reply.code(400).send({
+          error: 'credentials para mkauth exigem token OU (clientId + clientSecret)',
+        });
+      }
 
       let encrypted: string;
       try {

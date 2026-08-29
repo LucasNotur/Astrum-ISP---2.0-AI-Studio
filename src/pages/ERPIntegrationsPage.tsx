@@ -30,8 +30,8 @@ const ERP_PROVIDERS: ErpProvider[] = [
     id: 'mkauth', label: 'MKAuth', icon: '🔑',
     fields: [
       { key: 'url', label: 'URL do servidor', placeholder: 'https://mk.seudominio.com.br' },
-      { key: 'user', label: 'Usuário', placeholder: 'admin' },
-      { key: 'password', label: 'Senha', placeholder: '••••••••', type: 'password' },
+      { key: 'clientId', label: 'Client ID', placeholder: 'Client_id gerado em Controle de usuários → API' },
+      { key: 'clientSecret', label: 'Client Secret', placeholder: '••••••••', type: 'password' },
     ],
   },
   {
