@@ -200,10 +200,18 @@ export class SGPAdapter implements ERPProvider, ERPSalesCapable {
     }));
   }
 
-  /** `/api/precadastro/F` (pessoa física) — não devolve id; usa o CPF como `leadId`. */
+  /**
+   * `/api/precadastro/F` (pessoa física). A resposta de sucesso (HTTP 200)
+   * devolve `{ precadastro_id, message }` — validado ao vivo no demo
+   * 2026-08-29 (`precadastro_id: 1494`). Usa esse id real como `leadId` (o que
+   * um operador usa pra achar o lead no SGP), com fallback pro CPF caso a
+   * resposta venha sem ele; mantém o CPF em `externalId`. Erros são HTTP não-2xx
+   * (400 `Requisição inválida`, 402 CPF duplicado) — capturados por `postForm`,
+   * então um pré-cadastro que falha lança em vez de reportar sucesso falso.
+   */
   async createPreRegistration(data: LeadRegistration): Promise<{ leadId: string; externalId?: string }> {
     const clean = data.cpf.replace(/\D/g, '');
-    await this.postForm('/api/precadastro/F', {
+    const res = await this.postForm('/api/precadastro/F', {
       nome: data.fullName,
       logradouro: data.address ?? '',
       cpfcnpj: clean,
@@ -211,7 +219,8 @@ export class SGPAdapter implements ERPProvider, ERPSalesCapable {
       email: data.email ?? '',
       planointernet_id: data.planId,
     });
-    return { leadId: clean };
+    const id = res?.precadastro_id != null ? String(res.precadastro_id) : clean;
+    return { leadId: id, externalId: clean };
   }
 
   async scheduleInstallation(_leadId: string, _scheduledDate: string): Promise<{ orderId: string }> {

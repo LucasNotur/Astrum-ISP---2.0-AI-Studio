@@ -200,8 +200,9 @@ describe('SGPAdapter — contrato real (validado ao vivo contra demo.sgp.net.br,
     expect(result).toEqual([{ id: '1', name: 'PLANO_DESCRICAO', downloadMbps: 0, uploadMbps: 0, priceCents: 9990 }]);
   });
 
-  it('createPreRegistration — POST precadastro/F com os campos mapeados, usa CPF como leadId', async () => {
-    const http = makeHttp({ message: 'Pre-cadastro criado com sucesso' });
+  it('createPreRegistration — POST precadastro/F com os campos mapeados, usa precadastro_id real como leadId', async () => {
+    // Shape real validado ao vivo no demo 2026-08-29: sucesso devolve precadastro_id.
+    const http = makeHttp({ precadastro_id: 1494, message: 'Pre-cadastro criado com sucesso' });
     const adapter = new SGPAdapter(creds, http);
     const result = await adapter.createPreRegistration({
       fullName: 'João da Silva', cpf: '123.456.789-00', phone: '19999999999', email: 'joao@email.com', address: 'Rua X, 123', planId: '1',
@@ -213,7 +214,29 @@ describe('SGPAdapter — contrato real (validado ao vivo contra demo.sgp.net.br,
     expect(form.get('cpfcnpj')).toBe('12345678900');
     expect(form.get('celular')).toBe('19999999999');
     expect(form.get('planointernet_id')).toBe('1');
-    expect(result).toEqual({ leadId: '12345678900' });
+    expect(result).toEqual({ leadId: '1494', externalId: '12345678900' });
+  });
+
+  it('createPreRegistration — cai pro CPF como leadId se a resposta vier sem precadastro_id', async () => {
+    const http = makeHttp({ message: 'Pre-cadastro criado com sucesso' });
+    const adapter = new SGPAdapter(creds, http);
+    const result = await adapter.createPreRegistration({
+      fullName: 'João da Silva', cpf: '123.456.789-00', phone: '19999999999', address: 'Rua X, 123', planId: '1',
+    });
+    expect(result).toEqual({ leadId: '12345678900', externalId: '12345678900' });
+  });
+
+  it('createPreRegistration — lança em erro de negócio (HTTP não-2xx: 402 CPF duplicado)', async () => {
+    // Validado ao vivo 2026-08-29: erros vêm como 400/402, não 200 — postForm lança.
+    const http = vi.fn(async () => ({
+      ok: false, status: 402, statusText: 'Payment Required',
+      text: async () => JSON.stringify({ error: 'Já existe um cliente com o CPF informado.' }),
+      json: async () => ({ error: 'Já existe um cliente com o CPF informado.' }),
+    })) as any;
+    const adapter = new SGPAdapter(creds, http);
+    await expect(adapter.createPreRegistration({
+      fullName: 'João da Silva', cpf: '123.456.789-00', phone: '19999999999', address: 'Rua X, 123', planId: '1',
+    })).rejects.toThrow('SGP API Error: 402');
   });
 
   it('scheduleInstallation — lança "não suportado" (sem endpoint de agendamento na collection)', async () => {

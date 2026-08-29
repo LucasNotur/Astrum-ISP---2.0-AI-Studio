@@ -476,9 +476,29 @@ anteriores) revelou uma superfície bem mais rica que o esperado em 3 dos 5:
   CTO/portas). `getPlans` via `POST precadastro/plano/list`. `createPreRegistration`
   via `POST precadastro/F` (pessoa física — SGP tem endpoint separado `/J` pra
   jurídica, fora de escopo porque `LeadRegistration` não distingue tipo de
-  pessoa); resposta não devolve id, usa CPF como `leadId`. `scheduleInstallation`
-  não suportado — campo `os_instalacao` existe no pré-cadastro mas sem exemplo
-  que confirme se aceita data. Suite: 18/18.
+  pessoa). `scheduleInstallation` não suportado — campo `os_instalacao` existe
+  no pré-cadastro mas sem exemplo que confirme se aceita data.
+  **✅ VALIDADO AO VIVO 2026-08-29 (auditoria pós-P3, contra `demo.sgp.net.br`,
+  token próprio criado/deletado + pré-cadastro de teste criado/deletado):** dois
+  achados na auditoria de código foram checados empiricamente contra a API real,
+  não só doc:
+  - **Suspeita de "silent success" REFUTADA:** a hipótese era que `precadastro/F`
+    devolvesse erro de negócio com HTTP 200 (como o `liberacaopromessa` faz),
+    fazendo o `createPreRegistration` reportar sucesso falso. **Não procede** —
+    erros vêm como HTTP não-2xx (`400 {"error":"Requisição inválida.","message":
+    "<campo> é obrigatório"}`, `402 {"error":"Já existe um cliente com o CPF
+    informado."}`), então o `if (!res.ok) throw` do `postForm` **já os captura** e
+    o funil cai no fallback local. Nenhum patch necessário — validar ao vivo
+    evitou um "fix" às cegas que poderia falso-lançar.
+  - **BUG REAL corrigido:** a versão anterior assumia (comentário no código)
+    que o sucesso "não devolve id" e usava o CPF como `leadId`. **Falso** — o
+    sucesso é `HTTP 200 {"precadastro_id": <n>, "message":"Pre-cadastro criado
+    com sucesso"}`. O adapter descartava o id real do lead no SGP (um operador
+    não acha o pré-cadastro pelo CPF). Corrigido: `leadId` agora usa
+    `precadastro_id` (fallback pro CPF se ausente), CPF vai em `externalId`.
+    +2 testes (id real usado; erro 402 lança). Suite SGP: 20/20, ERP completa
+    183/183, typecheck limpo. (getPlans/checkViability/auth reconfirmados de
+    passagem, sem mudança.) Suite anterior: 18/18.
 - [x] **RBX** — **decisão: não implementar.** Doc completa (`manual.rbxsoft.com`,
   todas as categorias: Atendimentos/Autenticações/Contatos/Contratos/Estoque/
   Financeiro/Pedidos/Variados) não tem NENHUM endpoint de viabilidade, catálogo
@@ -489,6 +509,7 @@ anteriores) revelou uma superfície bem mais rica que o esperado em 3 dos 5:
 
 Suite ERP completa após as 5 implementações: 181/181, typecheck limpo
 (`apps/api` e raiz — mexeu no wizard `ERPIntegrationsPage.tsx` também).
+Depois da auditoria pós-P3 (correção do `precadastro_id` no SGP): 183/183.
 
 ---
 
