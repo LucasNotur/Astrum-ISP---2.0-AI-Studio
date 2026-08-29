@@ -107,4 +107,75 @@ describe('RadiusNetAdapter', () => {
     await adapter.findCustomerByCpf('12345678900');
     expect(http).toHaveBeenCalledWith(`${BASE}/cp/12345678900/5`, expect.anything());
   });
+
+  // ── P3 — Funil de vendas ─────────────────────────────────────────────────────
+
+  it('checkViability — casa o endereço pedido contra /cto por substring e soma portas disponíveis', async () => {
+    const http = makeHttp({
+      rows: [
+        { id_cto: '2', nome_cto: 'CTO-01-PON-01-VL:101', endereco: 'Rua Dois de Junho, Águas Brancas - Ananindeua/PA', portas_disponiveis: 5 },
+        { id_cto: '3', nome_cto: 'CTO-02', endereco: 'Rua Outra, Centro - Belém/PA', portas_disponiveis: 0 },
+      ],
+    });
+    const adapter = new RadiusNetAdapter(creds, http);
+    const result = await adapter.checkViability('rua dois de junho');
+    expect(http).toHaveBeenCalledWith(`${BASE}/cto`, expect.anything());
+    expect(result.available).toBe(true);
+    expect(result.ctoId).toBe('2');
+    expect(result.availablePorts).toBe(5);
+  });
+
+  it('checkViability — indisponível quando a CTO encontrada não tem portas livres', async () => {
+    const http = makeHttp({ rows: [{ id_cto: '3', nome_cto: 'CTO-02', endereco: 'Rua Outra, Centro', portas_disponiveis: 0 }] });
+    const adapter = new RadiusNetAdapter(creds, http);
+    const result = await adapter.checkViability('rua outra');
+    expect(result.available).toBe(false);
+  });
+
+  it('checkViability — indisponível quando nenhuma CTO bate com o endereço', async () => {
+    const http = makeHttp({ rows: [{ id_cto: '2', endereco: 'Rua Dois de Junho', portas_disponiveis: 5 }] });
+    const adapter = new RadiusNetAdapter(creds, http);
+    const result = await adapter.checkViability('endereço que não existe em lugar nenhum');
+    expect(result.available).toBe(false);
+  });
+
+  it('getPlans — lança "não suportado" (API não tem catálogo de planos)', async () => {
+    const adapter = new RadiusNetAdapter(creds, makeHttp({}));
+    await expect(adapter.getPlans()).rejects.toThrow('getPlans não suportado');
+  });
+
+  it('createPreRegistration — POST /createlead com header CRMTOKEN separado do RTOKEN', async () => {
+    const http = makeHttp({ success: true, message: 'Lead cadastrado com sucesso.', id_lead: 123 });
+    const adapter = new RadiusNetAdapter({ ...creds, crmToken: 'crm-token-xyz' }, http);
+    const result = await adapter.createPreRegistration({
+      fullName: 'João da Silva', cpf: '123.456.789-00', phone: '(19) 99999-9999', email: 'joao@email.com', address: 'Rua X, 123', planId: '1',
+    });
+    expect(http).toHaveBeenCalledWith(`${BASE}/createlead`, expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({ CRMTOKEN: 'crm-token-xyz' }),
+    }));
+    const body = JSON.parse((http as any).mock.calls[0][1].body);
+    expect(body).toEqual({ nome: 'João da Silva', telefone: '(19) 99999-9999', email: 'joao@email.com', cpf_cnpj: '12345678900', observacao: 'Endereço: Rua X, 123' });
+    expect(result).toEqual({ leadId: '123', externalId: '123' });
+  });
+
+  it('createPreRegistration — lança se CRMTOKEN não configurado', async () => {
+    const adapter = new RadiusNetAdapter(creds, makeHttp({}));
+    await expect(adapter.createPreRegistration({
+      fullName: 'X', cpf: '000', phone: '000', address: '', planId: '1',
+    })).rejects.toThrow('CRMTOKEN não configurado');
+  });
+
+  it('createPreRegistration — lança quando a API retorna success=false', async () => {
+    const http = makeHttp({ success: false, message: 'Os campos nome e telefone são obrigatórios.' });
+    const adapter = new RadiusNetAdapter({ ...creds, crmToken: 'x' }, http);
+    await expect(adapter.createPreRegistration({
+      fullName: '', cpf: '', phone: '', address: '', planId: '1',
+    })).rejects.toThrow('Os campos nome e telefone são obrigatórios');
+  });
+
+  it('scheduleInstallation — lança "não suportado" (sem forma de converter lead em cliente/plano)', async () => {
+    const adapter = new RadiusNetAdapter(creds, makeHttp({}));
+    await expect(adapter.scheduleInstallation('123', '2026-09-01')).rejects.toThrow('scheduleInstallation não suportado');
+  });
 });

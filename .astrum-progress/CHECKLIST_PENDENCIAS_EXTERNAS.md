@@ -419,6 +419,77 @@ por incerteza (risco de "corrigir" errado sem poder testar):**
 - [~] `createPreRegistration` no IXC — implementado com `POST /webservice/v1/cliente`, testado (`ixc-sales.test.ts`), falta instância real
 - [~] `scheduleInstallation` no IXC — **corrigido 2026-08-29** (usava tabela `os` inexistente, agora usa `su_oss_chamado` como `createServiceOrder`), testado (`ixc-sales.test.ts`), falta instância real
 
+**P3 estendido pros outros 6 ERPs em 2026-08-29** — decisão do Lucas: implementar
+`ERPSalesCapable` onde a API real tiver endpoint confirmado; deixar `checkViability`
+lançar "não suportado" quando depender só de doc vaga/wiki (sem endpoint próprio
+confirmado); e pular o RBX inteiro (sem nenhum endpoint de vendas documentado —
+`supportsErpSales` fica `false`, funil cai no fallback local automaticamente).
+Pesquisa via Postman/OpenAPI oficiais de cada ERP (mesmo rigor das rodadas
+anteriores) revelou uma superfície bem mais rica que o esperado em 3 dos 5:
+
+- [~] **RadiusNet** — `checkViability` via `GET /cto` (sem filtro server-side,
+  casa por substring contra `endereco`); `createPreRegistration` via
+  `POST /createlead` (header **`CRMTOKEN` separado do `RTOKEN`**, novo campo
+  opcional no wizard). `getPlans`/`scheduleInstallation` lançam "não suportado" —
+  a doc completa (47 endpoints) não tem catálogo de planos nem forma de abrir OS
+  a partir de um lead sem ele virar `id_cliente_plano` primeiro (conversão manual,
+  fora da API). Suite: 18/18.
+- [~] **MK-Auth** — `getPlans` via `GET /api/plano/listar` (Kbps÷1000, confirmado
+  no exemplo oficial). `createPreRegistration` via `POST /api/cliente/inserir`
+  (MK-Auth não separa lead de cliente; exige `Login`+`senha` de PPPoE que
+  `LeadRegistration` não tem — gerados a partir de nome/CPF; resposta não devolve
+  id, resolvido via `GET /cliente/show` como no `unlockCustomer`).
+  `checkViability`/`scheduleInstallation` lançam "não suportado" — dos 84
+  endpoints do Swagger completo, nenhum tem campo de endereço-viabilidade nem
+  de data/agendamento (`/api/instalacao/inserir` e `/api/chamado/inserir` foram
+  checados e nenhum tem campo de data). Suite: 24/24.
+- [~] **Voalle** — achado que a mesma collection de 137 endpoints tem uma seção
+  de CRM inteira: `checkViability` via `POST verifyviability` (endpoint da
+  própria Voalle, não integração de mapa externa que exigisse credencial à
+  parte — só endereço estruturado + `distance`, default 500m). `getPlans` via
+  `GET crm/campaignsandpricelistservices` (sem velocidade — API não devolve).
+  `createPreRegistration` via `POST crm/leads/create` (endpoint dedicado, mais
+  simples que a "Nova negociação"/`startsale`, que pede dezenas de códigos
+  específicos do ERP do tenant e por isso ficou fora de escopo) — exige um
+  "Integrador" com Origem de Contato/Formulário cadastrados na Voalle, códigos
+  novos no wizard (`crmContactOriginCode`/`crmFormCode`/`integratorAlias`/
+  `integrationCode`); resposta não devolve id, usa CPF como `leadId`. Achado
+  importante: o envelope de erro de negócio ("Integrador inválido") vem com
+  **HTTP 200** — `checkViability`/`createPreRegistration` checam `success`
+  explicitamente (bypassam o `post()` genérico que só olha `.response`) pra não
+  engolir erro calado. `scheduleInstallation` não suportado. Suite: 27/27.
+- [~] **Hubsoft** — achado que a mesma collection de 189 endpoints tem uma
+  seção de prospecto/mapeamento inteira: `checkViability` via
+  `POST mapeamento/viabilidade/consultar` (endereço estruturado, raio 250m
+  default; resposta com CTOs/portas reais). `getPlans` via
+  `GET prospecto/create?cep=` — catálogo é **por CEP** (`getPlans()` não recebe
+  endereço), usa `creds.defaultCep` opcional (novo campo no wizard) ou lança
+  "não suportado sem CEP". `createPreRegistration` via `POST /prospecto` — o
+  mais bem documentado dos 3 ERPs com prospecto/lead, **devolve `id_prospecto`
+  de verdade** (diferente de Voalle/MK-Auth); CEP extraído do texto de
+  `address` por regex, fallback pra `defaultCep`. `scheduleInstallation` não
+  suportado — abrir O.S. exige um `id_atendimento` que só existe depois que o
+  prospecto vira atendimento pelos processos internos do Hubsoft, sem endpoint
+  de conversão direta. Suite: 27/27.
+- [~] **SGP** — `checkViability` via `POST ura/viabilidade/` (mesmo padrão
+  form-data token+app; resposta é só `{viabilidade: true|false}`, sem
+  CTO/portas). `getPlans` via `POST precadastro/plano/list`. `createPreRegistration`
+  via `POST precadastro/F` (pessoa física — SGP tem endpoint separado `/J` pra
+  jurídica, fora de escopo porque `LeadRegistration` não distingue tipo de
+  pessoa); resposta não devolve id, usa CPF como `leadId`. `scheduleInstallation`
+  não suportado — campo `os_instalacao` existe no pré-cadastro mas sem exemplo
+  que confirme se aceita data. Suite: 18/18.
+- [x] **RBX** — **decisão: não implementar.** Doc completa (`manual.rbxsoft.com`,
+  todas as categorias: Atendimentos/Autenticações/Contatos/Contratos/Estoque/
+  Financeiro/Pedidos/Variados) não tem NENHUM endpoint de viabilidade, catálogo
+  de planos, criação de lead ou agendamento de OS. `RBXAdapter` continua sem
+  `ERPSalesCapable` — `supportsErpSales` retorna `false` e o funil usa o
+  fallback local (grafo de rede + tabela `plans`) automaticamente, sem precisar
+  de nenhuma mudança no `sales-funnel.service.ts`.
+
+Suite ERP completa após as 5 implementações: 181/181, typecheck limpo
+(`apps/api` e raiz — mexeu no wizard `ERPIntegrationsPage.tsx` também).
+
 ---
 
 ## WIZARD DE ONBOARDING (UX)

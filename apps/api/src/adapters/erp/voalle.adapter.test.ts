@@ -264,4 +264,85 @@ describe('VoalleAdapter', () => {
 
     expect(tokenCache.set).toHaveBeenCalledWith('fresh-tok', 3540);
   });
+
+  // ── P3 — Funil de vendas ─────────────────────────────────────────────────────
+
+  it('checkViability — POST verifyviability com endereço em fullAddress.address e distance default 500', async () => {
+    const http = makeHttp({ viability: true, ctos: 37, ports: 11, nearestCtoId: '12345', verifyViabilityId: 999 });
+    const adapter = new VoalleAdapter(creds, http);
+    const result = await adapter.checkViability('Rua José João, 85, Centro');
+    expect(http).toHaveBeenCalledWith(`${API}/external/integrations/thirdparty/verifyviability`, expect.objectContaining({ method: 'POST' }));
+    const body = JSON.parse((http as any).mock.calls[0][1].body);
+    expect(body.fullAddress.address).toBe('Rua José João, 85, Centro');
+    expect(body.distance).toBe('500');
+    expect(body.searchNearestCtoPort).toBe(true);
+    expect(result).toEqual({ available: true, ctoId: '12345', availablePorts: 11, raw: expect.objectContaining({ viability: true }) });
+  });
+
+  it('checkViability — indisponível quando viability=false', async () => {
+    const http = makeHttp({ viability: false, ports: 0 });
+    const adapter = new VoalleAdapter(creds, http);
+    const result = await adapter.checkViability('endereço qualquer');
+    expect(result.available).toBe(false);
+  });
+
+  it('checkViability — lança quando o envelope vem com success=false (erro de negócio, HTTP 200)', async () => {
+    const http = vi.fn().mockResolvedValue({
+      ok: true, status: 200, statusText: 'OK',
+      json: async () => ({ success: false, messages: [{ message: 'Distância inválida.', code: 300, type: 'Error' }], response: null }),
+    }) as unknown as HttpClient;
+    const adapter = new VoalleAdapter(creds, http);
+    await expect(adapter.checkViability('x')).rejects.toThrow('Distância inválida');
+  });
+
+  it('getPlans — achata campanhas/listas de preço em ErpPlan[] (sem velocidade, API não devolve)', async () => {
+    const http = makeHttp([
+      {
+        code: '2', title: 'Campanha Teste API',
+        campaignPriceList: [{
+          id: 1, code: '321', title: 'L.P. PADRAO',
+          campaignPriceListProductServices: [
+            { code: '00018', title: 'Serviço 1', sellingPrice: 5.0 },
+            { code: '00014', title: 'Serviço 2', sellingPrice: 89.9 },
+          ],
+        }],
+      },
+    ]);
+    const adapter = new VoalleAdapter(creds, http);
+    const result = await adapter.getPlans();
+    expect(http).toHaveBeenCalledWith(`${API}/external/integrations/thirdparty/crm/campaignsandpricelistservices`, expect.objectContaining({ method: 'GET' }));
+    expect(result).toEqual([
+      { id: '00018', name: 'Serviço 1', downloadMbps: 0, uploadMbps: 0, priceCents: 500, description: undefined },
+      { id: '00014', name: 'Serviço 2', downloadMbps: 0, uploadMbps: 0, priceCents: 8990, description: undefined },
+    ]);
+  });
+
+  it('createPreRegistration — POST crm/leads/create com integratorData da credencial, usa CPF como leadId', async () => {
+    const http = makeHttp([]);
+    const adapter = new VoalleAdapter({ ...creds, crmContactOriginCode: 'origin-1', crmFormCode: 'form-1', integratorAlias: 'astrum', integrationCode: 'int-1' }, http);
+    const result = await adapter.createPreRegistration({
+      fullName: 'João da Silva', cpf: '123.456.789-00', phone: '19999999999', email: 'joao@email.com', address: 'Rua X, 123', planId: '00018',
+    });
+    expect(http).toHaveBeenCalledWith(`${API}/external/crm/leads/create`, expect.objectContaining({ method: 'POST' }));
+    const body = JSON.parse((http as any).mock.calls[0][1].body);
+    expect(body.personalData).toEqual({ name: 'João da Silva', typeTxId: 2, txId: '12345678900' });
+    expect(body.integratorData).toEqual({ crmContactOriginCode: 'origin-1', crmFormCode: 'form-1', integratorAlias: 'astrum', integrationCode: 'int-1' });
+    expect(result).toEqual({ leadId: '12345678900' });
+  });
+
+  it('createPreRegistration — lança quando a Voalle recusa (Integrador/Origem de contato inválidos)', async () => {
+    const http = vi.fn().mockResolvedValue({
+      ok: true, status: 200, statusText: 'OK',
+      json: async () => ({ success: false, messages: [{ message: 'Origem de contato inválida.', code: 300, type: 'Error' }, { message: 'Integrador inválido.', code: 300, type: 'Error' }], response: null }),
+    }) as unknown as HttpClient;
+    const adapter = new VoalleAdapter(creds, http);
+    await expect(adapter.createPreRegistration({
+      fullName: 'X', cpf: '00000000000', phone: '0', address: '', planId: '1',
+    })).rejects.toThrow('Origem de contato inválida');
+  });
+
+  it('scheduleInstallation — lança "não suportado" (crm/startsale exige config específica do tenant)', async () => {
+    const adapter = new VoalleAdapter(creds, makeHttp({}));
+    await expect(adapter.scheduleInstallation('12345678900', '2026-09-01')).rejects.toThrow('scheduleInstallation não suportado');
+  });
 });

@@ -171,4 +171,53 @@ describe('SGPAdapter — contrato real (validado ao vivo contra demo.sgp.net.br,
     const adapter = new SGPAdapter(creds, http);
     await expect(adapter.findCustomerByCpf('04391859556')).rejects.toThrow(/SGP API Error: 403.*Credenciais de autenticação incorretas/);
   });
+
+  // ── P3 — Funil de vendas ─────────────────────────────────────────────────────
+
+  it('checkViability — POST ura/viabilidade com o endereço em logradouro', async () => {
+    const http = makeHttp({ viabilidade: true });
+    const adapter = new SGPAdapter(creds, http);
+    const result = await adapter.checkViability('Rua X, 123');
+    const [url, init] = (http as any).mock.calls[0];
+    expect(url).toBe('https://sgp.isp.test/api/ura/viabilidade/');
+    expect((init.body as FormData).get('logradouro')).toBe('Rua X, 123');
+    expect(result).toEqual({ available: true, raw: { viabilidade: true } });
+  });
+
+  it('checkViability — indisponível quando viabilidade=false', async () => {
+    const http = makeHttp({ viabilidade: false });
+    const adapter = new SGPAdapter(creds, http);
+    const result = await adapter.checkViability('endereço qualquer');
+    expect(result.available).toBe(false);
+  });
+
+  it('getPlans — POST precadastro/plano/list, mapeia id/descricao/valor', async () => {
+    const http = makeHttp([{ tipo: 'internet', id: 1, descricao: 'PLANO_DESCRICAO', valor: 99.9 }]);
+    const adapter = new SGPAdapter(creds, http);
+    const result = await adapter.getPlans();
+    const [url] = (http as any).mock.calls[0];
+    expect(url).toBe('https://sgp.isp.test/api/precadastro/plano/list');
+    expect(result).toEqual([{ id: '1', name: 'PLANO_DESCRICAO', downloadMbps: 0, uploadMbps: 0, priceCents: 9990 }]);
+  });
+
+  it('createPreRegistration — POST precadastro/F com os campos mapeados, usa CPF como leadId', async () => {
+    const http = makeHttp({ message: 'Pre-cadastro criado com sucesso' });
+    const adapter = new SGPAdapter(creds, http);
+    const result = await adapter.createPreRegistration({
+      fullName: 'João da Silva', cpf: '123.456.789-00', phone: '19999999999', email: 'joao@email.com', address: 'Rua X, 123', planId: '1',
+    });
+    const [url, init] = (http as any).mock.calls[0];
+    expect(url).toBe('https://sgp.isp.test/api/precadastro/F');
+    const form = init.body as FormData;
+    expect(form.get('nome')).toBe('João da Silva');
+    expect(form.get('cpfcnpj')).toBe('12345678900');
+    expect(form.get('celular')).toBe('19999999999');
+    expect(form.get('planointernet_id')).toBe('1');
+    expect(result).toEqual({ leadId: '12345678900' });
+  });
+
+  it('scheduleInstallation — lança "não suportado" (sem endpoint de agendamento na collection)', async () => {
+    const adapter = new SGPAdapter(creds, makeHttp({}));
+    await expect(adapter.scheduleInstallation('12345678900', '2026-09-01')).rejects.toThrow('scheduleInstallation não suportado');
+  });
 });

@@ -229,4 +229,80 @@ describe('HubsoftAdapter', () => {
 
     expect(tokenCache.set).toHaveBeenCalledWith('fresh-tok', 3540);
   });
+
+  // ── P3 — Funil de vendas ─────────────────────────────────────────────────────
+
+  it('checkViability — POST mapeamento/viabilidade/consultar, pega a caixa com mais portas livres', async () => {
+    const http = makeHttp({
+      resultado: {
+        projetos: [
+          { busca: { elementos: { data: [{ caixa: 'Caixa-A', id_caixa_optica: 1, disponiveis: 2 }] } } },
+          { busca: { elementos: { data: [{ caixa: 'Caixa-B', id_caixa_optica: 2, disponiveis: 10 }] } } },
+        ],
+      },
+    });
+    const adapter = new HubsoftAdapter(creds, http);
+    const result = await adapter.checkViability('Rua Jose Joao, 85');
+    expect(http).toHaveBeenCalledWith('https://hubsoft.isp.test/api/v1/integracao/mapeamento/viabilidade/consultar', expect.objectContaining({ method: 'POST' }));
+    const body = JSON.parse((http as any).mock.calls[0][1].body);
+    expect(body.endereco.endereco).toBe('Rua Jose Joao, 85');
+    expect(body.tipo_busca).toBe('endereco');
+    expect(result).toEqual({ available: true, ctoId: '2', ctoName: 'Caixa-B', availablePorts: 10, raw: expect.anything() });
+  });
+
+  it('checkViability — indisponível quando nenhuma caixa tem porta livre', async () => {
+    const http = makeHttp({ resultado: { projetos: [{ busca: { elementos: { data: [{ caixa: 'Caixa-A', id_caixa_optica: 1, disponiveis: 0 }] } } } ] } });
+    const adapter = new HubsoftAdapter(creds, http);
+    const result = await adapter.checkViability('endereço qualquer');
+    expect(result.available).toBe(false);
+  });
+
+  it('getPlans — lança se defaultCep não configurado', async () => {
+    const adapter = new HubsoftAdapter(creds, makeHttp({}));
+    await expect(adapter.getPlans()).rejects.toThrow('getPlans não suportado sem CEP');
+  });
+
+  it('getPlans — usa defaultCep e converte velocidade Kbps → Mbps (÷1024)', async () => {
+    const http = makeHttp({
+      servicos: [{ id_servico: 1330, descricao: 'COMBO 10 MB EM DOBRO', valor: 254.9, velocidade_download: 20480, velocidade_upload: 4096 }],
+    });
+    const adapter = new HubsoftAdapter({ ...creds, defaultCep: '11111-000' }, http);
+    const result = await adapter.getPlans();
+    expect(http).toHaveBeenCalledWith('https://hubsoft.isp.test/api/v1/integracao/prospecto/create?cep=11111000', expect.anything());
+    expect(result).toEqual([{ id: '1330', name: 'COMBO 10 MB EM DOBRO', downloadMbps: 20, uploadMbps: 4, priceCents: 25490 }]);
+  });
+
+  it('createPreRegistration — POST prospecto extraindo CEP do endereço, devolve id_prospecto real', async () => {
+    const http = makeHttp({ status: 'success', msg: 'Prospecto adicionado com sucesso', prospecto: { id_prospecto: 100 } });
+    const adapter = new HubsoftAdapter(creds, http);
+    const result = await adapter.createPreRegistration({
+      fullName: 'Empresa XPTO LTDA', cpf: '68.346.567/0001-58', phone: '3732818000', address: 'Praça Getúlio Vargas, 77, CEP 11111-000', planId: '1',
+    });
+    const body = JSON.parse((http as any).mock.calls[0][1].body);
+    expect(body.cep).toBe('11111000');
+    expect(body.tipo_pessoa).toBe('pj');
+    expect(body.servico).toEqual({ id_servico: '1', valor: 0 });
+    expect(result).toEqual({ leadId: '100', externalId: '100' });
+  });
+
+  it('createPreRegistration — cai pra defaultCep se o endereço não tem CEP', async () => {
+    const http = makeHttp({ status: 'success', prospecto: { id_prospecto: 200 } });
+    const adapter = new HubsoftAdapter({ ...creds, defaultCep: '22222-000' }, http);
+    await adapter.createPreRegistration({ fullName: 'X', cpf: '00000000000', phone: '0', address: 'sem cep', planId: '1' });
+    const body = JSON.parse((http as any).mock.calls[0][1].body);
+    expect(body.cep).toBe('22222000');
+  });
+
+  it('createPreRegistration — lança quando a API devolve status=error (ex.: CPF já cadastrado)', async () => {
+    const http = makeHttp({ status: 'error', msg: 'O CPF/CNPJ já foi cadastrado antes no prospecto EMPRESA XPTO LTDA' });
+    const adapter = new HubsoftAdapter(creds, http);
+    await expect(adapter.createPreRegistration({
+      fullName: 'X', cpf: '00000000000', phone: '0', address: '', planId: '1',
+    })).rejects.toThrow('CPF/CNPJ já foi cadastrado');
+  });
+
+  it('scheduleInstallation — lança "não suportado" (sem endpoint pra converter prospecto em atendimento)', async () => {
+    const adapter = new HubsoftAdapter(creds, makeHttp({}));
+    await expect(adapter.scheduleInstallation('100', '2026-09-01')).rejects.toThrow('scheduleInstallation não suportado');
+  });
 });

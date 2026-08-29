@@ -1,4 +1,4 @@
-import type { ERPProvider, ERPCredentials, HttpClient, SecondCopyResult, ConnectionStatus } from './erp.types';
+import type { ERPProvider, ERPSalesCapable, ERPCredentials, HttpClient, SecondCopyResult, ConnectionStatus, ViabilityResult, ErpPlan, LeadRegistration } from './erp.types';
 import { parseAmountToCents, normalizeErpBaseUrl, readErpErrorBody, ERP_HTTP_TIMEOUT_MS } from './erp.types';
 import type { OAuthTokenCache } from './erp-oauth-cache.service';
 
@@ -63,7 +63,36 @@ import type { OAuthTokenCache } from './erp-oauth-cache.service';
  *    de terceiros não expunha esse endpoint, então `unlockCustomer` aceita
  *    CPF como os outros métodos deste adapter.
  */
-export class VoalleAdapter implements ERPProvider {
+/**
+ * P3 (funil de vendas) 2026-08-29 — a mesma collection oficial (137
+ * endpoints) tem uma seção de CRM/vendas inteira, não só cliente/financeiro:
+ *  - checkViability: POST /external/integrations/thirdparty/verifyviability
+ *    — endpoint da própria Voalle (não uma API de mapa separada que exigisse
+ *    credencial à parte — a doc só avisa que o resultado depende da
+ *    integração de mapa que o tenant já tem configurada dentro da Voalle).
+ *    Só aceita endereço estruturado (rua/número/bairro/cidade/estado/CEP) +
+ *    distance (raio de busca, obrigatório) — como checkViability(address)
+ *    só recebe uma string, ela vai inteira em fullAddress.address e distance
+ *    usa um default de 500m (assumido). searchNearestCtoPort:true pra vir o
+ *    nearestCtoId/ports de verdade (custa uma chamada extra ao mapa, avisado
+ *    na doc).
+ *  - getPlans: GET .../crm/campaignsandpricelistservices — campanhas ativas
+ *    com lista de preço e serviços, sellingPrice real. Achatado numa lista
+ *    só; a API não expõe velocidade download/upload nesse endpoint, então
+ *    downloadMbps/uploadMbps ficam 0.
+ *  - createPreRegistration: POST /external/crm/leads/create — endpoint
+ *    dedicado de lead (mais simples que a "Nova negociação"/crm/startsale,
+ *    que exige dezenas de códigos internos do ERP — inviável de preencher
+ *    genericamente). Exige um "Integrador" cadastrado na Voalle com Origem
+ *    de Contato e Formulário configurados — os códigos ficam em
+ *    creds.crmContactOriginCode/crmFormCode/integratorAlias/integrationCode
+ *    (a doc mostra erro claro quando faltam). A resposta de sucesso não
+ *    devolve id nenhum — usa o CPF como leadId.
+ *  - scheduleInstallation: não suportado — fechar a venda é crm/startsale,
+ *    que pede dezenas de códigos da configuração do ERP do tenant, inviável
+ *    de preencher genericamente a partir de leadId+scheduledDate.
+ */
+export class VoalleAdapter implements ERPProvider, ERPSalesCapable {
   readonly name = 'voalle' as const;
 
   private readonly authBaseUrl: string;
@@ -230,5 +259,99 @@ export class VoalleAdapter implements ERPProvider {
     const contractNumber = paged?.data?.[0]?.contractNumber;
     if (!contractNumber) throw new Error(`Voalle: nenhum contrato ativo encontrado para o CPF/CNPJ ${clean}`);
     return this.post(`/external/integrations/thirdparty/contracts/unlock/${encodeURIComponent(contractNumber)}`, {});
+  }
+
+  async checkViability(address: string): Promise<ViabilityResult> {
+    const distance = String(this.creds.viabilityDistance ?? '500');
+    const res = await this.http(`${this.apiBaseUrl}/external/integrations/thirdparty/verifyviability`, {
+      method: 'POST',
+      headers: await this.headers(),
+      body: JSON.stringify({
+        fullAddress: { address, number: '', neighborhood: '', city: '', state: '', postalCode: '' },
+        distance,
+        searchNearestCtoPort: true,
+      }),
+      signal: AbortSignal.timeout(ERP_HTTP_TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      const detail = await readErpErrorBody(res);
+      throw new Error(`Voalle API Error: ${res.status} ${res.statusText}${detail ? ` — ${detail}` : ''}`);
+    }
+    const json = await res.json();
+    // Mesmo envelope do leads/create — erro de negócio também vem com HTTP 200.
+    if (json?.success !== true) {
+      const msg = (json?.messages ?? []).map((m: any) => m?.message).filter(Boolean).join('; ') || 'erro desconhecido';
+      throw new Error(`Voalle: consulta de viabilidade falhou — ${msg}`);
+    }
+    const data = json?.response;
+    return {
+      available: data?.viability === true,
+      ctoId: data?.nearestCtoId ? String(data.nearestCtoId) : undefined,
+      availablePorts: typeof data?.ports === 'number' ? data.ports : undefined,
+      raw: data,
+    };
+  }
+
+  /** `sellingPrice` já é o preço real de venda; a API não devolve velocidade nesse endpoint. */
+  async getPlans(): Promise<ErpPlan[]> {
+    const campaigns: any[] = (await this.get('/external/integrations/thirdparty/crm/campaignsandpricelistservices')) ?? [];
+    const plans: ErpPlan[] = [];
+    for (const campaign of campaigns) {
+      for (const priceList of campaign?.campaignPriceList ?? []) {
+        for (const service of priceList?.campaignPriceListProductServices ?? []) {
+          plans.push({
+            id: String(service?.code ?? ''),
+            name: String(service?.title ?? ''),
+            downloadMbps: 0,
+            uploadMbps: 0,
+            priceCents: parseAmountToCents(service?.sellingPrice ?? 0),
+            description: service?.description || undefined,
+          });
+        }
+      }
+    }
+    return plans;
+  }
+
+  /**
+   * `/external/crm/leads/create` não devolve id — usa o CPF como `leadId`.
+   * Exige um "Integrador" (Origem de Contato + Formulário) já cadastrado na
+   * Voalle; os códigos vêm de `creds` (obtidos com o suporte da Voalle, mesmo
+   * processo do usuário Integrador do OAuth).
+   */
+  async createPreRegistration(data: LeadRegistration): Promise<{ leadId: string; externalId?: string }> {
+    const clean = data.cpf.replace(/\D/g, '');
+    const res = await this.http(`${this.apiBaseUrl}/external/crm/leads/create`, {
+      method: 'POST',
+      headers: await this.headers(),
+      body: JSON.stringify({
+        personalData: { name: data.fullName, typeTxId: clean.length > 11 ? 1 : 2, txId: clean },
+        contact: { phone: data.phone, cellPhone: data.phone, email: data.email ?? '' },
+        address: { street: data.address ?? '', number: '', neighborhood: '', addressComplement: '', city: '', state: '', country: 'Brasil', postalCode: '' },
+        integratorData: {
+          crmContactOriginCode: String(this.creds.crmContactOriginCode ?? ''),
+          crmFormCode: String(this.creds.crmFormCode ?? ''),
+          integratorAlias: String(this.creds.integratorAlias ?? ''),
+          integrationCode: String(this.creds.integrationCode ?? ''),
+        },
+      }),
+      signal: AbortSignal.timeout(ERP_HTTP_TIMEOUT_MS),
+    });
+    if (!res.ok) {
+      const detail = await readErpErrorBody(res);
+      throw new Error(`Voalle API Error: ${res.status} ${res.statusText}${detail ? ` — ${detail}` : ''}`);
+    }
+    const json = await res.json();
+    // O envelope de erro de negócio ("Integrador inválido" etc.) também vem com HTTP 200 —
+    // `.response` sozinho não dá pra distinguir sucesso ([]) de erro (null), precisa checar `success`.
+    if (json?.success !== true) {
+      const msg = (json?.messages ?? []).map((m: any) => m?.message).filter(Boolean).join('; ') || 'erro desconhecido';
+      throw new Error(`Voalle: criação de lead falhou — ${msg}`);
+    }
+    return { leadId: clean };
+  }
+
+  async scheduleInstallation(_leadId: string, _scheduledDate: string): Promise<{ orderId: string }> {
+    throw new Error('Voalle: scheduleInstallation não suportado — fechar a venda exige crm/startsale, que pede dezenas de códigos da configuração do ERP do tenant (tipo de contrato, campanha, cobrança, ciclo de faturamento) inviáveis de preencher genericamente');
   }
 }

@@ -205,4 +205,60 @@ describe('MKAuthAdapter', () => {
     const adapter = new MKAuthAdapter(creds, http);
     await expect(adapter.getBillingStatus('lise')).rejects.toThrow('MK-Auth: resposta não é JSON válido');
   });
+
+  // ── P3 — Funil de vendas ─────────────────────────────────────────────────────
+
+  it('checkViability — lança "não suportado" (API não documenta viabilidade por endereço)', async () => {
+    const adapter = new MKAuthAdapter(tokenCreds, makeHttp({}));
+    await expect(adapter.checkViability('Rua X, 123')).rejects.toThrow('checkViability não suportado');
+  });
+
+  it('getPlans — mapeia /api/plano/listar (Kbps → Mbps dividindo por 1000)', async () => {
+    const http = makeAuthThenDataHttp({
+      total_registros: 1,
+      planos: [{ uuid: '00963f1a', nome: 'RuraldeAltaVelocidade75Mbps', valor: '77.00', velup: '75000', veldown: '75000', descricao: 'Plano rural' }],
+    });
+    const adapter = new MKAuthAdapter(creds, http);
+    const result = await adapter.getPlans();
+    expect((http as any).mock.calls[1][0]).toBe('https://mk.isp.test/api/plano/listar/pagina=1');
+    expect(result).toEqual([{ id: '00963f1a', name: 'RuraldeAltaVelocidade75Mbps', downloadMbps: 75, uploadMbps: 75, priceCents: 7700, description: 'Plano rural' }]);
+  });
+
+  it('createPreRegistration — POST /api/cliente/inserir com login/senha gerados, resolve uuid via show', async () => {
+    const http = vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK', text: async () => FAKE_JWT }) // auth
+      .mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK', json: async () => ({ status: 'sucesso' }) }) // cliente/inserir
+      .mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK', json: async () => ({ login: 'joaodasilva7890', uuid_cliente: 'UUID-999' }) }) as unknown as HttpClient; // cliente/show
+
+    const adapter = new MKAuthAdapter(creds, http);
+    const result = await adapter.createPreRegistration({
+      fullName: 'João da Silva', cpf: '123.456.789-00', email: 'joao@email.com', phone: '19999999999', address: 'Rua X, 123', planId: '1',
+    });
+
+    const insertInit = (http as any).mock.calls[1][1];
+    const insertBody = JSON.parse(insertInit.body);
+    expect(insertBody.nome).toBe('João da Silva');
+    expect(insertBody.cpf).toBe('12345678900');
+    expect(insertBody.Login).toMatch(/^joaodasilva\d{4}$/);
+    expect(insertBody.senha).toBeTruthy();
+    expect((http as any).mock.calls[2][0]).toBe(`https://mk.isp.test/api/cliente/show/${insertBody.Login}`);
+    expect(result).toEqual({ leadId: 'UUID-999', externalId: insertBody.Login });
+  });
+
+  it('createPreRegistration — lança se não conseguir confirmar o uuid depois de criar', async () => {
+    const http = vi.fn()
+      .mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK', text: async () => FAKE_JWT })
+      .mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK', json: async () => ({ status: 'sucesso' }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK', json: async () => ({ login: 'fantasma' }) }) as unknown as HttpClient;
+
+    const adapter = new MKAuthAdapter(creds, http);
+    await expect(adapter.createPreRegistration({
+      fullName: 'Fantasma', cpf: '00000000000', phone: '000', address: '', planId: '1',
+    })).rejects.toThrow('não foi possível confirmar o uuid');
+  });
+
+  it('scheduleInstallation — lança "não suportado" (sem campo de data em instalacao/inserir ou chamado/inserir)', async () => {
+    const adapter = new MKAuthAdapter(tokenCreds, makeHttp({}));
+    await expect(adapter.scheduleInstallation('UUID-999', '2026-09-01')).rejects.toThrow('scheduleInstallation não suportado');
+  });
 });

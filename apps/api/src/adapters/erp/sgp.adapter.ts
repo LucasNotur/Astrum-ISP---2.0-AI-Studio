@@ -1,4 +1,4 @@
-import type { ERPProvider, ERPCredentials, HttpClient, SecondCopyResult, ConnectionStatus } from './erp.types';
+import type { ERPProvider, ERPSalesCapable, ERPCredentials, HttpClient, SecondCopyResult, ConnectionStatus, ViabilityResult, ErpPlan, LeadRegistration } from './erp.types';
 import { parseAmountToCents, normalizeErpBaseUrl, readErpErrorBody, ERP_HTTP_TIMEOUT_MS } from './erp.types';
 
 /**
@@ -53,7 +53,30 @@ import { parseAmountToCents, normalizeErpBaseUrl, readErpErrorBody, ERP_HTTP_TIM
  * verdade quando disponível. Cai pro status administrativo do contrato só
  * quando nenhum serviço tem esse campo (ex.: contratos não-FTTH).
  */
-export class SGPAdapter implements ERPProvider {
+/**
+ * P3 (funil de vendas) 2026-08-29 — a mesma collection oficial tem endpoints
+ * dedicados de viabilidade/planos/pré-cadastro (família "ura"/"precadastro",
+ * mesmo padrão form-data+token+app já usado acima):
+ *  - checkViability: POST /api/ura/viabilidade/ — form-data com
+ *    logradouro/numero_inicial/numero_final/bairro/cep/cidade. Resposta é só
+ *    {viabilidade: true|false}, sem CTO/portas — bem mais simples que
+ *    IXC/Hubsoft/Voalle. `address` inteiro vai em `logradouro`.
+ *  - getPlans: POST /api/precadastro/plano/list — form-data token+app,
+ *    devolve [{tipo, id, descricao, valor}]. Sem velocidade
+ *    download/upload — API não devolve.
+ *  - createPreRegistration: POST /api/precadastro/F (pessoa física — SGP tem
+ *    um endpoint separado /J pra pessoa jurídica, não usado aqui porque
+ *    LeadRegistration não distingue tipo de pessoa). Aceita ~50 campos
+ *    opcionais (vendedor, técnico, splitter, comissão, parcelamento da
+ *    instalação, etc.) — só os que LeadRegistration de fato tem são
+ *    enviados. Resposta é só {"message": "..."}, sem id — usa o CPF como
+ *    leadId, mesmo tratamento do Voalle.
+ *  - scheduleInstallation: não suportado — o campo os_instalacao existe no
+ *    formulário de pré-cadastro mas não tem exemplo/doc que confirme se
+ *    aceita uma data ou é só um flag; não achado nenhum endpoint dedicado de
+ *    agendamento de instalação na collection.
+ */
+export class SGPAdapter implements ERPProvider, ERPSalesCapable {
   readonly name = 'sgp' as const;
 
   private readonly baseUrl: string;
@@ -158,5 +181,40 @@ export class SGPAdapter implements ERPProvider {
       throw new Error(`SGP: liberação por confiança não concedida — ${data?.msg ?? 'motivo não informado'}`);
     }
     return data;
+  }
+
+  async checkViability(address: string): Promise<ViabilityResult> {
+    const data = await this.postForm('/api/ura/viabilidade/', { logradouro: address });
+    return { available: data?.viabilidade === true, raw: data };
+  }
+
+  async getPlans(): Promise<ErpPlan[]> {
+    const data = await this.postForm('/api/precadastro/plano/list', {});
+    const planos: any[] = Array.isArray(data) ? data : [];
+    return planos.map((p) => ({
+      id: String(p?.id ?? ''),
+      name: String(p?.descricao ?? ''),
+      downloadMbps: 0,
+      uploadMbps: 0,
+      priceCents: parseAmountToCents(p?.valor ?? 0),
+    }));
+  }
+
+  /** `/api/precadastro/F` (pessoa física) — não devolve id; usa o CPF como `leadId`. */
+  async createPreRegistration(data: LeadRegistration): Promise<{ leadId: string; externalId?: string }> {
+    const clean = data.cpf.replace(/\D/g, '');
+    await this.postForm('/api/precadastro/F', {
+      nome: data.fullName,
+      logradouro: data.address ?? '',
+      cpfcnpj: clean,
+      celular: data.phone,
+      email: data.email ?? '',
+      planointernet_id: data.planId,
+    });
+    return { leadId: clean };
+  }
+
+  async scheduleInstallation(_leadId: string, _scheduledDate: string): Promise<{ orderId: string }> {
+    throw new Error('SGP: scheduleInstallation não suportado — sem endpoint documentado de agendamento de instalação (o campo os_instalacao do pré-cadastro não tem exemplo que confirme aceitar uma data)');
   }
 }

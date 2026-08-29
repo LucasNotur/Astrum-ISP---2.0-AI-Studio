@@ -49,6 +49,10 @@ const ERP_PROVIDERS: ErpProvider[] = [
       { key: 'clientId', label: 'Client ID', placeholder: 'client-id (Settings → Users → Integration User)' },
       { key: 'clientSecret', label: 'Client Secret', placeholder: '••••••••', type: 'password' },
       { key: 'syndata', label: 'SynData', placeholder: 'Suite → Settings → Parameters → Integration/Map', type: 'password' },
+      { key: 'crmContactOriginCode', label: 'Código Origem de Contato (CRM, opcional p/ funil de vendas)', placeholder: 'ex.: 1' },
+      { key: 'crmFormCode', label: 'Código Formulário (CRM, opcional p/ funil de vendas)', placeholder: 'ex.: 1' },
+      { key: 'integratorAlias', label: 'Alias do Integrador (CRM, opcional p/ funil de vendas)', placeholder: 'astrum' },
+      { key: 'integrationCode', label: 'Código de Integração (CRM, opcional p/ funil de vendas)', placeholder: 'ex.: 1' },
     ],
   },
   {
@@ -59,6 +63,7 @@ const ERP_PROVIDERS: ErpProvider[] = [
       { key: 'clientSecret', label: 'Client Secret', placeholder: '••••••••', type: 'password' },
       { key: 'username', label: 'Usuário (e-mail cadastrado na API)', placeholder: 'api@seudominio.com.br' },
       { key: 'password', label: 'Senha', placeholder: '••••••••', type: 'password' },
+      { key: 'defaultCep', label: 'CEP de referência p/ catálogo de planos (opcional)', placeholder: '00000-000' },
     ],
   },
   {
@@ -66,6 +71,7 @@ const ERP_PROVIDERS: ErpProvider[] = [
     fields: [
       { key: 'url', label: 'URL do RadiusNet (sem /radiusnet/... no final)', placeholder: 'https://radiusnet.seudominio.com.br' },
       { key: 'token', label: 'RTOKEN (Cadastros > Empresas > API RadiusNet)', placeholder: 'seu-rtoken', type: 'password' },
+      { key: 'crmToken', label: 'CRMTOKEN (opcional, p/ funil de vendas — chave separada da API LEAD)', placeholder: 'seu-crmtoken', type: 'password' },
     ],
   },
   {

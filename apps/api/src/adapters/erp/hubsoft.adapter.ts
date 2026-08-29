@@ -1,4 +1,4 @@
-import type { ERPProvider, ERPCredentials, HttpClient, SecondCopyResult, ConnectionStatus } from './erp.types';
+import type { ERPProvider, ERPSalesCapable, ERPCredentials, HttpClient, SecondCopyResult, ConnectionStatus, ViabilityResult, ErpPlan, LeadRegistration } from './erp.types';
 import { parseAmountToCents, normalizeErpBaseUrl, readErpErrorBody, ERP_HTTP_TIMEOUT_MS } from './erp.types';
 import type { OAuthTokenCache } from './erp-oauth-cache.service';
 
@@ -57,8 +57,44 @@ import type { OAuthTokenCache } from './erp-oauth-cache.service';
  * `erp-oauth-cache.service.ts`) sobrevive entre instâncias, já que
  * `erp.factory.ts` cria uma instância nova por chamada. Sem ele, cai de volta
  * pro cache em memória local (só vale dentro da mesma instância).
+ *
+ * P3 (funil de vendas) 2026-08-29 — a mesma collection oficial (189
+ * endpoints) tem uma seção de prospecto/mapeamento inteira, com exemplo de
+ * request/response real em cada um:
+ *  - checkViability: POST /api/v1/integracao/mapeamento/viabilidade/consultar
+ *    com {tipo_busca:"endereco", raio, endereco:{numero,endereco,bairro,
+ *    cidade,estado}, detalhar_portas:true} — é o endpoint da própria Hubsoft
+ *    (o resultado pode vir de um mapeamento local ou de integração externa
+ *    tipo Geosite/OZMap configurada pelo tenant dentro do painel Hubsoft, mas
+ *    a chamada em si não muda). Como checkViability(address) só recebe uma
+ *    string, ela vai inteira em endereco.endereco (numero/bairro/cidade/
+ *    estado ficam vazios) e raio usa o default de 250m do exemplo oficial.
+ *    Resposta: resultado.projetos[].busca.elementos.data[] (uma "caixa
+ *    óptica" por elemento, com disponiveis/id_caixa_optica) — achata todos
+ *    os projetos e pega a caixa com mais portas livres.
+ *  - getPlans: GET /api/v1/integracao/prospecto/create?cep=<cep> — catálogo
+ *    de planos é POR CEP (faz sentido pra um ISP: cobertura difere por área),
+ *    mas getPlans() não recebe endereço nenhum. Usa `creds.defaultCep`
+ *    (opcional, configurável no wizard) como CEP de referência; sem ele,
+ *    lança "não suportado sem CEP" em vez de inventar um. velocidade_download/
+ *    upload vêm em Kbps (confirmado: "COMBO 10MB EM DOBRO" retorna 20480,
+ *    exatamente 20 dividido por 1024 — bate com o "em dobro" da campanha).
+ *  - createPreRegistration: POST /api/v1/integracao/prospecto — o mais bem
+ *    documentado dos 3 ERPs com prospecto/lead nesta rodada (devolve
+ *    `id_prospecto` de verdade, diferente de Voalle/MK-Auth). Precisa de
+ *    `cep` — extraído do texto de `address` por regex (padrão brasileiro
+ *    99999-999), com fallback pra `creds.defaultCep`. `servico.valor` não
+ *    tem de onde vir em `LeadRegistration` (só tem `planId`) — enviado como
+ *    0; o valor real do serviço já está cadastrado no Hubsoft pelo
+ *    `id_servico`, então isso não impede o prospecto de ser criado, só deixa
+ *    o campo de valor exibido zerado até alguém revisar manualmente.
+ *  - scheduleInstallation: **não suportado** — abrir uma O.S. via API
+ *    (`ordem_servico/abrir_os`) exige um `id_atendimento` já existente, que
+ *    só existe depois que o prospecto é convertido em atendimento/cliente
+ *    pelos processos internos do Hubsoft — não documentado nenhum endpoint
+ *    de conversão direta `id_prospecto` → `id_atendimento`.
  */
-export class HubsoftAdapter implements ERPProvider {
+export class HubsoftAdapter implements ERPProvider, ERPSalesCapable {
   readonly name = 'hubsoft' as const;
 
   private readonly baseUrl: string;
@@ -210,5 +246,67 @@ export class HubsoftAdapter implements ERPProvider {
       id_cliente_servico: idClienteServico,
       dias_desbloqueio: '1',
     });
+  }
+
+  async checkViability(address: string): Promise<ViabilityResult> {
+    const data = await this.post('/api/v1/integracao/mapeamento/viabilidade/consultar', {
+      tipo_busca: 'endereco',
+      raio: 250,
+      endereco: { numero: '', endereco: address, bairro: '', cidade: '', estado: '' },
+      detalhar_portas: true,
+    });
+    const projetos: any[] = data?.resultado?.projetos ?? [];
+    const elementos: any[] = projetos.flatMap((p) => p?.busca?.elementos?.data ?? []);
+    const best = elementos.reduce((acc: any, el: any) => (Number(el?.disponiveis ?? 0) > Number(acc?.disponiveis ?? -1) ? el : acc), null);
+    if (!best) return { available: false, raw: data };
+    const availablePorts = Number(best?.disponiveis ?? 0);
+    return {
+      available: availablePorts > 0,
+      ctoId: String(best?.id_caixa_optica ?? ''),
+      ctoName: String(best?.caixa ?? ''),
+      availablePorts,
+      raw: data,
+    };
+  }
+
+  /** Catálogo é por CEP — usa `creds.defaultCep` como referência (sem endereço aqui pra resolver um CEP real). */
+  async getPlans(): Promise<ErpPlan[]> {
+    const cep = String(this.creds.defaultCep ?? '').replace(/\D/g, '');
+    if (!cep) throw new Error('Hubsoft: getPlans não suportado sem CEP — configure "defaultCep" na credencial (o catálogo do Hubsoft é por área de cobertura)');
+    const data = await this.get(`/api/v1/integracao/prospecto/create?cep=${cep}`);
+    const servicos: any[] = data?.servicos ?? [];
+    return servicos.map((s) => ({
+      id: String(s?.id_servico ?? ''),
+      name: String(s?.descricao ?? ''),
+      downloadMbps: Number(s?.velocidade_download ?? 0) / 1024,
+      uploadMbps: Number(s?.velocidade_upload ?? 0) / 1024,
+      priceCents: parseAmountToCents(s?.valor ?? 0),
+    }));
+  }
+
+  /** CEP extraído de `address` (padrão 99999-999); cai pra `creds.defaultCep` se não achar. */
+  async createPreRegistration(data: LeadRegistration): Promise<{ leadId: string; externalId?: string }> {
+    const clean = data.cpf.replace(/\D/g, '');
+    const cepMatch = (data.address ?? '').match(/(\d{5})-?(\d{3})/);
+    const cep = cepMatch ? `${cepMatch[1]}${cepMatch[2]}` : String(this.creds.defaultCep ?? '').replace(/\D/g, '');
+    const res = await this.post('/api/v1/integracao/prospecto', {
+      cep,
+      servico: { id_servico: data.planId, valor: 0 },
+      cpf_cnpj: clean,
+      telefone: data.phone,
+      nome_razaosocial: data.fullName,
+      tipo_pessoa: clean.length > 11 ? 'pj' : 'pf',
+      bairro: '',
+      endereco: data.address ?? '',
+      numero: '',
+    });
+    if (res?.status === 'error') throw new Error(`Hubsoft: criação de prospecto falhou — ${res?.msg ?? 'erro desconhecido'}`);
+    const id = String(res?.prospecto?.id_prospecto ?? '');
+    if (!id) throw new Error('Hubsoft: criação de prospecto não retornou id_prospecto');
+    return { leadId: id, externalId: id };
+  }
+
+  async scheduleInstallation(_leadId: string, _scheduledDate: string): Promise<{ orderId: string }> {
+    throw new Error('Hubsoft: scheduleInstallation não suportado — abrir_os exige um id_atendimento já existente, sem endpoint documentado pra converter um prospecto em atendimento');
   }
 }
