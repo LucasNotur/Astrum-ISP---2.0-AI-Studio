@@ -100,14 +100,14 @@ describe('SGPAdapter — contrato real (validado ao vivo contra demo.sgp.net.br,
     await expect(adapter.generateSecondCopy('04391859556', 'inexistente')).rejects.toThrow('não encontrado');
   });
 
-  it('getConnectionStatus — online quando algum contrato está Ativo', async () => {
+  it('getConnectionStatus — online quando algum contrato está Ativo (fallback administrativo, sem dado de ONU)', async () => {
     const http = makeHttp({ clientes: [clienteAtivo] });
     const adapter = new SGPAdapter(creds, http);
     const result = await adapter.getConnectionStatus('04391859556');
     expect(result.online).toBe(true);
   });
 
-  it('getConnectionStatus — offline quando nenhum contrato está Ativo', async () => {
+  it('getConnectionStatus — offline quando nenhum contrato está Ativo (fallback administrativo)', async () => {
     const http = makeHttp({
       clientes: [{ ...clienteAtivo, contratos: [{ id: 1, status: 'Suspenso' }, { id: 2, status: 'Cancelado' }] }],
     });
@@ -116,9 +116,49 @@ describe('SGPAdapter — contrato real (validado ao vivo contra demo.sgp.net.br,
     expect(result.online).toBe(false);
   });
 
-  it('unlockCustomer — lança (endpoint não confirmado, não adivinhado)', async () => {
-    const adapter = new SGPAdapter(creds, makeHttp({}));
-    await expect(adapter.unlockCustomer('04391859556')).rejects.toThrow('não confirmado');
+  it('getConnectionStatus — usa sessão RADIUS real (onu.conexao.status) quando disponível, ignora status administrativo', async () => {
+    const http = makeHttp({
+      clientes: [{
+        ...clienteAtivo,
+        contratos: [{ id: 1857, status: 'Ativo', servicos: [{ id: 1, onu: { conexao: { status: 'offline' } } }] }],
+      }],
+    });
+    const adapter = new SGPAdapter(creds, http);
+    const result = await adapter.getConnectionStatus('04391859556');
+    expect(result.online).toBe(false); // onu.conexao.status manda, mesmo com contrato Ativo
+  });
+
+  it('unlockCustomer — resolve o contrato do cliente por CPF, POST em /api/ura/liberacaopromessa/', async () => {
+    const http = vi.fn(async (url: string, init: any) => {
+      if (url.endsWith('/api/ura/clientes/')) {
+        return { ok: true, status: 200, statusText: 'OK', json: async () => ({ clientes: [clienteAtivo] }) };
+      }
+      if (url.endsWith('/api/ura/liberacaopromessa/')) {
+        expect((init.body as FormData).get('contrato')).toBe('1888');
+        return { ok: true, status: 200, statusText: 'OK', json: async () => ({ status: 1, liberado: true, liberado_dias: 1, contratoId: 1888 }) };
+      }
+      throw new Error('unexpected url ' + url);
+    }) as unknown as HttpClient;
+    const adapter = new SGPAdapter(creds, http);
+    const result = await adapter.unlockCustomer('04391859556');
+    expect(result.liberado).toBe(true);
+  });
+
+  it('unlockCustomer — lança quando a API responde liberado=false (não é erro HTTP)', async () => {
+    const http = vi.fn(async (url: string) => {
+      if (url.endsWith('/api/ura/clientes/')) {
+        return { ok: true, status: 200, statusText: 'OK', json: async () => ({ clientes: [clienteAtivo] }) };
+      }
+      return { ok: true, status: 200, statusText: 'OK', json: async () => ({ status: 1, liberado: false, msg: 'Cobrança não vinculada a um método de pagamento' }) };
+    }) as unknown as HttpClient;
+    const adapter = new SGPAdapter(creds, http);
+    await expect(adapter.unlockCustomer('04391859556')).rejects.toThrow('não concedida');
+  });
+
+  it('unlockCustomer — lança quando o cliente não é encontrado', async () => {
+    const http = makeHttp({ clientes: [] });
+    const adapter = new SGPAdapter(creds, http);
+    await expect(adapter.unlockCustomer('00000000000')).rejects.toThrow('cliente não encontrado');
   });
 
   it('lança quando API responde !ok, com corpo do erro anexado', async () => {

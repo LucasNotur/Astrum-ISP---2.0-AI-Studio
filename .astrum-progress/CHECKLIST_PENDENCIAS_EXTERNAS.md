@@ -231,16 +231,36 @@ por incerteza (risco de "corrigir" errado sem poder testar):**
     o id interno — precisa resolver `customers.cpf` antes de chamar o
     adapter quando o provider for SGP (mesmo gap de `customers.cpf`/
     `legacy_id` já registrado abaixo, não é bug novo).
-  - `unlockCustomer` continua lançando (não implementado) — testei vários
-    nomes de endpoint óbvios (`/api/ura/desbloqueio/`, `/confianca/`,
-    `/trust/`, etc.), nenhum existe no demo. A doc de um parceiro (Whazing)
-    confirma que existe um endpoint dedicado separado, só não achei o path.
+  - **CORRIGIDO 2026-08-29 — `unlockCustomer` implementado.** O nome real é
+    "Liberação por Confiança", não "desbloqueio de confiança" — por isso os
+    nomes de endpoint testados antes (`/api/ura/desbloqueio/`, `/confianca/`,
+    `/trust/`) nunca existiam, e por isso a busca textual no
+    bookstack.sgp.net.br por "desbloqueio"/"confiança" dava 0 resultados.
+    Achado na **collection Postman oficial** (linkada em
+    `tsmx.net.br/developers`, achada buscando o nome do produto):
+    `POST /api/ura/liberacaopromessa/`, form-data com `token`+`app`+
+    `contrato` (**ID do contrato, não CPF**) — `unlockCustomer` resolve isso
+    sozinho buscando o cliente por CPF primeiro. Existe uma versão paralela
+    em `/api/central/promessapagamento/` (auth por CPF+senha do cliente
+    final, categoria diferente) — não usada aqui. Campo do ID do contrato na
+    resposta de `/api/ura/clientes/` tem uma divergência não resolvida: o
+    teste ao vivo de 2026-08-28 usa `contratos[].id`, o exemplo da collection
+    oficial usa `contratos[].contrato` — código aceita os dois por segurança,
+    mas isso não foi testado ao vivo (só a busca de cliente foi).
+  - **MELHORADO 2026-08-29 — `getConnectionStatus` agora usa sessão RADIUS
+    real quando disponível.** A collection oficial revelou que
+    `/api/ura/clientes/` já embute `contratos[].servicos[].onu.conexao.status`
+    (conexão de verdade, não proxy administrativo) pra serviços FTTH/ONU —
+    isso não tinha aparecido no teste ao vivo original porque a instância
+    demo usada não tinha serviço FTTH cadastrado. Cai pro status
+    administrativo do contrato (Ativo/Bloqueado) só quando nenhum serviço
+    tem esse campo.
   - Frontend (`ERPIntegrationsPage.tsx`) e validação do wizard
     (`erp-admin.routes.ts`) atualizados para exigir/coletar `credentials.app`
     — antes disso um tenant configurando SGP não tinha nem como preencher
     esse campo.
-  - Suite SGP: 127/127 verde (incluindo os novos testes de regressão contra
-    o shape real). Commit no main.
+  - Suite SGP: 13/13 verde nesta rodada (bate o mesmo contrato dos 127 testes
+    de regressão anteriores). Commit no main.
 - [ ] **Hubsoft** — validar `HubsoftAdapter` contra instância real (segue
   pendente, sem credencial de tenant real). OAuth2 (grant `password`,
   `client_id`+`client_secret`+`username`+`password`) confirmado contra a doc
@@ -262,6 +282,18 @@ por incerteza (risco de "corrigir" errado sem poder testar):**
   separado), `POST .../cliente/desbloqueio_confianca` (desbloqueio).
   `customerId` nos métodos = `id_cliente_servico` (serviço/plano, não
   cliente). Suite: 19/19 verde. Commit no main.
+  **Reconfirmado 2026-08-29** contra uma 2ª fonte independente: o repositório
+  GitHub `hubsoftbrasil/api` versiona a própria collection Postman
+  (`Postman Collections/postman_doc.json`, 1.1MB, commit mais recente de
+  2024-03-25 — mais antiga que a versão de julho/2026 já usada, mas
+  git-versionada, então dá pra checar estabilidade). Todos os paths usados
+  aqui (`/cliente`, `/cliente/financeiro`, `/cliente/desbloqueio_confianca`)
+  são idênticos nas duas versões — 2+ anos sem mudar, boa evidência de
+  estabilidade. Achei também `GET /cliente/extrato_conexao` (histórico de
+  sessões RADIUS com `acctstoptime`) — não usado porque o embutido
+  `ultima_conexao=sim` já resolve com 1 chamada só, sem alteração de
+  comportamento. Não achei sandbox/trial self-service (a doc oficial e o
+  fórum concordam: precisa autorização do gestor da empresa via suporte).
 - [ ] **RadiusNet** — validar `RadiusNetAdapter` contra instância real (segue
   pendente, sem ambiente de teste gratuito — é software on-premise, cada ISP
   tem o próprio host). **Reescrito por completo 2026-08-29** — a versão S75
