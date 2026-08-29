@@ -161,26 +161,55 @@ describe('checkViability', () => {
     expect(mockErpAdapter.checkViability).toHaveBeenCalledWith('Rua A, 1');
   });
 
-  it('usa grafo local quando tenant sem ERP configurado', async () => {
+  it('usa grafo local (network_ctos por porta livre) quando tenant sem ERP configurado', async () => {
+    // network_ctos: 8 portas totais, 5 usadas → 3 livres → disponível.
+    const ctoChain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockResolvedValue({
+        data: [{ id: 'cto-g', name: 'CTO Grafo', total_ports: 8, used_ports: 5 }],
+        error: null,
+      }),
+    };
+    let call = 0;
     const db: SalesFunnelDb = {
-      from: vi.fn().mockReturnValue(credChainWith(null)),
+      from: vi.fn().mockImplementation(() => { call++; return call === 1 ? credChainWith(null) : ctoChain; }),
     } as any;
-
-    const { capacidade } = await import('../rede/network-graph.service');
 
     const result = await checkViability('t1', 'Rua B, 99', db);
 
-    expect(capacidade).toHaveBeenCalled();
+    expect(db.from).toHaveBeenCalledWith('network_ctos');
     expect(result.available).toBe(true);
+    expect(result.ctoId).toBe('cto-g');
     expect(result.ctoName).toBe('CTO Grafo');
+    expect(result.availablePorts).toBe(3);
   });
 
-  it('fail-open quando grafo também falha — retorna available=true', async () => {
-    const { capacidade } = await import('../rede/network-graph.service');
-    (capacidade as any).mockRejectedValueOnce(new Error('graph down'));
-
+  it('grafo local sem CTO com porta livre → available=false', async () => {
+    // Todas as portas ocupadas (5/5) → sem porta livre → sem cobertura.
+    const ctoChain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockResolvedValue({
+        data: [{ id: 'cto-cheia', name: 'Lotada', total_ports: 5, used_ports: 5 }],
+        error: null,
+      }),
+    };
+    let call = 0;
     const db: SalesFunnelDb = {
-      from: vi.fn().mockReturnValue(credChainWith(null)),
+      from: vi.fn().mockImplementation(() => { call++; return call === 1 ? credChainWith(null) : ctoChain; }),
+    } as any;
+
+    const result = await checkViability('t1', 'Rua X, 1', db);
+    expect(result.available).toBe(false);
+  });
+
+  it('fail-open quando a query do grafo falha — retorna available=true', async () => {
+    const ctoChain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockResolvedValue({ data: null, error: { message: 'graph down' } }),
+    };
+    let call = 0;
+    const db: SalesFunnelDb = {
+      from: vi.fn().mockImplementation(() => { call++; return call === 1 ? credChainWith(null) : ctoChain; }),
     } as any;
 
     const result = await checkViability('t1', 'Rua C, 0', db);

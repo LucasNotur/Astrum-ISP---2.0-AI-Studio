@@ -273,9 +273,14 @@ async function handleViability(
   tenantId: string,
 ): Promise<Partial<MultiAgentState>> {
   const result = await doCheckViability(tenantId, lead.address!, db);
+  // Persiste a ViabilityResult normalizada inteira (não só `.raw`): o estágio
+  // `presenting_plans` lê `viability_raw.ctoId` num turno posterior pra calibrar a
+  // oferta D-07 (computeCtOccupancy). Guardar apenas `result.raw` (payload cru do ERP,
+  // sem `ctoId` no topo) fazia esse ctoId ser sempre undefined → tier 'promotional'
+  // nunca era alcançado. O payload cru continua acessível em `viability_raw.raw`.
   await updateLead(db, lead.id, {
     stage: result.available ? 'presenting_plans' : 'viability_failed',
-    viability_raw: result.raw ?? null,
+    viability_raw: (result as unknown) ?? null,
   });
 
   if (!result.available) {

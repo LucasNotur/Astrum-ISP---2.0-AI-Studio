@@ -12,7 +12,6 @@
  */
 import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { infraLogger } from '../../infrastructure/logging/logger';
-import { capacidade } from '../rede/network-graph.service';
 import { decryptCredentials } from '../../adapters/erp/credential-cipher';
 import { createErpProvider } from '../../adapters/erp/erp.factory';
 import { createOAuthTokenCache } from '../../adapters/erp/erp-oauth-cache.service';
@@ -149,11 +148,29 @@ export async function checkViability(
     infraLogger.warn({ err: (erpErr as Error).message, tenantId }, 'ERP viabilidade falhou — usando grafo local');
   }
 
-  // 2. Fallback: grafo de rede local (IA-16 `capacidade`).
+  // 2. Fallback: grafo de rede local — qualquer CTO do tenant com porta livre.
+  // NÃO usa `capacidade()`: aquela função só retorna CTOs SATURADAS (occ > 0.85,
+  // campos cto_id/cto_name/occupancy) — o oposto do que viabilidade precisa e num
+  // shape (array, não `{ctos}`) que este caller lia errado, sempre resultando em
+  // "sem cobertura". Consulta direta em network_ctos por porta livre. É address-blind
+  // (mesma limitação do casamento por substring do path ERP) — o operador confirma.
   try {
-    const cap = await capacidade(undefined as any, tenantId);
-    const ctos: any[] = (cap as any)?.ctos ?? [];
-    const withSlots = ctos.filter((c: any) => (c.availablePorts ?? 0) > 0);
+    const { data: ctos, error: ctoErr } = await (db as any)
+      .from('network_ctos')
+      .select('id, name, total_ports, used_ports')
+      .eq('tenant_id', tenantId);
+    if (ctoErr) throw new Error(ctoErr.message);
+
+    const withSlots = (ctos ?? [])
+      .map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        availablePorts: (Number(c.total_ports) || 0) - (Number(c.used_ports) || 0),
+      }))
+      .filter((c: { availablePorts: number }) => c.availablePorts > 0)
+      .sort((a: { availablePorts: number }, b: { availablePorts: number }) => b.availablePorts - a.availablePorts);
+
+    const considered = (ctos ?? []).length;
     if (withSlots.length > 0) {
       const best = withSlots[0];
       return {
@@ -161,10 +178,10 @@ export async function checkViability(
         ctoId: best.id,
         ctoName: best.name,
         availablePorts: best.availablePorts,
-        raw: cap,
+        raw: { source: 'local_graph', ctosConsidered: considered },
       };
     }
-    return { available: false, raw: cap };
+    return { available: false, raw: { source: 'local_graph', ctosConsidered: considered } };
   } catch (graphErr) {
     infraLogger.warn({ err: (graphErr as Error).message, tenantId }, 'Grafo de rede indisponível — viabilidade indeterminada');
     // fail-open: consideramos disponível para não perder lead (operador confirma)

@@ -129,6 +129,37 @@ describe('runVendasSubgraph — stage: presenting_plans', () => {
   });
 });
 
+describe('runVendasSubgraph — stage: checking_viability (persistência do ctoId — D-07)', () => {
+  it('persiste a ViabilityResult inteira (com ctoId) em viability_raw, não só result.raw', async () => {
+    const checkingLead: SalesLead = { ...COLLECTING_LEAD, stage: 'checking_viability', address: 'Rua das Flores, 123' };
+    const chain = {
+      select: vi.fn().mockReturnThis(),
+      insert: vi.fn().mockReturnThis(),
+      update: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      not: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: checkingLead }),
+      single: vi.fn().mockResolvedValue({ data: checkingLead, error: null }),
+    };
+    const db = { from: vi.fn().mockReturnValue(chain) } as any;
+    const deps = makeDeps({
+      funnelDb: db,
+      checkViabilityFn: vi.fn().mockResolvedValue({
+        available: true, ctoId: 'cto-42', ctoName: 'CTO Centro', availablePorts: 6, raw: { erp: 'payload' },
+      }),
+    });
+
+    await runVendasSubgraph(BASE_STATE, deps);
+
+    const viabilityUpdate = (chain.update.mock.calls as any[]).find(([p]) => p && 'viability_raw' in p);
+    expect(viabilityUpdate).toBeDefined();
+    const vr = viabilityUpdate![0].viability_raw as any;
+    // Regressão do bug: antes guardava só result.raw (sem ctoId no topo) → D-07 lia undefined.
+    expect(vr.ctoId).toBe('cto-42');
+    expect(vr.raw).toEqual({ erp: 'payload' });
+  });
+});
+
 describe('runVendasSubgraph — stage: scheduling', () => {
   it('agenda instalação e retorna completed', async () => {
     const deps = makeDeps({
