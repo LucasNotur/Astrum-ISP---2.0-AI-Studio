@@ -168,17 +168,25 @@ export class IXCAdapter implements ERPProvider, ERPSalesCapable, ERPOperationsCa
     return { leadId: id, externalId: id };
   }
 
+  /**
+   * Achado 2026-08-29: não existe tabela `os` separada — é a mesma
+   * `su_oss_chamado` de `createServiceOrder` (confirmado contra
+   * `github.com/isacna/ixc-soft-api`, SDK cujo namespace `os` aponta pra
+   * `table: "su_oss_chamado"` e cuja schema não tem `data_prevista` nem
+   * `assunto` como texto livre — o campo de data é `data_agenda`). A versão
+   * anterior usava `/webservice/v1/os` com esses 2 campos inventados.
+   */
   async scheduleInstallation(leadId: string, scheduledDate: string): Promise<{ orderId: string }> {
-    const res = await this.post('/webservice/v1/os', {
+    const res = await this.post('/webservice/v1/su_oss_chamado', {
       id_cliente: leadId,
       tipo: 'I', // I = instalação
-      assunto: 'Instalação de internet',
+      mensagem: 'Instalação de internet',
       status: 'A', // A = Aberta
       data_abertura: new Date().toISOString().slice(0, 10),
-      data_prevista: scheduledDate,
+      data_agenda: scheduledDate,
     }, false);
-    const id = String(res?.id ?? res?.id_os ?? '');
-    if (!id) throw new Error('IXC: agendamento não retornou id_os');
+    const id = String(res?.id ?? res?.id_chamado ?? '');
+    if (!id) throw new Error('IXC: agendamento não retornou id');
     return { orderId: id };
   }
 }

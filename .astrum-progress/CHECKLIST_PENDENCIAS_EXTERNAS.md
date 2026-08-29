@@ -99,9 +99,11 @@ devolvem HTML de erro com status 200) — agora lança erro claro em vez de
 **⚠️ Continua pendente — precisa de doc oficial/instância real, NÃO fixado
 por incerteza (risco de "corrigir" errado sem poder testar):**
 - [ ] **IXC** — validar `IXCAdapter` contra instância real (segue pendente,
-  sem ambiente de teste gratuito):
+  sem ambiente de teste gratuito — `demo.ixcsoft.com.br` testado 2026-08-29,
+  é só a Central do Assinante/portal do cliente final, não dá pra gerar
+  token de webservice ali):
   - endpoints: `/webservice/v1/cliente`, `/fn_areceber`, `/radusuarios`, `/get_boleto`, `/cliente_desbloqueio_confianca`
-  - P3 new: `/viabilidade`, `/plano_acesso`, `/cliente` (POST create), `/os` (POST create)
+  - P3: `/viabilidade`, `/plano_acesso`, `/cliente` (POST create), `/su_oss_chamado` (POST create — ver correção abaixo)
   - **Suspeita descartada 2026-08-29:** a dúvida era se `token` deveria
     concatenar `api_client:token` antes do base64. Confirmado contra dois
     SDKs comunitários independentes do IXC lidos direto do código-fonte
@@ -112,6 +114,29 @@ por incerteza (risco de "corrigir" errado sem poder testar):**
     que já vai inteira pro base64). O adapter atual (`Authorization: Basic
     ${Buffer.from(creds.token).toString('base64')}`) já está correto — não
     era bug, nenhuma mudança de código necessária.
+  - **CORRIGIDO 2026-08-29 — `scheduleInstallation` usava uma tabela `os`
+    que não existe.** Achado lendo o código-fonte completo do SDK
+    `isacna/ixc-soft-api` (mesmo usado pra confirmar o formato do token):
+    o namespace `os` do SDK aponta pra `table: "su_oss_chamado"` — é a MESMA
+    tabela que `createServiceOrder` já usava corretamente, não uma separada.
+    A versão anterior também usava 2 campos inventados (`assunto` como texto
+    livre, `data_prevista`) que não existem no schema confirmado pelo SDK
+    (o campo de data é `data_agenda`, o "assunto" é uma referência
+    `id_assunto`, não texto livre — usamos `mensagem`, igual
+    `createServiceOrder`, em vez de inventar um id de assunto que não temos
+    como resolver). Achado ao aproveitar a leitura mais funda do SDK feita
+    pra confirmar `su_oss_chamado`/`radusuarios`/`fn_areceber`/`get_boleto`
+    (triangulados contra 3 fontes independentes: 2 SDKs + doc genérica
+    `docs.doc-api-provedor.com`) — só não achou confirmação pra
+    `viabilidade`/`plano_acesso`/`cliente_desbloqueio_confianca`/
+    `cliente_contrato_btn_susp_parc` (esses 4 não têm entidade equivalente em
+    nenhum dos 2 SDKs, prováveis endpoints de ação/botão, não tabelas CRUD
+    simples — continuam como estavam, sem confirmação nem suspeita de erro).
+  - **Achado 2026-08-29 — zero cobertura de teste nos métodos P3 até agora**
+    apesar de "implementados" (`checkViability`/`getPlans`/
+    `createPreRegistration`/`scheduleInstallation`). Criado
+    `ixc-sales.test.ts` (8 testes) cobrindo os 4 — fechado junto com a
+    correção do `scheduleInstallation`.
 - [ ] **Voalle/Elleven** — validar `VoalleAdapter` contra instância real (segue
   pendente, sem ambiente de teste gratuito — a doc oficial existe mas exige
   cliente pagante). **Cache corrigido 2026-08-29** (`erp-oauth-cache.service.ts`,
@@ -362,10 +387,10 @@ por incerteza (risco de "corrigir" errado sem poder testar):**
 - [ ] Validar `outage_notifier.service.ts` enviando notificações reais via Evolution
 
 ### P3 — Funil de vendas
-- [~] `checkViability` no IXC — implementado com `/webservice/v1/viabilidade`, precisa teste com instância real
-- [~] `getPlans` no IXC — implementado com `/webservice/v1/plano_acesso`, precisa teste com instância real
-- [~] `createPreRegistration` no IXC — implementado com `POST /webservice/v1/cliente`, precisa teste
-- [~] `scheduleInstallation` no IXC — implementado com `POST /webservice/v1/os`, precisa teste
+- [~] `checkViability` no IXC — implementado com `/webservice/v1/viabilidade`, testado (`ixc-sales.test.ts`), falta instância real
+- [~] `getPlans` no IXC — implementado com `/webservice/v1/plano_acesso`, testado (`ixc-sales.test.ts`), falta instância real
+- [~] `createPreRegistration` no IXC — implementado com `POST /webservice/v1/cliente`, testado (`ixc-sales.test.ts`), falta instância real
+- [~] `scheduleInstallation` no IXC — **corrigido 2026-08-29** (usava tabela `os` inexistente, agora usa `su_oss_chamado` como `createServiceOrder`), testado (`ixc-sales.test.ts`), falta instância real
 
 ---
 
