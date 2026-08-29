@@ -406,23 +406,27 @@ por incerteza (risco de "corrigir" errado sem poder testar):**
   typecheck limpo.
 
 ### P3-03 — Contrato digital (Clicksign/D4Sign)
-- [ ] **`contract.service.ts` é um stub throw-safe, mas a feature NÃO funciona
-  ponta-a-ponta ainda** (auditado 2026-08-29 junto com o funil — sem bug de
-  crash, mas 3 gaps que exigem credencial real + validação ao vivo, mesma classe
-  dos ERPs):
-  - `buildContractBase64` gera um **PDF placeholder inválido** (header fake +
-    texto puro, sem xref/trailer) — Clicksign/D4Sign vão rejeitar. O próprio
-    comentário já admite ("em produção deve usar template real"). Precisa de
-    geração de PDF de verdade (jsPDF/server-side) com o contrato do tenant.
-  - **URL do contrato Clicksign** montada como `app.clicksign.com/${key}` —
-    formato provável errado (a API devolve a URL/sign-key real na resposta);
-    não confirmável sem conta Clicksign.
-  - **Fluxo D4Sign incompleto**: só faz o `documents/upload` e retorna `sent` —
-    falta registrar signatário (`.../createlist`) e disparar o envio. Contrato
-    sobe mas nunca vai pra assinatura.
-  - Robustez OK: `resolveTenantContractKeys`/`fetchIntegrationKeys` são fail-open
-    (erro/timeout → `{}`), `sendViaClicksign`/`sendViaD4sign` capturam e devolvem
-    `failed` sem lançar — não derruba o agendamento já concluído no subgrafo.
+
+> **Épico com plano/escopo dedicado: `.astrum-progress/PLANO_P3_03_CONTRATO_DIGITAL.md`**
+> (aberto 2026-08-29). Não é bug — feature nova incompleta. O plano separa Fase A
+> (offline, sem credencial, já testável) das Fases B/C (validação ao vivo + webhook,
+> bloqueadas em credencial). Resumo dos gaps abaixo; detalhe e DoD no plano.
+
+- [ ] **`contract.service.ts` é throw-safe (fail-open) mas NÃO funciona
+  ponta-a-ponta** (auditado 2026-08-29, ampliado ao registrar o plano):
+  - **PDF placeholder inválido** (`buildContractBase64`: header fake + texto puro,
+    sem xref/trailer) — provedores rejeitam. Precisa geração real (recomendado
+    `pdf-lib`). → Fase A1.
+  - **Fluxo Clicksign incompleto (não só a URL):** a v1 exige `/documents` →
+    `/signers` → `/lists`, não signer inline no create. `contractUrl`
+    (`app.clicksign.com/${key}`) provável errada. → Fase A4/B1.
+  - **Fluxo D4Sign incompleto:** só `documents/upload`; falta `createlist` +
+    `sendtosigner`. Sobe mas nunca vai pra assinatura. → Fase A4/B2.
+  - **`externalKey` não persistido** (sem coluna) → sem reconciliar webhook depois.
+    → Fase A3 (migration `contract_external_key`).
+  - **Sem webhook de assinatura:** nada move `pending_signature` → `signed`. → Fase C.
+  - Robustez OK: BYOK fail-open (`{}`), `sendVia*` capturam e devolvem `failed` sem
+    lançar — não derruba o agendamento já concluído no subgrafo (`vendas.subgraph.ts:226`).
 
 ### P1 — Religue por confiança
 - [ ] Testar `trust_unlock_policies` com tenant real (verificar fallback para DEFAULT_POLICY se não existir)
@@ -439,13 +443,17 @@ por incerteza (risco de "corrigir" errado sem poder testar):**
 > viabilidade lia shape errado do `capacidade()` → sempre "sem cobertura"; `ctoId`
 > nunca persistido → oferta D-07 morta; dead-end de "sem planos"; datas no passado).
 > Ver `astrum-sales-funnel-auditoria` na memória do Claude Code.
-> **Limitação conhecida deixada documentada (decisão do Lucas: não abrir tarefa
-> agora):** a calibração de oferta D-07 por ocupação de CTO (`computeCtOccupancy`)
-> só funciona ponta-a-ponta pro path do **grafo local** (onde `ctoId = network_ctos.id`).
-> Pro path **ERP**, o `ctoId` que a viabilidade devolve é o id da CTO no ERP
-> (`id_caixa_optica`/`id_cto`/`nearestCtoId`), que não casa com `network_ctos.id`
-> (UUID Supabase) → `computeCtOccupancy` retorna null → oferta cai em standard/premium
-> (degradação logada, não quebra). Resolver exigiria um mapa ERP-cto-id ↔ network_ctos.id.
+> **Caveat cto-id — RESOLVIDO 2026-08-29 (commit `cd5c654`).** A calibração D-07
+> por ocupação de CTO não funcionava pro path **ERP** (o `ctoId` do ERP —
+> `id_caixa_optica`/`id_cto`/`nearestCtoId` — não casa com `network_ctos.id`, então
+> `computeCtOccupancy` sempre devolvia null e o tier `promotional` nunca era
+> alcançado). Mapear os ids foi **descartado** (exigiria um sync ERP↔network_ctos
+> inexistente). Resolvido carregando a ocupação do próprio result de viabilidade:
+> `ViabilityResult.totalPorts` (grafo local preenche), `occupancyPctFromPorts`, e um
+> fallback por **portas livres** (`>= 4` → promotional) no `computeLtvOffer` quando
+> não há % de ocupação (path ERP). Ver `astrum-sales-funnel-auditoria` na memória.
+> **Limitação residual (não bloqueante):** ERP que só expõe portas livres usa o
+> proxy grosseiro, não a % exata — some se/quando algum ERP passar a expor o total.
 
 - [~] `checkViability` no IXC — implementado com `/webservice/v1/viabilidade`, testado (`ixc-sales.test.ts`), falta instância real
 - [~] `getPlans` no IXC — implementado com `/webservice/v1/plano_acesso`, testado (`ixc-sales.test.ts`), falta instância real
