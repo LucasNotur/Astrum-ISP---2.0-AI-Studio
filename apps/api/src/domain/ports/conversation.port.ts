@@ -26,6 +26,8 @@ export interface ISaveMessageInput {
 
 export interface IConversationDbPort {
   findOpenConversation(opts: ICreateConversationInput): Promise<string | null>;
+  /** Conversa em mãos humanas (status='escalated') deste remetente, se houver. */
+  findEscalatedConversation(opts: ICreateConversationInput): Promise<string | null>;
   createConversation(opts: ICreateConversationInput): Promise<string>;
   saveMessage(opts: ISaveMessageInput): Promise<string>;
   countMessages(conversationId: string, tenantId: string): Promise<number>;

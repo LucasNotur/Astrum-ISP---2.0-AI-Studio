@@ -23,6 +23,11 @@ export function makeConversationService(deps: { db: IConversationDbPort; logger:
     return id;
   }
 
+  /** Conversa em mãos humanas (escalada) deste remetente, se houver. */
+  async function findEscalatedConversation(opts: ICreateConversationInput): Promise<string | null> {
+    return db.findEscalatedConversation(opts);
+  }
+
   async function saveMessage(opts: ISaveMessageInput): Promise<string> {
     try {
       return await db.saveMessage(opts);
@@ -57,5 +62,5 @@ export function makeConversationService(deps: { db: IConversationDbPort; logger:
     );
   }
 
-  return { getOrCreateConversation, saveMessage, shouldEscalate, escalateConversation };
+  return { getOrCreateConversation, findEscalatedConversation, saveMessage, shouldEscalate, escalateConversation };
 }

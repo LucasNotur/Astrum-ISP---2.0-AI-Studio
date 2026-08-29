@@ -25,6 +25,26 @@ export const conversationDbAdapter: IConversationDbPort = {
     return data?.id ?? null;
   },
 
+  async findEscalatedConversation(opts: ICreateConversationInput): Promise<string | null> {
+    let query = supabaseAdmin
+      .from('conversations')
+      .select('id')
+      .eq('tenant_id', opts.tenantId)
+      .eq('channel', opts.channel)
+      .eq('status', 'escalated');
+
+    query = opts.customerId
+      ? query.eq('customer_id', opts.customerId)
+      : query.is('customer_id', null);
+
+    const { data } = await query
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    return data?.id ?? null;
+  },
+
   async createConversation(opts: ICreateConversationInput): Promise<string> {
     const { data, error } = await supabaseAdmin
       .from('conversations')
@@ -87,6 +107,7 @@ export const conversationService = makeConversationService({
 
 export const {
   getOrCreateConversation,
+  findEscalatedConversation,
   saveMessage,
   shouldEscalate,
   escalateConversation,

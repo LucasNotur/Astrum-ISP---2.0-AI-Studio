@@ -4,7 +4,7 @@ import { setupDLQ } from '../../../../apps/api/src/infrastructure/queue/bullmq.c
 import { runGuardrails, BLOCK_RESPONSE } from '../../../../apps/api/src/infrastructure/guardrails/guardrails.pipeline';
 import { queryRAG } from '../../../../apps/api/src/infrastructure/rag/rag-query.service';
 import { getConversationContext, ConversationMessage } from '../../../../apps/api/src/infrastructure/rag/context-window.service';
-import { getOrCreateConversation, saveMessage, shouldEscalate, escalateConversation } from '../../../../apps/api/src/infrastructure/adapters/conversation-db.adapter';
+import { getOrCreateConversation, findEscalatedConversation, saveMessage, escalateConversation } from '../../../../apps/api/src/infrastructure/adapters/conversation-db.adapter';
 import { sendChannelResponse } from '../../../../apps/api/src/adapters/channel/channel-sender.service';
 import { supabaseAdmin } from '../../../../apps/api/src/infrastructure/database/supabase.client';
 import { atendimentoLogger } from '../../../../apps/api/src/infrastructure/logging/logger';
@@ -55,7 +55,7 @@ async function handleEmergencyStoppedMessage(job: Job<MessageJobData>): Promise<
   }
 }
 
-async function processMessage(job: Job<MessageJobData>): Promise<void> {
+export async function processMessage(job: Job<MessageJobData>): Promise<void> {
   const stopped = await isEmergencyStopped({
     findActive: async () => {
       const { data, error } = await supabaseAdmin
@@ -74,6 +74,35 @@ async function processMessage(job: Job<MessageJobData>): Promise<void> {
   }
 
   const { tenantId, customerId, senderPhone, messageContent, channel } = job.data;
+
+  // HANDOFF — conversa em mãos humanas (status='escalated'): a IA já transferiu
+  // para um atendente. Enquanto a conversa não for fechada/resolvida pelo humano,
+  // a IA NÃO responde — só salva a mensagem do cliente e avisa o inbox em tempo
+  // real (senão o atendente não vê as mensagens novas). A IA volta naturalmente
+  // quando o humano encerra a conversa: a próxima mensagem não acha conversa
+  // 'open' nem 'escalated' e abre uma nova, retomando o atendimento automático.
+  const escalatedId = await findEscalatedConversation({ tenantId, customerId, channel });
+  if (escalatedId) {
+    const savedId = await saveMessage({
+      tenantId,
+      conversationId: escalatedId,
+      role: 'user',
+      content: messageContent,
+      instanceName: job.data.instanceName,
+    });
+    atendimentoLogger.info(
+      { tenantId, conversationId: escalatedId, messageId: job.data.messageId },
+      'Conversa escalada (em mãos humanas) — mensagem salva, IA não responde',
+    );
+    const { wsPublisher } = await import('../../../../apps/api/src/domain/realtime/websocket.routes');
+    await wsPublisher.newMessage(tenantId, escalatedId, {
+      id: savedId,
+      content: messageContent,
+      role: 'user',
+      timestamp: new Date().toISOString(),
+    });
+    return;
+  }
 
   atendimentoLogger.info({ tenantId, channel, attempt: job.attemptsMade + 1 }, 'Processando mensagem');
 
@@ -180,6 +209,14 @@ async function processMessage(job: Job<MessageJobData>): Promise<void> {
     conversationId,
     instanceName: job.data.instanceName,
   });
+
+  // 6. HANDOFF — a IA decidiu transferir para um humano. Marca a conversa como
+  // 'escalated' DEPOIS de entregar a mensagem de transferência, para que as
+  // próximas mensagens do cliente caiam no gate acima (IA silencia até o humano
+  // encerrar). O ticket em si já foi criado pelo nó `escalate` do grafo.
+  if (result.requiresHuman) {
+    await escalateConversation(conversationId, tenantId, 'IA solicitou atendimento humano');
+  }
 
   atendimentoLogger.info(
     {

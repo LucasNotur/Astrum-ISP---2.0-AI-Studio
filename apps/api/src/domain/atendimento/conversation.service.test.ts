@@ -8,6 +8,7 @@ const logger: ILoggerPort = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 function makeDb(overrides: Partial<IConversationDbPort> = {}): IConversationDbPort {
   return {
     findOpenConversation: vi.fn().mockResolvedValue(null),
+    findEscalatedConversation: vi.fn().mockResolvedValue(null),
     createConversation: vi.fn().mockResolvedValue('conv-new'),
     saveMessage: vi.fn().mockResolvedValue('msg-1'),
     countMessages: vi.fn().mockResolvedValue(2),
@@ -51,6 +52,16 @@ describe('Conversation Service', () => {
     );
     const callArg = (db.findOpenConversation as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
     expect(callArg?.customerId).toBeUndefined();
+  });
+
+  it('findEscalatedConversation delega ao db e devolve o id da conversa em mãos humanas', async () => {
+    const db = makeDb({ findEscalatedConversation: vi.fn().mockResolvedValue('conv-esc') });
+    const svc = makeConversationService({ db, logger });
+    const id = await svc.findEscalatedConversation({ tenantId: 't1', channel: 'whatsapp', customerId: 'cust-1' });
+    expect(id).toBe('conv-esc');
+    expect(db.findEscalatedConversation).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: 't1', channel: 'whatsapp', customerId: 'cust-1' }),
+    );
   });
 
   it('shouldEscalate detecta palavra-chave de cancelamento', async () => {
