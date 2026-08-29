@@ -112,6 +112,30 @@ por incerteza (risco de "corrigir" errado sem poder testar):**
   real. Achado não corrigido: `unlockCustomer` chama `DELETE /api/cliente/bloquear`
   (bloquear = block) esperando que o método inverta a semântica do nome —
   nunca validado, pode estar fazendo o oposto do que deveria.
+  **⚠️ Achado maior 2026-08-29 — a API real é OUTRA, completamente diferente da
+  que o `MKAuthAdapter` usa hoje** (confirmado via doc oficial ao vivo,
+  Swagger em `postman.mk-auth.com.br/docs.php` — não resumo de IA, li a lista
+  de endpoints direto da UI renderizada):
+  - Auth real: `GET /api/` com **Basic Auth usando `Client_id:Client_Secret`**
+    (não usuário/senha do painel, não o header `MK-Auth-Key` que o adapter usa
+    hoje) → devolve um JWT usado como `Bearer` nas chamadas seguintes.
+  - `Client_id`/`Client_Secret` são gerados em **Cadastros → Controle de
+    usuários → [usuário] → aba API** (confirmado em
+    `wiki.mk-auth.com.br/doku.php?id=api_basic`).
+  - Endpoints reais de fatura: `GET /api/titulo/aberto/{cpf}`,
+    `/api/titulo/vencido/{cpf}`, `/api/titulo/show/{uuid}`,
+    `/api/titulo/titulos/{cpf}` — nenhum dos paths que o adapter usa hoje
+    (`/api/boleto`, `/api/cliente`) existe nessa API nova.
+  - Nenhum endpoint de status de conexão ou desbloqueio aparece na lista
+    completa — pode não existir nessa API (mesma limitação do achado antigo).
+  - **Tentei validar ao vivo e não consegui:** o demo público
+    (`mkauth-br.marracloud.com.br`, teste/teste) é só o painel administrativo;
+    não tem "Controle de usuários" no menu (confirmado lendo o `menu.js.hhvm`
+    completo da instância — não é limitação de navegação, o item genuinamente
+    não existe nessa versão/instância 23.07). Sem isso, não dá pra gerar
+    `Client_id`/`Client_secret` de teste. **Decisão do Lucas (2026-08-29): não
+    reescrever o adapter sem validação ao vivo** — fica documentado, não
+    tocado, mesmo tratamento do IXC/Hubsoft/Voalle.
 - [x] **SGP/TSMX — ✅ VALIDADO AO VIVO 2026-08-29** contra `demo.sgp.net.br`
   (ambiente de demonstração público e self-service da própria TSMX, dados
   fictícios isolados de produção — nenhum custo, nenhum contato comercial).
