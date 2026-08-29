@@ -25,7 +25,7 @@ export interface CobraiJobData {
   messageVars?: Record<string, string | number>;
 }
 
-async function executeCobraiAction(job: Job<CobraiJobData>): Promise<void> {
+export async function executeCobraiAction(job: Job<CobraiJobData>): Promise<void> {
   const { tenantId, customerId, invoiceId, ruleId, action, customerPhone, messageContent, amountCents } = job.data;
 
   // Lockout: suspender tenant por inadimplência do próprio ISP com a Astrum
@@ -137,6 +137,22 @@ async function executeCobraiAction(job: Job<CobraiJobData>): Promise<void> {
       .eq('status', 'sent')
       .gte('executed_at', new Date(Date.now() - 3600_000).toISOString());
 
+    // Limite diário: contagem REAL das últimas 24h (janela rolante, igual à hora).
+    // Só consulta quando o tenant configurou um limite diário — caso contrário
+    // pula a query. ANTES isto era `sentToday: 0` hardcoded → withinDailyLimit(0, N)
+    // sempre true → o limite diário NUNCA era aplicado, apesar de configurável.
+    const dailyLimit = tenantCfg?.cobrai_daily_limit ?? null;
+    let sentToday = 0;
+    if (dailyLimit != null) {
+      const { count } = await supabaseAdmin
+        .from('cobrai_jobs')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .eq('status', 'sent')
+        .gte('executed_at', new Date(Date.now() - 24 * 3600_000).toISOString());
+      sentToday = count ?? 0;
+    }
+
     const { data: customer } = await supabaseAdmin
       .from('customers')
       .select('marketing_opt_in, payment_agreement')
@@ -160,8 +176,8 @@ async function executeCobraiAction(job: Job<CobraiJobData>): Promise<void> {
       window: tenantCfg?.cobrai_window ?? null,
       sentThisHour: sentThisHour ?? 0,
       hourlyLimit: tenantCfg?.cobrai_hourly_limit ?? 30,
-      sentToday: 0,
-      dailyLimit: tenantCfg?.cobrai_daily_limit ?? null,
+      sentToday,
+      dailyLimit,
       stage: action ?? 'lembrete',
       stagesConfig: tenantCfg?.cobrai_stages ?? null,
       customerOptedOut: customer?.marketing_opt_in === false,
