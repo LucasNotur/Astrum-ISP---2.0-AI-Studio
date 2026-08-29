@@ -405,6 +405,25 @@ por incerteza (risco de "corrigir" errado sem poder testar):**
   Suite: 13/13 verde (2 testes novos), 148/148 na suite ERP completa,
   typecheck limpo.
 
+### P3-03 — Contrato digital (Clicksign/D4Sign)
+- [ ] **`contract.service.ts` é um stub throw-safe, mas a feature NÃO funciona
+  ponta-a-ponta ainda** (auditado 2026-08-29 junto com o funil — sem bug de
+  crash, mas 3 gaps que exigem credencial real + validação ao vivo, mesma classe
+  dos ERPs):
+  - `buildContractBase64` gera um **PDF placeholder inválido** (header fake +
+    texto puro, sem xref/trailer) — Clicksign/D4Sign vão rejeitar. O próprio
+    comentário já admite ("em produção deve usar template real"). Precisa de
+    geração de PDF de verdade (jsPDF/server-side) com o contrato do tenant.
+  - **URL do contrato Clicksign** montada como `app.clicksign.com/${key}` —
+    formato provável errado (a API devolve a URL/sign-key real na resposta);
+    não confirmável sem conta Clicksign.
+  - **Fluxo D4Sign incompleto**: só faz o `documents/upload` e retorna `sent` —
+    falta registrar signatário (`.../createlist`) e disparar o envio. Contrato
+    sobe mas nunca vai pra assinatura.
+  - Robustez OK: `resolveTenantContractKeys`/`fetchIntegrationKeys` são fail-open
+    (erro/timeout → `{}`), `sendViaClicksign`/`sendViaD4sign` capturam e devolvem
+    `failed` sem lançar — não derruba o agendamento já concluído no subgrafo.
+
 ### P1 — Religue por confiança
 - [ ] Testar `trust_unlock_policies` com tenant real (verificar fallback para DEFAULT_POLICY se não existir)
 - [ ] Testar `trust_unlocks` auditando o fluxo ponta-a-ponta com WhatsApp
