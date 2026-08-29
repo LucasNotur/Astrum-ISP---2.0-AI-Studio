@@ -113,14 +113,39 @@ por incerteza (risco de "corrigir" errado sem poder testar):**
     ${Buffer.from(creds.token).toString('base64')}`) já está correto — não
     era bug, nenhuma mudança de código necessária.
 - [ ] **Voalle/Elleven** — validar `VoalleAdapter` contra instância real (segue
-  pendente, sem ambiente de teste gratuito). **Corrigido 2026-08-29:** o achado
-  arquitetural do cache (`access_token` só valia dentro da mesma instância,
-  reautenticando quase toda chamada já que `erp.factory.ts` cria instância
-  nova por chamada) foi resolvido com `erp-oauth-cache.service.ts` — cache
-  Redis compartilhado por tenant+provider, injetado como `tokenCache` no
-  adapter e passado pelos 3 call sites (`ToolsExecutor`, `sales-funnel.service`,
-  wizard de teste). Degrada bem se o Redis cair (adapter volta pro
-  token-exchange normal). Suite: 165/165 verde. Commit no main.
+  pendente — sem doc oficial pública nem ambiente de teste; o link indexado
+  pelo Google pro Postman da Voalle, `postman.com/desenvelite/voalle-integrator`,
+  não existe mais, redireciona pra home do Postman).
+  **Cache corrigido 2026-08-29** (achado arquitetural: `access_token` só valia
+  dentro da mesma instância, reautenticando quase toda chamada já que
+  `erp.factory.ts` cria instância nova por chamada) — resolvido com
+  `erp-oauth-cache.service.ts`, cache Redis compartilhado por tenant+provider.
+  **Reescrito por completo 2026-08-29** — a versão anterior do auth (OAuth
+  client_credentials em JSON contra `/oauth/token` no mesmo host) era inteiramente
+  inventada. Única fonte encontrada: SDK Go de terceiros
+  **`github.com/raykavin/elleven-go`** ("Unofficial Elleven Third-Party API",
+  MIT, teste por módulo) — não é doc oficial da Voalle, mas os detalhes são
+  específicos demais pra chute (secret de plataforma real hardcoded, portas
+  exatas, caminho exato do campo `syndata` na UI). Achados:
+  - Auth roda numa **porta separada do resto da API** no mesmo host (`:45700`
+    auth, `:45715` API, default do SDK, overridável).
+  - `POST {authUrl}/connect/token`, **form-urlencoded** (não JSON — é o padrão
+    OAuth2/RFC 6749), com `grant_type=client_credentials&scope=syngw` mais um
+    **3º segredo, `syndata`** (Suite → Settings → Parameters →
+    Integration/Map) que a versão anterior nem pedia.
+  - Cliente: `GET /external/integrations/thirdparty/people/txid/{cpf}`.
+  - Faturas: `GET .../getopentitlesbytxid/{cpf}` (abertas) e
+    `.../gettitlesbytxid/{cpf}` (todas, usado pra 2ª via). Boleto/PIX já vêm
+    prontos no título (`billet.pixQRCode`, `billet.typefulLine`) — sem link de
+    boleto PDF (só download binário via endpoint separado, não uma URL).
+  - Conexão: `.../getaccesspointstatusbyclient/{id}` — **status do
+    ACCESS POINT/OLT, não sessão RADIUS por cliente**, pior proxy que os
+    outros adapters.
+  - Desbloqueio: `.../contracts/unlock/{contractNumber}` — **usa número do
+    contrato, não CPF**, e o SDK não expõe resolução CPF→contrato — quem
+    chama `unlockCustomer` precisa já ter o número do contrato.
+  - Wizard atualizado: `url` (sem porta) + `clientId` + `clientSecret` +
+    `syndata`. Suite: 179/179 verde, typecheck limpo.
 - [ ] **MK Solutions / MK-Auth** — validar `MKAuthAdapter` contra instância
   real (segue pendente, sem ambiente de teste gratuito — o demo público em
   `mkauth-br.marracloud.com.br` não tem "Controle de usuários" no menu dessa
@@ -194,20 +219,26 @@ por incerteza (risco de "corrigir" errado sem poder testar):**
   - Suite SGP: 127/127 verde (incluindo os novos testes de regressão contra
     o shape real). Commit no main.
 - [ ] **Hubsoft** — validar `HubsoftAdapter` contra instância real (segue
-  pendente, sem ambiente de teste gratuito). **Corrigido 2026-08-29:** o
-  achado de que o adapter só suportava token Bearer estático (a API real usa
-  OAuth2) foi resolvido — confirmado contra a doc oficial
-  (github.com/hubsoftbrasil/api, `docs/source/autenticacao.rst` e
-  `exemplos/php.rst`, fonte primária, não resumo): `POST /oauth/token`,
-  `grant_type: "password"` com `client_id`+`client_secret`+`username`+
-  `password` juntos (não `client_credentials` como o Voalle). Adapter
-  reescrito com o mesmo padrão do Voalle (token-exchange + cache local +
-  `tokenCache` Redis compartilhado), formulário do wizard atualizado pros 4
-  campos novos, validação de credenciais em `erp-admin.routes.ts`. Ainda
-  **sem validação ao vivo** — a doc é primária e precisa (client_id/secret
-  junto de username/password é incomum), mas nenhuma instância de teste
-  gratuita foi encontrada pra confirmar na prática. Suite: 165/165 verde.
-  Commit no main.
+  pendente, sem credencial de tenant real). OAuth2 (grant `password`,
+  `client_id`+`client_secret`+`username`+`password`) confirmado contra a doc
+  oficial (github.com/hubsoftbrasil/api) — tentei validar ao vivo contra
+  `api.dev.hubsoft.com.br` com as credenciais de exemplo (mortas, 401), mas
+  confirma que a URL/formato do request são reais (servidor respondeu de
+  verdade, não é domínio inventado).
+  **Endpoints de negócio corrigidos 2026-08-29** — a 1ª reescrita usava paths
+  inventados (`/api/v1/clientes`, `/api/v1/financeiro/cobrancas/.../segunda-via`).
+  Corrigido contra a **collection Postman oficial publicada**
+  (docs.hubsoft.com.br → `/api/collections/23327122/2sA35LUysW`, 189
+  endpoints com exemplos de resposta reais, timestamps de julho/2026 — não é
+  doc estática, vem de uma conta de teste viva regenerada periodicamente):
+  `GET /api/v1/integracao/cliente?busca=cpf_cnpj&termo_busca=<cpf>` (clientes),
+  `GET .../cliente/financeiro?busca=id_cliente_servico&termo_busca=<id>`
+  (faturas — boleto/PIX já vêm prontos, não existe endpoint de "gerar 2ª
+  via"), `busca=id_cliente_servico&ultima_conexao=sim` embutido na mesma
+  consulta de cliente (conexão — último acct RADIUS, não status ao vivo
+  separado), `POST .../cliente/desbloqueio_confianca` (desbloqueio).
+  `customerId` nos métodos = `id_cliente_servico` (serviço/plano, não
+  cliente). Suite: 19/19 verde. Commit no main.
 
 ### P1 — Religue por confiança
 - [ ] Testar `trust_unlock_policies` com tenant real (verificar fallback para DEFAULT_POLICY se não existir)

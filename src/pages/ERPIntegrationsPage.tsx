@@ -45,9 +45,10 @@ const ERP_PROVIDERS: ErpProvider[] = [
   {
     id: 'voalle', label: 'Voalle', icon: '⚡',
     fields: [
-      { key: 'url', label: 'URL da API', placeholder: 'https://voalle.seudominio.com.br' },
-      { key: 'clientId', label: 'Client ID', placeholder: 'client-id' },
+      { key: 'url', label: 'URL do servidor (sem porta)', placeholder: 'https://erp.seudominio.com.br' },
+      { key: 'clientId', label: 'Client ID', placeholder: 'client-id (Settings → Users → Integration User)' },
       { key: 'clientSecret', label: 'Client Secret', placeholder: '••••••••', type: 'password' },
+      { key: 'syndata', label: 'SynData', placeholder: 'Suite → Settings → Parameters → Integration/Map', type: 'password' },
     ],
   },
   {

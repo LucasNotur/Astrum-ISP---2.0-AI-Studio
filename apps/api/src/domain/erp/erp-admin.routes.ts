@@ -65,6 +65,18 @@ export async function erpAdminRoutes(app: FastifyInstance) {
       if (provider === 'sgp' && !credentials?.app) {
         return reply.code(400).send({ error: 'credentials.app é obrigatório para o SGP (nome da Aplicação cadastrada no painel SGP)' });
       }
+      // Voalle — reescrito 2026-08-29 (fonte: SDK Go de terceiros github.com/raykavin/elleven-go,
+      // sem doc oficial pública). O grant client_credentials exige um 3º segredo, `syndata`
+      // (Suite → Settings → Parameters → Integration/Map), que o check genérico acima não pedia.
+      if (
+        provider === 'voalle' &&
+        !credentials?.token &&
+        !(credentials?.clientId && credentials?.clientSecret && credentials?.syndata)
+      ) {
+        return reply.code(400).send({
+          error: 'credentials para voalle exigem token OU (clientId + clientSecret + syndata)',
+        });
+      }
       // Hubsoft — confirmado 2026-08-29 contra a doc oficial (github.com/hubsoftbrasil/api):
       // a API só documenta grant_type "password", que exige os 4 campos juntos (não basta
       // clientId+clientSecret como no Voalle). Sem isso o request de /oauth/token falha.
