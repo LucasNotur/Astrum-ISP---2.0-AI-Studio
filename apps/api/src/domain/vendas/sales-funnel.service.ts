@@ -15,6 +15,7 @@ import { infraLogger } from '../../infrastructure/logging/logger';
 import { capacidade } from '../rede/network-graph.service';
 import { decryptCredentials } from '../../adapters/erp/credential-cipher';
 import { createErpProvider } from '../../adapters/erp/erp.factory';
+import { createOAuthTokenCache } from '../../adapters/erp/erp-oauth-cache.service';
 import { supportsErpSales } from '../../adapters/erp/erp.types';
 import type { ERPCredentials, ERPProviderName, ViabilityResult, ErpPlan, LeadRegistration } from '../../adapters/erp/erp.types';
 
@@ -136,7 +137,8 @@ export async function checkViability(
 
     if (erpCred?.provider) {
       const creds = decryptCredentials<ERPCredentials>(erpCred.credentials_encrypted);
-      const adapter = createErpProvider(erpCred.provider as ERPProviderName, creds);
+      const provider = erpCred.provider as ERPProviderName;
+      const adapter = createErpProvider(provider, creds, undefined, createOAuthTokenCache(tenantId, provider));
       if (supportsErpSales(adapter)) {
         const result = await adapter.checkViability(address);
         infraLogger.info({ tenantId, address, available: result.available, source: 'erp' }, 'Viabilidade via ERP');
@@ -191,7 +193,8 @@ export async function getAvailablePlans(
 
     if (erpCred?.provider) {
       const creds = decryptCredentials<ERPCredentials>(erpCred.credentials_encrypted);
-      const adapter = createErpProvider(erpCred.provider as ERPProviderName, creds);
+      const provider = erpCred.provider as ERPProviderName;
+      const adapter = createErpProvider(provider, creds, undefined, createOAuthTokenCache(tenantId, provider));
       if (supportsErpSales(adapter)) {
         const plans = await adapter.getPlans();
         if (plans.length > 0) return plans;
@@ -258,7 +261,8 @@ export async function registerLeadInErp(
 
     if (erpCred?.provider) {
       const creds = decryptCredentials<ERPCredentials>(erpCred.credentials_encrypted);
-      const adapter = createErpProvider(erpCred.provider as ERPProviderName, creds);
+      const provider = erpCred.provider as ERPProviderName;
+      const adapter = createErpProvider(provider, creds, undefined, createOAuthTokenCache(tenantId, provider));
       if (supportsErpSales(adapter)) {
         const { leadId } = await adapter.createPreRegistration(registration);
         return { erpLeadId: leadId };
@@ -296,7 +300,8 @@ export async function scheduleInstallation(
 
     if (erpCred?.provider) {
       const creds = decryptCredentials<ERPCredentials>(erpCred.credentials_encrypted);
-      const adapter = createErpProvider(erpCred.provider as ERPProviderName, creds);
+      const provider = erpCred.provider as ERPProviderName;
+      const adapter = createErpProvider(provider, creds, undefined, createOAuthTokenCache(tenantId, provider));
       if (supportsErpSales(adapter)) {
         return await adapter.scheduleInstallation(erpLeadId, scheduledFor);
       }

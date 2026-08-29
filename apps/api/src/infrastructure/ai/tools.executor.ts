@@ -5,6 +5,7 @@ import { getEnabledTools, recordToolUsage } from './tool-registry';
 import { impactoCto, reincidencia, capacidade, defaultDb as graphDb } from '../../domain/rede/network-graph.service';
 import { decryptCredentials } from '../../adapters/erp/credential-cipher';
 import { createErpProvider, isErpImplemented } from '../../adapters/erp/erp.factory';
+import { createOAuthTokenCache } from '../../adapters/erp/erp-oauth-cache.service';
 import { supportsErpOperations, type ERPProviderName, type ERPCredentials, type ERPProvider } from '../../adapters/erp/erp.types';
 import { executeTrustUnlock, defaultTrustUnlockDb } from '../../domain/atendimento/trust-unlock.service';
 import { buildNegotiationMenu, defaultNegotiationDb } from '../../domain/atendimento/debt-negotiation.service';
@@ -110,8 +111,9 @@ export class ToolsExecutor {
       );
     }
     if (!erpCred?.provider || !isErpImplemented(erpCred.provider as ERPProviderName)) return null;
+    const provider = erpCred.provider as ERPProviderName;
     const creds = decryptCredentials<ERPCredentials>(erpCred.credentials_encrypted);
-    return createErpProvider(erpCred.provider as ERPProviderName, creds);
+    return createErpProvider(provider, creds, undefined, createOAuthTokenCache(this.tenantId, provider));
   }
 
   private async _suspendSignal(args: Record<string, unknown>) {
@@ -190,8 +192,9 @@ export class ToolsExecutor {
       }
 
       if (erpCred?.provider && isErpImplemented(erpCred.provider as ERPProviderName)) {
+        const provider = erpCred.provider as ERPProviderName;
         const creds = decryptCredentials<ERPCredentials>(erpCred.credentials_encrypted);
-        const adapter = createErpProvider(erpCred.provider as ERPProviderName, creds);
+        const adapter = createErpProvider(provider, creds, undefined, createOAuthTokenCache(this.tenantId, provider));
         const billingRaw = await adapter.getBillingStatus(customer_id);
         infraLogger.info({ tenantId: this.tenantId, provider: erpCred.provider }, 'check_invoice via ERP adapter');
         return { invoices: billingRaw, source: 'erp' };

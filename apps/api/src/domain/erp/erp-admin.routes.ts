@@ -3,6 +3,7 @@ import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
 import { encryptCredentials, decryptCredentials } from '../../adapters/erp/credential-cipher';
 import { createErpProvider, isErpImplemented } from '../../adapters/erp/erp.factory';
+import { createOAuthTokenCache } from '../../adapters/erp/erp-oauth-cache.service';
 import type { ERPProviderName, ERPCredentials } from '../../adapters/erp/erp.types';
 
 // rbx e radiusnet têm tipo + adapter no factory, mas estavam fora desta lista → o
@@ -63,6 +64,18 @@ export async function erpAdminRoutes(app: FastifyInstance) {
       // "Credenciais de autenticação incorretas" mesmo com token válido.
       if (provider === 'sgp' && !credentials?.app) {
         return reply.code(400).send({ error: 'credentials.app é obrigatório para o SGP (nome da Aplicação cadastrada no painel SGP)' });
+      }
+      // Hubsoft — confirmado 2026-08-29 contra a doc oficial (github.com/hubsoftbrasil/api):
+      // a API só documenta grant_type "password", que exige os 4 campos juntos (não basta
+      // clientId+clientSecret como no Voalle). Sem isso o request de /oauth/token falha.
+      if (
+        provider === 'hubsoft' &&
+        !credentials?.token &&
+        !(credentials?.clientId && credentials?.clientSecret && credentials?.username && credentials?.password)
+      ) {
+        return reply.code(400).send({
+          error: 'credentials para hubsoft exigem token OU (clientId + clientSecret + username + password)',
+        });
       }
 
       let encrypted: string;
@@ -138,7 +151,7 @@ export async function erpAdminRoutes(app: FastifyInstance) {
       }
 
       try {
-        const adapter = createErpProvider(provider, creds);
+        const adapter = createErpProvider(provider, creds, undefined, createOAuthTokenCache(tenantId, provider));
         const testCpf = req.body?.test_cpf ?? '00000000000';
         const result = await adapter.findCustomerByCpf(testCpf);
         return { ok: true, provider, sample: result };

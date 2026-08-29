@@ -102,12 +102,15 @@ por incerteza (risco de "corrigir" errado sem poder testar):**
   - endpoints: `/webservice/v1/cliente`, `/fn_areceber`, `/radusuarios`, `/get_boleto`, `/cliente_desbloqueio_confianca`
   - P3 new: `/viabilidade`, `/plano_acesso`, `/cliente` (POST create), `/os` (POST create)
   - Suspeita (não confirmada): o campo único `token` deveria concatenar `api_client:token` antes do base64, e o wizard não valida esse formato.
-- [ ] **Voalle/Elleven** — validar `VoalleAdapter` contra instância real. Achado
-  arquitetural (não é bug de linha, precisa decisão de design): o cache de
-  `access_token` só vale dentro da mesma instância do adapter — como
-  `erp.factory.ts` cria uma instância nova por chamada, o modo OAuth
-  reautentica do zero quase sempre na prática. Corrigir exige cache
-  compartilhado por tenant (provavelmente Redis).
+- [ ] **Voalle/Elleven** — validar `VoalleAdapter` contra instância real (segue
+  pendente, sem ambiente de teste gratuito). **Corrigido 2026-08-29:** o achado
+  arquitetural do cache (`access_token` só valia dentro da mesma instância,
+  reautenticando quase toda chamada já que `erp.factory.ts` cria instância
+  nova por chamada) foi resolvido com `erp-oauth-cache.service.ts` — cache
+  Redis compartilhado por tenant+provider, injetado como `tokenCache` no
+  adapter e passado pelos 3 call sites (`ToolsExecutor`, `sales-funnel.service`,
+  wizard de teste). Degrada bem se o Redis cair (adapter volta pro
+  token-exchange normal). Suite: 165/165 verde. Commit no main.
 - [ ] **MK Solutions / MK-Auth** — validar `MKAuthAdapter` contra instância
   real. Achado não corrigido: `unlockCustomer` chama `DELETE /api/cliente/bloquear`
   (bloquear = block) esperando que o método inverta a semântica do nome —
@@ -166,11 +169,21 @@ por incerteza (risco de "corrigir" errado sem poder testar):**
     esse campo.
   - Suite SGP: 127/127 verde (incluindo os novos testes de regressão contra
     o shape real). Commit no main.
-- [ ] **Hubsoft** — validar `HubsoftAdapter` contra instância real. Achado não
-  corrigido: o adapter assume um token Bearer estático (`creds.token`), mas a
-  API real do Hubsoft usa OAuth2 (`/oauth/token`, com expiração) — não há
-  fluxo de obtenção/renovação implementado. Não implementado por incerteza
-  sobre o `grant_type` exato (password vs client_credentials).
+- [ ] **Hubsoft** — validar `HubsoftAdapter` contra instância real (segue
+  pendente, sem ambiente de teste gratuito). **Corrigido 2026-08-29:** o
+  achado de que o adapter só suportava token Bearer estático (a API real usa
+  OAuth2) foi resolvido — confirmado contra a doc oficial
+  (github.com/hubsoftbrasil/api, `docs/source/autenticacao.rst` e
+  `exemplos/php.rst`, fonte primária, não resumo): `POST /oauth/token`,
+  `grant_type: "password"` com `client_id`+`client_secret`+`username`+
+  `password` juntos (não `client_credentials` como o Voalle). Adapter
+  reescrito com o mesmo padrão do Voalle (token-exchange + cache local +
+  `tokenCache` Redis compartilhado), formulário do wizard atualizado pros 4
+  campos novos, validação de credenciais em `erp-admin.routes.ts`. Ainda
+  **sem validação ao vivo** — a doc é primária e precisa (client_id/secret
+  junto de username/password é incomum), mas nenhuma instância de teste
+  gratuita foi encontrada pra confirmar na prática. Suite: 165/165 verde.
+  Commit no main.
 
 ### P1 — Religue por confiança
 - [ ] Testar `trust_unlock_policies` com tenant real (verificar fallback para DEFAULT_POLICY se não existir)

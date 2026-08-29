@@ -70,4 +70,120 @@ describe('HubsoftAdapter', () => {
     const adapter = new HubsoftAdapter(creds, http);
     await expect(adapter.unlockCustomer('c1')).rejects.toThrow('Hubsoft API Error: 422');
   });
+
+  // ── OAuth password grant (fluxo do wizard/SettingsPage) ─────────────────────
+  const oauthCreds = {
+    url: 'https://hubsoft.isp.test',
+    clientId: 'cid-x',
+    clientSecret: 'secret-y',
+    username: 'api@hubsoft.com.br',
+    password: 'api123api',
+  };
+
+  it('aceita credenciais OAuth (clientId/clientSecret/username/password) sem token', () => {
+    expect(() => new HubsoftAdapter(oauthCreds)).not.toThrow();
+  });
+
+  it('lança se não há token nem o conjunto OAuth completo', () => {
+    expect(() =>
+      new HubsoftAdapter({ url: 'https://x', clientId: 'só-id', clientSecret: 'y' } as any),
+    ).toThrow('Hubsoft: credenciais ausentes');
+  });
+
+  it('OAuth — faz token-exchange com grant_type password e usa o access_token nas chamadas', async () => {
+    const http = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true, status: 200, statusText: 'OK',
+        json: async () => ({ access_token: 'oauth-tok-123', expires_in: 2592000 }),
+      })
+      .mockResolvedValueOnce({
+        ok: true, status: 200, statusText: 'OK',
+        json: async () => [{ id: 1 }],
+      }) as unknown as HttpClient;
+
+    const adapter = new HubsoftAdapter(oauthCreds, http);
+    const result = await adapter.findCustomerByCpf('12345678900');
+
+    expect((http as any).mock.calls[0][0]).toBe('https://hubsoft.isp.test/oauth/token');
+    const tokenInit = (http as any).mock.calls[0][1];
+    expect(tokenInit.method).toBe('POST');
+    expect(JSON.parse(tokenInit.body)).toEqual({
+      grant_type: 'password',
+      client_id: 'cid-x',
+      client_secret: 'secret-y',
+      username: 'api@hubsoft.com.br',
+      password: 'api123api',
+    });
+
+    expect((http as any).mock.calls[1][0]).toBe(
+      'https://hubsoft.isp.test/api/v1/clientes?cpf_cnpj=12345678900&per_page=5',
+    );
+    expect((http as any).mock.calls[1][1].headers['Authorization']).toBe('Bearer oauth-tok-123');
+    expect(result).toEqual([{ id: 1 }]);
+  });
+
+  it('OAuth — cacheia o token entre chamadas (um único token-exchange)', async () => {
+    const http = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true, status: 200, statusText: 'OK',
+        json: async () => ({ access_token: 'oauth-tok-123', expires_in: 2592000 }),
+      })
+      .mockResolvedValue({
+        ok: true, status: 200, statusText: 'OK',
+        json: async () => [],
+      }) as unknown as HttpClient;
+
+    const adapter = new HubsoftAdapter(oauthCreds, http);
+    await adapter.findCustomerByCpf('11111111111');
+    await adapter.getBillingStatus('cid-1');
+
+    const oauthCalls = (http as any).mock.calls.filter((c: any[]) => c[0].endsWith('/oauth/token'));
+    expect(oauthCalls).toHaveLength(1);
+  });
+
+  it('OAuth — lança se o token-exchange falha', async () => {
+    const http = makeHttp({ error: 'invalid_credentials' }, false);
+    const adapter = new HubsoftAdapter(oauthCreds, http);
+    await expect(adapter.findCustomerByCpf('00000000000')).rejects.toThrow('Hubsoft OAuth Error: 422');
+  });
+
+  it('OAuth — lança se a resposta não traz access_token', async () => {
+    const http = makeHttp({ foo: 'bar' });
+    const adapter = new HubsoftAdapter(oauthCreds, http);
+    await expect(adapter.findCustomerByCpf('00000000000')).rejects.toThrow('resposta sem access_token');
+  });
+
+  // ── tokenCache compartilhado (Redis) — sobrevive a instâncias novas por chamada ──
+  it('tokenCache — usa o token cacheado sem fazer novo token-exchange', async () => {
+    const http = vi.fn().mockResolvedValue({
+      ok: true, status: 200, statusText: 'OK',
+      json: async () => [{ id: 1 }],
+    }) as unknown as HttpClient;
+    const tokenCache = { get: vi.fn().mockResolvedValue('cached-tok'), set: vi.fn() };
+
+    const adapter = new HubsoftAdapter(oauthCreds, http, tokenCache as any);
+    await adapter.findCustomerByCpf('00000000000');
+
+    expect(tokenCache.get).toHaveBeenCalled();
+    expect((http as any).mock.calls[0][1].headers['Authorization']).toBe('Bearer cached-tok');
+    expect((http as any).mock.calls.some((c: any[]) => c[0].endsWith('/oauth/token'))).toBe(false);
+  });
+
+  it('tokenCache — grava o token novo após o token-exchange', async () => {
+    const http = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true, status: 200, statusText: 'OK',
+        json: async () => ({ access_token: 'fresh-tok', expires_in: 3600 }),
+      })
+      .mockResolvedValueOnce({
+        ok: true, status: 200, statusText: 'OK',
+        json: async () => [],
+      }) as unknown as HttpClient;
+    const tokenCache = { get: vi.fn().mockResolvedValue(null), set: vi.fn() };
+
+    const adapter = new HubsoftAdapter(oauthCreds, http, tokenCache as any);
+    await adapter.findCustomerByCpf('00000000000');
+
+    expect(tokenCache.set).toHaveBeenCalledWith('fresh-tok', 3540);
+  });
 });

@@ -1,5 +1,6 @@
 import type { ERPProvider, ERPCredentials, HttpClient, SecondCopyResult, ConnectionStatus } from './erp.types';
 import { parseAmountToCents, normalizeErpBaseUrl, readErpErrorBody, ERP_HTTP_TIMEOUT_MS } from './erp.types';
+import type { OAuthTokenCache } from './erp-oauth-cache.service';
 
 /**
  * P0-02 — Voalle/Elleven adapter.
@@ -16,12 +17,13 @@ import { parseAmountToCents, normalizeErpBaseUrl, readErpErrorBody, ERP_HTTP_TIM
  *  2. Token pré-gerado — credenciais trazem `token` (Bearer) já pronto; usado
  *     direto, sem token-exchange (compat com integrações antigas).
  *
- * ⚠️ Auditoria 2026-08-28: o cache de `accessToken`/`tokenExpiresAt` abaixo só
- * vale DENTRO da mesma instância. Como `erp.factory.ts` cria uma instância nova
- * por chamada (sem cache persistente por tenant), o modo OAuth reautentica do
- * zero em quase toda operação na prática — não corrigido nesta rodada porque
- * exige decisão de arquitetura (cache compartilhado, provavelmente Redis, por
- * tenant) e não é um bug de lógica isolado. Ver CHECKLIST_PENDENCIAS_EXTERNAS.md.
+ * Corrigido 2026-08-29: o cache de `accessToken`/`tokenExpiresAt` abaixo só
+ * cobria a mesma instância — como `erp.factory.ts` cria uma instância nova por
+ * chamada, o modo OAuth reautenticava do zero quase toda operação. Agora o
+ * adapter aceita um `tokenCache` opcional (Redis, escopo tenant+provider — ver
+ * `erp-oauth-cache.service.ts`) que os call sites (ToolsExecutor,
+ * sales-funnel.service) passam pra sobreviver entre instâncias. Sem ele, cai
+ * de volta pro cache em memória local (comportamento antigo).
  */
 export class VoalleAdapter implements ERPProvider {
   readonly name = 'voalle' as const;
@@ -33,6 +35,7 @@ export class VoalleAdapter implements ERPProvider {
   constructor(
     private readonly creds: ERPCredentials,
     private readonly http: HttpClient = fetch as unknown as HttpClient,
+    private readonly tokenCache?: OAuthTokenCache,
   ) {
     const hasToken = !!creds?.token;
     const hasOAuth = !!(creds?.clientId && creds?.clientSecret);
@@ -44,15 +47,27 @@ export class VoalleAdapter implements ERPProvider {
 
   /**
    * Retorna um Bearer válido. Com `token` pré-gerado, devolve direto. Com
-   * clientId/clientSecret, faz o grant client_credentials e cacheia o
-   * access_token, renovando 60s antes do `expires_in` informado pelo ERP.
+   * clientId/clientSecret, faz o grant client_credentials, cacheando o
+   * access_token — primeiro no `tokenCache` compartilhado (se injetado),
+   * depois em memória local — e renovando 60s antes do `expires_in`
+   * informado pelo ERP.
    */
   private async getAccessToken(): Promise<string> {
     // Modo token pré-gerado: estático, nunca expira aqui.
     if (this.creds.token && !this.creds.clientId) return String(this.creds.token);
 
-    // Cache OAuth ainda válido.
+    // Cache OAuth em memória, ainda válido.
     if (this.accessToken && Date.now() < this.tokenExpiresAt) return this.accessToken;
+
+    // Cache OAuth compartilhado (Redis) — sobrevive a instâncias criadas a
+    // cada chamada pela factory.
+    if (this.tokenCache) {
+      const cached = await this.tokenCache.get();
+      if (cached) {
+        this.accessToken = cached;
+        return cached;
+      }
+    }
 
     const res = await this.http(`${this.baseUrl}/oauth/token`, {
       method: 'POST',
@@ -74,6 +89,7 @@ export class VoalleAdapter implements ERPProvider {
     this.accessToken = String(token);
     const ttlSec = Number(data?.expires_in ?? 3600);
     this.tokenExpiresAt = Date.now() + Math.max(0, ttlSec - 60) * 1000;
+    if (this.tokenCache) await this.tokenCache.set(this.accessToken, Math.max(0, ttlSec - 60));
     return this.accessToken;
   }
 

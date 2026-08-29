@@ -54,7 +54,10 @@ const ERP_PROVIDERS: ErpProvider[] = [
     id: 'hubsoft', label: 'HubSoft', icon: '🏢',
     fields: [
       { key: 'url', label: 'URL da API', placeholder: 'https://hubsoft.seudominio.com.br' },
-      { key: 'token', label: 'Token', placeholder: 'seu-token-hubsoft', type: 'password' },
+      { key: 'clientId', label: 'Client ID', placeholder: 'client-id' },
+      { key: 'clientSecret', label: 'Client Secret', placeholder: '••••••••', type: 'password' },
+      { key: 'username', label: 'Usuário (e-mail cadastrado na API)', placeholder: 'api@seudominio.com.br' },
+      { key: 'password', label: 'Senha', placeholder: '••••••••', type: 'password' },
     ],
   },
   {

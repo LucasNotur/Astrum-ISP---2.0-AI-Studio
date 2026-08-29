@@ -168,4 +168,38 @@ describe('VoalleAdapter', () => {
     const adapter = new VoalleAdapter(oauthCreds, http);
     await expect(adapter.findCustomerByCpf('00000000000')).rejects.toThrow('resposta sem access_token');
   });
+
+  // ── tokenCache compartilhado (Redis) — sobrevive a instâncias novas por chamada ──
+  it('tokenCache — usa o token cacheado sem fazer novo token-exchange', async () => {
+    const http = vi.fn().mockResolvedValue({
+      ok: true, status: 200, statusText: 'OK',
+      json: async () => [{ id: 1 }],
+    }) as unknown as HttpClient;
+    const tokenCache = { get: vi.fn().mockResolvedValue('cached-tok'), set: vi.fn() };
+
+    const adapter = new VoalleAdapter(oauthCreds, http, tokenCache as any);
+    await adapter.findCustomerByCpf('00000000000');
+
+    expect(tokenCache.get).toHaveBeenCalled();
+    expect((http as any).mock.calls[0][1].headers['Authorization']).toBe('Bearer cached-tok');
+    expect((http as any).mock.calls.some((c: any[]) => c[0].endsWith('/oauth/token'))).toBe(false);
+  });
+
+  it('tokenCache — grava o token novo após o token-exchange', async () => {
+    const http = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true, status: 200, statusText: 'OK',
+        json: async () => ({ access_token: 'fresh-tok', expires_in: 3600 }),
+      })
+      .mockResolvedValueOnce({
+        ok: true, status: 200, statusText: 'OK',
+        json: async () => [],
+      }) as unknown as HttpClient;
+    const tokenCache = { get: vi.fn().mockResolvedValue(null), set: vi.fn() };
+
+    const adapter = new VoalleAdapter(oauthCreds, http, tokenCache as any);
+    await adapter.findCustomerByCpf('00000000000');
+
+    expect(tokenCache.set).toHaveBeenCalledWith('fresh-tok', 3540);
+  });
 });
