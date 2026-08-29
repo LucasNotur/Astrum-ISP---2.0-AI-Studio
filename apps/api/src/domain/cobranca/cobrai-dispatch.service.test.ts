@@ -18,8 +18,9 @@ describe('computeStage', () => {
     expect(computeStage(iso(2026, 6, 28), NOW)).toBe('D_PLUS_15'); // ~18d
     expect(computeStage(iso(2026, 7, 10), NOW)).toBe('D_PLUS_3');  // 5d
     expect(computeStage(iso(2026, 7, 15), NOW)).toBe('D_ZERO');    // 0d
-    expect(computeStage(iso(2026, 7, 14), NOW)).toBe('D_MINUS_5'); // 1d → else
-    expect(computeStage(iso(2026, 7, 20), NOW)).toBe('D_MINUS_5'); // não venceu
+    expect(computeStage(iso(2026, 7, 14), NOW)).toBe('D_ZERO');    // 1d de atraso → já venceu (D_ZERO), não pré-vencimento
+    expect(computeStage(iso(2026, 7, 13), NOW)).toBe('D_ZERO');    // 2d de atraso → idem
+    expect(computeStage(iso(2026, 7, 20), NOW)).toBe('D_MINUS_5'); // não venceu (-5d)
   });
 });
 

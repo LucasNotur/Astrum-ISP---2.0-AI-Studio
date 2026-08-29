@@ -27,7 +27,7 @@ export function computeStage(dueDateIso: string, nowMs: number): CobraiStage {
   if (d >= 30) return 'D_PLUS_30';
   if (d >= 15) return 'D_PLUS_15';
   if (d >= 3) return 'D_PLUS_3';
-  if (d === 0) return 'D_ZERO';
+  if (d >= 0) return 'D_ZERO'; // 0, 1 ou 2 dias de atraso: já venceu → D_ZERO (não pré-vencimento)
   return 'D_MINUS_5';
 }
 
