@@ -5,12 +5,39 @@ import type { OAuthTokenCache } from './erp-oauth-cache.service';
 /**
  * P0-05 — Hubsoft adapter.
  *
- * Hubsoft usa autenticação Bearer via token de acesso. Os endpoints seguem a
- * API REST do Hubsoft (ISP Manager). Integração com módulo financeiro e
- * controle de conexão via ONU/OLT.
- * HTTP injetável para teste.
+ * Endpoints de negócio reescritos 2026-08-29 — a versão anterior usava paths
+ * inventados (`/api/v1/clientes`, `/api/v1/financeiro/cobrancas/.../segunda-via`)
+ * que não existem. Confirmado contra a **collection Postman oficial publicada**
+ * (docs.hubsoft.com.br → `/api/collections/23327122/2sA35LUysW`, baixada e lida
+ * por inteiro — 189 endpoints, com request/response de exemplo reais, timestamps
+ * de julho/2026 — não é doc estática, é regenerada de uma conta de teste viva):
  *
- * Autenticação (dois modos, mesmo padrão do VoalleAdapter):
+ *  - Clientes: `GET /api/v1/integracao/cliente?busca=cpf_cnpj&termo_busca=<cpf>`
+ *    (busca também aceita `id_cliente_servico`, `codigo_cliente`, etc.).
+ *  - Financeiro: `GET /api/v1/integracao/cliente/financeiro?busca=id_cliente_servico&termo_busca=<id>`
+ *    — as faturas JÁ vêm com boleto pronto (`link`), linha digitável
+ *    (`linha_digitavel`) e PIX (`pix_copia_cola`) — **não existe endpoint de
+ *    "gerar 2ª via"**, é só filtrar a fatura certa na lista.
+ *  - Conexão: não existe "status ao vivo" dedicado — `busca=id_cliente_servico&
+ *    ultima_conexao=sim` embute o último acct RADIUS
+ *    (`servicos[].ultima_conexao.conectado`) na mesma consulta de cliente.
+ *  - Desbloqueio: `POST /api/v1/integracao/cliente/desbloqueio_confianca` com
+ *    `{ id_cliente_servico, dias_desbloqueio }`.
+ *
+ * `customerId`/`idClienteServico` nos métodos abaixo é o `id_cliente_servico`
+ * (identificador do SERVIÇO/plano, não do cliente — um `id_cliente` pode ter
+ * vários `id_cliente_servico`) — é o que financeiro/conexão/desbloqueio usam
+ * como chave de busca na API real.
+ *
+ * ⚠️ Ainda sem validação ao vivo de verdade (sem credencial de tenant real) —
+ * o request de auth foi testado contra `api.dev.hubsoft.com.br` com as
+ * credenciais de exemplo da doc antiga (resultado: 401 — credenciais mortas,
+ * mas confirma que a URL/formato do request estão certos, servidor responde
+ * de verdade). Os endpoints de negócio acima vêm da collection oficial, não
+ * foram exercitados contra um tenant real.
+ *
+ * Autenticação (dois modos, mesmo padrão do VoalleAdapter) — validada contra
+ * a mesma collection oficial, response shape bate exatamente com o código:
  *  1. OAuth2 password grant — credenciais trazem `clientId` + `clientSecret` +
  *     `username` + `password`; o adapter troca em POST /oauth/token e cacheia
  *     o access_token respeitando `expires_in`.
@@ -133,33 +160,55 @@ export class HubsoftAdapter implements ERPProvider {
 
   async findCustomerByCpf(cpf: string) {
     const clean = cpf.replace(/\D/g, '');
-    return this.get(`/api/v1/clientes?cpf_cnpj=${clean}&per_page=5`);
+    return this.get(`/api/v1/integracao/cliente?busca=cpf_cnpj&termo_busca=${clean}`);
   }
 
-  async getBillingStatus(customerId: string) {
-    return this.get(`/api/v1/financeiro/cobrancas?cliente_id=${customerId}&status=pendente&per_page=10`);
+  async getBillingStatus(idClienteServico: string) {
+    return this.get(
+      `/api/v1/integracao/cliente/financeiro?busca=id_cliente_servico&termo_busca=${encodeURIComponent(idClienteServico)}&apenas_pendente=sim`,
+    );
   }
 
-  async generateSecondCopy(customerId: string, invoiceId: string): Promise<SecondCopyResult> {
-    const data = await this.post(`/api/v1/financeiro/cobrancas/${invoiceId}/segunda-via`, {
-      cliente_id: customerId,
-    });
+  async generateSecondCopy(idClienteServico: string, invoiceId: string): Promise<SecondCopyResult> {
+    // Não existe endpoint de "gerar 2ª via" — o boleto/PIX já vêm prontos na
+    // consulta de faturas (campos `link`, `linha_digitavel`, `pix_copia_cola`).
+    // apenas_pendente=nao pra achar a fatura mesmo que já tenha sido paga.
+    const data = await this.get(
+      `/api/v1/integracao/cliente/financeiro?busca=id_cliente_servico&termo_busca=${encodeURIComponent(idClienteServico)}&apenas_pendente=nao&limit=50`,
+    );
+    const faturas: any[] = data?.faturas ?? [];
+    const fatura = faturas.find((f) => String(f?.id_fatura) === String(invoiceId));
+    if (!fatura) {
+      throw new Error(`Hubsoft: fatura ${invoiceId} não encontrada para o serviço ${idClienteServico}`);
+    }
     return {
-      boletoUrl: data?.boleto?.url ?? data?.url ?? '',
-      pixCopiaCola: data?.pix?.copia_cola ?? data?.pix ?? '',
-      barcode: data?.boleto?.linha_digitavel ?? data?.codigo_barras ?? '',
-      dueDate: data?.data_vencimento ?? data?.vencimento ?? '',
-      amountCents: parseAmountToCents(data?.valor ?? data?.amount ?? '0'),
+      boletoUrl: fatura?.link ?? '',
+      pixCopiaCola: fatura?.pix_copia_cola ?? '',
+      barcode: fatura?.linha_digitavel ?? '',
+      dueDate: fatura?.data_vencimento ?? '',
+      amountCents: parseAmountToCents(fatura?.valor ?? 0),
     };
   }
 
-  async getConnectionStatus(customerId: string): Promise<ConnectionStatus> {
-    const data = await this.get(`/api/v1/clientes/${customerId}/conexao`);
-    const online = data?.ativo === true || data?.status === 'ativo' || data?.conectado === true;
-    return { online, raw: data };
+  async getConnectionStatus(idClienteServico: string): Promise<ConnectionStatus> {
+    // `ultima_conexao=sim` embute o status de conexão RADIUS mais recente
+    // (`servicos[].ultima_conexao.conectado`) direto na consulta de cliente —
+    // não existe um "status ao vivo" separado, é o último acct do RADIUS.
+    const data = await this.get(
+      `/api/v1/integracao/cliente?busca=id_cliente_servico&termo_busca=${encodeURIComponent(idClienteServico)}&ultima_conexao=sim`,
+    );
+    const clientes: any[] = data?.clientes ?? [];
+    const servico = clientes
+      .flatMap((c) => c?.servicos ?? [])
+      .find((s: any) => String(s?.id_cliente_servico) === String(idClienteServico));
+    if (!servico) throw new Error(`Hubsoft: serviço ${idClienteServico} não encontrado`);
+    return { online: servico?.ultima_conexao?.conectado === true, raw: data };
   }
 
-  async unlockCustomer(customerId: string) {
-    return this.post(`/api/v1/clientes/${customerId}/desbloquear`, { tipo: 'confianca' });
+  async unlockCustomer(idClienteServico: string) {
+    return this.post('/api/v1/integracao/cliente/desbloqueio_confianca', {
+      id_cliente_servico: idClienteServico,
+      dias_desbloqueio: '1',
+    });
   }
 }

@@ -26,43 +26,86 @@ describe('HubsoftAdapter', () => {
     expect(init.headers['Authorization']).toBe('Bearer hs-token');
   });
 
-  it('findCustomerByCpf — monta URL com cpf_cnpj limpo', async () => {
-    const http = makeHttp([]);
+  it('findCustomerByCpf — monta URL com busca=cpf_cnpj e cpf limpo', async () => {
+    const http = makeHttp({ clientes: [] });
     const adapter = new HubsoftAdapter(creds, http);
     await adapter.findCustomerByCpf('111.222.333-44');
     expect(http).toHaveBeenCalledWith(
-      'https://hubsoft.isp.test/api/v1/clientes?cpf_cnpj=11122233344&per_page=5',
+      'https://hubsoft.isp.test/api/v1/integracao/cliente?busca=cpf_cnpj&termo_busca=11122233344',
       expect.anything(),
     );
   });
 
-  it('generateSecondCopy — extrai campos do objeto boleto aninhado', async () => {
+  it('getBillingStatus — consulta financeiro por id_cliente_servico', async () => {
+    const http = makeHttp({ faturas: [] });
+    const adapter = new HubsoftAdapter(creds, http);
+    await adapter.getBillingStatus('18659');
+    expect(http).toHaveBeenCalledWith(
+      'https://hubsoft.isp.test/api/v1/integracao/cliente/financeiro?busca=id_cliente_servico&termo_busca=18659&apenas_pendente=sim',
+      expect.anything(),
+    );
+  });
+
+  it('generateSecondCopy — acha a fatura certa na lista (boleto/pix já vêm prontos, sem endpoint de geração)', async () => {
     const http = makeHttp({
-      boleto: { url: 'https://boleto.hs', linha_digitavel: '76091.75301' },
-      pix: { copia_cola: 'pix-hs-123' },
-      data_vencimento: '2026-10-15',
-      valor: '250,00',
+      faturas: [
+        { id_fatura: 111, link: 'https://boleto.hs/1', linha_digitavel: '111.111', pix_copia_cola: 'pix-1', valor: 50, data_vencimento: '01/01/2026' },
+        { id_fatura: 222, link: 'https://boleto.hs/2', linha_digitavel: '76091.75301', pix_copia_cola: 'pix-hs-123', valor: 250, data_vencimento: '15/10/2026' },
+      ],
     });
     const adapter = new HubsoftAdapter(creds, http);
-    const result = await adapter.generateSecondCopy('cid-1', 'inv-1');
-    expect(result.boletoUrl).toBe('https://boleto.hs');
+    const result = await adapter.generateSecondCopy('cid-1', '222');
+    expect(result.boletoUrl).toBe('https://boleto.hs/2');
     expect(result.pixCopiaCola).toBe('pix-hs-123');
     expect(result.barcode).toBe('76091.75301');
+    expect(result.dueDate).toBe('15/10/2026');
     expect(result.amountCents).toBe(25000);
   });
 
-  it('getConnectionStatus — detecta online por conectado=true', async () => {
-    const http = makeHttp({ conectado: true });
+  it('generateSecondCopy — lança quando a fatura não está na lista (não manda a de outro cliente)', async () => {
+    const http = makeHttp({ faturas: [{ id_fatura: 111, valor: 50 }] });
     const adapter = new HubsoftAdapter(creds, http);
-    const result = await adapter.getConnectionStatus('cid-1');
+    await expect(adapter.generateSecondCopy('cid-1', '999')).rejects.toThrow('fatura 999 não encontrada');
+  });
+
+  it('getConnectionStatus — detecta online via servicos[].ultima_conexao.conectado', async () => {
+    const http = makeHttp({
+      clientes: [{ servicos: [{ id_cliente_servico: '18659', ultima_conexao: { conectado: true } }] }],
+    });
+    const adapter = new HubsoftAdapter(creds, http);
+    const result = await adapter.getConnectionStatus('18659');
+    expect(http).toHaveBeenCalledWith(
+      'https://hubsoft.isp.test/api/v1/integracao/cliente?busca=id_cliente_servico&termo_busca=18659&ultima_conexao=sim',
+      expect.anything(),
+    );
     expect(result.online).toBe(true);
   });
 
-  it('getConnectionStatus — offline quando todos os flags ausentes/false', async () => {
-    const http = makeHttp({ conectado: false, ativo: false, status: 'bloqueado' });
+  it('getConnectionStatus — offline quando conectado=false', async () => {
+    const http = makeHttp({
+      clientes: [{ servicos: [{ id_cliente_servico: '18659', ultima_conexao: { conectado: false } }] }],
+    });
     const adapter = new HubsoftAdapter(creds, http);
-    const result = await adapter.getConnectionStatus('cid-1');
+    const result = await adapter.getConnectionStatus('18659');
     expect(result.online).toBe(false);
+  });
+
+  it('getConnectionStatus — lança se o serviço não aparece na resposta', async () => {
+    const http = makeHttp({ clientes: [{ servicos: [{ id_cliente_servico: 'outro' }] }] });
+    const adapter = new HubsoftAdapter(creds, http);
+    await expect(adapter.getConnectionStatus('18659')).rejects.toThrow('serviço 18659 não encontrado');
+  });
+
+  it('unlockCustomer — POST desbloqueio_confianca com id_cliente_servico', async () => {
+    const http = makeHttp({ status: 'success' });
+    const adapter = new HubsoftAdapter(creds, http);
+    await adapter.unlockCustomer('18659');
+    expect(http).toHaveBeenCalledWith(
+      'https://hubsoft.isp.test/api/v1/integracao/cliente/desbloqueio_confianca',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    const body = JSON.parse((http as any).mock.calls[0][1].body);
+    expect(body).toEqual({ id_cliente_servico: '18659', dias_desbloqueio: '1' });
   });
 
   it('lança quando API responde !ok', async () => {
@@ -116,7 +159,7 @@ describe('HubsoftAdapter', () => {
     });
 
     expect((http as any).mock.calls[1][0]).toBe(
-      'https://hubsoft.isp.test/api/v1/clientes?cpf_cnpj=12345678900&per_page=5',
+      'https://hubsoft.isp.test/api/v1/integracao/cliente?busca=cpf_cnpj&termo_busca=12345678900',
     );
     expect((http as any).mock.calls[1][1].headers['Authorization']).toBe('Bearer oauth-tok-123');
     expect(result).toEqual([{ id: 1 }]);
