@@ -11,11 +11,15 @@ export function getVoiceVerifyPort(): IVoiceVerifyPort {
   return _port;
 }
 
-export async function hasConsent(customerId: string): Promise<boolean> {
+export async function hasConsent(customerId: string, tenantId: string): Promise<boolean> {
+  // Isolamento de tenant (SEC voice-consent, 2026-09-01): o backend usa service_role e
+  // BYPASSA a RLS, então o filtro por tenant_id é OBRIGATÓRIO aqui — senão um tenant lê
+  // o consentimento de um cliente de outro provedor só informando o customerId.
   const { data } = await supabaseAdmin
     .from('voice_biometry_consents')
     .select('customer_id, revoked_at')
     .eq('customer_id', customerId)
+    .eq('tenant_id', tenantId)
     .maybeSingle();
 
   return !!data && !data.revoked_at;
@@ -37,24 +41,30 @@ export async function grantConsent(
     });
 }
 
-export async function revokeConsent(customerId: string): Promise<void> {
+export async function revokeConsent(customerId: string, tenantId: string): Promise<void> {
+  // Isolamento de tenant (SEC voice-consent, 2026-09-01): sem o filtro por tenant_id,
+  // um operador de qualquer provedor revogaria o consentimento E apagaria as voice_prints
+  // (dado biométrico) de clientes de OUTRO tenant — operação destrutiva cross-tenant.
   await supabaseAdmin
     .from('voice_biometry_consents')
     .update({ revoked_at: new Date().toISOString() })
-    .eq('customer_id', customerId);
+    .eq('customer_id', customerId)
+    .eq('tenant_id', tenantId);
 
   // LGPD art. 18: apagar voice_prints imediatamente
   await supabaseAdmin
     .from('voice_prints')
     .delete()
-    .eq('customer_id', customerId);
+    .eq('customer_id', customerId)
+    .eq('tenant_id', tenantId);
 }
 
 export async function verifyOrChallenge(
   callId: string,
   customerId: string,
+  tenantId: string,
 ): Promise<{ method: 'biometric' | 'challenge'; verified: boolean; confidence?: number }> {
-  const consented = await hasConsent(customerId);
+  const consented = await hasConsent(customerId, tenantId);
   if (!consented) {
     return { method: 'challenge', verified: false };
   }

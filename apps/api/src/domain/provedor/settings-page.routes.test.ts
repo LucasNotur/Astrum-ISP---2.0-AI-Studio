@@ -83,10 +83,12 @@ describe('settings-page.routes', () => {
   });
 
   describe('PUT /api/v2/settings/modules', () => {
-    it('sem tenant no JWT -> 401', async () => {
+    // Token sem papel válido (nem tenant) é barrado pelo RBAC ANTES do handler (403) —
+    // a autorização (settings:write) roda antes da checagem de tenant. (SEC settings-rbac)
+    it('sem papel/tenant no JWT -> 403 (RBAC antes do handler)', async () => {
       const app = await buildApp({});
       const res = await app.inject({ method: 'PUT', url: '/api/v2/settings/modules', payload: { modules: {} } });
-      expect(res.statusCode).toBe(401);
+      expect(res.statusCode).toBe(403);
     });
 
     it('sem body "modules" -> 400', async () => {
@@ -145,10 +147,10 @@ describe('settings-page.routes', () => {
   });
 
   describe('PUT /api/v2/settings/escalation-rules', () => {
-    it('sem tenant no JWT -> 401', async () => {
+    it('sem papel/tenant no JWT -> 403 (RBAC antes do handler)', async () => {
       const app = await buildApp({});
       const res = await app.inject({ method: 'PUT', url: '/api/v2/settings/escalation-rules', payload: { escalation_rules: [] } });
-      expect(res.statusCode).toBe(401);
+      expect(res.statusCode).toBe(403);
     });
 
     it('sem body array -> 400', async () => {
@@ -215,10 +217,10 @@ describe('settings-page.routes', () => {
   });
 
   describe('PUT /api/v2/settings/company', () => {
-    it('sem tenant no JWT -> 401', async () => {
+    it('sem papel/tenant no JWT -> 403 (RBAC antes do handler)', async () => {
       const app = await buildApp({});
       const res = await app.inject({ method: 'PUT', url: '/api/v2/settings/company', payload: { name: 'x' } });
-      expect(res.statusCode).toBe(401);
+      expect(res.statusCode).toBe(403);
     });
 
     it('corpo sem nenhum campo válido -> 400', async () => {
@@ -342,6 +344,32 @@ describe('settings-page.routes', () => {
       const chain = (supabaseAdmin.from as any).mock.results[0].value;
       expect(chain.update).toHaveBeenCalledWith({ embedding_config: { model: 'text-embedding-3-large' } });
       expect(chain.eq).toHaveBeenCalledWith('id', 'tenant-1');
+    });
+  });
+
+  // SEC settings-rbac (2026-09-01): a escrita de configuração do provedor exige admin+ no
+  // SERVIDOR — antes só o frontend escondia por papel (SettingsPage: isAstrum === 'admin').
+  // A leitura fica aberta a qualquer usuário autenticado do tenant (a UI usa tema/módulos).
+  describe('RBAC no servidor (SEC settings-rbac)', () => {
+    it('operator NÃO pode escrever SSO -> 403 e não toca no banco', async () => {
+      const app = await buildApp({ userId: 'o1', tenantId: 'tenant-1', role: 'operator' });
+      const res = await app.inject({ method: 'PUT', url: '/api/v2/settings/sso', payload: { domain: 'evil.com' } });
+      expect(res.statusCode).toBe(403);
+      expect(supabaseAdmin.from).not.toHaveBeenCalled();
+    });
+
+    it('viewer NÃO pode escrever vector-store (BYOK) -> 403', async () => {
+      const app = await buildApp({ userId: 'v1', tenantId: 'tenant-1', role: 'viewer' });
+      const res = await app.inject({ method: 'PUT', url: '/api/v2/settings/vector-store', payload: { url: 'x', apiKey: 'k' } });
+      expect(res.statusCode).toBe(403);
+      expect(supabaseAdmin.from).not.toHaveBeenCalled();
+    });
+
+    it('operator PODE LER módulos (leitura aberta a usuário autenticado do tenant)', async () => {
+      mockFromSequence([{ data: { enabled_modules: {} }, error: null }]);
+      const app = await buildApp({ userId: 'o1', tenantId: 'tenant-1', role: 'operator' });
+      const res = await app.inject({ method: 'GET', url: '/api/v2/settings/modules' });
+      expect(res.statusCode).toBe(200);
     });
   });
 });

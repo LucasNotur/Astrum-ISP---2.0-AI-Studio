@@ -40,4 +40,16 @@ describe('meta webhook alias — /api/webhook/facebook', () => {
     expect(legacy.statusCode).toBe(v2.statusCode);
     expect(legacy.body).toBe(v2.body);
   });
+
+  // SEC meta-fail-closed (2026-09-01): evento real (object=instagram) sem assinatura válida
+  // deve ser REJEITADO (401), mesmo sem FACEBOOK_APP_SECRET — antes era processado (fail-open).
+  it('POST com object=instagram sem assinatura válida -> 401 (fail-closed)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v2/webhook/meta',
+      payload: { object: 'instagram', entry: [] },
+    });
+    expect(res.statusCode).toBe(401);
+    expect(JSON.parse(res.body).code).toBe('INVALID_SIGNATURE');
+  });
 });

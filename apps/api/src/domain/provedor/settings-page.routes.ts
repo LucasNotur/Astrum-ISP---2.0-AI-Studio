@@ -14,6 +14,7 @@
 import type { FastifyInstance } from 'fastify';
 import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
+import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 
 const COMPANY_FIELDS = ['name', 'logoUrl', 'supportEmail', 'supportPhone', 'workingHours', 'timezone'] as const;
 const COMPANY_FIELD_TO_COLUMN: Record<(typeof COMPANY_FIELDS)[number], string> = {
@@ -38,6 +39,10 @@ const EMBEDDING_CONFIG_DEFAULT = { provider: 'openai', apiKey: '', model: 'text-
 
 export async function settingsPageRoutes(app: FastifyInstance) {
   const auth = [async (req: any, reply: any) => { await (app as any).authenticate(req, reply); }];
+  // SEC settings-rbac (2026-09-01): escrita de configuração do provedor exige admin+ no
+  // SERVIDOR (antes só o frontend escondia por papel). Leitura fica aberta a qualquer
+  // usuário autenticado do tenant (a UI usa tema/módulos).
+  const canWrite = [requirePermission('settings', 'write')];
 
   // GET /api/v2/settings/modules — toggles de módulos habilitados pro tenant.
   app.get('/api/v2/settings/modules', { onRequest: auth }, async (req: any, reply: any) => {
@@ -54,7 +59,7 @@ export async function settingsPageRoutes(app: FastifyInstance) {
   });
 
   // PUT /api/v2/settings/modules — salva os toggles de módulos.
-  app.put('/api/v2/settings/modules', { onRequest: auth }, async (req: any, reply: any) => {
+  app.put('/api/v2/settings/modules', { onRequest: auth, preHandler: canWrite }, async (req: any, reply: any) => {
     const tenantId = getTenantId(req.user);
     if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
 
@@ -89,7 +94,7 @@ export async function settingsPageRoutes(app: FastifyInstance) {
 
   // PUT /api/v2/settings/escalation-rules — salva o array de regras (substitui inteiro,
   // mesmo padrão do frontend atual — persistRules sempre grava a lista completa).
-  app.put('/api/v2/settings/escalation-rules', { onRequest: auth }, async (req: any, reply: any) => {
+  app.put('/api/v2/settings/escalation-rules', { onRequest: auth, preHandler: canWrite }, async (req: any, reply: any) => {
     const tenantId = getTenantId(req.user);
     if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
 
@@ -131,7 +136,7 @@ export async function settingsPageRoutes(app: FastifyInstance) {
 
   // PUT /api/v2/settings/company — allowlist explícita (achado F1-C: o código antigo
   // espalhava QUALQUER chave do estado do frontend como nome de coluna).
-  app.put('/api/v2/settings/company', { onRequest: auth }, async (req: any, reply: any) => {
+  app.put('/api/v2/settings/company', { onRequest: auth, preHandler: canWrite }, async (req: any, reply: any) => {
     const tenantId = getTenantId(req.user);
     if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
 
@@ -167,7 +172,7 @@ export async function settingsPageRoutes(app: FastifyInstance) {
     return reply.send({ domain: data?.sso_config?.domain ?? '' });
   });
 
-  app.put('/api/v2/settings/sso', { onRequest: auth }, async (req: any, reply: any) => {
+  app.put('/api/v2/settings/sso', { onRequest: auth, preHandler: canWrite }, async (req: any, reply: any) => {
     const tenantId = getTenantId(req.user);
     if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
 
@@ -199,7 +204,7 @@ export async function settingsPageRoutes(app: FastifyInstance) {
     return reply.send({ ...THEME_DEFAULT, ...(data?.theme ?? {}) });
   });
 
-  app.put('/api/v2/settings/theme', { onRequest: auth }, async (req: any, reply: any) => {
+  app.put('/api/v2/settings/theme', { onRequest: auth, preHandler: canWrite }, async (req: any, reply: any) => {
     const tenantId = getTenantId(req.user);
     if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
 
@@ -240,7 +245,7 @@ export async function settingsPageRoutes(app: FastifyInstance) {
     return reply.send({ ...VECTOR_STORE_DEFAULT, ...(data?.vector_store_config ?? {}), indexedCount });
   });
 
-  app.put('/api/v2/settings/vector-store', { onRequest: auth }, async (req: any, reply: any) => {
+  app.put('/api/v2/settings/vector-store', { onRequest: auth, preHandler: canWrite }, async (req: any, reply: any) => {
     const tenantId = getTenantId(req.user);
     if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
 
@@ -276,7 +281,7 @@ export async function settingsPageRoutes(app: FastifyInstance) {
     return reply.send({ ...EMBEDDING_CONFIG_DEFAULT, ...(data?.embedding_config ?? {}) });
   });
 
-  app.put('/api/v2/settings/embedding-config', { onRequest: auth }, async (req: any, reply: any) => {
+  app.put('/api/v2/settings/embedding-config', { onRequest: auth, preHandler: canWrite }, async (req: any, reply: any) => {
     const tenantId = getTenantId(req.user);
     if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
 

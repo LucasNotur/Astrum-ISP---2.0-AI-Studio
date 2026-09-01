@@ -9,6 +9,7 @@
 import type { FastifyInstance } from 'fastify';
 import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
+import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 
 function tenantOf(req: any): string | null {
   return getTenantId(req.user);
@@ -16,6 +17,8 @@ function tenantOf(req: any): string | null {
 
 export async function aiConfigRoutes(app: FastifyInstance) {
   const auth = [async (req: any, reply: any) => { await (app as any).authenticate(req, reply); }];
+  // SEC settings-rbac (2026-09-01): alterar a régua CobrAI exige ai_config:write (admin+).
+  const canWrite = [requirePermission('ai_config', 'write')];
 
   // GET /api/v2/ai-config/cobrai-settings
   app.get('/api/v2/ai-config/cobrai-settings', { onRequest: auth }, async (req: any, reply: any) => {
@@ -32,7 +35,7 @@ export async function aiConfigRoutes(app: FastifyInstance) {
   });
 
   // PUT /api/v2/ai-config/cobrai-settings — allowlist explícito (nunca aceita tenantId do body).
-  app.put('/api/v2/ai-config/cobrai-settings', { onRequest: auth }, async (req: any, reply: any) => {
+  app.put('/api/v2/ai-config/cobrai-settings', { onRequest: auth, preHandler: canWrite }, async (req: any, reply: any) => {
     const tenantId = tenantOf(req);
     if (!tenantId) return reply.code(401).send({ code: 'UNAUTHORIZED' });
 

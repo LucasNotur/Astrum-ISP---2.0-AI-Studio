@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { getTenantId } from '../../lib/jwt-claims';
 import { supabaseAdmin as supabase } from '../../infrastructure/database/supabase.client';
+import { requirePermission } from '../../infrastructure/auth/rbac.middleware';
 import { mergeAndEncryptIntegrationKeys, computeSecretsStatus } from './integration-secrets.service';
 
 /**
@@ -21,9 +22,12 @@ export async function integrationSecretsRoutes(app: FastifyInstance) {
     return computeSecretsStatus((data?.integration_keys as Record<string, string>) ?? {});
   });
 
+  // SEC settings-rbac (2026-09-01): gravar chaves BYOK (OpenAI/Evolution) exige admin+.
+  const canWrite = [requirePermission('settings', 'write')];
+
   app.put<{ Body: { keys: Record<string, string> } }>(
     '/api/v2/settings/integration-keys',
-    { onRequest: auth },
+    { onRequest: auth, preHandler: canWrite },
     async (req, reply) => {
       const tenantId = getTenantId((req as any).user);
       if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });

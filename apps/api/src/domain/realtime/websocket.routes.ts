@@ -4,6 +4,7 @@ import fp from 'fastify-plugin';
 import websocket from '@fastify/websocket';
 import { infraLogger } from '../../infrastructure/logging/logger';
 import { getRedisClient } from '../../infrastructure/cache/redis.client';
+import { OPERATOR_TOKEN_ISSUER, OPERATOR_TOKEN_AUDIENCE } from '../../infrastructure/auth/jwt.service';
 
 /**
  * WebSockets Bidirecionais
@@ -237,12 +238,25 @@ async function wsAuthenticate(request: any, reply: any) {
 
   if (!token) return reply.status(401).send({ error: 'Token required' });
 
+  let payload: any;
   try {
-    const payload = request.server.jwt.verify(token);
-    request.user = payload;
+    payload = request.server.jwt.verify(token);
   } catch (err) {
     return reply.status(401).send({ error: 'Invalid token' });
   }
+
+  // SEC ws-auth (2026-09-01): estes canais são de OPERADOR. Sem esta checagem, o token do
+  // portal do ASSINANTE (role:'subscriber'/aud:'subscriber-portal'), assinado com o MESMO
+  // JWT_SECRET, passava aqui e lia notificações e conversas ao vivo de todos os clientes do
+  // ISP. Espelha o decorator HTTP `authenticate` (server.ts, AUTH-01/AUTH-05).
+  if (payload?.role === 'subscriber' || payload?.aud === 'subscriber-portal') {
+    return reply.status(403).send({ error: 'Token de assinante não é válido para canais de operador' });
+  }
+  if (payload?.iss !== OPERATOR_TOKEN_ISSUER || payload?.aud !== OPERATOR_TOKEN_AUDIENCE) {
+    return reply.status(401).send({ error: 'Token com emissor/audiência inválidos' });
+  }
+
+  request.user = payload;
 }
 
 function wsRequireRole(roles: string[]) {

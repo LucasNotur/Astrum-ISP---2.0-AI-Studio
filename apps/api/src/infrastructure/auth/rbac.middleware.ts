@@ -2,11 +2,11 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import { securityLogger } from '../logging/logger';
 
 export type Role = 'super_admin' | 'admin' | 'operator' | 'viewer';
-export type Resource = 'tickets' | 'customers' | 'billing' | 'ai_config' | 'reports' | 'users' | 'service_orders' | 'whatsapp_templates' | '*';
+export type Resource = 'tickets' | 'customers' | 'billing' | 'ai_config' | 'reports' | 'users' | 'service_orders' | 'whatsapp_templates' | 'settings' | '*';
 export type Action = 'read' | 'write' | 'delete' | 'admin' | '*';
 
 const ROLE_PERMISSIONS: Record<Role, Record<Resource, Action[]>> = {
-  super_admin: { '*': ['*'], tickets: ['*'], customers: ['*'], billing: ['*'], ai_config: ['*'], reports: ['*'], users: ['*'], service_orders: ['*'], whatsapp_templates: ['*'] },
+  super_admin: { '*': ['*'], tickets: ['*'], customers: ['*'], billing: ['*'], ai_config: ['*'], reports: ['*'], users: ['*'], service_orders: ['*'], whatsapp_templates: ['*'], settings: ['*'] },
   admin: {
     '*': [],
     tickets: ['read', 'write', 'delete'],
@@ -17,6 +17,9 @@ const ROLE_PERMISSIONS: Record<Role, Record<Resource, Action[]>> = {
     users: ['read', 'write'],
     service_orders: ['read', 'write', 'delete'],
     whatsapp_templates: ['read', 'write'],
+    // Configuração do provedor (SSO, tema, vector-store, chaves de integração, régua CobrAI):
+    // só admin+ escreve — espelha o gate de UI (SettingsPage: isAstrum === 'admin').
+    settings: ['read', 'write'],
   },
   operator: {
     '*': [],
@@ -29,6 +32,8 @@ const ROLE_PERMISSIONS: Record<Role, Record<Resource, Action[]>> = {
     // Técnico de campo (D-06) usa role operator: diagnostica e anexa na OS.
     service_orders: ['read', 'write'],
     whatsapp_templates: ['read'],
+    // Operador pode LER configs (a UI usa tema/módulos), mas nunca escrever.
+    settings: ['read'],
   },
   viewer: {
     '*': [],
@@ -40,6 +45,7 @@ const ROLE_PERMISSIONS: Record<Role, Record<Resource, Action[]>> = {
     users: [],
     service_orders: ['read'],
     whatsapp_templates: ['read'],
+    settings: ['read'],
   },
 };
 

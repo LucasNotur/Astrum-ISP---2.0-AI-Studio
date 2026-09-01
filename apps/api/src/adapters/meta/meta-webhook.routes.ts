@@ -95,14 +95,20 @@ const handleMetaWebhook = async (request: FastifyRequest, reply: FastifyReply) =
   // Validação de assinatura via FACEBOOK_APP_SECRET (reutiliza provider 'facebook' existente).
   // APPSEC-05: bytes crus (capturados pelo content-type parser em server.ts), nunca
   // JSON.stringify(request.body) — reserializar muda os bytes vs. o que a Meta assinou.
+  //
+  // SEC meta-fail-closed (2026-09-01): a validação é INCONDICIONAL. Antes ela só rodava
+  // `if (process.env.FACEBOOK_APP_SECRET)` — sem a env (default), a checagem era pulada e
+  // qualquer POST forjado entrava na fila de mensagens de qualquer tenant (por pageId).
+  // validateWebhookSignature já retorna false quando o secret não está configurado, então
+  // "sem secret" agora significa "rejeita", não "aceita tudo". Fail-closed.
   const rawBody = (request as any).rawBody as Buffer | undefined;
   const signature =
     (request.headers['x-hub-signature-256'] as string) ??
     (request.headers['x-hub-signature'] as string) ??
     '';
 
-  if (process.env.FACEBOOK_APP_SECRET && (!rawBody || !validateWebhookSignature(rawBody, signature, 'facebook'))) {
-    atendimentoLogger.warn('[SECURITY] Meta webhook: assinatura inválida');
+  if (!rawBody || !validateWebhookSignature(rawBody, signature, 'facebook')) {
+    atendimentoLogger.warn('[SECURITY] Meta webhook: assinatura ausente/inválida — rejeitado');
     return reply.code(401).send({ code: 'INVALID_SIGNATURE' });
   }
 

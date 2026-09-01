@@ -68,4 +68,16 @@ describe('ai-config.routes (cobrai-settings)', () => {
     const res = await app.inject({ method: 'PUT', url: '/api/v2/ai-config/cobrai-settings', payload: {} });
     expect(res.statusCode).toBe(400);
   });
+
+  // SEC settings-rbac (2026-09-01): operador/viewer não escreve config de IA no servidor.
+  it('PUT como operator -> 403 (RBAC no servidor, não só no frontend)', async () => {
+    const app = await buildApp({ userId: 'op-2', tenantId: 'tenant-1', role: 'operator' });
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/v2/ai-config/cobrai-settings',
+      payload: { cobraiHourlyLimit: 99 },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(supabaseAdmin.from).not.toHaveBeenCalled();
+  });
 });

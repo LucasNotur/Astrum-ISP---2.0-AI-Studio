@@ -21,16 +21,22 @@ export async function voiceConsentRoutes(app: FastifyInstance) {
   });
 
   app.delete('/api/v2/ia/voice/consent/:customerId', async (req, reply) => {
+    const tenantId = getTenantId((req as any).user);
     const customerId = (req.params as any).customerId;
+    if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });
     if (!customerId) return reply.code(400).send({ error: 'customerId obrigatório' });
 
-    await revokeConsent(customerId);
+    // Isolamento: o consentimento/biometria só é revogado dentro do tenant do JWT.
+    await revokeConsent(customerId, tenantId);
     return { ok: true };
   });
 
-  app.get('/api/v2/ia/voice/consent/:customerId', async (req) => {
+  app.get('/api/v2/ia/voice/consent/:customerId', async (req, reply) => {
+    const tenantId = getTenantId((req as any).user);
     const customerId = (req.params as any).customerId;
-    const consented = await hasConsent(customerId);
+    if (!tenantId) return reply.code(401).send({ error: 'Sem tenant' });
+
+    const consented = await hasConsent(customerId, tenantId);
     return { consented };
   });
 }
