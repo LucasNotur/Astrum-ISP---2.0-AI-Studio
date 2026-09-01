@@ -81,12 +81,12 @@ export function CustomerDetailsDialog() {
     setDiagnosticsResult(results);
     setDiagnosticsHistory((prev) => [results, ...prev].slice(0, 5));
     setIsDiagnosing(false);
-    toast.success(`Diagnóstico de ${isCto ? 'CTO' : 'Cliente'} concluído!`);
+    toast.success(`Diagnóstico de ${isCto ? 'CTO' : 'Cliente'} (simulação) concluído — dados ilustrativos, integração real de rede (SNMP/ERP) pendente.`);
     return results;
   };
 
   const runCustomerDiagnostics = async (customerId: string) => {
-    toast.info('Iniciando diagnósticos remotos...', {
+    toast.info('Iniciando diagnóstico (simulação)...', {
       description: 'Verificando sinal, latência e autenticação PPPoE.',
     });
     await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -100,7 +100,7 @@ export function CustomerDetailsDialog() {
       uptime: '12d 4h 32m',
     };
     setDiagnosticsHistory((prev) => [result, ...prev]);
-    toast.success('Diagnóstico concluído com sucesso!');
+    toast.success('Diagnóstico (simulação) concluído — dados ilustrativos, não é medição real.');
     return result;
   };
 
@@ -385,6 +385,9 @@ export function CustomerDetailsDialog() {
                   {diagnosticsResult.timestamp.toLocaleTimeString()}
                 </span>
               </div>
+              <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-300">
+                Simulação — dados ilustrativos, não é medição real. Integração de rede (SNMP/ERP) pendente.
+              </div>
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <p className="text-[10px] text-zinc-500 uppercase">Sinal ONU</p>
@@ -468,6 +471,9 @@ export function CustomerDetailsDialog() {
 
             <TabsContent value="diagnostics" className="mt-4">
               <div className="space-y-4">
+                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-300">
+                  Simulação — dados ilustrativos, não é medição real. Integração de rede (SNMP/ERP) pendente.
+                </div>
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-bold">Status da Conexão</h4>
                   <Button size="sm" variant="outline" className="h-8 gap-2" onClick={() => handleRunDiagnostics(selectedCustomerDetails.id, 'customer')} disabled={isDiagnosing}>
@@ -639,6 +645,9 @@ export function CustomerDetailsDialog() {
 
             <TabsContent value="network" className="mt-4">
               <div className="space-y-4">
+                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-300">
+                  Simulação — status e sinal ilustrativos, não é medição real. Integração de rede (SNMP/ERP) pendente.
+                </div>
                 <div className="p-4 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">

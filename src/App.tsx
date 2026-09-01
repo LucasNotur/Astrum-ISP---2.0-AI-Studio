@@ -864,24 +864,6 @@ export default function App() {
     }));
   }, [auditLogs]);
 
-  const categoryEfficiencyData = useMemo(() => {
-    const categories = [
-      { id: "SUPORTE_TECNICO", label: "Suporte" },
-      { id: "FATURA", label: "Financeiro" },
-      { id: "Vendas", label: "Vendas" },
-      { id: "RETENCAO", label: "Retenção" },
-    ];
-    return categories.map((cat) => {
-      const catLogs = auditLogs.filter((l) => l.category === cat.id);
-      const efficiency =
-        catLogs.length > 0
-          ? (catLogs.filter((l) => l.slaCompliant).length / catLogs.length) *
-            100
-          : Math.random() * 40 + 60; // Fallback for demo
-      return { subject: cat.label, A: efficiency, fullMark: 100 };
-    });
-  }, [auditLogs]);
-
   const ticketsToday = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -1075,15 +1057,6 @@ export default function App() {
       .slice(0, 3);
   }, [searchQuery, knowledgeBase]);
 
-  const teamPerformanceData = useMemo(() => {
-    return teamMembers.map((member) => ({
-      name: member.name,
-      tickets: Math.floor(Math.random() * 50) + 10,
-      rating: (Math.random() * 1.5 + 3.5).toFixed(1),
-      responseTime: (Math.random() * 5 + 2).toFixed(1),
-    }));
-  }, [teamMembers]);
-
   const handleGenerateAIArticle = async () => {
     const resolvedTickets = tickets.filter((t) => t.status === "resolved");
     if (resolvedTickets.length < 3) {
@@ -1126,8 +1099,8 @@ export default function App() {
   };
 
   const runCustomerDiagnostics = async (customerId: string) => {
-    toast.info("Iniciando diagnósticos remotos...", {
-      description: "Verificando sinal, latência e autenticação PPPoE.",
+    toast.info("Iniciando diagnóstico (simulação)...", {
+      description: "Dados ilustrativos — integração real de rede (SNMP/ERP) pendente.",
     });
 
     await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -1143,7 +1116,7 @@ export default function App() {
     };
 
     setDiagnosticsHistory((prev) => [result, ...prev]);
-    toast.success("Diagnóstico concluído com sucesso!");
+    toast.success("Diagnóstico (simulação) concluído — dados ilustrativos, não é medição real.");
     return result;
   };
 
@@ -1632,7 +1605,7 @@ export default function App() {
     setDiagnosticsResult(results);
     setDiagnosticsHistory((prev) => [results, ...prev].slice(0, 5));
     setIsDiagnosing(false);
-    toast.success(`Diagnóstico de ${isCto ? "CTO" : "Cliente"} concluído!`);
+    toast.success(`Diagnóstico de ${isCto ? "CTO" : "Cliente"} (simulação) concluído — dados ilustrativos, integração real de rede (SNMP/ERP) pendente.`);
     return results;
   };
 
@@ -3249,6 +3222,9 @@ export default function App() {
                     <span className="text-[10px] text-zinc-500">
                       {diagnosticsResult.timestamp.toLocaleTimeString()}
                     </span>
+                  </div>
+                  <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-300">
+                    Simulação — dados ilustrativos, não é medição real. Integração de rede (SNMP/ERP) pendente.
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
