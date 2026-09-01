@@ -3,7 +3,7 @@ import {
   Bot, ChevronLeft, ChevronRight, LayoutDashboard, Users,
   Ticket, MessageSquare, Map, Settings, ShieldCheck,
   CreditCard, Briefcase, Package, LogOut, Phone, BookOpen, Activity, BarChart2, Sparkles, HelpCircle, ShoppingBag, Award, Route,
-  DollarSign, Plug, Link2, Shield, HeartPulse, Smartphone, ShieldAlert
+  DollarSign, Plug, Link2, Shield, HeartPulse, Smartphone, ShieldAlert, Hammer
 } from 'lucide-react';
 import { HelpCenter } from '@/src/components/HelpCenter';
 import { cn } from '@/src/lib/utils';
@@ -521,6 +521,13 @@ export function Sidebar({ isMobileMenuOpen, setIsMobileMenuOpen }: { isMobileMen
                   onClick={() => navigate('/atendimento-emergencia')}
                   icon={<ShieldAlert size={24} />}
                   label="Freio de Emergência"
+                  collapsed={isSidebarCollapsed}
+                />
+                <NavItem
+                  active={currentPath === 'forge'}
+                  onClick={() => navigate('/forge')}
+                  icon={<Hammer size={24} />}
+                  label="Connector Forge"
                   collapsed={isSidebarCollapsed}
                 />
               </>

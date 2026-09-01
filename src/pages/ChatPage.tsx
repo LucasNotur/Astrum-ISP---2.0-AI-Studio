@@ -41,6 +41,7 @@ import { apiGet, apiPost, apiPut, apiPatch } from "@/src/lib/apiClient";
 import { uploadAttachment as uploadToStorage, getSignedUrl } from "@/src/lib/storage";
 import { useSignedMediaUrls, resolveMediaUrl } from "@/src/hooks/useSignedMediaUrls";
 import { CustomerHistorySidebar } from "@/src/components/CustomerHistorySidebar";
+import { useFeatureFlags } from "@/src/hooks/useFeatureFlags";
 import { MaskedSensitiveData } from "@/src/components/MaskedSensitiveData";
 import { KanbanBoard } from "@/src/components/KanbanBoard";
 import {
@@ -278,6 +279,10 @@ export function ChatPage() {
   const [snoozeForm, setSnoozeForm]           = useState({ date: "", time: "", reason: "" });
   const [isSnoozing, setIsSnoozing]           = useState(false);
   const [isVoipOpen, setIsVoipOpen]           = useState(false);
+  // F0-02 — VoIP escondido atrás de flag (default OFF, fail-closed): o trunk SIP
+  // está bloqueado e a rota /api/voip/initiate-call é Express morto (404).
+  const { flags } = useFeatureFlags();
+  const voipEnabled = flags.voip === true;
   const [voipNumber, setVoipNumber]           = useState("");
   const [isCalling, setIsCalling]             = useState(false);
   const [isEditCustomerOpen, setIsEditCustomerOpen] = useState(false);
@@ -790,10 +795,14 @@ export function ChatPage() {
                       }}>
                         <Settings size={14} className="mr-2" /> Editar cliente
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => { setVoipNumber(""); setIsVoipOpen(true); }}>
-                        <Phone size={14} className="mr-2" /> Ligar (VoIP)
-                      </DropdownMenuItem>
+                      {voipEnabled && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => { setVoipNumber(""); setIsVoipOpen(true); }}>
+                            <Phone size={14} className="mr-2" /> Ligar (VoIP)
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -997,7 +1006,7 @@ export function ChatPage() {
       </Dialog>
 
       {/* VoIP */}
-      <Dialog open={isVoipOpen} onOpenChange={setIsVoipOpen}>
+      <Dialog open={voipEnabled && isVoipOpen} onOpenChange={setIsVoipOpen}>
         <DialogContent className="sm:max-w-[360px]">
           <DialogHeader>
             <DialogTitle>Ligar (VoIP)</DialogTitle>
