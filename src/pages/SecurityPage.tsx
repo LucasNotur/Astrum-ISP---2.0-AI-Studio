@@ -48,6 +48,8 @@ export function SecurityPage() {
   const [loading, setLoading] = useState(true);
   const [expungeEmail, setExpungeEmail] = useState('');
   const [expunging, setExpunging] = useState(false);
+  const [exportEmail, setExportEmail] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (!tenantId || tenantId === 'default') return;
@@ -81,6 +83,28 @@ export function SecurityPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = `audit_log_${tenantId.slice(0, 8)}.csv`; a.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function exportCustomer() {
+    if (!exportEmail.trim()) { toast.error('Informe o e-mail do titular'); return; }
+    setExporting(true);
+    try {
+      // LGPD Art. 18 II / 19 — acesso e portabilidade. Tenant vem do JWT; o
+      // servidor monta o pacote (customers+invoices+OS+tickets+mensagens) e audita.
+      const pkg = await apiPost<any>('/api/v2/lgpd/export', { email: exportEmail });
+      const blob = new Blob([JSON.stringify(pkg, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `lgpd_export_${exportEmail.replace(/[^a-z0-9]/gi, '_')}.json`; a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Dados de "${exportEmail}" exportados (${pkg?.counts?.invoices ?? 0} faturas, ${pkg?.counts?.serviceOrders ?? 0} OS).`);
+      setExportEmail('');
+      loadAuditLogs();
+    } catch (e: any) {
+      toast.error(e?.message?.includes('404') ? 'Nenhum titular com esse e-mail.' : `Erro ao exportar: ${e.message}`);
+    } finally {
+      setExporting(false);
+    }
   }
 
   async function expungeCustomer() {
@@ -249,11 +273,37 @@ export function SecurityPage() {
                 </div>
                 <div className="p-3 border rounded-md">
                   <p className="font-semibold text-xs mb-1">Art. 18 II — Acesso</p>
-                  <p className="text-zinc-500 text-xs">O cliente pode solicitar exportação dos próprios dados via /api/lgpd/export.</p>
+                  <p className="text-zinc-500 text-xs">Exporte todos os dados do titular (faturas, OS, tickets, mensagens) num pacote JSON — abaixo.</p>
                 </div>
                 <div className="p-3 border rounded-md border-red-200 dark:border-red-800">
                   <p className="font-semibold text-xs mb-1 text-red-600">Art. 18 VI — Exclusão</p>
                   <p className="text-zinc-500 text-xs">Remoção permanente. Use com cuidado — dados não recuperáveis.</p>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <p className="text-sm font-semibold mb-2 flex items-center gap-1.5">
+                  <Download size={14} /> Exportar Dados do Titular (Acesso / Portabilidade)
+                </p>
+                <p className="text-xs text-zinc-500 mb-3">
+                  Gera um pacote JSON com todos os dados pessoais do titular (LGPD Art. 18 II / 19).
+                  O acesso é auditado.
+                </p>
+                <div className="flex gap-2 max-w-md">
+                  <Input
+                    placeholder="E-mail do titular a exportar"
+                    value={exportEmail}
+                    onChange={e => setExportEmail(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={exportCustomer}
+                    disabled={exporting || !exportEmail.trim()}
+                  >
+                    {exporting ? 'Exportando…' : 'Exportar JSON'}
+                  </Button>
                 </div>
               </div>
 
