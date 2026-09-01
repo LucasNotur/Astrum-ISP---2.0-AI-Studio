@@ -3,17 +3,82 @@ import { withTenantRLS, isTenantRlsAvailable } from '../../infrastructure/databa
 import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 import { securityLogger } from '../../infrastructure/logging/logger';
 import { anonymizeCustomerByEmail, purgeExternalCustomerData } from './lgpd-expunge.service';
+import {
+  exportCustomerByEmail,
+  defaultLgpdExportDb,
+  type LgpdExportDb,
+} from './lgpd-export.service';
+
+export interface LgpdRoutesOptions {
+  // Injetável para teste; em produção usa o DB Supabase real (service_role, tenant-scoped).
+  exportDb?: LgpdExportDb;
+}
 
 /**
- * LGPD Art. 18 — direito ao apagamento (expurgo por cliente).
+ * LGPD Art. 18/19 — direito ao apagamento (expurgo) + acesso/portabilidade (export).
  *
  * POST /api/v2/lgpd/expunge  body: { email }
  *  - Admin/super_admin apenas (operação DESTRUTIVA).
  *  - tenant vem do JWT (NUNCA do body — evita expurgo cross-tenant forjado).
  *  - Anonimiza (não deleta) via withTenantRLS (RLS bloqueia cross-tenant).
  *  - Registra em audit_log via service_role (a policy nega insert de authenticated).
+ *
+ * POST /api/v2/lgpd/export  body: { email }
+ *  - Admin/super_admin apenas (acesso a PII de titular = acesso sensível auditado).
+ *  - tenant vem do JWT (NUNCA do body — evita export cross-tenant forjado).
+ *  - Devolve o pacote de dados do titular; registra em audit_log.
  */
-export async function lgpdRoutes(app: FastifyInstance) {
+export async function lgpdRoutes(app: FastifyInstance, opts: LgpdRoutesOptions = {}) {
+  const exportDb = opts.exportDb ?? defaultLgpdExportDb;
+
+  app.post('/api/v2/lgpd/export', {
+    onRequest: [(app as any).authenticate],
+  }, async (request, reply) => {
+    const user = (request as any).user ?? {};
+    const { tenantId, userId, role } = user;
+
+    // Gate: só admin/super_admin acessam PII de titular (LGPD — acesso sensível).
+    if (!['admin', 'super_admin'].includes(role)) {
+      return reply.code(403).send({ code: 'FORBIDDEN', message: 'Apenas administradores podem exportar dados de titular (LGPD).' });
+    }
+
+    const { email } = (request.body ?? {}) as { email?: string };
+    if (!email || !email.trim()) {
+      return reply.code(400).send({ code: 'BAD_REQUEST', message: 'E-mail do titular é obrigatório.' });
+    }
+
+    let pkg;
+    try {
+      pkg = await exportCustomerByEmail(exportDb, tenantId, email);
+    } catch (err) {
+      securityLogger.error({ err: (err as Error).message, tenantId, actor: userId }, 'LGPD export falhou');
+      return reply.code(500).send({ code: 'EXPORT_FAILED', message: 'Falha ao exportar dados do titular.' });
+    }
+
+    if (!pkg.found) {
+      return reply.code(404).send({ code: 'NOT_FOUND', message: 'Nenhum cliente com esse e-mail neste provedor.' });
+    }
+
+    // Acesso sensível a PII → auditar (imutável, migration 095) via service_role.
+    try {
+      await supabaseAdmin.from('audit_log').insert({
+        tenant_id: tenantId,
+        user_id: userId ?? null,
+        action: 'lgpd_export',
+        resource: 'customer',
+        resource_id: pkg.customerIds[0],
+        ip_address: request.ip,
+        user_agent: request.headers['user-agent'] ?? null,
+        metadata: { email: email.trim(), customerIds: pkg.customerIds, counts: pkg.counts },
+      });
+    } catch (err) {
+      securityLogger.error({ err: (err as Error).message, tenantId, actor: userId }, 'LGPD export: pacote gerado mas AUDITORIA falhou');
+    }
+
+    securityLogger.warn({ tenantId, actor: userId, counts: pkg.counts }, 'LGPD export executado');
+    return reply.send(pkg);
+  });
+
   app.post('/api/v2/lgpd/expunge', {
     onRequest: [(app as any).authenticate],
   }, async (request, reply) => {
