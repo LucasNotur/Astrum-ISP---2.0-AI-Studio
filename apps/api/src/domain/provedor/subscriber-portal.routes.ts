@@ -26,6 +26,7 @@ import {
 import { runPortalDiagnostic } from './diagnostic-portal.service';
 import { infraLogger } from '../../infrastructure/logging/logger';
 import { isPortalLockedOut, recordPortalFailure, clearPortalFailures } from './portal-lockout';
+import { supabaseAdmin } from '../../infrastructure/database/supabase.client';
 
 export interface PortalRoutesDeps {
   db?: PortalDb;
@@ -65,6 +66,26 @@ export async function subscriberPortalRoutes(
   function getTenantId(request: any): string {
     return deps.tenantId ?? request.headers['x-tenant-id'] as string ?? '';
   }
+
+  // ── GET /api/v2/portal/tenant?slug=<slug> ────────────────────────────────────
+  // Público (sem auth): o portal do assinante resolve o tenant a partir do
+  // subdomínio (ex.: `acme.astrumlabs.online` → slug "acme" → tenantId). Devolve só
+  // id+nome de um tenant ATIVO — não é dado sensível (a auth real ainda exige
+  // CPF+contrato + lockout). Sem match → 404.
+  app.get('/api/v2/portal/tenant', async (request, reply) => {
+    const slug = String((request.query as any)?.slug ?? '').trim().toLowerCase();
+    if (!slug) return reply.code(400).send({ error: 'slug obrigatório' });
+    const src = deps.tenantId
+      ? { data: { id: deps.tenantId, name: slug }, error: null } // atalho p/ teste
+      : await (supabaseAdmin as any)
+          .from('tenants').select('id, name').eq('slug', slug).eq('active', true).maybeSingle();
+    if (src.error) {
+      infraLogger.error({ err: src.error, slug }, 'Portal: falha ao resolver tenant por slug');
+      return reply.code(500).send({ error: 'Falha ao resolver provedor' });
+    }
+    if (!src.data) return reply.code(404).send({ error: 'Provedor não encontrado' });
+    return reply.send({ tenantId: src.data.id, name: src.data.name });
+  });
 
   // ── POST /api/v2/portal/auth ─────────────────────────────────────────────────
   app.post('/api/v2/portal/auth', async (request, reply) => {

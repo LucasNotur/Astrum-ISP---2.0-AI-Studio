@@ -74,9 +74,24 @@ function formatDate(iso: string | null | undefined): string {
   return new Date(iso).toLocaleDateString('pt-BR');
 }
 
-function getTenantId(): string {
-  const params = new URLSearchParams(window.location.search);
-  return params.get('tenant') ?? '';
+/** Tenant inicial (síncrono): ?tenant=<uuid> ou VITE_PORTAL_DEFAULT_TENANT. */
+function resolveInitialTenant(): string {
+  const param = new URLSearchParams(window.location.search).get('tenant');
+  if (param) return param;
+  const envDefault = (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_PORTAL_DEFAULT_TENANT) || '';
+  return envDefault;
+}
+
+/** Slug do provedor a partir do subdomínio: `<slug>.portal.<dominio>` → "slug". */
+function portalSlugFromHost(): string {
+  try {
+    const labels = window.location.hostname.toLowerCase().split('.');
+    // <slug>.portal.astrumlabs.online → slug antes de "portal"
+    if (labels.length >= 3 && labels[1] === 'portal') return labels[0];
+    return '';
+  } catch {
+    return '';
+  }
 }
 
 // ── API ───────────────────────────────────────────────────────────────────────
@@ -190,7 +205,24 @@ function OsCard({ os }: { os: ServiceOrder }) {
 export function PortalPage() {
   const [tab, setTab] = useState<Tab>('dashboard');
   const [token, setToken] = useState<string | null>(null);
-  const [tenantId] = useState(() => getTenantId());
+  const [tenantId, setTenantId] = useState(resolveInitialTenant);
+  const [tenantResolving, setTenantResolving] = useState(false);
+
+  // Resolve o tenant pelo subdomínio (`<slug>.portal.*`) quando não veio por
+  // ?tenant= nem por env — chama o endpoint público slug→tenantId.
+  useEffect(() => {
+    if (tenantId) return;
+    const slug = portalSlugFromHost();
+    if (!slug) return;
+    let alive = true;
+    setTenantResolving(true);
+    fetch(`${API_BASE}/api/v2/portal/tenant?slug=${encodeURIComponent(slug)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive && d?.tenantId) setTenantId(d.tenantId); })
+      .catch(() => { /* fica sem tenant → mensagem de link do provedor */ })
+      .finally(() => { if (alive) setTenantResolving(false); });
+    return () => { alive = false; };
+  }, [tenantId]);
 
   const [cpfInput, setCpfInput] = useState('');
   const [contractInput, setContractInput] = useState('');
@@ -378,14 +410,14 @@ export function PortalPage() {
 
               <button
                 type="submit"
-                disabled={loginLoading}
+                disabled={loginLoading || tenantResolving || !tenantId}
                 className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white font-semibold py-3.5 rounded-xl transition-colors mt-2"
               >
-                {loginLoading ? 'Verificando...' : 'Entrar'}
+                {loginLoading ? 'Verificando...' : tenantResolving ? 'Identificando provedor...' : 'Entrar'}
               </button>
             </form>
 
-            {!tenantId && (
+            {!tenantId && !tenantResolving && (
               <p className="mt-6 text-xs text-slate-600 text-center">
                 Acesso via link do provedor. Se você chegou aqui diretamente, use o link enviado pelo seu provedor.
               </p>
