@@ -16,8 +16,19 @@ import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger }
 import { cn } from '@/src/lib/utils';
 import { useAppStore } from '@/src/store/useAppStore';
 
+// F1-03 — projeção do mapa SVG centrada no RIO DE JANEIRO (antes hardcoded em SP,
+// o que jogava toda OS/CTO real do Rio pra fora do viewport 800×600).
+const GEO_CENTER = { lat: -22.9068, lng: -43.1789 };
+const GEO_SCALE = 3500;
+const projX = (lng: number) => 400 + (lng - GEO_CENTER.lng) * GEO_SCALE;
+const projY = (lat: number) => 300 - (lat - GEO_CENTER.lat) * GEO_SCALE;
+// Ocupação da CTO tolerante ao shape do Supabase (snake_case) com fallback camelCase.
+const usedP = (c: any) => Number(c.used_ports ?? c.usedPorts ?? 0);
+const totalP = (c: any) => Number(c.total_ports ?? c.totalPorts ?? 0);
+const occ = (c: any) => { const t = totalP(c); return t > 0 ? usedP(c) / t : 0; };
+
 export function MapPage() {
-  const { ctos, setSelectedCTO, setIsCTODetailOpen, serviceOrders } = useAppStore();
+  const { ctos, setSelectedCTO, setIsCTODetailOpen, serviceOrders, customers } = useAppStore();
   // We use store for cto list now. So we must set the internal state properly.
 
   const [mapZoom, setMapZoom] = useState(1);
@@ -31,29 +42,33 @@ export function MapPage() {
 
   // OS layer: usa serviceOrders reais quando têm coordenadas; fallback para mock só em dev
   const liveOSS = React.useMemo(() => {
+    const nameById = new Map<string, string>(
+      (customers || []).map((c: any) => [c.id, c.name || c.customerName]),
+    );
     const real = serviceOrders
-      .filter((os: any) => os.lat && os.lng && os.status !== 'cancelada')
-      .map((os: any) => ({
+      .map((os: any) => ({ os, lat: os.latitude ?? os.lat, lng: os.longitude ?? os.lng }))
+      .filter(({ os, lat, lng }: any) => lat != null && lng != null && os.status !== 'cancelada')
+      .map(({ os, lat, lng }: any) => ({
         id: os.id,
-        tech: os.assignedTo || 'A Definir',
+        tech: os.assigned_to || os.assignedTo || 'A Definir',
         status: (os.status === 'em_andamento' || os.status === 'em_deslocamento') ? 'in_progress'
               : os.status === 'concluida' ? 'completed'
               : (os.status === 'pendente' || os.status === 'agendada') ? 'pending'
               : 'delayed',
-        lat: os.lat,
-        lng: os.lng,
-        client: os.customerName || '—',
+        lat,
+        lng,
+        client: os.customerName || os.customer_name || nameById.get(os.customer_id) || '—',
         type: os.type || '—',
       }));
     if (real.length > 0) return real;
-    // fallback visual para quando OS não têm lat/lng ainda
+    // fallback visual (Rio) para quando OS não têm lat/lng ainda — todos no viewport 800×600
     return [
-      { id: 'OS-1023', tech: 'Carlos Silva',  status: 'pending',     lat: -23.5510, lng: -46.6340, client: 'João da Silva',  type: 'Instalação FTTH' },
-      { id: 'OS-1024', tech: 'Marcos Paulo',  status: 'in_progress', lat: -23.5480, lng: -46.6310, client: 'Maria Oliveira', type: 'Reparo' },
-      { id: 'OS-1025', tech: 'Ana Júlia',     status: 'completed',   lat: -23.5520, lng: -46.6320, client: 'Empresa XYZ',    type: 'Mudança Endereço' },
-      { id: 'OS-1026', tech: 'Pedro Souza',   status: 'delayed',     lat: -23.5490, lng: -46.6350, client: 'Lucia Costa',    type: 'Nova Instalação' },
+      { id: 'OS-1023', tech: 'Carlos Silva',  status: 'pending',     lat: -22.9110, lng: -43.1760, client: 'João da Silva',  type: 'Instalação FTTH' },
+      { id: 'OS-1024', tech: 'Marcos Paulo',  status: 'in_progress', lat: -22.9020, lng: -43.1820, client: 'Maria Oliveira', type: 'Reparo' },
+      { id: 'OS-1025', tech: 'Ana Júlia',     status: 'completed',   lat: -22.9080, lng: -43.1750, client: 'Empresa XYZ',    type: 'Mudança Endereço' },
+      { id: 'OS-1026', tech: 'Pedro Souza',   status: 'delayed',     lat: -22.9050, lng: -43.1850, client: 'Lucia Costa',    type: 'Nova Instalação' },
     ];
-  }, [serviceOrders]);
+  }, [serviceOrders, customers]);
       
   
   const resetMap = () => {
@@ -115,9 +130,9 @@ export function MapPage() {
       {/* IA-24 — Saúde da Rede */}
       {ctos.length > 0 && (() => {
         const total    = ctos.length;
-        const livre    = ctos.filter((c: any) => (c.usedPorts / c.totalPorts) < 0.8).length;
-        const atencao  = ctos.filter((c: any) => { const o = c.usedPorts / c.totalPorts; return o >= 0.8 && o < 1; }).length;
-        const critica  = ctos.filter((c: any) => c.usedPorts >= c.totalPorts || c.status === 'error').length;
+        const livre    = ctos.filter((c: any) => occ(c) < 0.8).length;
+        const atencao  = ctos.filter((c: any) => { const o = occ(c); return o >= 0.8 && o < 1; }).length;
+        const critica  = ctos.filter((c: any) => usedP(c) >= totalP(c) || c.status === 'error').length;
         const saudePct = total > 0 ? Math.round((livre / total) * 100) : 0;
         return (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -242,9 +257,9 @@ export function MapPage() {
               <g transform={`translate(${mapOffset.x}, ${mapOffset.y}) scale(${mapZoom})`}>
                 {/* Heatmap Layer */}
                 {isHeatmapVisible && ctos.map((cto: any) => {
-                  const x = 400 + (cto.longitude - (-46.6333)) * 5000;
-                  const y = 300 - (cto.latitude - (-23.5505)) * 5000;
-                  const occupation = cto.usedPorts / cto.totalPorts;
+                  const x = projX(cto.longitude);
+                  const y = projY(cto.latitude);
+                  const occupation = occ(cto);
                   let color = "#00C2A8";
                   if (occupation >= 1) color = "#E5484D";
                   else if (occupation >= 0.8) color = "#F0713C";
@@ -265,13 +280,13 @@ export function MapPage() {
                 <TooltipProvider delayDuration={0}>
                   {ctos.filter((cto: any) => {
                     if (mapFilter === 'all') return true;
-                    const isFull = cto.usedPorts >= cto.totalPorts;
+                    const isFull = usedP(cto) >= totalP(cto);
                     return mapFilter === 'full' ? isFull : !isFull;
                   }).map((cto: any, i: number) => {
-                    // Map lat/lng to x/y (simulated)
-                    const x = 400 + (cto.longitude - (-46.6333)) * 5000;
-                    const y = 300 - (cto.latitude - (-23.5505)) * 5000;
-                    const occupation = cto.usedPorts / cto.totalPorts;
+                    // Map lat/lng to x/y (projeção Rio)
+                    const x = projX(cto.longitude);
+                    const y = projY(cto.latitude);
+                    const occupation = occ(cto);
                     
                     // Heatmap color logic
                     let colorClass = "fill-astrum-signal";
@@ -295,8 +310,8 @@ export function MapPage() {
                             {i > 0 && i % 3 === 0 && (
                               <line 
                                 x1={x} y1={y} 
-                                x2={400 + (ctos[i-1].longitude - (-46.6333)) * 5000} 
-                                y2={300 - (ctos[i-1].latitude - (-23.5505)) * 5000} 
+                                x2={projX(ctos[i-1].longitude)}
+                                y2={projY(ctos[i-1].latitude)}
                                 className="stroke-border stroke-[0.5] stroke-dasharray-[4,4]"
                               />
                             )}
@@ -355,7 +370,7 @@ export function MapPage() {
                             </div>
                             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px]">
                               <span className="text-muted-foreground uppercase font-bold">Ocupação</span>
-                              <span className="text-right font-mono">{cto.usedPorts} / {cto.totalPorts} ({Math.round(occupation * 100)}%)</span>
+                              <span className="text-right font-mono">{usedP(cto)} / {totalP(cto)} ({Math.round(occupation * 100)}%)</span>
                               
                               <span className="text-muted-foreground uppercase font-bold">Status</span>
                               <span className={cn("text-right font-bold uppercase", 
@@ -382,8 +397,8 @@ export function MapPage() {
                 {isOSLayerVisible && (
                   <TooltipProvider delayDuration={0}>
                     {liveOSS.map((os) => {
-                      const x = 400 + (os.lng - (-46.6333)) * 5000;
-                      const y = 300 - (os.lat - (-23.5505)) * 5000;
+                      const x = projX(os.lng);
+                      const y = projY(os.lat);
                       
                       let colorClass = "fill-yellow-400";
                       let strokeClass = "stroke-yellow-500";
@@ -512,7 +527,7 @@ export function MapPage() {
           <ScrollArea className="flex-1">
             <div className="p-4 space-y-4">
               {ctos.length > 0 ? ctos.map((cto: any) => {
-                const occupation = cto.usedPorts / cto.totalPorts;
+                const occupation = occ(cto);
                 let colorClass = "bg-astrum-signal";
                 if (occupation >= 1) colorClass = "bg-astrum-red";
                 else if (occupation >= 0.8) colorClass = "bg-astrum-orange";
@@ -523,7 +538,7 @@ export function MapPage() {
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-sm">{cto.name}</span>
                       <Badge variant={occupation >= 1 ? 'destructive' : 'outline'} className="text-[10px]">
-                        {cto.usedPorts}/{cto.totalPorts} Portas
+                        {usedP(cto)}/{totalP(cto)} Portas
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between text-[10px] text-muted-foreground">

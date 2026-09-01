@@ -4,6 +4,7 @@
  * Each function returns an unsubscribe callback matching the Firestore onSnapshot signature.
  */
 import { supabase } from './supabase';
+import { applyShapeCompat } from './shape-compat';
 
 type Unsub = () => void;
 
@@ -28,7 +29,10 @@ async function fetchAndNotify<T>(
   if (opts.orderBy) q = q.order(opts.orderBy, { ascending: opts.orderDir !== 'desc' });
   if (opts.limit) q = q.limit(opts.limit);
   const { data, error } = await q;
-  if (!error && data) callback(data as T[]);
+  // F1-03 — ponto único de compat de shape: adiciona aliases Firestore-shape
+  // (amount/mrr/plan/subject/dueDate.seconds/lat/lng/usedPorts…) sem remover os
+  // campos reais, pra as telas legadas lerem o dado REAL do Supabase.
+  if (!error && data) callback(applyShapeCompat(table, data) as T[]);
 }
 
 // ─── Customers ────────────────────────────────────────────────────────────────
