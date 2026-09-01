@@ -169,6 +169,11 @@ export async function buildServer() {
   const { flagsRoutes } = await import('./domain/ia/flags.routes');
   await app.register(flagsRoutes);
 
+  // F3-02 — feedback 👍/👎 de run de IA (LangSmith). Era órfão (nunca registrado);
+  // ligado para fechar o loop de "IA auditável" (moat). POST /api/v2/ia/feedback.
+  const { feedbackRoutes } = await import('./domain/ia/feedback.routes');
+  await app.register(feedbackRoutes);
+
   // IA-19 — tool registry: listar/ligar/desligar tools do agente por tenant.
   const { toolsAdminRoutes } = await import('./domain/ia/tools-admin.routes');
   await app.register(toolsAdminRoutes);
@@ -420,6 +425,12 @@ export async function buildServer() {
   // cross-tenant, gate por role super_admin) — antes ia direto ao Supabase anônimo.
   const { superAdminRoutes } = await import('./domain/provedor/super-admin.routes');
   await app.register(superAdminRoutes);
+
+  // F1-03 — seed de demo DEV/QA (super_admin, supabaseAdmin, tenant do JWT).
+  // Ferramenta de dev/QA — NÃO é o caminho de demo (premissa plug-and-play: dado
+  // crível vem de import real de ERP, não de seed fake). POST /api/v2/admin/seed-demo.
+  const { seedDemoRoutes } = await import('./domain/provedor/seed-demo.routes');
+  await app.register(seedDemoRoutes);
 
   // F1-D — CustomerDetailSheet/CustomerHistorySidebar/CustomerDetailsDialog: não
   // existia nenhuma rota de leitura de customers por id — maior buraco transversal
