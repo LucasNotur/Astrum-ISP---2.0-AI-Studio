@@ -422,36 +422,11 @@ export function SettingsPage() {
   const [isTestingRedis, setIsTestingRedis] = useState(false);
   const [redisTestResult, setRedisTestResult] = useState<any>(null);
 
-  const [ixcCredentials, setIxcCredentials] = useState({ url: '', token: '', integrationKey: '' });
-  const [isTestingIXC, setIsTestingIXC] = useState(false);
-  const [voalleCredentials, setVoalleCredentials] = useState({ url: '', clientId: '', clientSecret: '' });
-  const [isTestingVoalle, setIsTestingVoalle] = useState(false);
-  const [hubsoftCredentials, setHubsoftCredentials] = useState({ url: '', token: '' });
-  const [isTestingHubsoft, setIsTestingHubsoft] = useState(false);
-  const [sgpCredentials, setSgpCredentials] = useState({ url: '', token: '' });
-  const [isTestingSgp, setIsTestingSgp] = useState(false);
-  const [rbxCredentials, setRbxCredentials] = useState({ url: '', token: '' });
-  const [isTestingRbx, setIsTestingRbx] = useState(false);
-  
-  // Fase 1 — credenciais ERP migradas para /api/v2/erp/* (API que CIFRA server-side →
-  // mata o SEC-R5: a chave não trafega mais em texto puro do browser). O GET novo NÃO
-  // devolve o segredo (por design), então os formulários não pré-preenchem o token —
-  // exibimos só "configurado". Para trocar, reentre o segredo. O /test usa a credencial
-  // JÁ SALVA (cifrada), então salve antes de testar.
-  const [configuredProviders, setConfiguredProviders] = useState<Set<string>>(new Set());
-
-  const fetchErpStatus = async () => {
-    try {
-      const data = await apiGet<{ credentials: Array<{ provider: string; active: boolean }> }>(
-        '/api/v2/erp/credentials',
-      );
-      setConfiguredProviders(new Set((data.credentials ?? []).filter((c) => c.active).map((c) => c.provider)));
-    } catch { /* sem credenciais ou sem permissão — deixa o set vazio */ }
-  };
-
-  useEffect(() => {
-    fetchErpStatus();
-  }, [tenantId]);
+  // F0-03 — credenciais de ERP (IXC/Voalle/HubSoft/SGP/RBX) foram DEDUPLICADAS:
+  // a fonte única agora é /integrations (ERPIntegrationsPage). Este /settings não
+  // grava mais em /api/v2/erp/credentials (state, handlers e formulários removidos);
+  // um card CTA no marketplace leva pra lá. mkauth/radiusnet seguem aqui (usam o
+  // store integrationKeys, mecanismo distinto).
 
   // SEC-R5 — status dos 2 segredos de integração (openaiApiKey/evolutionApiKey) sem
   // vazar o valor: o backend só diz se estão configurados. Os inputs não pré-preenchem
@@ -484,122 +459,7 @@ export function SettingsPage() {
     fetchIntegrationSecretsStatus();
   }, [tenantId]);
 
-  const saveVoalleCredentials = async () => {
-    try {
-      toast.info('Salvando credenciais Voalle...');
-      await apiPost('/api/v2/erp/credentials', { provider: 'voalle', credentials: voalleCredentials, active: true });
-      toast.success('Credenciais Voalle salvas com sucesso!');
-      fetchErpStatus();
-    } catch (e: any) {
-      toast.error(`Erro ao salvar credenciais Voalle: ${e.message}`);
-    }
-  };
-
-  const testVoalleConnection = async () => {
-    setIsTestingVoalle(true);
-    try {
-      // Testa a credencial JÁ SALVA (cifrada no servidor) — salve antes de testar.
-      await apiPost('/api/v2/erp/credentials/voalle/test', {});
-      toast.success('Conexão Voalle bem sucedida.');
-    } catch (e: any) {
-      toast.error(`Falha no teste: ${e.message}`);
-    } finally {
-      setIsTestingVoalle(false);
-    }
-  };
-
-  const saveHubsoftCredentials = async () => {
-    try {
-      toast.info('Salvando credenciais HubSoft...');
-      await apiPost('/api/v2/erp/credentials', { provider: 'hubsoft', credentials: hubsoftCredentials, active: true });
-      toast.success('Credenciais HubSoft salvas com sucesso!');
-      fetchErpStatus();
-    } catch (e: any) {
-      toast.error(`Erro ao salvar credenciais HubSoft: ${e.message}`);
-    }
-  };
-
-  const testHubsoftConnection = async () => {
-    setIsTestingHubsoft(true);
-    try {
-      await apiPost('/api/v2/erp/credentials/hubsoft/test', {});
-      toast.success('Conexão HubSoft bem sucedida.');
-    } catch (e: any) {
-      toast.error(`Falha no teste: ${e.message}`);
-    } finally {
-      setIsTestingHubsoft(false);
-    }
-  };
-
-  const saveSgpCredentials = async () => {
-    try {
-      toast.info('Salvando credenciais SGP...');
-      await apiPost('/api/v2/erp/credentials', { provider: 'sgp', credentials: sgpCredentials, active: true });
-      toast.success('Credenciais SGP salvas com sucesso!');
-      fetchErpStatus();
-    } catch (e: any) {
-      toast.error(`Erro ao salvar credenciais SGP: ${e.message}`);
-    }
-  };
-
-  const testSgpConnection = async () => {
-    setIsTestingSgp(true);
-    try {
-      await apiPost('/api/v2/erp/credentials/sgp/test', {});
-      toast.success('Conexão SGP bem sucedida.');
-    } catch (e: any) {
-      toast.error(`Falha no teste: ${e.message}`);
-    } finally {
-      setIsTestingSgp(false);
-    }
-  };
-
-  const saveRbxCredentials = async () => {
-    try {
-      toast.info('Salvando credenciais RBX...');
-      await apiPost('/api/v2/erp/credentials', { provider: 'rbx', credentials: rbxCredentials, active: true });
-      toast.success('Credenciais RBX salvas com sucesso!');
-      fetchErpStatus();
-    } catch (e: any) {
-      toast.error(`Erro ao salvar credenciais RBX: ${e.message}`);
-    }
-  };
-
-  const testRbxConnection = async () => {
-    setIsTestingRbx(true);
-    try {
-      await apiPost('/api/v2/erp/credentials/rbx/test', {});
-      toast.success('Conexão RBX bem sucedida.');
-    } catch (e: any) {
-      toast.error(`Falha no teste: ${e.message}`);
-    } finally {
-      setIsTestingRbx(false);
-    }
-  };
-
-  const saveIXCCredentials = async () => {
-    try {
-      toast.info('Salvando credenciais IXC...');
-      await apiPost('/api/v2/erp/credentials', { provider: 'ixc', credentials: ixcCredentials, active: true });
-      toast.success('Credenciais IXC salvas com sucesso!');
-      fetchErpStatus();
-    } catch (e: any) {
-      toast.error(`Erro ao salvar credenciais IXC: ${e.message}`);
-    }
-  };
-
-  const testIXCConnection = async () => {
-    setIsTestingIXC(true);
-    try {
-      const data = await apiPost<{ ok: boolean; sample?: unknown }>('/api/v2/erp/credentials/ixc/test', {});
-      toast.success('Conexão IXC bem sucedida!');
-      void data;
-    } catch (e: any) {
-      toast.error(`Falha ao testar IXC: ${e.message}`);
-    } finally {
-      setIsTestingIXC(false);
-    }
-  };
+  // F0-03 — handlers de salvar/testar credencial ERP removidos (dedup → /integrations).
 
   const fetchRedisStatus = async () => {
     try {
@@ -727,13 +587,9 @@ export function SettingsPage() {
 
   const renderMarketplace = () => {
     const integrations = [
-      { id: 'ixc', name: 'IXC Provedor', category: 'ERP', desc: 'Sincronização de clientes e financeiro.', status: ixcCredentials.url ? 'Conectado' : 'Disponível', logo: '🌐' },
+      // F0-03 — IXC/Voalle/HubSoft/SGP/RBX movidos p/ a fonte única /integrations (ERPIntegrationsPage).
       { id: 'mkauth', name: 'MK-Auth', category: 'ERP', desc: 'Integração completa com MK-Auth.', status: integrationKeys.mkAuthUrl ? 'Conectado' : 'Disponível', logo: '☁️' },
-      { id: 'voalle', name: 'Voalle', category: 'ERP', desc: 'Gestão de assinantes e contratos.', status: voalleCredentials.url ? 'Conectado' : 'Disponível', logo: '📦' },
       { id: 'radiusnet', name: 'RadiusNet', category: 'ERP', desc: 'Gestão para provedores de internet.', status: integrationKeys.radiusNetUrl ? 'Conectado' : 'Disponível', logo: '📡' },
-      { id: 'hubsoft', name: 'HubSoft', category: 'ERP', desc: 'Integração com ERP HubSoft.', status: hubsoftCredentials.url ? 'Conectado' : 'Disponível', logo: '🔌' },
-      { id: 'sgp', name: 'SGP', category: 'ERP', desc: 'Integração de billing SGP.', status: sgpCredentials.url ? 'Conectado' : 'Disponível', logo: '🏢' },
-      { id: 'rbx', name: 'RBX', category: 'ERP', desc: 'Integração com Softwares RBX.', status: rbxCredentials.url ? 'Conectado' : 'Disponível', logo: '🔗' },
       { id: 'rdstation', name: 'RD Station', category: 'CRM', desc: 'Integração do funil de vendas com RD Station CRM.', status: integrationKeys.rdStationToken ? 'Conectado' : 'Disponível', logo: '🎯' },
       { id: 'pipedrive', name: 'Pipedrive', category: 'CRM', desc: 'Sincronização do funil de Vendas Pipedrive.', status: integrationKeys.pipedriveToken ? 'Conectado' : 'Disponível', logo: '📈' },
       { id: 'hubspotcrm', name: 'HubSpot', category: 'CRM', desc: 'Integração de funil e pipeline HubSpot CRM.', status: integrationKeys.hubspotToken ? 'Conectado' : 'Disponível', logo: '🧡' },
@@ -780,6 +636,30 @@ export function SettingsPage() {
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {/* F0-03 — CTA: credenciais de ERP moram numa fonte única em /integrations */}
+        <div className="relative flex flex-col group border border-dashed border-astrum-fiber/40 rounded-2xl bg-astrum-fiber/5 p-5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+          <div className="flex justify-between items-start mb-4">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-astrum-fiber/10 border border-astrum-fiber/20 text-2xl shadow-inner group-hover:scale-110 transition-transform">
+              🔗
+            </div>
+          </div>
+          <div className="mb-1 uppercase tracking-wider text-[10px] font-bold">
+            <span className="px-2 py-0.5 rounded-sm bg-astrum-fiber/10 text-astrum-fiber md:border md:border-astrum-fiber/20">ERP</span>
+          </div>
+          <h3 className="font-semibold text-foreground text-base mb-1">Integrações de ERP</h3>
+          <p className="text-muted-foreground text-xs mb-6 flex-grow leading-relaxed">
+            IXC, Voalle, HubSoft, SGP, RBX e mais — configure e teste tudo num só lugar.
+          </p>
+          <div className="mt-auto pt-4 border-t border-border">
+            <Button
+              variant="default"
+              className="w-full text-xs font-medium h-9 rounded-lg"
+              onClick={() => navigate('/integrations')}
+            >
+              Configurar ERPs →
+            </Button>
+          </div>
+        </div>
         {integrations.map((item) => (
            <div key={item.id} className="relative flex flex-col group border border-border rounded-2xl bg-card p-5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
              
@@ -876,159 +756,8 @@ export function SettingsPage() {
                   </div>
               )}
 
-              {selectedIntegrationMenu === 'ixc' && (
-                  <div className="space-y-4">
-                      <div className="grid gap-2">
-                        <Label>IXC URL (Ex: https://ixc.seudominio.com.br)</Label>
-                        <Input 
-                          placeholder="https://sua-url-ixc.com.br" 
-                          value={ixcCredentials.url}
-                          onChange={(e) => setIxcCredentials(prev => ({ ...prev, url: e.target.value }))}
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label>Token de Acesso (API Key IXC)</Label>
-                        <Input 
-                          type="password" 
-                          placeholder="Insira o seu token IXC..." 
-                          value={ixcCredentials.token}
-                          onChange={(e) => setIxcCredentials(prev => ({ ...prev, token: e.target.value }))}
-                        />
-                      </div>
-                      <div className="pt-4 flex gap-2 items-center">
-                        {configuredProviders.has('ixc') && <span className="text-xs text-emerald-500">✓ Configurado</span>}
-                        <Button onClick={saveIXCCredentials}>Salvar</Button>
-                        <Button variant="outline" onClick={testIXCConnection} disabled={isTestingIXC}>
-                          {isTestingIXC ? 'Testando...' : 'Testar Conexão'}
-                        </Button>
-                      </div>
-                  </div>
-              )}
-
-              {selectedIntegrationMenu === 'voalle' && (
-                  <div className="space-y-4">
-                      <div className="grid gap-2">
-                        <Label>Voalle ERP URL</Label>
-                        <Input 
-                          placeholder="https://sua-url-voalle.com.br" 
-                          value={voalleCredentials.url}
-                          onChange={(e) => setVoalleCredentials(prev => ({ ...prev, url: e.target.value }))}
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label>Client ID (OAUTH2)</Label>
-                        <Input 
-                          type="password" 
-                          placeholder="Client ID..." 
-                          value={voalleCredentials.clientId}
-                          onChange={(e) => setVoalleCredentials(prev => ({ ...prev, clientId: e.target.value }))}
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label>Client Secret (OAUTH2)</Label>
-                        <Input 
-                          type="password" 
-                          placeholder="Client Secret..." 
-                          value={voalleCredentials.clientSecret}
-                          onChange={(e) => setVoalleCredentials(prev => ({ ...prev, clientSecret: e.target.value }))}
-                        />
-                      </div>
-                      <div className="pt-4 flex gap-2">
-                        {configuredProviders.has('voalle') && <span className="text-xs text-emerald-500 mr-1">✓ Configurado</span>}
-                        <Button onClick={saveVoalleCredentials}>Salvar</Button>
-                        <Button variant="outline" onClick={testVoalleConnection} disabled={isTestingVoalle}>
-                          {isTestingVoalle ? 'Testando...' : 'Testar Conexão'}
-                        </Button>
-                      </div>
-                  </div>
-              )}
-
-              {selectedIntegrationMenu === 'hubsoft' && (
-                  <div className="space-y-4">
-                      <div className="grid gap-2">
-                        <Label>HubSoft ERP URL</Label>
-                        <Input 
-                          placeholder="https://sua-url-hubsoft.com.br" 
-                          value={hubsoftCredentials.url}
-                          onChange={(e) => setHubsoftCredentials(prev => ({ ...prev, url: e.target.value }))}
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label>Token HubSoft</Label>
-                        <Input 
-                          type="password" 
-                          placeholder="Token da API HubSoft..." 
-                          value={hubsoftCredentials.token}
-                          onChange={(e) => setHubsoftCredentials(prev => ({ ...prev, token: e.target.value }))}
-                        />
-                      </div>
-                      <div className="pt-4 flex gap-2">
-                        {configuredProviders.has('hubsoft') && <span className="text-xs text-emerald-500 mr-1">✓ Configurado</span>}
-                        <Button onClick={saveHubsoftCredentials}>Salvar</Button>
-                        <Button variant="outline" onClick={testHubsoftConnection} disabled={isTestingHubsoft}>
-                          {isTestingHubsoft ? 'Testando...' : 'Testar Conexão'}
-                        </Button>
-                      </div>
-                  </div>
-              )}
-
-              {selectedIntegrationMenu === 'sgp' && (
-                  <div className="space-y-4">
-                      <div className="grid gap-2">
-                        <Label>SGP URL</Label>
-                        <Input 
-                          placeholder="https://sua-url-sgp.com.br" 
-                          value={sgpCredentials.url}
-                          onChange={(e) => setSgpCredentials(prev => ({ ...prev, url: e.target.value }))}
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label>Token SGP</Label>
-                        <Input 
-                          type="password" 
-                          placeholder="Token Bearer SGP..." 
-                          value={sgpCredentials.token}
-                          onChange={(e) => setSgpCredentials(prev => ({ ...prev, token: e.target.value }))}
-                        />
-                      </div>
-                      <div className="pt-4 flex gap-2">
-                        {configuredProviders.has('sgp') && <span className="text-xs text-emerald-500 mr-1">✓ Configurado</span>}
-                        <Button onClick={saveSgpCredentials}>Salvar</Button>
-                        <Button variant="outline" onClick={testSgpConnection} disabled={isTestingSgp}>
-                          {isTestingSgp ? 'Testando...' : 'Testar Conexão'}
-                        </Button>
-                      </div>
-                  </div>
-              )}
-
-              {selectedIntegrationMenu === 'rbx' && (
-                  <div className="space-y-4">
-                      <div className="grid gap-2">
-                        <Label>RBX URL</Label>
-                        <Input 
-                          placeholder="https://sua-url-rbx.com.br" 
-                          value={rbxCredentials.url}
-                          onChange={(e) => setRbxCredentials(prev => ({ ...prev, url: e.target.value }))}
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label>Token Basic Auth (usuario:senha)</Label>
-                        <Input 
-                          type="password" 
-                          placeholder="usuario:senha ou token base64" 
-                          value={rbxCredentials.token}
-                          onChange={(e) => setRbxCredentials(prev => ({ ...prev, token: e.target.value }))}
-                        />
-                      </div>
-                      <div className="pt-4 flex gap-2">
-                        {configuredProviders.has('rbx') && <span className="text-xs text-emerald-500 mr-1">✓ Configurado</span>}
-                        <Button onClick={saveRbxCredentials}>Salvar</Button>
-                        <Button variant="outline" onClick={testRbxConnection} disabled={isTestingRbx}>
-                          {isTestingRbx ? 'Testando...' : 'Testar Conexão'}
-                        </Button>
-                      </div>
-                  </div>
-              )}
+              {/* F0-03 — formulários de credencial ERP (ixc/voalle/hubsoft/sgp/rbx)
+                  removidos: a fonte única agora é /integrations (ERPIntegrationsPage). */}
 
               {selectedIntegrationMenu === 'rdstation' && (
                   <div className="space-y-4">
