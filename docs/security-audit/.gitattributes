@@ -1,0 +1,2 @@
+# O PDF é binário — nunca aplicar normalização de fim de linha (corromperia o arquivo).
+*.pdf binary

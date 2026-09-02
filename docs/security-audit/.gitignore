@@ -1,0 +1,9 @@
+# Ambiente Python isolado do gerador do relatório — NUNCA versionar.
+.venv/
+__pycache__/
+*.pyc
+
+# PNGs temporários dos gráficos (gerados e removidos pelo script) e previews de verificação.
+_rosca.png
+_barras.png
+_preview/
