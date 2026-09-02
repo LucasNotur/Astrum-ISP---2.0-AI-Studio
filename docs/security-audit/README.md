@@ -22,7 +22,16 @@ python -m venv .venv
 
 ## Status das correções
 
-Os 4 achados acionáveis (3 altos + 1 médio) foram corrigidos no commit `2b0ea7f`
-(IDOR de biometria de voz, token de assinante em WebSocket de operador, RBAC no servidor
-para rotas de configuração e webhook Meta fail-closed). O achado #5 (baixo — defaults
-placeholder / degrade-open de env) permanece em aberto como endurecimento.
+**Todos os 5 achados foram corrigidos, testados e estão no `main`:**
+
+| # | Achado | Severidade | Commit |
+|---|--------|-----------|--------|
+| 1 | IDOR + isolamento de tenant na biometria de voz | Alta | `2b0ea7f` |
+| 2 | Token de assinante aceito em WebSocket de operador | Alta | `2b0ea7f` |
+| 3 | Rotas de configuração privilegiada sem RBAC no servidor | Alta | `2b0ea7f` |
+| 4 | Webhook Meta com validação fail-open sem `FACEBOOK_APP_SECRET` | Média | `2b0ea7f` |
+| 5 | Segredos placeholder aceitos no boot + senha literal no SQL do Zep | Baixa | `0f8eaed` |
+
+Verificação: `npx tsc --noEmit -p apps/api/tsconfig.json` limpo (0 erros) e suíte de
+segurança verde (voice-consent, ai-config, settings-page, meta-webhook, super-admin,
+env.validator).
