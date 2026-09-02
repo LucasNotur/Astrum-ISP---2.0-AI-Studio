@@ -154,6 +154,48 @@ export function isProductionLikeEnv(env: NodeJS.ProcessEnv = process.env): boole
   return !isExplicitLocal;
 }
 
+/**
+ * SEC #5 (auditoria 2026-09-01): segredos críticos com valor PLACEHOLDER não podem subir
+ * em ambiente produção-like. O Zod só garante presença/formato (min length, prefixo sk-),
+ * então um valor como `placeholder_service_role_key` (fallback do supabase.client) ou
+ * `GERAR_COM_OPENSSL_...` (do .env.example) PASSA no schema mas é um segredo inválido/fraco.
+ * Esta checagem é fail-closed: se um desses vars parece placeholder, o boot aborta.
+ */
+const PLACEHOLDER_PATTERNS: RegExp[] = [
+  /placeholder/i,
+  /gerar_com/i,
+  /gerar_\d/i,            // GERAR_32_BYTES...
+  /nao_usar/i,           // ..._NAO_USAR_ESTE_VALOR
+  /change[_-]?me/i,
+  /seu-projeto/i,
+  /seu-jwt/i,
+  /escolha_um_valor/i,
+  /^eyJ\.\.\.$/,          // .env.example: SUPABASE_ANON_KEY=eyJ...
+  /^sk-\.\.\.$/,          // .env.example: OPENAI_API_KEY=sk-...
+];
+
+/** Vars cujo valor placeholder é bloqueante (segredos críticos de boot). */
+const SECRET_VARS = [
+  'SUPABASE_URL',
+  'SUPABASE_ANON_KEY',
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'JWT_SECRET',
+  'OPENAI_API_KEY',
+] as const;
+
+export function looksLikePlaceholder(value: unknown): boolean {
+  if (typeof value !== 'string' || value.length === 0) return false;
+  return PLACEHOLDER_PATTERNS.some((re) => re.test(value));
+}
+
+/** Retorna o nome do primeiro segredo crítico com valor placeholder, ou null. Puro/testável. */
+export function findPlaceholderSecret(env: Record<string, unknown>): string | null {
+  for (const name of SECRET_VARS) {
+    if (looksLikePlaceholder(env[name])) return name;
+  }
+  return null;
+}
+
 export function validateEnv(): Env {
   if (_env) return _env;
 
@@ -194,6 +236,17 @@ export function validateEnv(): Env {
     console.warn('⚠️ [DEV] Ignorando falha de env para permitir boot local. NUNCA em produção.');
     _env = process.env as any;
     return _env!;
+  }
+
+  // SEC #5: mesmo com env "válida" pelo schema, um segredo crítico com valor placeholder
+  // (ex.: SUPABASE_SERVICE_ROLE_KEY='placeholder_service_role_key') é fatal em produção-like.
+  if (isProductionLikeEnv()) {
+    const bad = findPlaceholderSecret(result.data as unknown as Record<string, unknown>);
+    if (bad) {
+      console.error(`\n❌ Boot abortado: ${bad} está com um valor PLACEHOLDER em ambiente de produção.`);
+      console.error('   Gere segredos reais com scripts/generate-secrets.sh e configure o .env.\n');
+      process.exit(1);
+    }
   }
 
   _env = result.data;

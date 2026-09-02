@@ -1,9 +1,19 @@
 -- infra/sql/create-zep-user.sql
--- Rodar UMA VEZ no Supabase SQL Editor antes de subir o Zep
--- Substitua 'SENHA_FORTE_AQUI' por uma senha gerada com openssl
+-- Rodar UMA VEZ antes de subir o Zep.
+--
+-- SEC #5 (auditoria 2026-09-01): NÃO existe mais senha literal neste arquivo (evita criar
+-- um usuário de banco com senha fraca se o script for executado verbatim). A senha vem de
+-- uma variável psql `zep_password`, gerada como os demais segredos (scripts/generate-secrets.sh):
+--
+--   ZEP_PASS="$(node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))")"
+--   psql "$SUPABASE_DB_URL" -v zep_password="$ZEP_PASS" -f infra/sql/create-zep-user.sql
+--
+-- Guarde o valor gerado no .env (ZEP_POSTGRES_DSN). Se rodar sem `-v zep_password=...`,
+-- o psql aborta (variável indefinida) em vez de criar o usuário com uma senha placeholder.
+-- O SQL Editor do Supabase NÃO interpola `:'var'`; use psql (ou cole uma senha forte gerada).
 
--- 1. Criar usuário isolado para Zep
-CREATE USER zep_user WITH PASSWORD 'SENHA_FORTE_AQUI';
+-- 1. Criar usuário isolado para Zep (senha via variável psql, nunca hardcoded)
+CREATE USER zep_user WITH PASSWORD :'zep_password';
 
 -- 2. Criar schema exclusivo para Zep
 CREATE SCHEMA IF NOT EXISTS zep;
